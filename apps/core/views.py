@@ -79,7 +79,7 @@ def dashboard(request):
         indicadores.append({
             "titulo": "Materiales con stock bajo", "icono": "box-seam",
             "valor": Material.objects.filter(activo=True, stock_actual__lte=F("stock_minimo")).count(),
-            "alerta": True,
+            "url": reverse("inventario:materiales") + "?estado=bajo", "alerta": True,
         })
     if usuario.has_perm("agenda.view_evento"):
         indicadores.append({

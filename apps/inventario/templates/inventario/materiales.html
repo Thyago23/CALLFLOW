@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block titulo %}Inventario{% endblock %}
+{% block contenido %}
+{% include "inventario/_subnav.html" with seccion="materiales" %}
+
+{% if bajos %}
+<div class="alert alert-warning d-flex gap-2 align-items-start" role="status">
+  <i class="bi bi-exclamation-triangle fs-5" aria-hidden="true"></i>
+  <div>
+    <strong>{{ bajos|length }} material{{ bajos|length|pluralize:"es" }} en o bajo el stock mínimo:</strong>
+    {% for m in bajos|slice:":6" %}<a class="alert-link" href="{% url 'inventario:material_detalle' m.pk %}">{{ m.nombre }}</a> ({{ m.stock_actual|floatformat:"-2" }}){% if not forloop.last %}, {% endif %}{% endfor %}{% if bajos|length > 6 %}…{% endif %}.
+    <a class="alert-link ms-1" href="?estado=bajo">Ver todos</a>
+  </div>
+</div>
+{% endif %}
+
+<form class="row g-2 mb-3" role="search" hx-get="{% url 'inventario:materiales' %}" hx-target="#tabla-materiales"
+      hx-trigger="input changed delay:300ms from:#busqueda, change from:select, submit" hx-push-url="true">
+  <div class="col-md-5">
+    <label class="visually-hidden" for="busqueda">Buscar</label>
+    <input id="busqueda" type="search" name="q" value="{{ q }}" class="form-control" placeholder="Buscar por nombre o código" autocomplete="off">
+  </div>
+  <div class="col-sm-6 col-md-3">
+    <label class="visually-hidden" for="filtro-categoria">Categoría</label>
+    <select id="filtro-categoria" name="categoria" class="form-select">
+      <option value="">Todas las categorías</option>
+      {% for c in categorias %}<option value="{{ c.pk }}" {% if c.pk|stringformat:"s" == categoria %}selected{% endif %}>{{ c.nombre }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="col-sm-6 col-md-3">
+    <label class="visually-hidden" for="filtro-estado">Estado</label>
+    <select id="filtro-estado" name="estado" class="form-select">
+      <option value="">Todos</option>
+      <option value="bajo" {% if estado == 'bajo' %}selected{% endif %}>Stock bajo</option>
+      <option value="activos" {% if estado == 'activos' %}selected{% endif %}>Activos</option>
+      <option value="inactivos" {% if estado == 'inactivos' %}selected{% endif %}>Inactivos</option>
+    </select>
+  </div>
+</form>
+
+<div id="tabla-materiales">
+  {% include "inventario/_materiales_tabla.html" %}
+</div>
+{% endblock %}

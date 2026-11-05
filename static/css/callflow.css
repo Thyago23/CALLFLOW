@@ -391,3 +391,11 @@ input[type="checkbox"].form-check-input + .dia-check { margin-left: 0; }
 .punto.justificada { background: #198754; }
 .punto.no-justificada { background: #dc3545; }
 .punto.pendiente { background: #ffc107; }
+
+/* ------------------------------------------------------------------ inventario */
+.tipo-movimiento { font-weight: 600; font-size: 0.875rem; }
+.tipo-movimiento.tipo-entrada,
+.tipo-movimiento.tipo-ajuste_positivo { color: #146c43; }
+.tipo-movimiento.tipo-salida,
+.tipo-movimiento.tipo-ajuste_negativo { color: #b02a37; }
+.opcion-movimiento { font-size: 0.875rem; }

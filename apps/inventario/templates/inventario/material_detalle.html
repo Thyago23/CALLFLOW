@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block titulo %}{{ material.nombre }} · Inventario{% endblock %}
+{% block contenido %}
+<nav aria-label="Ruta" class="mb-2">
+  <ol class="breadcrumb small mb-0">
+    <li class="breadcrumb-item"><a href="{% url 'inventario:materiales' %}">Inventario</a></li>
+    <li class="breadcrumb-item active" aria-current="page">{{ material.nombre }}</li>
+  </ol>
+</nav>
+
+<div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
+  <div>
+    <h1 class="h3 mb-0">{{ material.nombre }}</h1>
+    <div class="text-body-secondary">{{ material.codigo }} · {{ material.categoria }}
+      {% if not material.activo %}<span class="badge text-bg-secondary ms-1">Inactivo</span>{% endif %}
+    </div>
+  </div>
+  <div class="d-flex flex-wrap gap-2">
+    {% if material.activo and perms.inventario.add_movimientoinventario %}
+    <a class="btn btn-success" href="{% url 'inventario:movimiento_crear' %}?material={{ material.pk }}&tipo=ENTRADA"><i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Entrada</a>
+    <a class="btn btn-primary" href="{% url 'inventario:movimiento_crear' %}?material={{ material.pk }}&tipo=SALIDA"><i class="bi bi-dash-lg me-1" aria-hidden="true"></i>Salida</a>
+    <a class="btn btn-outline-secondary" href="{% url 'inventario:movimiento_crear' %}?material={{ material.pk }}&tipo=AJUSTE_NEGATIVO">Ajuste</a>
+    {% endif %}
+    {% if perms.inventario.change_material %}
+    <a class="btn btn-outline-secondary" href="{% url 'inventario:material_editar' material.pk %}"><i class="bi bi-pencil me-1" aria-hidden="true"></i>Editar</a>
+    <form method="post" action="{% url 'inventario:material_estado' material.pk %}"
+          {% if material.activo %}onsubmit="return confirm('¿Desactivar este material? No se podrán registrar más movimientos hasta reactivarlo.');"{% endif %}>
+      {% csrf_token %}
+      <button type="submit" class="btn {% if material.activo %}btn-outline-danger{% else %}btn-outline-success{% endif %}">{% if material.activo %}Desactivar{% else %}Reactivar{% endif %}</button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-sm-4">
+    <div class="card resumen-dia h-100 {% if material.activo and material.stock_bajo %}border-danger-subtle{% endif %}"><div class="card-body">
+      <div class="small text-body-secondary">Stock actual</div>
+      <div class="valor {% if material.activo and material.stock_bajo %}text-danger{% endif %}">{{ material.stock_actual|floatformat:"-2" }} <span class="fs-6 fw-normal text-body-secondary">{{ material.get_unidad_medida_display|lower }}</span></div>
+      {% if material.activo and material.stock_bajo %}<div class="small text-danger mt-1"><i class="bi bi-exclamation-triangle me-1" aria-hidden="true"></i>En o bajo el mínimo</div>{% endif %}
+    </div></div>
+  </div>
+  <div class="col-sm-4"><div class="card resumen-dia h-100"><div class="card-body"><div class="small text-body-secondary">Stock mínimo</div><div class="valor">{{ material.stock_minimo|floatformat:"-2" }}</div></div></div></div>
+  <div class="col-sm-4"><div class="card resumen-dia h-100"><div class="card-body"><div class="small text-body-secondary">Movimientos</div><div class="valor">{{ movimientos|length }}</div></div></div></div>
+</div>
+{% if material.descripcion %}<p class="text-body-secondary">{{ material.descripcion }}</p>{% endif %}
+
+<section class="card">
+  <div class="card-header bg-body d-flex flex-wrap justify-content-between align-items-center gap-1">
+    <h2 class="h6 mb-0">Historial de movimientos</h2>
+    <span class="small text-body-secondary">Los movimientos no se editan ni se borran: los errores se corrigen con un ajuste.</span>
+  </div>
+  {% include "inventario/_movimientos_filas.html" with movimientos=movimientos mostrar_material=False %}
+</section>
+{% endblock %}

@@ -47,7 +47,7 @@ MODULOS = [
     Modulo("documentos", "Documentos", "4.1", "folder2-open", "documentos.view_documento",
            "Expedientes, archivos adjuntos y contratos desde plantillas."),
     Modulo("inventario", "Inventario", "4.1", "box-seam", "inventario.view_material",
-           "Materiales de oficina, existencias y movimientos."),
+           "Materiales de oficina, existencias y movimientos.", url="inventario:materiales"),
     Modulo("agenda", "Agenda", "4.1", "calendar3", "agenda.view_evento",
            "Actividades, reuniones y recordatorios."),
     Modulo("nomina", "Nómina", "4.2", "cash-coin", "nomina.view_periodonomina",

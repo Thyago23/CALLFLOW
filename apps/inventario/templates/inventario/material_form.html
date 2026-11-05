@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block titulo %}{% if nuevo %}Nuevo material{% else %}Editar {{ material.nombre }}{% endif %} · Inventario{% endblock %}
+{% block contenido %}
+<nav aria-label="Ruta" class="mb-2">
+  <ol class="breadcrumb small mb-0">
+    <li class="breadcrumb-item"><a href="{% url 'inventario:materiales' %}">Inventario</a></li>
+    {% if not nuevo %}<li class="breadcrumb-item"><a href="{% url 'inventario:material_detalle' material.pk %}">{{ material.nombre }}</a></li>{% endif %}
+    <li class="breadcrumb-item active" aria-current="page">{% if nuevo %}Nuevo material{% else %}Editar{% endif %}</li>
+  </ol>
+</nav>
+<h1 class="h3 mb-3">{% if nuevo %}Nuevo material{% else %}Editar material{% endif %}</h1>
+<div class="row">
+  <div class="col-lg-8">
+    {% for error in form.non_field_errors %}<div class="alert alert-danger">{{ error }}</div>{% endfor %}
+    <form method="post" novalidate class="card">
+      <div class="card-body">
+        {% csrf_token %}
+        <div class="row">
+          <div class="col-md-8">{% include "_campo.html" with campo=form.nombre %}</div>
+          <div class="col-md-4">{% include "_campo.html" with campo=form.codigo ayuda=form.codigo.help_text %}</div>
+          <div class="col-md-6">{% include "_campo.html" with campo=form.categoria %}</div>
+          <div class="col-md-6">{% include "_campo.html" with campo=form.categoria_nueva %}</div>
+          <div class="col-sm-4">{% include "_campo.html" with campo=form.unidad_medida %}</div>
+          <div class="col-sm-4">{% include "_campo.html" with campo=form.stock_minimo ayuda=form.stock_minimo.help_text %}</div>
+          {% if form.stock_inicial %}<div class="col-sm-4">{% include "_campo.html" with campo=form.stock_inicial ayuda=form.stock_inicial.help_text %}</div>{% endif %}
+          <div class="col-12">{% include "_campo.html" with campo=form.descripcion %}</div>
+        </div>
+        {% if not nuevo %}
+        <p class="small text-body-secondary mb-0"><i class="bi bi-info-circle me-1" aria-hidden="true"></i>El stock no se edita aquí: cambia solo con movimientos (entradas, salidas o ajustes).</p>
+        {% endif %}
+      </div>
+      <div class="card-footer bg-body d-flex justify-content-end gap-2">
+        <a href="{% if nuevo %}{% url 'inventario:materiales' %}{% else %}{% url 'inventario:material_detalle' material.pk %}{% endif %}" class="btn btn-outline-secondary">Cancelar</a>
+        <button type="submit" class="btn btn-primary">Guardar</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
