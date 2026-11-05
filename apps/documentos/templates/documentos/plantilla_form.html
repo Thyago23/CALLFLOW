@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block titulo %}{% if plantilla %}Editar plantilla{% else %}Nueva plantilla{% endif %}{% endblock %}
+{% block contenido %}
+<nav aria-label="Ruta" class="mb-2">
+  <ol class="breadcrumb small mb-0">
+    <li class="breadcrumb-item"><a href="{% url 'documentos:plantillas' %}">Plantillas de contrato</a></li>
+    <li class="breadcrumb-item active" aria-current="page">{% if plantilla %}{{ plantilla.nombre }}{% else %}Nueva{% endif %}</li>
+  </ol>
+</nav>
+<h1 class="h3 mb-1">{% if plantilla %}Editar plantilla{% else %}Nueva plantilla{% endif %}</h1>
+<p class="text-body-secondary mb-4">
+  {% if plantilla %}Al guardar se crea la versión {{ plantilla.version|add:1 }}. Los contratos ya generados conservan el texto de la versión con que se hicieron.
+  {% else %}Pegue el texto del contrato y reemplace los datos de la persona por variables.{% endif %}
+</p>
+
+{% if form.errors %}<div class="alert alert-danger" role="alert">Revise los campos marcados en rojo.</div>{% endif %}
+
+<form method="post" novalidate id="formulario-plantilla">
+  {% csrf_token %}
+  <div class="row g-4">
+    <div class="col-xl-8">
+      <div class="card mb-4">
+        <div class="card-body">
+          <div class="row">
+            <div class="col-md-7">{% include "_campo.html" with campo=form.nombre %}</div>
+            <div class="col-md-5">{% include "_campo.html" with campo=form.tipo_contrato %}</div>
+          </div>
+          <div class="mb-2">
+            <label class="form-label" for="{{ form.contenido.id_for_label }}">{{ form.contenido.label }} <span class="text-danger" aria-hidden="true">*</span></label>
+            {{ form.contenido }}
+            {% for error in form.contenido.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+            <div class="form-text">
+              <strong># Título</strong> al inicio de una línea = título centrado · <strong>**texto**</strong> = negrita ·
+              una línea en blanco separa párrafos · <strong>______</strong> = línea de firma.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header bg-body d-flex justify-content-between align-items-center">
+          <h2 class="h6 mb-0">Vista previa con datos de ejemplo</h2>
+          <button type="button" class="btn btn-sm btn-outline-secondary"
+                  hx-post="{% url 'documentos:plantilla_vista_previa' %}" hx-include="[name='contenido']" hx-target="#vista-previa">
+            <i class="bi bi-arrow-repeat me-1" aria-hidden="true"></i>Actualizar
+          </button>
+        </div>
+        <div class="card-body" id="vista-previa"
+             hx-post="{% url 'documentos:plantilla_vista_previa' %}" hx-include="[name='contenido']"
+             hx-trigger="load, keyup changed delay:800ms from:[name='contenido']">
+        </div>
+      </div>
+    </div>
+
+    <div class="col-xl-4">
+      <div class="card variables-plantilla">
+        <div class="card-body">
+          <h2 class="h6 text-uppercase text-body-secondary mb-1">Datos automáticos</h2>
+          <p class="small text-body-secondary">Haga clic en una variable para insertarla donde está el cursor.</p>
+          <ul class="list-unstyled mb-0">
+            {% for v in variables %}
+            <li>
+              <button type="button" class="btn btn-link p-0 text-start insertar-variable" data-variable="{% templatetag openvariable %}{{ v.clave }}{% templatetag closevariable %}">
+                <code>{% templatetag openvariable %}{{ v.clave }}{% templatetag closevariable %}</code>
+              </button>
+              <div class="small text-body-secondary">{{ v.descripcion }}</div>
+            </li>
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="d-flex gap-2 justify-content-end mt-4">
+    <a href="{% url 'documentos:plantillas' %}" class="btn btn-outline-secondary">Cancelar</a>
+    <button type="submit" class="btn btn-primary">Guardar plantilla</button>
+  </div>
+</form>
+
+<script>
+  // Inserta la variable en la posición del cursor del texto del contrato.
+  document.querySelectorAll(".insertar-variable").forEach(function (boton) {
+    boton.addEventListener("click", function () {
+      const area = document.querySelector("[name='contenido']");
+      const inicio = area.selectionStart, fin = area.selectionEnd;
+      area.setRangeText(boton.dataset.variable, inicio, fin, "end");
+      area.focus();
+      area.dispatchEvent(new Event("keyup", { bubbles: true }));
+    });
+  });
+</script>
+{% endblock %}
