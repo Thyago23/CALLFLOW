@@ -15,11 +15,10 @@ from apps.inventario.models import Material
 from apps.personal.models import Empleado
 
 from .codigos import generar_codigo_acceso, generar_usuario
+from .cuentas import CLAVE_SESION_CREDENCIALES, preparar_credenciales
 from .forms import CambioClaveForm, IngresoForm, UsuarioCrearForm
 from .modulos import SECCIONES, modulos_de
 from .models import Notificacion, Rol, Usuario
-
-_CLAVE_SESION_CREDENCIALES = "credenciales_generadas"
 
 
 def _es_htmx(request) -> bool:
@@ -145,7 +144,7 @@ def usuario_restablecer_clave(request, pk):
     usuario.set_password(clave)
     usuario.debe_cambiar_clave = False
     usuario.save()
-    _guardar_credenciales(request, usuario, clave, nuevo=False)
+    _guardar_credenciales(request, usuario, clave, nuevo=False, volver=request.POST.get("volver"))
     return redirect("usuario_credenciales")
 
 
@@ -172,17 +171,14 @@ def usuario_cambiar_estado(request, pk):
 @never_cache
 def usuario_credenciales(request):
     """Muestra el usuario y su código de acceso UNA sola vez; el código no se guarda en texto plano."""
-    datos = request.session.pop(_CLAVE_SESION_CREDENCIALES, None)
+    datos = request.session.pop(CLAVE_SESION_CREDENCIALES, None)
     if datos is None:
         return redirect("usuarios")
     return render(request, "core/usuario_credenciales.html", datos)
 
 
-def _guardar_credenciales(request, usuario, clave, nuevo):
-    request.session[_CLAVE_SESION_CREDENCIALES] = {
-        "usuario": usuario.username, "clave": clave, "nombre": usuario.get_full_name(),
-        "rol": usuario.get_rol_display(), "nuevo": nuevo,
-    }
+def _guardar_credenciales(request, usuario, clave, nuevo, volver=None):
+    preparar_credenciales(request, usuario, clave, nuevo=nuevo, volver=volver)
 
 
 # --------------------------------------------------------------------------- notificaciones

@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% block titulo %}{{ empleado.nombres }} {{ empleado.apellidos }}{% endblock %}
+{% block contenido %}
+<nav aria-label="Ruta" class="mb-2">
+  <ol class="breadcrumb small mb-0">
+    <li class="breadcrumb-item"><a href="{% url 'personal:empleado_lista' %}">Personal</a></li>
+    <li class="breadcrumb-item active" aria-current="page">{{ empleado.apellidos }} {{ empleado.nombres }}</li>
+  </ol>
+</nav>
+
+<div class="d-flex flex-wrap align-items-center gap-3 mb-4">
+  <span class="avatar avatar-grande" aria-hidden="true">{{ empleado.nombres|first|upper }}{{ empleado.apellidos|first|upper }}</span>
+  <div class="min-w-0">
+    <h1 class="h3 mb-0">{{ empleado.nombres }} {{ empleado.apellidos }}</h1>
+    <div class="text-body-secondary">
+      {{ empleado.cargo }} · <span class="badge estado-{{ empleado.estado|lower }}">{{ empleado.get_estado_display }}</span>
+    </div>
+  </div>
+</div>
+
+<div class="row g-4">
+  <div class="col-lg-7">
+    <section class="card mb-4">
+      <div class="card-body">
+        <h2 class="h6 text-uppercase text-body-secondary mb-3">Datos del empleado</h2>
+        <dl class="row datos-ficha mb-0">
+          <div class="col-sm-6"><dt>{{ empleado.get_tipo_identificacion_display }}</dt><dd>{{ empleado.identificacion }}</dd></div>
+          <div class="col-sm-6"><dt>Fecha de nacimiento</dt><dd>{{ empleado.fecha_nacimiento|date:"d/m/Y"|default:"—" }}</dd></div>
+          <div class="col-sm-6"><dt>Teléfono</dt><dd>{{ empleado.telefono|default:"—" }}</dd></div>
+          <div class="col-sm-6"><dt>Correo electrónico</dt><dd class="text-break">{{ empleado.email|default:"—" }}</dd></div>
+          <div class="col-12"><dt>Dirección</dt><dd>{{ empleado.direccion|default:"—" }}</dd></div>
+          <div class="col-sm-4"><dt>Cargo</dt><dd>{{ empleado.cargo }}</dd></div>
+          <div class="col-sm-4"><dt>Contrato</dt><dd>{{ empleado.get_tipo_contrato_display }}</dd></div>
+          <div class="col-sm-4"><dt>Fecha de ingreso</dt><dd class="mb-0">{{ empleado.fecha_ingreso|date:"d/m/Y" }}</dd></div>
+        </dl>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-body">
+        <h2 class="h6 text-uppercase text-body-secondary mb-3">Documentos</h2>
+        {% if documentos_faltantes %}
+        <div class="alert alert-warning small py-2">
+          <i class="bi bi-exclamation-triangle me-1" aria-hidden="true"></i>
+          Falta en el expediente: {% for t in documentos_faltantes %}{{ t.nombre }}{% if not forloop.last %}, {% endif %}{% endfor %}.
+        </div>
+        {% endif %}
+        {% if documentos %}
+        <ul class="list-group list-group-flush">
+          {% for d in documentos %}
+          <li class="list-group-item px-0 d-flex align-items-center gap-3">
+            <i class="bi {% if d.tipo_mime == 'application/pdf' %}bi-file-earmark-pdf text-danger{% else %}bi-file-earmark-image text-primary{% endif %} fs-4" aria-hidden="true"></i>
+            <div class="min-w-0 flex-grow-1">
+              <div class="fw-semibold">{{ d.tipo.nombre }}</div>
+              <div class="small text-body-secondary text-truncate">{{ d.nombre_original }} · {{ d.tamano_bytes|filesizeformat }} · {{ d.creado_en|date:"d/m/Y" }}</div>
+            </div>
+            {% if perms.documentos.view_documento %}
+            <a href="{% url 'personal:documento_ver' d.pk %}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary">
+              <i class="bi bi-eye me-1" aria-hidden="true"></i>Ver
+            </a>
+            {% endif %}
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <p class="text-body-secondary small mb-0">Sin documentos registrados.</p>
+        {% endif %}
+      </div>
+    </section>
+  </div>
+
+  <div class="col-lg-5">
+    <section class="card">
+      <div class="card-body">
+        <h2 class="h6 text-uppercase text-body-secondary mb-3">Cuenta de acceso</h2>
+        {% with u=empleado.usuario %}
+        {% if u %}
+        <dl class="datos-ficha mb-3">
+          <dt>Usuario</dt>
+          <dd class="font-monospace fs-5">{{ u.username }}</dd>
+          <dt>Rol</dt>
+          <dd>{{ u.get_rol_display }}</dd>
+          <dt>Estado</dt>
+          <dd class="mb-0">{% if u.is_active %}<span class="text-success">Activa</span>{% else %}<span class="text-danger">Desactivada</span>{% endif %}</dd>
+        </dl>
+        <p class="small text-body-secondary">
+          El código de acceso se mostró al crear la cuenta y no se guarda legible.
+          Si el empleado lo perdió, genere uno nuevo: el anterior deja de funcionar.
+        </p>
+        {% if perms.core.change_usuario %}
+        <form method="post" action="{% url 'usuario_restablecer_clave' u.pk %}">
+          {% csrf_token %}
+          <input type="hidden" name="volver" value="{{ request.path }}">
+          <button type="submit" class="btn btn-outline-primary w-100"><i class="bi bi-key me-1" aria-hidden="true"></i>Generar nuevo código de acceso</button>
+        </form>
+        {% endif %}
+        {% else %}
+        <p class="small text-body-secondary">Este empleado todavía no tiene usuario para ingresar a CALLFLOW.</p>
+        {% if perms.core.add_usuario %}
+        <form method="post" action="{% url 'personal:empleado_crear_cuenta' empleado.pk %}">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-primary w-100"><i class="bi bi-person-plus me-1" aria-hidden="true"></i>Crear usuario y código de acceso</button>
+        </form>
+        {% endif %}
+        {% endif %}
+        {% endwith %}
+      </div>
+    </section>
+  </div>
+</div>
+{% endblock %}

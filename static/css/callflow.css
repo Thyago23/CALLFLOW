@@ -247,6 +247,18 @@ a.tarjeta-modulo:hover {
 /* ------------------------------------------------------------------ personal */
 .formulario-empleado .card-body { padding-bottom: 0.5rem; }
 
+/* Lectura del CV: indicador mientras se procesa y campos llenados automáticamente */
+.estado-cv { margin-top: -0.5rem; }
+.estado-cv .cargando { display: none; }
+.estado-cv.htmx-request .cargando { display: inline-block; }
+.estado-cv.htmx-request .alert { display: none; }
+.form-control.desde-cv,
+.form-select.desde-cv { background-color: #fffbea; border-color: #f0c36d; }
+
+/* Ficha del empleado */
+.datos-ficha dt { font-size: 0.8rem; font-weight: 500; color: var(--bs-secondary-color); }
+.datos-ficha dd { margin-bottom: 0.85rem; }
+
 .estado-identificacion {
   min-height: 1.25rem;
   margin-top: -0.5rem;
@@ -308,3 +320,5 @@ a.tarjeta-modulo:hover {
 }
 .codigo-recordatorio .codigo { font-family: var(--bs-font-monospace); font-weight: 700; font-size: 1.2rem; color: var(--cf-primario); letter-spacing: 0.06em; }
 .dato-credencial .valor.valor-usuario { font-size: 1.35rem; letter-spacing: 0.02em; }
+
+.avatar.avatar-grande { width: 56px; height: 56px; font-size: 1.15rem; }
