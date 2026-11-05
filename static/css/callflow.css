@@ -1,24 +1,24 @@
 /* Estilos propios de CALLFLOW (complementan Bootstrap 5.3) */
 :root {
-  --cf-primario: #2453c7;
-  --cf-primario-suave: #e8eefc;
+  --cf-primario: #0e325c;
+  --cf-primario-suave: #e5ebf3;
   --cf-resaltado: #fff3cd;
   --cf-ancho-menu: 248px;
   --cf-alto-barra: 60px;
   --bs-primary: var(--cf-primario);
-  --bs-primary-rgb: 36, 83, 199;
+  --bs-primary-rgb: 14, 50, 92;
   --bs-link-color: var(--cf-primario);
-  --bs-link-color-rgb: 36, 83, 199;
-  --bs-link-hover-color: #1b3f99;
+  --bs-link-color-rgb: 14, 50, 92;
+  --bs-link-hover-color: #08213f;
 }
 
 .btn-primary {
   --bs-btn-bg: var(--cf-primario);
   --bs-btn-border-color: var(--cf-primario);
-  --bs-btn-hover-bg: #1d47ad;
-  --bs-btn-hover-border-color: #1d47ad;
-  --bs-btn-active-bg: #1b3f99;
-  --bs-btn-active-border-color: #1b3f99;
+  --bs-btn-hover-bg: #0b2a4e;
+  --bs-btn-hover-border-color: #0b2a4e;
+  --bs-btn-active-bg: #08213f;
+  --bs-btn-active-border-color: #08213f;
 }
 
 .btn-outline-primary {
@@ -26,7 +26,7 @@
   --bs-btn-border-color: var(--cf-primario);
   --bs-btn-hover-bg: var(--cf-primario);
   --bs-btn-hover-border-color: var(--cf-primario);
-  --bs-btn-active-bg: #1b3f99;
+  --bs-btn-active-bg: #08213f;
 }
 
 body {
@@ -51,6 +51,9 @@ body {
   color: #fff;
   font-size: 1rem;
 }
+/* Logo de Multivisa (PNG transparente) */
+.logo-marca { width: auto; height: 40px; }
+
 .marca-logo.grande { width: 44px; height: 44px; font-size: 1.35rem; border-radius: 10px; }
 
 .avatar {
@@ -119,13 +122,55 @@ body {
 }
 
 .panel-marca {
+  position: relative;
   align-items: center;
-  padding: 4rem;
-  color: #fff;
-  background: linear-gradient(150deg, #1b3f99 0%, var(--cf-primario) 55%, #3f74e6 100%);
+  justify-content: center;
+  padding: 2rem;
+  overflow: hidden;
+  background: linear-gradient(150deg, #08213f 0%, var(--cf-primario) 55%, #1a4f8a 100%);
 }
-.panel-marca li { opacity: 0.92; }
-.panel-marca .marca-logo { background: #fff; color: var(--cf-primario); box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15); }
+
+/* Aros decorativos sutiles sobre el azul */
+.panel-marca::before,
+.panel-marca::after {
+  content: "";
+  position: absolute;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.07);
+  pointer-events: none;
+}
+.panel-marca::before { width: 560px; height: 560px; left: -180px; bottom: -220px; }
+.panel-marca::after { width: 380px; height: 380px; right: -140px; top: -120px; }
+
+.insignia-callflow {
+  position: absolute;
+  top: 1.5rem;
+  left: 1.5rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.45rem 0.9rem 0.45rem 0.45rem;
+  border-radius: 0.6rem;
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  font-size: 1.15rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.insignia-callflow .marca-logo { background: #fff; color: var(--cf-primario); }
+
+/* Círculo blanco detrás del logo: su azul marino no se leería directo sobre el panel */
+.circulo-logo {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 360px;
+  height: 360px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 0 12px rgba(255, 255, 255, 0.08), 0 18px 45px rgba(0, 0, 0, 0.3);
+}
+.logo-acceso { display: block; width: 260px; height: auto; }
 
 .panel-formulario {
   display: flex;
@@ -166,7 +211,7 @@ body {
 }
 .indicador.con-alerta .icono-indicador { background: #fdecea; color: #b42318; }
 a .indicador { transition: border-color 0.15s, box-shadow 0.15s; }
-a:hover .indicador { border-color: var(--cf-primario); box-shadow: 0 2px 8px rgba(36, 83, 199, 0.1); }
+a:hover .indicador { border-color: var(--cf-primario); box-shadow: 0 2px 8px rgba(14, 50, 92, 0.1); }
 
 .titulo-grupo {
   font-size: 0.75rem;
@@ -180,7 +225,7 @@ a:hover .indicador { border-color: var(--cf-primario); box-shadow: 0 2px 8px rgb
 .tarjeta-modulo { transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s; }
 a.tarjeta-modulo:hover {
   border-color: var(--cf-primario);
-  box-shadow: 0 4px 14px rgba(36, 83, 199, 0.12);
+  box-shadow: 0 4px 14px rgba(14, 50, 92, 0.12);
   transform: translateY(-1px);
 }
 .tarjeta-modulo.pendiente { background: transparent; border-style: dashed; }
