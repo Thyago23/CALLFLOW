@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block titulo %}Agenda{% endblock %}
+{% block contenido %}
+<div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
+  <div>
+    <h1 class="h3 mb-0">Agenda</h1>
+    <p class="text-body-secondary small mb-0">Actividades, reuniones y recordatorios.</p>
+  </div>
+  {% if perms.agenda.add_evento %}
+  <a href="{% url 'agenda:crear' %}?fecha={{ fecha|date:'Y-m-d' }}" class="btn btn-primary"><i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Nuevo evento</a>
+  {% endif %}
+</div>
+
+<div class="row g-4">
+  <div class="col-xl-9">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+      <div class="d-flex align-items-center gap-2">
+        <a class="btn btn-outline-secondary btn-sm" href="{{ url_anterior }}" aria-label="Anterior"><i class="bi bi-chevron-left" aria-hidden="true"></i></a>
+        <a class="btn btn-outline-secondary btn-sm" href="{{ url_hoy }}">Hoy</a>
+        <a class="btn btn-outline-secondary btn-sm" href="{{ url_siguiente }}" aria-label="Siguiente"><i class="bi bi-chevron-right" aria-hidden="true"></i></a>
+        <h2 class="h5 mb-0 ms-2 fecha-hoy">
+          {% if vista == "mes" %}{{ fecha|date:"F Y" }}
+          {% elif vista == "semana" %}{{ lunes|date:"j M" }} – {{ domingo|date:"j M Y" }}
+          {% else %}{{ fecha|date:"l j \d\e F \d\e Y" }}{% endif %}
+        </h2>
+      </div>
+      <div class="btn-group btn-group-sm" role="group" aria-label="Vista">
+        {% for valor, texto in vistas %}
+        <a href="?vista={{ valor }}&fecha={{ fecha|date:'Y-m-d' }}" class="btn {% if valor == vista %}btn-primary{% else %}btn-outline-primary{% endif %}" {% if valor == vista %}aria-current="true"{% endif %}>{{ texto }}</a>
+        {% endfor %}
+      </div>
+    </div>
+
+    {% if vista == "mes" %}{% include "agenda/_mes.html" %}
+    {% elif vista == "semana" %}{% include "agenda/_semana.html" %}
+    {% else %}{% include "agenda/_dia.html" %}{% endif %}
+
+    <div class="d-flex flex-wrap gap-3 small text-body-secondary mt-2">
+      <span><span class="leyenda tipo-actividad"></span>Actividad</span>
+      <span><span class="leyenda tipo-reunion"></span>Reunión</span>
+      <span><span class="leyenda tipo-recordatorio"></span>Recordatorio</span>
+      <span><i class="bi bi-check2" aria-hidden="true"></i> Completado</span>
+    </div>
+  </div>
+
+  <div class="col-xl-3">
+    <section class="card mb-3">
+      <div class="card-header bg-body d-flex justify-content-between align-items-center">
+        <h2 class="h6 mb-0">Vencidos sin completar</h2>
+        {% if vencidos %}<span class="badge rounded-pill bg-danger">{{ vencidos|length }}</span>{% endif %}
+      </div>
+      <ul class="list-group list-group-flush">
+        {% for e in vencidos %}
+        <li class="list-group-item py-2">
+          <a href="{% url 'agenda:detalle' e.pk %}" class="small fw-semibold text-reset d-block text-truncate">{{ e.titulo }}</a>
+          <span class="small text-danger">{{ e.inicio|date:"D d/m" }}{% if not e.todo_el_dia %} · {{ e.inicio|time:"H:i" }}{% endif %}</span>
+        </li>
+        {% empty %}
+        <li class="list-group-item small text-body-secondary py-3">Nada pendiente atrasado.</li>
+        {% endfor %}
+      </ul>
+    </section>
+    <section class="card">
+      <div class="card-header bg-body"><h2 class="h6 mb-0">Próximos 7 días</h2></div>
+      <ul class="list-group list-group-flush">
+        {% for e in proximos %}
+        <li class="list-group-item py-2">
+          <a href="{% url 'agenda:detalle' e.pk %}" class="small fw-semibold text-reset d-block text-truncate"><span class="leyenda tipo-{{ e.tipo|lower }}"></span>{{ e.titulo }}</a>
+          <span class="small text-body-secondary">{{ e.inicio|date:"D d/m" }}{% if not e.todo_el_dia %} · {{ e.inicio|time:"H:i" }}{% endif %}</span>
+        </li>
+        {% empty %}
+        <li class="list-group-item small text-body-secondary py-3">Sin eventos próximos.</li>
+        {% endfor %}
+      </ul>
+    </section>
+  </div>
+</div>
+{% endblock %}

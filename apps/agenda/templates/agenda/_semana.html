@@ -1,0 +1,14 @@
+<div class="calendario-semana">
+  {% for d in dias %}
+  <section class="card dia-semana-col {% if d.es_hoy %}hoy{% endif %}">
+    <a class="card-header bg-body text-reset text-decoration-none" href="?vista=dia&fecha={{ d.fecha|date:'Y-m-d' }}">
+      <span class="small text-body-secondary text-uppercase">{{ d.fecha|date:"D" }}</span>
+      <span class="fw-semibold ms-1">{{ d.fecha|date:"j" }}</span>
+    </a>
+    <div class="card-body p-2 d-grid gap-1">
+      {% for e in d.eventos %}{% include "agenda/_evento_chip.html" %}
+      {% empty %}<span class="small text-body-secondary">—</span>{% endfor %}
+    </div>
+  </section>
+  {% endfor %}
+</div>

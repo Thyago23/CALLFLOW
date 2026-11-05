@@ -70,6 +70,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "apps.core.middleware.UsuarioAuditoriaMiddleware",
     "apps.core.middleware.CambioClaveObligatorioMiddleware",
+    "apps.agenda.middleware.AvisosAgendaMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]

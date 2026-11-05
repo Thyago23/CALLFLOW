@@ -1,0 +1,18 @@
+<div class="card calendario-mes">
+  <div class="cabecera-semana" aria-hidden="true">
+    <span>Lun</span><span>Mar</span><span>Mié</span><span>Jue</span><span>Vie</span><span>Sáb</span><span>Dom</span>
+  </div>
+  {% for semana in semanas %}
+  <div class="fila-semana">
+    {% for d in semana %}
+    <div class="celda-dia {% if not d.del_mes %}fuera-del-mes{% endif %} {% if d.es_hoy %}hoy{% endif %}">
+      <a class="numero-dia" href="?vista=dia&fecha={{ d.fecha|date:'Y-m-d' }}" aria-label="{{ d.fecha|date:'l j \d\e F' }}">{{ d.fecha.day }}</a>
+      <div class="eventos-dia">
+        {% for e in d.eventos|slice:":3" %}{% include "agenda/_evento_chip.html" %}{% endfor %}
+        {% if d.eventos|length > 3 %}<a class="mas-eventos" href="?vista=dia&fecha={{ d.fecha|date:'Y-m-d' }}">+{{ d.eventos|length|add:"-3" }} más</a>{% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endfor %}
+</div>

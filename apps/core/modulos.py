@@ -49,7 +49,7 @@ MODULOS = [
     Modulo("inventario", "Inventario", "4.1", "box-seam", "inventario.view_material",
            "Materiales de oficina, existencias y movimientos.", url="inventario:materiales"),
     Modulo("agenda", "Agenda", "4.1", "calendar3", "agenda.view_evento",
-           "Actividades, reuniones y recordatorios."),
+           "Actividades, reuniones y recordatorios.", url="agenda:calendario"),
     Modulo("nomina", "Nómina", "4.2", "cash-coin", "nomina.view_periodonomina",
            "Periodos, cálculo, liquidaciones y solicitudes de pago."),
     Modulo("ventas", "Ventas", "4.3", "telephone-outbound", "ventas.view_formulariodami",

@@ -1,0 +1,5 @@
+<a href="{% url 'agenda:detalle' e.pk %}" class="chip-evento tipo-{{ e.tipo|lower }} {% if e.estado == 'COMPLETADO' %}completado{% endif %}" title="{{ e.titulo }}{% if e.ubicacion %} · {{ e.ubicacion }}{% endif %}">
+  {% if e.estado == 'COMPLETADO' %}<i class="bi bi-check2" aria-hidden="true"></i>{% endif %}
+  {% if not e.todo_el_dia %}<span class="hora">{{ e.inicio|time:"H:i" }}</span>{% endif %}
+  <span class="texto">{{ e.titulo }}</span>
+</a>

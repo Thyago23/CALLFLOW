@@ -399,3 +399,75 @@ input[type="checkbox"].form-check-input + .dia-check { margin-left: 0; }
 .tipo-movimiento.tipo-salida,
 .tipo-movimiento.tipo-ajuste_negativo { color: #b02a37; }
 .opcion-movimiento { font-size: 0.875rem; }
+
+/* ------------------------------------------------------------------ agenda */
+:root {
+  --cf-actividad: #0e325c;
+  --cf-reunion: #6f42c1;
+  --cf-recordatorio: #b35c00;
+}
+.leyenda { display: inline-block; width: 0.65rem; height: 0.65rem; border-radius: 3px; margin-right: 0.35rem; vertical-align: baseline; }
+.leyenda.tipo-actividad, .barra-tipo.tipo-actividad { background: var(--cf-actividad); }
+.leyenda.tipo-reunion, .barra-tipo.tipo-reunion { background: var(--cf-reunion); }
+.leyenda.tipo-recordatorio, .barra-tipo.tipo-recordatorio { background: var(--cf-recordatorio); }
+
+.calendario-mes { overflow: hidden; }
+.calendario-mes .cabecera-semana,
+.calendario-mes .fila-semana { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
+.calendario-mes .cabecera-semana span {
+  padding: 0.5rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase;
+  color: var(--bs-secondary-color); border-bottom: 1px solid var(--bs-border-color-translucent);
+}
+.celda-dia {
+  min-height: 7rem; padding: 0.35rem; border-right: 1px solid var(--bs-border-color-translucent);
+  border-bottom: 1px solid var(--bs-border-color-translucent); min-width: 0;
+}
+.fila-semana .celda-dia:nth-child(7n) { border-right: 0; }
+.fila-semana:last-child .celda-dia { border-bottom: 0; }
+.celda-dia.fuera-del-mes { background: var(--bs-tertiary-bg); }
+.celda-dia.fuera-del-mes .numero-dia { color: var(--bs-secondary-color); }
+.numero-dia {
+  display: inline-grid; place-items: center; width: 1.75rem; height: 1.75rem; border-radius: 50%;
+  font-size: 0.85rem; font-weight: 600; color: var(--bs-body-color); text-decoration: none;
+}
+.numero-dia:hover { background: var(--bs-secondary-bg); }
+.celda-dia.hoy .numero-dia { background: var(--cf-primario); color: #fff; }
+.eventos-dia { display: grid; gap: 2px; margin-top: 2px; }
+.mas-eventos { font-size: 0.75rem; padding-left: 0.25rem; }
+
+.chip-evento {
+  display: flex; align-items: center; gap: 0.25rem; min-width: 0; padding: 0.1rem 0.4rem;
+  border-radius: 0.3rem; font-size: 0.75rem; line-height: 1.35; color: #fff; text-decoration: none;
+  background: var(--cf-actividad);
+}
+.chip-evento:hover { color: #fff; filter: brightness(1.15); }
+.chip-evento .hora { font-weight: 600; flex-shrink: 0; }
+.chip-evento .texto { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chip-evento.tipo-reunion { background: var(--cf-reunion); }
+.chip-evento.tipo-recordatorio { background: var(--cf-recordatorio); }
+.chip-evento.completado { opacity: 0.55; }
+
+.calendario-semana { display: grid; gap: 0.75rem; grid-template-columns: repeat(7, minmax(0, 1fr)); }
+@media (max-width: 991.98px) { .calendario-semana { grid-template-columns: 1fr; } }
+.dia-semana-col .card-body { min-height: 6rem; align-content: start; }
+.dia-semana-col.hoy { border-color: var(--cf-primario); }
+.dia-semana-col.hoy .card-header { background: var(--cf-primario-suave) !important; }
+
+@media (max-width: 767.98px) {
+  .celda-dia { min-height: 4.5rem; padding: 0.2rem; }
+  .chip-evento .hora { display: none; }
+  .chip-evento { font-size: 0.65rem; padding: 0.05rem 0.25rem; }
+}
+
+.evento-dia .hora-dia { width: 4.5rem; }
+.barra-tipo { width: 4px; align-self: stretch; border-radius: 2px; flex-shrink: 0; }
+
+.tipo-evento { color: #fff; }
+.tipo-evento.tipo-actividad { background: var(--cf-actividad); }
+.tipo-evento.tipo-reunion { background: var(--cf-reunion); }
+.tipo-evento.tipo-recordatorio { background: var(--cf-recordatorio); }
+.estado-evento.estado-pendiente { background: #fff3cd; color: #664d03; }
+.estado-evento.estado-completado { background: #d1e7dd; color: #0a3622; }
+.estado-evento.estado-cancelado { background: var(--bs-secondary-bg); color: var(--bs-secondary-color); }
+.detalle-evento li { display: flex; gap: 0.6rem; align-items: baseline; padding: 0.2rem 0; }
+.detalle-evento .bi { color: var(--bs-secondary-color); }

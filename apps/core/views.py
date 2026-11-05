@@ -11,6 +11,7 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_POST
 
 from apps.agenda.models import Evento
+from apps.agenda.servicios import eventos_de
 from apps.inventario.models import Material
 from apps.personal.models import Empleado
 
@@ -84,7 +85,8 @@ def dashboard(request):
     if usuario.has_perm("agenda.view_evento"):
         indicadores.append({
             "titulo": "Mis actividades de hoy", "icono": "calendar3",
-            "valor": Evento.objects.filter(propietario=usuario, estado=Evento.Estado.PENDIENTE, inicio__date=hoy).count(),
+            "valor": eventos_de(usuario).filter(estado=Evento.Estado.PENDIENTE, inicio__date=hoy).count(),
+            "url": reverse("agenda:calendario") + f"?vista=dia&fecha={hoy.isoformat()}",
         })
 
     secciones = [
