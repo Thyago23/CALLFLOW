@@ -471,3 +471,50 @@ input[type="checkbox"].form-check-input + .dia-check { margin-left: 0; }
 .estado-evento.estado-cancelado { background: var(--bs-secondary-bg); color: var(--bs-secondary-color); }
 .detalle-evento li { display: flex; gap: 0.6rem; align-items: baseline; padding: 0.2rem 0; }
 .detalle-evento .bi { color: var(--bs-secondary-color); }
+
+/* ------------------------------------------------------------------ ficha del empleado: pestañas */
+.pestanas-ficha { overflow-x: auto; scrollbar-width: thin; }
+.pestanas-ficha .nav-tabs { min-width: max-content; }
+.pestanas-ficha .nav-link {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: var(--bs-secondary-color);
+  white-space: nowrap;
+}
+.pestanas-ficha .nav-link:hover { color: var(--bs-body-color); }
+.pestanas-ficha .nav-link.active { color: var(--cf-primario); font-weight: 600; }
+.pestanas-ficha .badge { font-size: 0.7rem; font-weight: 600; }
+
+/* Observaciones: borde de color según el tipo */
+.observacion { border-left: 4px solid var(--bs-border-color); }
+.observacion.tipo-positiva { border-left-color: #198754; }
+.observacion.tipo-llamado_atencion { border-left-color: #dc3545; }
+.observacion.tipo-seguimiento { border-left-color: #0d6efd; }
+.tipo-observacion { background-color: #6c757d; }
+.tipo-observacion.tipo-positiva { background-color: #198754; }
+.tipo-observacion.tipo-llamado_atencion { background-color: #dc3545; }
+.tipo-observacion.tipo-seguimiento { background-color: #0d6efd; }
+.texto-observacion { white-space: normal; overflow-wrap: anywhere; }
+
+/* ------------------------------------------------------------------ contratos */
+.texto-plantilla { font-size: 0.85rem; line-height: 1.5; }
+.variables-plantilla { position: sticky; top: calc(var(--cf-alto-barra) + 1rem); max-height: calc(100vh - var(--cf-alto-barra) - 2rem); overflow-y: auto; }
+.variables-plantilla li { margin-bottom: 0.55rem; }
+.variables-plantilla code { font-size: 0.8rem; }
+.hoja-contrato {
+  max-width: 46rem;
+  margin: 0 auto;
+  padding: 2rem 2.25rem;
+  background: #fff;
+  border: 1px solid var(--bs-border-color);
+  border-radius: 0.5rem;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+  font-family: Helvetica, Arial, sans-serif;
+  font-size: 0.9rem;
+  text-align: justify;
+  overflow-wrap: anywhere;
+}
+.hoja-contrato .titulo-contrato { font-size: 1.05rem; font-weight: 700; text-align: center; margin-bottom: 1rem; }
+.hoja-contrato .firma-contrato { margin-top: 2.5rem; text-align: left; }
+@media (max-width: 576px) { .hoja-contrato { padding: 1.25rem 1rem; } }

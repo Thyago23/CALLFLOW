@@ -313,3 +313,63 @@ class RegistroConDocumentosTests(TestCase):
         # Repetirlo no crea una segunda cuenta.
         self.client.post(reverse("personal:empleado_crear_cuenta", args=[empleado.pk]))
         self.assertEqual(Usuario.objects.filter(username__startswith="luis.andrade").count(), 1)
+
+
+# --------------------------------------------------------------------------- ficha con pestañas y observaciones
+@override_settings(MEDIA_ROOT=tempfile.mkdtemp(prefix="callflow-test-"))
+class FichaPestanasTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        call_command("inicializar_datos", verbosity=0)
+        cls.admin = Usuario.objects.create_user("admin1", "admin1@callflow.test", "clave-segura-123", rol=Rol.ADMINISTRADOR,
+                                                first_name="Ana", last_name="Admin")
+        cls.vendedor = Usuario.objects.create_user("vend1", "vend1@callflow.test", "clave-segura-123", rol=Rol.VENDEDOR)
+        cls.empleado = Empleado.objects.create(
+            identificacion=CEDULA_VALIDA, nombres="Luis", apellidos="Andrade",
+            cargo=Cargo.objects.get(nombre="Vendedor telefónico"), fecha_ingreso=date.today(),
+        )
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(settings.MEDIA_ROOT, ignore_errors=True)
+        super().tearDownClass()
+
+    def setUp(self):
+        self.client.force_login(self.admin)
+        self.url = reverse("personal:empleado_detalle", args=[self.empleado.pk])
+
+    def test_ficha_tiene_las_pestanas(self):
+        ficha = self.client.get(self.url)
+        for pestana in ("datos", "documentos", "asistencia", "observaciones", "cuenta"):
+            self.assertContains(ficha, f'data-pestana="{pestana}"')
+            self.assertContains(ficha, f'id="{pestana}" role="tabpanel"')
+
+    def test_agrega_observacion_con_autor_y_vuelve_a_la_pestana(self):
+        respuesta = self.client.post(reverse("personal:observacion_crear", args=[self.empleado.pk]),
+                                     {"tipo": "LLAMADO_ATENCION", "texto": "  Llegó tarde tres veces esta semana.  "})
+        self.assertRedirects(respuesta, self.url + "#observaciones", fetch_redirect_response=False)
+        observacion = self.empleado.observaciones.get()
+        self.assertEqual(observacion.texto, "Llegó tarde tres veces esta semana.")
+        self.assertEqual(observacion.autor, self.admin)
+        ficha = self.client.get(self.url)
+        self.assertContains(ficha, "Llegó tarde tres veces esta semana.")
+        self.assertContains(ficha, "Llamado de atención")
+        self.assertContains(ficha, "Ana Admin")
+
+    def test_observacion_vacia_no_se_guarda(self):
+        self.client.post(reverse("personal:observacion_crear", args=[self.empleado.pk]), {"tipo": "GENERAL", "texto": "   "})
+        self.assertFalse(self.empleado.observaciones.exists())
+
+    def test_observaciones_no_se_modifican_ni_borran(self):
+        from django.db import DatabaseError, transaction
+        from .models import ObservacionEmpleado
+        o = ObservacionEmpleado.objects.create(empleado=self.empleado, texto="Buen desempeño", tipo="POSITIVA", autor=self.admin)
+        for accion in (lambda: ObservacionEmpleado.objects.filter(pk=o.pk).update(texto="otro"),
+                       lambda: ObservacionEmpleado.objects.filter(pk=o.pk).delete()):
+            with self.assertRaises(DatabaseError), transaction.atomic():
+                accion()
+
+    def test_vendedor_no_puede_agregar_observaciones(self):
+        self.client.force_login(self.vendedor)
+        respuesta = self.client.post(reverse("personal:observacion_crear", args=[self.empleado.pk]), {"tipo": "GENERAL", "texto": "x"})
+        self.assertEqual(respuesta.status_code, 403)

@@ -1,0 +1,20 @@
+{% load contratos_extras %}{% if errores %}
+<div class="alert alert-danger small mb-0">
+  {% for campo, lista in errores.items %}{% for e in lista %}<div>{{ e }}</div>{% endfor %}{% endfor %}
+</div>
+{% else %}
+  {% if desconocidas %}
+  <div class="alert alert-danger small py-2">
+    Variables que no existen: {% for v in desconocidas %}<code>{% templatetag openvariable %}{{ v }}{% templatetag closevariable %}</code>{% if not forloop.last %}, {% endif %}{% endfor %}. Quedarán como espacio en blanco.
+  </div>
+  {% endif %}
+  {% if faltantes %}
+  <div class="alert alert-warning small py-2">
+    <i class="bi bi-exclamation-triangle me-1" aria-hidden="true"></i>
+    La ficha del empleado no tiene: <strong>{% for v in faltantes %}{{ v.descripcion|lower }}{% if not forloop.last %}, {% endif %}{% endfor %}</strong>.
+    Quedará un espacio en blanco (……) para completar a mano, o complete la ficha antes de generar.
+  </div>
+  {% endif %}
+  {% if ejemplo %}<p class="small text-body-secondary mb-2">Así se verá con los datos de un empleado de ejemplo.</p>{% endif %}
+  <div class="hoja-contrato">{{ texto|formato_contrato }}</div>
+{% endif %}

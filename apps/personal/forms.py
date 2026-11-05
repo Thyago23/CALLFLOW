@@ -7,7 +7,7 @@ from django.urls import reverse
 from apps.core import validadores
 from apps.documentos import archivos
 
-from .models import Cargo, Empleado
+from .models import Cargo, Empleado, ObservacionEmpleado
 
 
 class EmpleadoForm(forms.ModelForm):
@@ -200,3 +200,24 @@ class DocumentosIngresoForm(forms.Form):
             else:
                 vistos[huella] = nombre
         return datos
+
+
+class ObservacionForm(forms.ModelForm):
+    class Meta:
+        model = ObservacionEmpleado
+        fields = ["tipo", "texto"]
+        labels = {"tipo": "Tipo", "texto": "Observación"}
+        widgets = {"texto": forms.Textarea(attrs={"rows": 3, "maxlength": 2000, "placeholder": "Escriba la observación…"})}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["tipo"].widget.attrs["class"] = "form-select"
+        self.fields["texto"].widget.attrs["class"] = "form-control"
+
+    def clean_texto(self):
+        texto = (self.cleaned_data.get("texto") or "").strip()
+        if not texto:
+            raise ValidationError("Escriba la observación.")
+        if len(texto) > 2000:
+            raise ValidationError("La observación no puede pasar de 2000 caracteres.")
+        return texto

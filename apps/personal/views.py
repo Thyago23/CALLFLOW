@@ -17,10 +17,11 @@ from django.views.generic import CreateView, DetailView, ListView
 from apps.core import validadores
 from apps.core.cuentas import crear_cuenta_para_empleado, preparar_credenciales
 from apps.documentos import archivos
+from apps.documentos.forms import GenerarContratoForm
 from apps.documentos.models import Documento, TipoDocumento
 
 from . import cv
-from .forms import DocumentosIngresoForm, EmpleadoForm
+from .forms import DocumentosIngresoForm, EmpleadoForm, ObservacionForm
 from .models import Empleado
 
 # Campos que el lector de CV puede llenar, con el nombre que ve el usuario.
@@ -160,7 +161,31 @@ class EmpleadoDetalleView(LoginRequiredMixin, PermissionRequiredMixin, DetailVie
                 "periodos": self.PERIODOS,
                 "horario_actual": horario_de(self.object, hoy),
             })
+
+        ctx["observaciones"] = self.object.observaciones.select_related("autor")
+        ctx["observacion_form"] = ObservacionForm()
+
+        ctx["contratos"] = self.object.contratos.select_related("plantilla", "documento", "generado_por").order_by("-creado_en")
+        if self.request.user.has_perm("documentos.add_contratogenerado"):
+            ctx["contrato_form"] = GenerarContratoForm(empleado=self.object)
         return ctx
+
+
+@login_required
+@permission_required("personal.add_observacionempleado", raise_exception=True)
+@require_POST
+def observacion_crear(request, pk):
+    empleado = get_object_or_404(Empleado, pk=pk)
+    form = ObservacionForm(request.POST)
+    if form.is_valid():
+        observacion = form.save(commit=False)
+        observacion.empleado = empleado
+        observacion.autor = request.user
+        observacion.save()
+        messages.success(request, "Observación registrada.")
+    else:
+        messages.error(request, " ".join(e for errores in form.errors.values() for e in errores))
+    return redirect(reverse("personal:empleado_detalle", args=[pk]) + "#observaciones")
 
 
 @login_required
