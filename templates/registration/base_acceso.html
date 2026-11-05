@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load static %}
+{% load static estaticos %}
 {% block cuerpo %}
 <div class="pantalla-acceso">
   <section class="panel-marca d-none d-lg-flex">
@@ -8,13 +8,13 @@
       <span>CALLFLOW</span>
     </div>
     <div class="circulo-logo">
-      <img src="{% static 'img/logo-multivisa.png' %}" alt="Multivisa · asesoría migratoria" class="logo-acceso" width="640" height="621">
+      <img src="{% estatico 'img/logo-multivisa.png' %}" alt="Multivisa · asesoría migratoria" class="logo-acceso" width="640" height="621">
     </div>
   </section>
   <section class="panel-formulario">
     <div class="formulario-acceso">
       <div class="d-flex d-lg-none align-items-center gap-2 mb-4">
-        <img src="{% static 'img/logo-multivisa.png' %}" alt="" class="logo-marca" width="640" height="621">
+        <img src="{% estatico 'img/logo-multivisa.png' %}" alt="" class="logo-marca" width="640" height="621">
         <span class="fs-4 fw-semibold">CALLFLOW</span>
       </div>
       {% for message in messages %}
