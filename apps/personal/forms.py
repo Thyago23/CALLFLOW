@@ -5,6 +5,7 @@ from django.core.exceptions import ValidationError
 from django.urls import reverse
 
 from apps.core import validadores
+from apps.documentos import archivos
 
 from .models import Cargo, Empleado
 
@@ -132,4 +133,70 @@ class EmpleadoForm(forms.ModelForm):
         nacimiento, ingreso = datos.get("fecha_nacimiento"), datos.get("fecha_ingreso")
         if nacimiento and ingreso and ingreso <= nacimiento:
             self.add_error("fecha_ingreso", "La fecha de ingreso debe ser posterior a la fecha de nacimiento.")
+        return datos
+
+
+class DocumentosIngresoForm(forms.Form):
+    """Expediente de ingreso: CV, copia de cédula y título de bachiller (PDF, JPG o PNG, máx. 10 MB)."""
+
+    # Campo del formulario -> código del tipo de documento
+    TIPOS = {"hoja_vida": "HOJA_VIDA", "cedula": "CEDULA", "titulo_bachiller": "TITULO_BACHILLER"}
+
+    hoja_vida = forms.FileField(
+        label="Hoja de vida (CV)",
+        help_text="En PDF, el sistema lee el CV y llena los datos que encuentre; revíselos antes de guardar.",
+    )
+    cedula = forms.FileField(label="Copia de cédula")
+    titulo_bachiller = forms.FileField(label="Título de bachiller")
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for campo in self.fields.values():
+            campo.widget.attrs.update({"class": "form-control", "accept": ".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"})
+            campo.widget.attrs["required"] = True
+        self.fields["hoja_vida"].widget.attrs.update({
+            "hx-post": reverse("personal:leer_cv"),
+            "hx-trigger": "change",
+            "hx-encoding": "multipart/form-data",
+            "hx-params": "hoja_vida",
+            "hx-target": "#estado-cv",
+            "hx-indicator": "#estado-cv",
+            "hx-sync": "this:replace",
+            "aria-describedby": "estado-cv",
+        })
+
+    def is_valid(self):
+        valido = super().is_valid()
+        for nombre in self.errors:
+            if nombre in self.fields:
+                widget = self.fields[nombre].widget
+                widget.attrs["class"] = f"{widget.attrs.get('class', '')} is-invalid".strip()
+        return valido
+
+    def _validar(self, nombre):
+        archivo = self.cleaned_data[nombre]
+        archivos.validar_archivo(archivo)
+        return archivo
+
+    def clean_hoja_vida(self):
+        return self._validar("hoja_vida")
+
+    def clean_cedula(self):
+        return self._validar("cedula")
+
+    def clean_titulo_bachiller(self):
+        return self._validar("titulo_bachiller")
+
+    def clean(self):
+        datos = super().clean()
+        vistos = {}
+        for nombre in self.TIPOS:
+            archivo = datos.get(nombre)
+            if not archivo:
+                continue
+            huella = archivos.huella(archivo)
+            if huella in vistos:
+                self.add_error(nombre, f"Es el mismo archivo que adjuntó en «{self.fields[vistos[huella]].label}».")
+            else:
+                vistos[huella] = nombre
         return datos

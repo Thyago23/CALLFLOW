@@ -9,8 +9,12 @@ Criterios de aceptación:
 """
 from datetime import date, timedelta
 
+import shutil
+import tempfile
+
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management import call_command
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from apps.core.models import RegistroCambio, Rol, Usuario
@@ -39,6 +43,19 @@ def datos_validos(**cambios):
     }
     datos.update(cambios)
     return datos
+
+
+def pdf_falso(texto: str) -> SimpleUploadedFile:
+    """Archivo con firma de PDF; basta para la validación por contenido (no se lee como CV)."""
+    contenido = f"%PDF-1.4\n% {texto}\n%%EOF\n".encode()
+    return SimpleUploadedFile(f"{texto}.pdf", contenido, content_type="application/pdf")
+
+
+def datos_registro(**cambios):
+    """Datos del formulario + los tres documentos de ingreso obligatorios."""
+    return datos_validos(**cambios) | {
+        "hoja_vida": pdf_falso("cv"), "cedula": pdf_falso("cedula"), "titulo_bachiller": pdf_falso("titulo"),
+    }
 
 
 class ValidadoresTests(TestCase):
@@ -114,12 +131,19 @@ class EmpleadoFormTests(TestCase):
         self.assertEqual(Empleado.objects.count(), 1)
 
 
+@override_settings(MEDIA_ROOT=tempfile.mkdtemp(prefix="callflow-test-"))
 class EmpleadoVistasTests(TestCase):
     @classmethod
     def setUpTestData(cls):
         call_command("inicializar_datos", verbosity=0)
         cls.admin = Usuario.objects.create_user("admin1", "admin1@callflow.test", "clave-segura-123", rol=Rol.ADMINISTRADOR)
         cls.vendedor = Usuario.objects.create_user("vend1", "vend1@callflow.test", "clave-segura-123", rol=Rol.VENDEDOR)
+
+    @classmethod
+    def tearDownClass(cls):
+        from django.conf import settings
+        shutil.rmtree(settings.MEDIA_ROOT, ignore_errors=True)
+        super().tearDownClass()
 
     def test_rol_asigna_grupo_de_permisos(self):
         self.assertTrue(self.admin.has_perm("personal.add_empleado"))
@@ -132,19 +156,21 @@ class EmpleadoVistasTests(TestCase):
     def test_vendedor_no_puede_registrar(self):
         self.client.force_login(self.vendedor)
         self.assertEqual(self.client.get(reverse("personal:empleado_crear")).status_code, 403)
-        self.assertEqual(self.client.post(reverse("personal:empleado_crear"), datos_validos()).status_code, 403)
+        self.assertEqual(self.client.post(reverse("personal:empleado_crear"), datos_registro()).status_code, 403)
         self.assertEqual(Empleado.objects.count(), 0)
 
     def test_criterio4_registro_completo_y_aparece_en_listado(self):
         self.client.force_login(self.admin)
         self.assertContains(self.client.get(reverse("personal:empleado_crear")), "Registrar empleado")
 
-        respuesta = self.client.post(reverse("personal:empleado_crear"), datos_validos(), follow=True)
+        respuesta = self.client.post(reverse("personal:empleado_crear"), datos_registro(), follow=True)
         empleado = Empleado.objects.get(identificacion=CEDULA_VALIDA)
-        self.assertRedirects(respuesta, f"{reverse('personal:empleado_lista')}?nuevo={empleado.pk}")
-        self.assertContains(respuesta, "registrado correctamente")
-        self.assertContains(respuesta, "Pérez Ñañez María José")
-        self.assertContains(respuesta, 'class="fila-nueva"')
+        # Tras guardar se muestran las credenciales generadas; "Listo" lleva a la ficha del empleado.
+        self.assertRedirects(respuesta, reverse("usuario_credenciales"))
+        self.assertContains(respuesta, "registrado con sus documentos")
+        self.assertContains(respuesta, reverse("personal:empleado_detalle", args=[empleado.pk]))
+        listado = self.client.get(reverse("personal:empleado_lista"))
+        self.assertContains(listado, "Pérez Ñañez María José")
         # El alta queda en la bitácora de auditoría con el usuario que la hizo (sección 6).
         self.assertTrue(RegistroCambio.objects.filter(
             tabla="personal_empleado", registro_id=str(empleado.pk), accion="INSERT", usuario_id=self.admin.pk
@@ -152,16 +178,16 @@ class EmpleadoVistasTests(TestCase):
 
     def test_criterio3_duplicado_desde_la_vista(self):
         self.client.force_login(self.admin)
-        self.client.post(reverse("personal:empleado_crear"), datos_validos())
-        respuesta = self.client.post(reverse("personal:empleado_crear"), datos_validos(nombres="Otro"))
+        self.client.post(reverse("personal:empleado_crear"), datos_registro())
+        respuesta = self.client.post(reverse("personal:empleado_crear"), datos_registro(nombres="Otro"))
         self.assertEqual(respuesta.status_code, 200)
         self.assertContains(respuesta, "Ya existe un empleado registrado con esta identificación")
         self.assertEqual(Empleado.objects.count(), 1)
 
     def test_busqueda_htmx_devuelve_solo_la_tabla(self):
         self.client.force_login(self.admin)
-        self.client.post(reverse("personal:empleado_crear"), datos_validos())
-        self.client.post(reverse("personal:empleado_crear"), datos_validos(
+        self.client.post(reverse("personal:empleado_crear"), datos_registro())
+        self.client.post(reverse("personal:empleado_crear"), datos_registro(
             identificacion=OTRA_CEDULA_VALIDA, nombres="Luis", apellidos="Andrade"))
         respuesta = self.client.get(reverse("personal:empleado_lista"), {"q": "andrade"}, HTTP_HX_REQUEST="true")
         self.assertContains(respuesta, "Andrade Luis")
@@ -173,5 +199,5 @@ class EmpleadoVistasTests(TestCase):
         url = reverse("personal:verificar_identificacion")
         self.assertContains(self.client.get(url, {"tipo_identificacion": "CEDULA", "identificacion": CEDULA_VALIDA}), "disponible")
         self.assertContains(self.client.get(url, {"tipo_identificacion": "CEDULA", "identificacion": "123"}), "no es válida")
-        self.client.post(reverse("personal:empleado_crear"), datos_validos())
+        self.client.post(reverse("personal:empleado_crear"), datos_registro())
         self.assertContains(self.client.get(url, {"tipo_identificacion": "CEDULA", "identificacion": CEDULA_VALIDA}), "Ya está registrada")

@@ -10,15 +10,31 @@
 <h1 class="h3 mb-1">Registrar empleado</h1>
 <p class="text-body-secondary mb-4">Los campos con <span class="text-danger">*</span> son obligatorios.</p>
 
-{% if form.errors %}
+{% if form.errors or documentos_form.errors %}
 <div class="alert alert-danger" role="alert">
   Revise los campos marcados en rojo antes de guardar.
   {% for error in form.non_field_errors %}<div>{{ error }}</div>{% endfor %}
+  {% if documentos_form.is_bound %}<div class="small mt-1">Por seguridad, el navegador no conserva los archivos: vuelva a adjuntar los documentos.</div>{% endif %}
 </div>
 {% endif %}
 
-<form method="post" novalidate class="formulario-empleado">
+<form method="post" enctype="multipart/form-data" novalidate class="formulario-empleado" id="formulario-empleado">
   {% csrf_token %}
+
+  <section class="card mb-4">
+    <div class="card-body">
+      <h2 class="h6 text-uppercase text-body-secondary mb-1">Documentos de ingreso</h2>
+      <p class="small text-body-secondary mb-3">PDF, JPG o PNG de hasta 10 MB. Adjunte primero el CV en PDF: el sistema llena el formulario con los datos que encuentre.</p>
+      {% include "_campo.html" with campo=documentos_form.hoja_vida ayuda=documentos_form.hoja_vida.help_text %}
+      <div id="estado-cv" class="estado-cv mb-3" aria-live="polite">
+        <span class="cargando small text-body-secondary"><span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>Leyendo el CV…</span>
+      </div>
+      <div class="row">
+        <div class="col-md-6">{% include "_campo.html" with campo=documentos_form.cedula %}</div>
+        <div class="col-md-6">{% include "_campo.html" with campo=documentos_form.titulo_bachiller %}</div>
+      </div>
+    </div>
+  </section>
 
   <section class="card mb-4">
     <div class="card-body">
@@ -66,9 +82,40 @@
     </div>
   </section>
 
+  <p class="small text-body-secondary text-end mb-2">
+    <i class="bi bi-person-badge me-1" aria-hidden="true"></i>Al guardar se crea automáticamente su usuario y su código de acceso.
+  </p>
   <div class="d-flex gap-2 justify-content-end">
     <a href="{% url 'personal:empleado_lista' %}" class="btn btn-outline-secondary">Cancelar</a>
     <button type="submit" class="btn btn-primary">Guardar empleado</button>
   </div>
 </form>
+
+<script>
+  // Llena el formulario con los datos que el servidor encontró en el CV (evento HX-Trigger "cvLeido").
+  // Solo toca campos vacíos o que ya venían de un CV anterior: nunca pisa lo que el usuario escribió.
+  document.body.addEventListener("cvLeido", function (evento) {
+    const form = document.getElementById("formulario-empleado");
+    const campos = (evento.detail && evento.detail.campos) || {};
+    Object.entries(campos).forEach(function ([nombre, valor]) {
+      const campo = form.elements[nombre];
+      if (!campo || !(campo.value === "" || campo.dataset.desdeCv === "1" || nombre === "tipo_identificacion")) return;
+      campo.value = valor;
+      campo.dataset.desdeCv = "1";
+      campo.classList.add("desde-cv");
+      campo.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    // Revalida la identificación con la verificación en vivo (duplicados, dígito verificador).
+    if (campos.identificacion && form.elements.identificacion) {
+      form.elements.identificacion.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+  });
+  // Si el usuario corrige un campo a mano, deja de considerarse "del CV".
+  document.getElementById("formulario-empleado").addEventListener("input", function (evento) {
+    if (evento.isTrusted && evento.target.dataset.desdeCv) {
+      delete evento.target.dataset.desdeCv;
+      evento.target.classList.remove("desde-cv");
+    }
+  });
+</script>
 {% endblock %}

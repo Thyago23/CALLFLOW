@@ -9,4 +9,8 @@ urlpatterns = [
     path("empleados/nuevo/", views.EmpleadoCrearView.as_view(), name="empleado_crear"),
     path("empleados/<int:pk>/", views.EmpleadoDetalleView.as_view(), name="empleado_detalle"),
     path("empleados/verificar-identificacion/", views.verificar_identificacion, name="verificar_identificacion"),
+    path("empleados/leer-cv/", views.leer_cv, name="leer_cv"),
+    path("empleados/<int:pk>/", views.EmpleadoDetalleView.as_view(), name="empleado_detalle"),
+    path("empleados/<int:pk>/crear-cuenta/", views.empleado_crear_cuenta, name="empleado_crear_cuenta"),
+    path("documentos/<int:pk>/", views.documento_ver, name="documento_ver"),
 ]

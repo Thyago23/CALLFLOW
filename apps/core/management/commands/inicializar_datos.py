@@ -23,6 +23,7 @@ CARGOS = ["Administrador", "Vendedor telefónico", "Encargado de cierre"]
 TIPOS_DOCUMENTO = [
     ("CEDULA", "Copia de cédula", True),
     ("HOJA_VIDA", "Hoja de vida", True),
+    ("TITULO_BACHILLER", "Título de bachiller", True),
     ("CERT_ESTUDIOS", "Certificado de estudios", False),
     ("CERT_LABORAL", "Certificado laboral", False),
     ("CONTRATO", "Contrato de trabajo", False),
