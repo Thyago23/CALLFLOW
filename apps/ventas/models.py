@@ -67,6 +67,10 @@ class SolicitudBase(ModeloBase):
             models.CheckConstraint(
                 condition=Q(estado="PENDIENTE") | Q(atendida_en__isnull=False), name="solicitud_base_atendida_con_fecha"
             ),
+            models.UniqueConstraint(
+                fields=["vendedor"], condition=Q(estado="PENDIENTE"), name="solicitud_base_una_pendiente",
+                violation_error_message="Ya tiene una solicitud de base pendiente.",
+            ),
         ]
 
 
@@ -155,7 +159,7 @@ class FormularioDAMI(ModeloBase):
         constraints = [
             models.CheckConstraint(condition=Q(estado__in=["BORRADOR", "ENVIADO", "EN_GESTION", "VENTA_CERRADA", "NO_CONCRETADA", "ANULADO"]), name="dami_estado_valido"),
             models.CheckConstraint(
-                condition=Q(estado="BORRADOR") | Q(enviado_en__isnull=False), name="dami_enviado_con_fecha"
+                condition=Q(estado__in=["BORRADOR", "ANULADO"]) | Q(enviado_en__isnull=False), name="dami_enviado_con_fecha"
             ),
             models.CheckConstraint(
                 condition=Q(encargado_asignado__isnull=True) | Q(asignado_en__isnull=False), name="dami_asignado_con_fecha"

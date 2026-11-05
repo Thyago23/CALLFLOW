@@ -1,0 +1,14 @@
+{% if estado == "existe" %}
+<div class="small text-success-emphasis">
+  <i class="bi bi-person-check me-1" aria-hidden="true"></i>Cliente ya registrado: <strong>{{ cliente }}</strong>. Se cargaron sus datos; corrija lo que haya cambiado.
+</div>
+{% for f in en_curso %}
+<div class="small text-warning-emphasis mt-1">
+  <i class="bi bi-exclamation-triangle me-1" aria-hidden="true"></i>Ya tiene el {{ f }} en curso ({{ f.get_estado_display|lower }}) con {{ f.vendedor }}. Evite gestionarlo dos veces.
+</div>
+{% endfor %}
+{% elif estado == "nuevo" %}
+<div class="small text-body-secondary"><i class="bi bi-person-plus me-1" aria-hidden="true"></i>Cliente nuevo: se registrará al guardar.</div>
+{% elif estado == "invalida" %}
+<div class="small text-warning-emphasis">{{ mensaje }}</div>
+{% endif %}

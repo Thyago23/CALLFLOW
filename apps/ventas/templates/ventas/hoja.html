@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% load humanize_cf %}
+{% block titulo %}Hoja de producción · Ventas{% endblock %}
+{% block contenido %}
+{% include "ventas/_subnav.html" with seccion="hoja" %}
+
+<div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+  <a class="btn btn-outline-secondary btn-sm" href="?mes={{ anterior }}" aria-label="Mes anterior"><i class="bi bi-chevron-left" aria-hidden="true"></i></a>
+  {% if siguiente %}<a class="btn btn-outline-secondary btn-sm" href="?mes={{ siguiente }}" aria-label="Mes siguiente"><i class="bi bi-chevron-right" aria-hidden="true"></i></a>{% endif %}
+  <h2 class="h5 mb-0 ms-1 fecha-hoy">{{ mes_actual|date:"F Y" }}</h2>
+  <span class="small text-body-secondary ms-2">Las filas se crean solas al enviar un DAMI y se actualizan cuando se cierra.</span>
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-6 col-lg"><div class="card resumen-dia h-100"><div class="card-body"><div class="valor">{{ totales.enviados }}</div><div class="small text-body-secondary">Enviados</div></div></div></div>
+  <div class="col-6 col-lg"><div class="card resumen-dia h-100"><div class="card-body"><div class="valor text-success">{{ totales.cerradas }}</div><div class="small text-body-secondary">Ventas cerradas</div></div></div></div>
+  <div class="col-6 col-lg"><div class="card resumen-dia h-100"><div class="card-body"><div class="valor text-danger">{{ totales.no_concretadas }}</div><div class="small text-body-secondary">No concretadas</div></div></div></div>
+  <div class="col-6 col-lg"><div class="card resumen-dia h-100"><div class="card-body"><div class="valor text-warning-emphasis">{{ totales.pendientes }}</div><div class="small text-body-secondary">Pendientes</div></div></div></div>
+  <div class="col-12 col-lg"><div class="card resumen-dia h-100"><div class="card-body"><div class="valor">${{ totales.total_vendido|dinero }}</div><div class="small text-body-secondary">Total vendido</div></div></div></div>
+</div>
+
+<div class="card">
+  {% if registros %}
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead>
+        <tr><th scope="col">Fecha</th><th scope="col">Formulario</th><th scope="col">Cliente</th><th scope="col" class="d-none d-md-table-cell">Producto</th><th scope="col">Estado</th><th scope="col" class="text-end">Valor</th></tr>
+      </thead>
+      <tbody>
+        {% for r in registros %}
+        <tr class="{% if r.estado == 'ANULADO' %}text-body-secondary{% endif %}">
+          <td class="text-nowrap">{{ r.fecha|date:"D d/m" }}</td>
+          <td><a class="text-reset fw-semibold" href="{% url 'ventas:formulario_detalle' r.formulario_id %}">{{ r.formulario }}</a></td>
+          <td>{{ r.formulario.cliente }}</td>
+          <td class="d-none d-md-table-cell">{{ r.formulario.producto }}</td>
+          <td><span class="badge estado-dami estado-{{ r.estado|lower }}">{{ r.get_estado_display }}</span></td>
+          <td class="text-end text-nowrap">{% if r.valor_venta %}${{ r.valor_venta|dinero }}{% else %}—{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot>
+        <tr class="fw-semibold"><td colspan="5" class="text-end">Total vendido</td><td class="text-end text-nowrap">${{ totales.total_vendido|dinero }}</td></tr>
+      </tfoot>
+    </table>
+  </div>
+  {% else %}
+  <div class="card-body text-center text-body-secondary py-5">Sin formularios enviados este mes.</div>
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block titulo %}Bases comerciales · Ventas{% endblock %}
+{% block contenido %}
+{% include "ventas/_subnav.html" with seccion="bases" %}
+<div class="row g-4">
+  <div class="col-lg-5">
+    <section class="card mb-4">
+      <div class="card-header bg-body"><h2 class="h6 mb-0">Solicitar una nueva base</h2></div>
+      <div class="card-body">
+        {% if pendiente %}
+        <p class="mb-0 small"><i class="bi bi-hourglass-split me-1" aria-hidden="true"></i>Ya tiene una solicitud pendiente. Le avisaremos cuando un encargado la responda.</p>
+        {% else %}
+        <form method="post" novalidate>
+          {% csrf_token %}
+          {% include "_campo.html" with campo=form.mensaje %}
+          <button type="submit" class="btn btn-primary w-100"><i class="bi bi-send me-1" aria-hidden="true"></i>Solicitar base</button>
+          <p class="form-text mb-0 mt-2">Los encargados de cierre y los administradores recibirán una notificación.</p>
+        </form>
+        {% endif %}
+      </div>
+    </section>
+    <section class="card">
+      <div class="card-header bg-body"><h2 class="h6 mb-0">Mis bases asignadas</h2></div>
+      <ul class="list-group list-group-flush">
+        {% for b in bases %}
+        <li class="list-group-item"><div class="fw-semibold">{{ b.nombre }}</div><div class="small text-body-secondary">{{ b.total_registros }} registros{% if b.descripcion %} · {{ b.descripcion }}{% endif %}</div></li>
+        {% empty %}
+        <li class="list-group-item small text-body-secondary py-3">Todavía no tiene bases asignadas.</li>
+        {% endfor %}
+      </ul>
+    </section>
+  </div>
+  <div class="col-lg-7">
+    <section class="card">
+      <div class="card-header bg-body"><h2 class="h6 mb-0">Mis solicitudes</h2></div>
+      {% if solicitudes %}
+      <ul class="list-group list-group-flush">
+        {% for s in solicitudes %}
+        <li class="list-group-item">
+          <div class="d-flex justify-content-between gap-2">
+            <span class="small text-body-secondary">{{ s.creado_en|date:"d/m/Y H:i" }}</span>
+            <span class="badge estado-solicitud estado-{{ s.estado|lower }}">{{ s.get_estado_display }}</span>
+          </div>
+          {% if s.mensaje %}<div class="small mt-1">{{ s.mensaje }}</div>{% endif %}
+          {% if s.base_asignada %}<div class="small mt-1 text-success-emphasis"><i class="bi bi-database-check me-1" aria-hidden="true"></i>Base asignada: <strong>{{ s.base_asignada }}</strong></div>{% endif %}
+          {% if s.respuesta %}<div class="small mt-1 text-body-secondary">Respuesta: {{ s.respuesta }}</div>{% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="card-body small text-body-secondary mb-0">Aún no ha hecho solicitudes.</p>
+      {% endif %}
+    </section>
+  </div>
+</div>
+{% endblock %}

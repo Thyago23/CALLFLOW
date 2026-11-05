@@ -1,0 +1,298 @@
+import json
+from datetime import date
+
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required, permission_required
+from django.core.exceptions import PermissionDenied, ValidationError
+from django.db.models import Q
+from django.http import HttpResponse
+from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
+from django.utils.dateparse import parse_date
+from django.views.decorators.http import require_POST
+
+from apps.core import validadores
+
+from . import servicios
+from .forms import AsignarBaseForm, BaseComercialForm, FormularioDAMIForm, SolicitudBaseForm
+from .models import AsignacionBase, BaseComercial, FormularioDAMI, SolicitudBase
+
+Estado = FormularioDAMI.Estado
+
+
+def _es_htmx(request) -> bool:
+    return request.headers.get("HX-Request") == "true"
+
+
+def _solo_vendedores(request):
+    if not servicios.es_vendedor(request.user):
+        raise PermissionDenied("Esta sección es para vendedores con ficha de empleado.")
+    return servicios.empleado_de(request.user)
+
+
+# --------------------------------------------------------------------------- inicio del módulo / panel (SCRUM-45)
+@login_required
+@permission_required("ventas.view_formulariodami", raise_exception=True)
+def inicio(request):
+    if not servicios.es_vendedor(request.user):
+        return redirect("ventas:formularios")
+    empleado = servicios.empleado_de(request.user)
+    hoy = timezone.localdate()
+    return render(request, "ventas/panel.html", {
+        "panel": servicios.panel_vendedor(empleado, hoy),
+        "hoy": hoy,
+        "recientes": servicios.formularios_visibles(request.user).order_by("-actualizado_en")[:6],
+    })
+
+
+# --------------------------------------------------------------------------- formularios DAMI (SCRUM-38 a 42)
+@login_required
+@permission_required("ventas.view_formulariodami", raise_exception=True)
+def formularios(request):
+    qs = servicios.formularios_visibles(request.user).order_by("-actualizado_en")
+    texto = request.GET.get("q", "").strip()
+    if texto:
+        ident = validadores.normalizar_identificacion(texto)
+        filtro = Q(cliente__identificacion__icontains=ident) | Q(producto__icontains=texto)
+        for palabra in texto.split():
+            filtro |= Q(cliente__nombres__icontains=palabra) | Q(cliente__apellidos__icontains=palabra)
+        if texto.upper().startswith("DAMI-") and texto[5:].isdigit():
+            filtro |= Q(pk=int(texto[5:]))
+        qs = qs.filter(filtro)
+    estado = request.GET.get("estado", "")
+    if estado in Estado.values:
+        qs = qs.filter(estado=estado)
+    desde, hasta = parse_date(request.GET.get("desde") or ""), parse_date(request.GET.get("hasta") or "")
+    if desde:
+        qs = qs.filter(creado_en__date__gte=desde)
+    if hasta:
+        qs = qs.filter(creado_en__date__lte=hasta)
+    contexto = {"formularios": qs[:300], "q": texto, "estado": estado, "estados": Estado.choices,
+                "desde": desde, "hasta": hasta, "es_vendedor": servicios.es_vendedor(request.user)}
+    plantilla = "ventas/_formularios_tabla.html" if _es_htmx(request) else "ventas/formularios.html"
+    return render(request, plantilla, contexto)
+
+
+def _form_dami(request, data=None, **kwargs):
+    empleado = servicios.empleado_de(request.user)
+    return FormularioDAMIForm(data, bases=servicios.bases_del_vendedor(empleado), **kwargs)
+
+
+def _guardar(request, form, formulario=None):
+    enviar = "enviar" in request.POST
+    try:
+        f = servicios.guardar_formulario(request.user, form.cleaned_data, formulario, enviar=enviar)
+    except ValidationError as error:
+        form.add_error("producto" if "producto" in " ".join(error.messages) else None, error)
+        return None
+    if enviar:
+        messages.success(request, f"{f} enviado a los encargados de cierre. Se agregó a su hoja de producción.")
+    else:
+        messages.success(request, f"{f} guardado como borrador.")
+    return redirect("ventas:formulario_detalle", pk=f.pk)
+
+
+@login_required
+@permission_required("ventas.add_formulariodami", raise_exception=True)
+def formulario_nuevo(request):
+    _solo_vendedores(request)
+    form = _form_dami(request, request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        respuesta = _guardar(request, form)
+        if respuesta:
+            return respuesta
+    return render(request, "ventas/formulario_form.html", {"form": form, "nuevo": True})
+
+
+@login_required
+@permission_required("ventas.change_formulariodami", raise_exception=True)
+def formulario_editar(request, pk):
+    formulario = get_object_or_404(servicios.formularios_visibles(request.user), pk=pk)
+    if not servicios.formulario_editable(request.user, formulario):
+        messages.error(request, "Este formulario ya fue enviado o finalizado y no se puede modificar.")
+        return redirect("ventas:formulario_detalle", pk=pk)
+    if request.method == "POST":
+        form = _form_dami(request, request.POST)
+        if form.is_valid():
+            respuesta = _guardar(request, form, formulario)
+            if respuesta:
+                return respuesta
+    else:
+        form = FormularioDAMIForm.desde_formulario(formulario, bases=servicios.bases_del_vendedor(formulario.vendedor))
+    return render(request, "ventas/formulario_form.html", {"form": form, "nuevo": False, "formulario": formulario})
+
+
+@login_required
+@permission_required("ventas.view_formulariodami", raise_exception=True)
+def formulario_detalle(request, pk):
+    formulario = get_object_or_404(servicios.formularios_visibles(request.user), pk=pk)
+    return render(request, "ventas/formulario_detalle.html", {
+        "f": formulario,
+        "historial": _historial(formulario),
+        "registro": getattr(formulario, "registro_produccion", None),
+        "editable": servicios.formulario_editable(request.user, formulario),
+        "otros_en_curso": servicios.dami_en_curso(formulario.cliente, excluir=formulario),
+    })
+
+
+def _historial(formulario):
+    from apps.core.models import Usuario
+
+    filas = list(formulario.historial.order_by("fecha", "pk"))
+    nombres = {u.pk: u.get_full_name() or u.username for u in Usuario.objects.filter(pk__in={h.usuario_id for h in filas})}
+    etiquetas = dict(Estado.choices)
+    return [{"estado": h.estado_nuevo, "texto": etiquetas.get(h.estado_nuevo, h.estado_nuevo), "fecha": h.fecha,
+             "usuario": nombres.get(h.usuario_id, "Sistema")} for h in filas]
+
+
+@login_required
+@permission_required("ventas.change_formulariodami", raise_exception=True)
+@require_POST
+def formulario_accion(request, pk):
+    formulario = get_object_or_404(servicios.formularios_visibles(request.user), pk=pk)
+    accion = request.POST.get("accion")
+    try:
+        if accion == "enviar":
+            servicios.enviar_formulario(request.user, formulario)
+            messages.success(request, f"{formulario} enviado a los encargados de cierre.")
+        elif accion == "anular":
+            servicios.anular_formulario(request.user, formulario)
+            messages.success(request, f"{formulario} anulado.")
+        else:
+            messages.error(request, "Acción no válida.")
+    except ValidationError as error:
+        messages.error(request, " ".join(error.messages))
+    return redirect("ventas:formulario_detalle", pk=pk)
+
+
+@login_required
+@permission_required("ventas.add_formulariodami", raise_exception=True)
+def buscar_cliente(request):
+    """HTMX (SCRUM-39): si el cliente ya existe, avisa y llena sus datos en el formulario."""
+    tipo = request.GET.get("tipo_identificacion", "")
+    identificacion = validadores.normalizar_identificacion(request.GET.get("identificacion", ""))
+    contexto, campos = {}, None
+    if identificacion:
+        try:
+            validadores.validar_identificacion(tipo, identificacion)
+        except ValidationError as error:
+            contexto = {"estado": "invalida", "mensaje": " ".join(error.messages)}
+        else:
+            cliente = servicios.buscar_cliente(tipo, identificacion)
+            if cliente:
+                contexto = {"estado": "existe", "cliente": cliente, "en_curso": servicios.dami_en_curso(cliente)}
+                campos = {k: getattr(cliente, k) for k in
+                          ("nombres", "apellidos", "telefono", "telefono_alterno", "email", "ciudad", "direccion")}
+            else:
+                contexto = {"estado": "nuevo"}
+    respuesta = render(request, "ventas/_cliente_estado.html", contexto)
+    if campos:
+        respuesta["HX-Trigger"] = json.dumps({"clienteEncontrado": {"campos": campos}})
+    return respuesta
+
+
+# --------------------------------------------------------------------------- hoja de producción (SCRUM-43, 44)
+@login_required
+@permission_required("ventas.view_hojaproduccion", raise_exception=True)
+def hoja(request):
+    empleado = _solo_vendedores(request)
+    hoy = timezone.localdate()
+    try:
+        anio, mes = (int(x) for x in request.GET.get("mes", "").split("-"))
+        date(anio, mes, 1)
+    except ValueError:
+        anio, mes = hoy.year, hoy.month
+    anterior = (anio - 1, 12) if mes == 1 else (anio, mes - 1)
+    siguiente = (anio + 1, 1) if mes == 12 else (anio, mes + 1)
+    return render(request, "ventas/hoja.html", servicios.hoja_del_mes(empleado, anio, mes) | {
+        "mes_actual": date(anio, mes, 1),
+        "anterior": f"{anterior[0]}-{anterior[1]:02d}",
+        "siguiente": f"{siguiente[0]}-{siguiente[1]:02d}" if date(*siguiente, 1) <= hoy.replace(day=1) else None,
+    })
+
+
+# --------------------------------------------------------------------------- bases comerciales (SCRUM-46, 47)
+@login_required
+@permission_required("ventas.view_basecomercial", raise_exception=True)
+def bases(request):
+    if servicios.es_vendedor(request.user):
+        return _bases_vendedor(request)
+    if not request.user.has_perm("ventas.change_solicitudbase"):
+        raise PermissionDenied
+    return _bases_gestion(request)
+
+
+def _bases_vendedor(request):
+    empleado = servicios.empleado_de(request.user)
+    form = SolicitudBaseForm(request.POST or None)
+    if request.method == "POST":
+        if not request.user.has_perm("ventas.add_solicitudbase") or {"crear_base", "asignar"} & set(request.POST):
+            raise PermissionDenied
+        if form.is_valid():
+            try:
+                servicios.solicitar_base(request.user, form.cleaned_data["mensaje"])
+            except ValidationError as error:
+                messages.error(request, " ".join(error.messages))
+            else:
+                messages.success(request, "Solicitud enviada. Los encargados ya fueron notificados.")
+            return redirect("ventas:bases")
+    return render(request, "ventas/bases_vendedor.html", {
+        "form": form,
+        "bases": servicios.bases_del_vendedor(empleado),
+        "solicitudes": SolicitudBase.objects.filter(vendedor=empleado).select_related("base_asignada").order_by("-creado_en")[:20],
+        "pendiente": SolicitudBase.objects.filter(vendedor=empleado, estado=SolicitudBase.Estado.PENDIENTE).exists(),
+    })
+
+
+def _bases_gestion(request):
+    form_base = BaseComercialForm(prefix="b")
+    form_asignar = AsignarBaseForm(prefix="a")
+    if request.method == "POST":
+        if "crear_base" in request.POST and request.user.has_perm("ventas.add_basecomercial"):
+            form_base = BaseComercialForm(request.POST, prefix="b")
+            if form_base.is_valid():
+                base = form_base.save(commit=False)
+                base.cargada_por = request.user
+                base.save()
+                messages.success(request, f"Base «{base.nombre}» registrada.")
+                return redirect("ventas:bases")
+        elif "asignar" in request.POST and request.user.has_perm("ventas.add_asignacionbase"):
+            form_asignar = AsignarBaseForm(request.POST, prefix="a")
+            if form_asignar.is_valid():
+                total = servicios.asignar_base(form_asignar.cleaned_data["base"], list(form_asignar.cleaned_data["vendedores"]), request.user)
+                messages.success(request, f"Base asignada a {total} vendedor{'es' if total != 1 else ''}"
+                                 + (" (los demás ya la tenían)." if total < len(form_asignar.cleaned_data["vendedores"]) else "."))
+                return redirect("ventas:bases")
+        else:
+            raise PermissionDenied
+
+    return render(request, "ventas/bases_gestion.html", {
+        "pendientes": SolicitudBase.objects.filter(estado=SolicitudBase.Estado.PENDIENTE).select_related("vendedor").order_by("creado_en"),
+        "respondidas": SolicitudBase.objects.exclude(estado=SolicitudBase.Estado.PENDIENTE)
+                       .select_related("vendedor", "base_asignada", "atendida_por").order_by("-atendida_en")[:10],
+        "bases": BaseComercial.objects.order_by("-activa", "nombre"),
+        "bases_activas": BaseComercial.objects.filter(activa=True).order_by("nombre"),
+        "asignaciones": AsignacionBase.objects.select_related("base", "vendedor").order_by("vendedor__apellidos", "base__nombre"),
+        "form_base": form_base,
+        "form_asignar": form_asignar,
+    })
+
+
+@login_required
+@permission_required("ventas.change_solicitudbase", raise_exception=True)
+@require_POST
+def responder_solicitud(request, pk):
+    solicitud = get_object_or_404(SolicitudBase, pk=pk)
+    try:
+        if request.POST.get("accion") == "atender":
+            base = get_object_or_404(BaseComercial, pk=request.POST.get("base") or 0)
+            servicios.atender_solicitud(solicitud, base, request.user, request.POST.get("respuesta", ""))
+            messages.success(request, f"Se asignó «{base.nombre}» a {solicitud.vendedor}.")
+        elif request.POST.get("accion") == "rechazar":
+            servicios.rechazar_solicitud(solicitud, request.user, request.POST.get("respuesta", ""))
+            messages.success(request, f"Se rechazó la solicitud de {solicitud.vendedor}.")
+        else:
+            messages.error(request, "Acción no válida.")
+    except ValidationError as error:
+        messages.error(request, " ".join(error.messages))
+    return redirect("ventas:bases")

@@ -522,3 +522,16 @@ input[type="checkbox"].form-check-input + .dia-check { margin-left: 0; }
 /* Días no laborables en la agenda */
 .celda-dia.no-laborable { background: repeating-linear-gradient(135deg, var(--bs-tertiary-bg), var(--bs-tertiary-bg) 6px, transparent 6px, transparent 12px); }
 .dia-semana-col.no-laborable .card-body { background: var(--bs-tertiary-bg); }
+
+/* ------------------------------------------------------------------ ventas */
+.estado-dami { font-weight: 600; }
+.estado-dami.estado-borrador { background: var(--bs-secondary-bg); color: var(--bs-secondary-color); }
+.estado-dami.estado-enviado, .estado-dami.estado-pendiente { background: #fff3cd; color: #664d03; }
+.estado-dami.estado-en_gestion { background: #cfe2ff; color: #052c65; }
+.estado-dami.estado-venta_cerrada { background: #d1e7dd; color: #0a3622; }
+.estado-dami.estado-no_concretada { background: #f8d7da; color: #58151c; }
+.estado-dami.estado-anulado { background: var(--bs-secondary-bg); color: var(--bs-secondary-color); text-decoration: line-through; }
+.estado-solicitud.estado-pendiente { background: #fff3cd; color: #664d03; }
+.estado-solicitud.estado-atendida { background: #d1e7dd; color: #0a3622; }
+.estado-solicitud.estado-rechazada { background: #f8d7da; color: #58151c; }
+.panel-meta .display-6 { font-size: 2.1rem; }

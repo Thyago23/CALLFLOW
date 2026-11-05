@@ -10,6 +10,7 @@ urlpatterns = [
     path("asistencia/", include("apps.asistencia.urls")),
     path("inventario/", include("apps.inventario.urls")),
     path("agenda/", include("apps.agenda.urls")),
+    path("ventas/", include("apps.ventas.urls")),
     path("documentos/", include("apps.documentos.urls")),
     path("admin/", admin.site.urls),
 ]

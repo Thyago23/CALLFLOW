@@ -55,14 +55,23 @@ TIPOS_REPORTE = [
     ("CIERRE_PANEL", "Panel comercial: ventas y metas", "CIERRE", ["anio", "mes", "vendedor"], [A, C]),
 ]
 
-# Permisos por rol, como "app_label": ["view", "add", ...]
+# Permisos por rol. Clave "app" = todas las tablas de la app; "app.modelo" = solo esa tabla.
+# Acciones: view, add, change, delete.
+_GESTION_BASES = {
+    "ventas.basecomercial": ["view", "add", "change"],
+    "ventas.asignacionbase": ["view", "add", "change"],
+    "ventas.solicitudbase": ["view", "change"],
+}
 PERMISOS_POR_ROL = {
     Rol.ADMINISTRADOR: {
         app: ["view", "add", "change", "delete"]
         for app in ["personal", "documentos", "asistencia", "inventario", "agenda", "nomina", "reportes", "core"]
-    } | {"ventas": ["view"], "cierre": ["view", "add", "change"]},
+    } | {"ventas": ["view"], "cierre": ["view", "add", "change"]} | _GESTION_BASES,
     Rol.VENDEDOR: {
-        "ventas": ["view", "add", "change"],
+        "ventas": ["view"],
+        "ventas.formulariodami": ["view", "add", "change"],
+        "ventas.cliente": ["view", "add", "change"],
+        "ventas.solicitudbase": ["view", "add"],
         "agenda": ["view", "add", "change", "delete"],
         "reportes": ["view"],
     },
@@ -71,7 +80,7 @@ PERMISOS_POR_ROL = {
         "cierre": ["view", "add", "change"],
         "agenda": ["view", "add", "change", "delete"],
         "reportes": ["view"],
-    },
+    } | _GESTION_BASES,
 }
 
 
@@ -107,10 +116,11 @@ class Command(BaseCommand):
         for rol, apps in PERMISOS_POR_ROL.items():
             grupo, _ = Group.objects.get_or_create(name=rol.label)
             permisos = Permission.objects.none()
-            for app, acciones in apps.items():
-                codenames = [p.codename for p in Permission.objects.filter(content_type__app_label=app)
-                             if p.codename.split("_", 1)[0] in acciones]
-                permisos = permisos | Permission.objects.filter(content_type__app_label=app, codename__in=codenames)
+            for clave, acciones in apps.items():
+                app, _, modelo = clave.partition(".")
+                filtro = {"content_type__app_label": app} | ({"content_type__model": modelo} if modelo else {})
+                codenames = [p.codename for p in Permission.objects.filter(**filtro) if p.codename.split("_", 1)[0] in acciones]
+                permisos = permisos | Permission.objects.filter(**filtro, codename__in=codenames)
             grupo.permissions.set(permisos.distinct())
 
         if options["verbosity"] > 0:

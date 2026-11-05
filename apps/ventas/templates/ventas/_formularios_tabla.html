@@ -1,0 +1,4 @@
+<div class="card">
+  {% include "ventas/_formularios_filas.html" %}
+</div>
+{% if formularios %}<p class="text-body-secondary small mt-2">{{ formularios|length }} formulario{{ formularios|length|pluralize }}.</p>{% endif %}
