@@ -46,7 +46,17 @@ def _sin_tildes(texto: str) -> str:
 
 
 def _lineas(texto: str) -> list[str]:
-    return [re.sub(r"\s+", " ", linea).strip() for linea in texto.splitlines() if linea.strip()]
+    """
+    Una entrada por línea. Las líneas con datos separados por '|' (formato de CV de la empresa:
+    'Quito, Ecuador | +593 99… | correo') se dividen para leer cada dato por separado.
+    """
+    lineas = []
+    for linea in texto.splitlines():
+        for parte in linea.split("|"):
+            parte = re.sub(r"\s+", " ", parte).strip()
+            if parte:
+                lineas.append(parte)
+    return lineas
 
 
 def _valor_de_etiqueta(lineas: list[str], etiquetas: tuple[str, ...]) -> str | None:
@@ -145,11 +155,21 @@ def extraer_fecha_nacimiento(lineas: list[str], hoy: date | None = None) -> date
     return None
 
 
+RE_CIUDAD_PAIS = re.compile(r"^[A-Za-zÁÉÍÓÚÜÑáéíóúüñ .'\-]{2,40},\s*[A-Za-zÁÉÍÓÚÜÑáéíóúüñ .'\-]{2,40}$")
+
+
 def extraer_direccion(lineas: list[str]) -> str | None:
-    valor = _valor_de_etiqueta(lineas, ("direccion domiciliaria", "direccion", "domicilio", "residencia"))
-    if not valor or RE_EMAIL.search(valor):
-        return None
-    return valor[:255]
+    """
+    1.º 'Dirección: …' (o domicilio / residencia).
+    2.º Sin etiqueta: la ubicación del encabezado de contacto ('Quito, Ecuador'), que al menos da la ciudad.
+    """
+    valor = _valor_de_etiqueta(lineas, ("direccion domiciliaria", "direccion", "domicilio", "residencia", "ubicacion"))
+    if valor and not RE_EMAIL.search(valor):
+        return valor[:255]
+    for linea in lineas[:8]:
+        if RE_CIUDAD_PAIS.match(linea) and not any(_sin_tildes(p) in NO_ES_NOMBRE for p in re.split(r"[\s,]+", linea)):
+            return linea
+    return None
 
 
 def _es_linea_de_nombre(linea: str) -> bool:
