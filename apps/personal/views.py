@@ -6,7 +6,8 @@ from django.db import IntegrityError, transaction
 from django.db.models import Q
 from django.shortcuts import render
 from django.urls import reverse
-from django.views.generic import CreateView, ListView
+from django.utils import timezone
+from django.views.generic import CreateView, DetailView, ListView
 
 from apps.core import validadores
 
@@ -50,6 +51,38 @@ class EmpleadoListaView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
         ctx["estado"] = self.request.GET.get("estado", "")
         ctx["estados"] = Empleado.Estado.choices
         ctx["resaltado"] = self.request.GET.get("nuevo", "")
+        return ctx
+
+
+class EmpleadoDetalleView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
+    """Ficha del empleado con su récord de asistencia (faltas, atrasos y justificaciones)."""
+
+    permission_required = "personal.view_empleado"
+    model = Empleado
+    template_name = "personal/empleado_detalle.html"
+    context_object_name = "empleado"
+
+    PERIODOS = [("mes", "Este mes"), ("anio", "Este año"), ("todo", "Desde el ingreso")]
+
+    def get_queryset(self):
+        return Empleado.objects.select_related("cargo", "usuario")
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        if self.request.user.has_perm("asistencia.view_novedadasistencia"):
+            from apps.asistencia.servicios import horario_de, resumen_empleado
+
+            hoy = timezone.localdate()
+            periodo = self.request.GET.get("periodo", "todo")
+            desde = {"mes": hoy.replace(day=1), "anio": hoy.replace(month=1, day=1)}.get(periodo)
+            if periodo not in dict(self.PERIODOS):
+                periodo = "todo"
+            ctx.update({
+                "asistencia": resumen_empleado(self.object, desde, hoy),
+                "periodo": periodo,
+                "periodos": self.PERIODOS,
+                "horario_actual": horario_de(self.object, hoy),
+            })
         return ctx
 
 

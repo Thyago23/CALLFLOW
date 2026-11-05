@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+{% block titulo %}{{ empleado.nombres }} {{ empleado.apellidos }}{% endblock %}
+{% block contenido %}
+<nav aria-label="Ruta" class="mb-2">
+  <ol class="breadcrumb small mb-0">
+    <li class="breadcrumb-item"><a href="{% url 'personal:empleado_lista' %}">Personal</a></li>
+    <li class="breadcrumb-item active" aria-current="page">{{ empleado.apellidos }} {{ empleado.nombres }}</li>
+  </ol>
+</nav>
+
+<div class="d-flex flex-wrap align-items-center gap-3 mb-4">
+  <span class="avatar avatar-grande" aria-hidden="true">{{ empleado.nombres|first|upper }}{{ empleado.apellidos|first|upper }}</span>
+  <div class="me-auto">
+    <h1 class="h3 mb-0">{{ empleado.nombres }} {{ empleado.apellidos }}</h1>
+    <div class="text-body-secondary">{{ empleado.cargo }} · <span class="badge estado-{{ empleado.estado|lower }}">{{ empleado.get_estado_display }}</span></div>
+  </div>
+</div>
+
+<div class="row g-4">
+  <div class="col-lg-4">
+    <section class="card ficha-empleado">
+      <div class="card-header bg-body"><h2 class="h6 mb-0">Datos</h2></div>
+      <dl class="card-body mb-0">
+        <dt>{{ empleado.get_tipo_identificacion_display }}</dt><dd>{{ empleado.identificacion }}</dd>
+        <dt>Teléfono</dt><dd>{{ empleado.telefono|default:"—" }}</dd>
+        <dt>Correo</dt><dd>{{ empleado.email|default:"—" }}</dd>
+        <dt>Dirección</dt><dd>{{ empleado.direccion|default:"—" }}</dd>
+        <dt>Fecha de ingreso</dt><dd>{{ empleado.fecha_ingreso|date:"d/m/Y" }}</dd>
+        <dt>Contrato</dt><dd>{{ empleado.get_tipo_contrato_display }}</dd>
+        {% if horario_actual is not None %}<dt>Horario</dt><dd>{{ horario_actual.nombre }} ({{ horario_actual.hora_entrada|time:"H:i" }}–{{ horario_actual.hora_salida|time:"H:i" }})</dd>{% endif %}
+        <dt>Usuario del sistema</dt><dd>{% if empleado.usuario %}<span class="codigo-chip">{{ empleado.usuario.username }}</span>{% else %}Sin cuenta{% endif %}</dd>
+      </dl>
+    </section>
+  </div>
+
+  <div class="col-lg-8">
+    {% if asistencia %}
+    <section aria-labelledby="titulo-asistencia">
+      <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <h2 class="h5 mb-0" id="titulo-asistencia">Récord de asistencia</h2>
+        <div class="btn-group btn-group-sm" role="group" aria-label="Periodo">
+          {% for valor, texto in periodos %}
+          <a href="?periodo={{ valor }}" class="btn {% if valor == periodo %}btn-primary{% else %}btn-outline-primary{% endif %}" {% if valor == periodo %}aria-current="true"{% endif %}>{{ texto }}</a>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="row g-3 mb-3">
+        <div class="col-md-6">
+          <div class="card record h-100">
+            <div class="card-body">
+              <div class="d-flex justify-content-between align-items-start">
+                <div>
+                  <div class="small text-body-secondary">Faltas</div>
+                  <div class="numero text-danger">{{ asistencia.faltas.total }}</div>
+                </div>
+                <span class="icono-record falta" aria-hidden="true"><i class="bi bi-person-x"></i></span>
+              </div>
+              <ul class="list-unstyled small mb-0 mt-2 desglose">
+                <li><span class="punto justificada"></span>Justificadas <strong>{{ asistencia.faltas.justificadas }}</strong></li>
+                <li><span class="punto no-justificada"></span>No justificadas <strong>{{ asistencia.faltas.no_justificadas }}</strong></li>
+                <li><span class="punto pendiente"></span>Por revisar <strong>{{ asistencia.faltas.pendientes }}</strong></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="card record h-100">
+            <div class="card-body">
+              <div class="d-flex justify-content-between align-items-start">
+                <div>
+                  <div class="small text-body-secondary">Llegadas tarde (atrasos)</div>
+                  <div class="numero text-warning-emphasis">{{ asistencia.atrasos.total }}</div>
+                </div>
+                <span class="icono-record atraso" aria-hidden="true"><i class="bi bi-alarm"></i></span>
+              </div>
+              <ul class="list-unstyled small mb-0 mt-2 desglose">
+                <li><span class="punto justificada"></span>Justificados <strong>{{ asistencia.atrasos.justificadas }}</strong></li>
+                <li><span class="punto no-justificada"></span>No justificados <strong>{{ asistencia.atrasos.no_justificadas }}</strong></li>
+                <li><span class="punto pendiente"></span>Por revisar <strong>{{ asistencia.atrasos.pendientes }}</strong></li>
+              </ul>
+              <div class="small text-body-secondary mt-2">Tiempo total de atraso: <strong>{{ asistencia.atrasos.minutos }} min</strong></div>
+            </div>
+          </div>
+        </div>
+        <div class="col-6">
+          <div class="card record"><div class="card-body py-2"><span class="small text-body-secondary">Días asistidos</span> <strong class="ms-1">{{ asistencia.dias_asistidos }}</strong></div></div>
+        </div>
+        <div class="col-6">
+          <div class="card record"><div class="card-body py-2"><span class="small text-body-secondary">Salidas anticipadas</span> <strong class="ms-1">{{ asistencia.salidas.total }}</strong></div></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header bg-body d-flex justify-content-between align-items-center">
+          <h3 class="h6 mb-0">Detalle de faltas y atrasos</h3>
+          {% if perms.asistencia.view_registroasistencia %}<a class="small" href="{% url 'asistencia:historial' %}?empleado={{ empleado.pk }}">Ver historial completo</a>{% endif %}
+        </div>
+        {% if asistencia.novedades %}
+        <div class="table-responsive">
+          <table class="table align-middle mb-0">
+            <thead>
+              <tr><th scope="col">Fecha</th><th scope="col">Tipo</th><th scope="col">Estado</th><th scope="col">Motivo y respaldo</th></tr>
+            </thead>
+            <tbody>
+              {% for n in asistencia.novedades %}
+              <tr>
+                <td class="text-nowrap">{{ n.fecha|date:"D d/m/Y" }}</td>
+                <td><span class="tipo-novedad tipo-{{ n.tipo|lower }}">{{ n.get_tipo_display }}</span>{% if n.minutos %}<br><span class="small text-body-secondary">{{ n.minutos }} min</span>{% endif %}</td>
+                <td><span class="badge estado-novedad estado-{{ n.estado|lower }}">{{ n.get_estado_display }}</span></td>
+                <td class="small">
+                  {{ n.motivo|default:"" }}
+                  {% if n.soporte %}<div><a href="{% url 'documentos:ver' n.soporte.pk %}" target="_blank" rel="noopener"><i class="bi bi-paperclip" aria-hidden="true"></i> {{ n.soporte.nombre_original }}</a></div>{% endif %}
+                  {% if n.estado == 'PENDIENTE' and perms.asistencia.change_novedadasistencia %}<a href="{% url 'asistencia:novedades' %}#novedad-{{ n.pk }}">Clasificar</a>{% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <p class="card-body text-body-secondary mb-0">Sin faltas ni atrasos en este periodo.</p>
+        {% endif %}
+      </div>
+    </section>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

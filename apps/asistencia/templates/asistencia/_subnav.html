@@ -1,0 +1,12 @@
+<div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
+  <div>
+    <h1 class="h3 mb-0">Asistencia</h1>
+    <p class="text-body-secondary small mb-0">Entradas, salidas, atrasos y ausencias del personal.</p>
+  </div>
+</div>
+<ul class="nav nav-underline mb-4 subnav-modulo">
+  <li class="nav-item"><a class="nav-link {% if seccion == 'tablero' %}active{% endif %}" href="{% url 'asistencia:tablero' %}"><i class="bi bi-calendar-day me-1" aria-hidden="true"></i>Día</a></li>
+  <li class="nav-item"><a class="nav-link {% if seccion == 'novedades' %}active{% endif %}" href="{% url 'asistencia:novedades' %}"><i class="bi bi-exclamation-diamond me-1" aria-hidden="true"></i>Novedades{% if novedades_pendientes %} <span class="badge rounded-pill bg-danger">{{ novedades_pendientes }}</span>{% endif %}</a></li>
+  <li class="nav-item"><a class="nav-link {% if seccion == 'historial' %}active{% endif %}" href="{% url 'asistencia:historial' %}"><i class="bi bi-clock-history me-1" aria-hidden="true"></i>Historial</a></li>
+  <li class="nav-item"><a class="nav-link {% if seccion == 'horarios' %}active{% endif %}" href="{% url 'asistencia:horarios' %}"><i class="bi bi-calendar-week me-1" aria-hidden="true"></i>Horarios</a></li>
+</ul>

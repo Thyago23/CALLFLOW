@@ -123,6 +123,10 @@ class NovedadAsistencia(ModeloBase):
             models.CheckConstraint(
                 condition=Q(estado="PENDIENTE") | Q(revisada_en__isnull=False), name="nov_asistencia_revision_con_fecha"
             ),
+            models.CheckConstraint(
+                condition=~Q(estado="JUSTIFICADA") | Q(soporte__isnull=False),
+                name="nov_asistencia_justificada_con_soporte",
+            ),
         ]
 
     def __str__(self):

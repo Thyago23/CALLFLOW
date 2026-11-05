@@ -1,0 +1,11 @@
+{% if novedades %}
+<div class="d-grid gap-2">
+  {% for n in novedades %}
+    {% include "asistencia/_novedad.html" %}
+  {% endfor %}
+</div>
+{% else %}
+<div class="text-center text-body-secondary py-5">
+  {% if estado == 'PENDIENTE' %}<i class="bi bi-check2-circle fs-2 d-block mb-2" aria-hidden="true"></i>No hay novedades pendientes de revisión.{% else %}No hay novedades con esos filtros.{% endif %}
+</div>
+{% endif %}

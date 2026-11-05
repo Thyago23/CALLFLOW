@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block titulo %}Novedades · Asistencia{% endblock %}
+{% block contenido %}
+{% include "asistencia/_subnav.html" with seccion="novedades" %}
+{% include "asistencia/_mensajes.html" %}
+<form class="row g-2 mb-3" hx-get="{% url 'asistencia:novedades' %}" hx-target="#lista-novedades" hx-trigger="change" hx-push-url="true">
+  <div class="col-sm-6 col-md-4">
+    <label class="form-label small mb-1" for="filtro-estado">Estado</label>
+    <select id="filtro-estado" name="estado" class="form-select">
+      <option value="TODAS" {% if estado == 'TODAS' %}selected{% endif %}>Todas</option>
+      {% for valor, texto in estados %}<option value="{{ valor }}" {% if valor == estado %}selected{% endif %}>{{ texto }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="col-sm-6 col-md-4">
+    <label class="form-label small mb-1" for="filtro-tipo">Tipo</label>
+    <select id="filtro-tipo" name="tipo" class="form-select">
+      <option value="">Todos los tipos</option>
+      {% for valor, texto in tipos %}<option value="{{ valor }}" {% if valor == tipo %}selected{% endif %}>{{ texto }}</option>{% endfor %}
+    </select>
+  </div>
+</form>
+<div id="lista-novedades">
+  {% include "asistencia/_novedades_lista.html" %}
+</div>
+{% endblock %}

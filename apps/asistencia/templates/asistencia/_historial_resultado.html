@@ -1,0 +1,53 @@
+{% load asistencia_extras %}
+<p class="small text-body-secondary mb-2">
+  {% if empleado %}{{ empleado.apellidos }} {{ empleado.nombres }}{% else %}Todo el personal{% endif %}
+  · del {{ desde|date:"d/m/Y" }} al {{ hasta|date:"d/m/Y" }}
+</p>
+<div class="row g-3 mb-3">
+  <div class="col-6 col-lg"><div class="card resumen-dia"><div class="card-body"><div class="valor">{{ resumen.dias_trabajados }}</div><div class="small text-body-secondary">Días con asistencia</div></div></div></div>
+  <div class="col-6 col-lg"><div class="card resumen-dia"><div class="card-body"><div class="valor">{{ resumen.horas|duracion }}</div><div class="small text-body-secondary">Horas trabajadas</div></div></div></div>
+  <div class="col-6 col-lg"><div class="card resumen-dia"><div class="card-body"><div class="valor text-warning-emphasis">{{ resumen.atrasos }}</div><div class="small text-body-secondary">Atrasos · {{ resumen.minutos_atraso|minutos_a_texto }}</div></div></div></div>
+  <div class="col-6 col-lg"><div class="card resumen-dia"><div class="card-body"><div class="valor text-danger">{{ resumen.ausencias }}</div><div class="small text-body-secondary">Ausencias · {{ resumen.ausencias_justificadas }} just. / {{ resumen.ausencias_no_justificadas }} no just.</div></div></div></div>
+  <div class="col-12 col-lg"><div class="card resumen-dia"><div class="card-body"><div class="valor">{{ resumen.pendientes }}</div><div class="small text-body-secondary">Novedades por revisar</div></div></div></div>
+</div>
+
+{% if filas %}
+<div class="card">
+  <div class="table-responsive">
+    <table class="table align-middle mb-0">
+      <thead>
+        <tr>
+          <th scope="col">Fecha</th>
+          {% if not empleado %}<th scope="col">Empleado</th>{% endif %}
+          <th scope="col">Entrada</th>
+          <th scope="col">Salida</th>
+          <th scope="col" class="d-none d-sm-table-cell">Horas</th>
+          <th scope="col">Novedades</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for f in filas %}
+        <tr>
+          <td class="text-nowrap">{{ f.fecha|date:"D d/m/Y" }}</td>
+          {% if not empleado %}<td>{% if perms.personal.view_empleado %}<a class="text-reset" href="{% url 'personal:empleado_detalle' f.empleado.pk %}">{{ f.empleado.apellidos }} {{ f.empleado.nombres }}</a>{% else %}{{ f.empleado.apellidos }} {{ f.empleado.nombres }}{% endif %}</td>{% endif %}
+          <td>{% if f.registro %}{{ f.registro.entrada|time:"H:i" }}{% else %}—{% endif %}</td>
+          <td>{% if f.registro.salida %}{{ f.registro.salida|time:"H:i" }}{% else %}—{% endif %}</td>
+          <td class="d-none d-sm-table-cell">{{ f.horas|duracion }}</td>
+          <td>
+            {% for n in f.novedades %}
+            <span class="badge estado-novedad estado-{{ n.estado|lower }} me-1" title="{{ n.get_estado_display }}{% if n.motivo %}: {{ n.motivo }}{% endif %}">
+              {{ n.get_tipo_display }}{% if n.minutos %} {{ n.minutos }} min{% endif %} · {{ n.get_estado_display }}
+            </span>
+            {% if n.soporte %}<a href="{% url 'documentos:ver' n.soporte.pk %}" target="_blank" rel="noopener" title="Ver soporte"><i class="bi bi-paperclip" aria-hidden="true"></i><span class="visually-hidden">Ver soporte</span></a>{% endif %}
+            {% empty %}<span class="text-body-secondary small">—</span>
+            {% endfor %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% else %}
+<div class="text-center text-body-secondary py-5">No hay registros de asistencia en ese periodo.</div>
+{% endif %}

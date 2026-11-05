@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% block titulo %}Asistencia{% endblock %}
+{% block contenido %}
+{% include "asistencia/_subnav.html" with seccion="tablero" %}
+<div id="tablero">
+  {% include "asistencia/_tablero.html" %}
+</div>
+{% endblock %}

@@ -43,7 +43,7 @@ MODULOS = [
     Modulo("personal", "Personal", "4.1", "people", "personal.view_empleado",
            "Registro de empleados, salarios, comisiones y novedades.", url="personal:empleado_lista"),
     Modulo("asistencia", "Asistencia", "4.1", "clock-history", "asistencia.view_registroasistencia",
-           "Entradas, salidas, atrasos y ausencias."),
+           "Entradas, salidas, atrasos y ausencias.", url="asistencia:tablero"),
     Modulo("documentos", "Documentos", "4.1", "folder2-open", "documentos.view_documento",
            "Expedientes, archivos adjuntos y contratos desde plantillas."),
     Modulo("inventario", "Inventario", "4.1", "box-seam", "inventario.view_material",

@@ -15,7 +15,7 @@
       {% for e in empleados %}
       <tr {% if e.pk|stringformat:"s" == resaltado %}class="fila-nueva"{% endif %}>
         <td class="text-nowrap"><span class="text-body-secondary small">{{ e.get_tipo_identificacion_display }}</span><br>{{ e.identificacion }}</td>
-        <td>{{ e.apellidos }} {{ e.nombres }}{% if e.telefono %}<br><span class="text-body-secondary small">{{ e.telefono }}</span>{% endif %}</td>
+        <td><a href="{% url 'personal:empleado_detalle' e.pk %}" class="fw-semibold text-reset">{{ e.apellidos }} {{ e.nombres }}</a>{% if e.telefono %}<br><span class="text-body-secondary small">{{ e.telefono }}</span>{% endif %}</td>
         <td>{{ e.cargo }}</td>
         <td class="d-none d-md-table-cell">{{ e.get_tipo_contrato_display }}</td>
         <td class="d-none d-md-table-cell text-nowrap">{{ e.fecha_ingreso|date:"d/m/Y" }}</td>

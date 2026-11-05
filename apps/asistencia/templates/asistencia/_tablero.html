@@ -1,0 +1,121 @@
+{% include "asistencia/_mensajes.html" %}
+
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <div class="d-flex align-items-center gap-2">
+    <a class="btn btn-outline-secondary btn-sm" href="?fecha={{ anterior|date:'Y-m-d' }}"
+       hx-get="{% url 'asistencia:tablero' %}?fecha={{ anterior|date:'Y-m-d' }}" hx-target="#tablero" hx-push-url="true"
+       aria-label="Día anterior"><i class="bi bi-chevron-left" aria-hidden="true"></i></a>
+    <form class="d-flex" hx-get="{% url 'asistencia:tablero' %}" hx-target="#tablero" hx-push-url="true" hx-trigger="change">
+      <label class="visually-hidden" for="fecha-tablero">Fecha</label>
+      <input id="fecha-tablero" type="date" name="fecha" class="form-control form-control-sm" value="{{ fecha|date:'Y-m-d' }}" max="{% now 'Y-m-d' %}">
+    </form>
+    {% if not es_hoy %}
+    <a class="btn btn-outline-secondary btn-sm" href="?fecha={{ siguiente|date:'Y-m-d' }}"
+       hx-get="{% url 'asistencia:tablero' %}?fecha={{ siguiente|date:'Y-m-d' }}" hx-target="#tablero" hx-push-url="true"
+       aria-label="Día siguiente"><i class="bi bi-chevron-right" aria-hidden="true"></i></a>
+    <a class="btn btn-link btn-sm" href="{% url 'asistencia:tablero' %}" hx-get="{% url 'asistencia:tablero' %}" hx-target="#tablero" hx-push-url="true">Ir a hoy</a>
+    {% endif %}
+    <span class="fw-semibold ms-1 fecha-hoy">{{ fecha|date:"l j \d\e F" }}{% if es_hoy %} · hoy{% endif %}</span>
+  </div>
+  <div class="d-flex flex-wrap gap-2">
+    {% if perms.asistencia.add_registroasistencia %}
+    <a class="btn btn-outline-primary btn-sm" href="{% url 'asistencia:registro_manual' %}?fecha={{ fecha|date:'Y-m-d' }}">
+      <i class="bi bi-pencil-square me-1" aria-hidden="true"></i>Registro manual
+    </a>
+    {% endif %}
+    {% if perms.asistencia.add_novedadasistencia and resumen.pendientes %}
+    <form method="post" action="{% url 'asistencia:ausencias_del_dia' %}" hx-post="{% url 'asistencia:ausencias_del_dia' %}" hx-target="#tablero"
+          hx-confirm="¿Marcar como ausentes a los {{ resumen.pendientes }} empleados que debían trabajar el {{ fecha|date:'d/m/Y' }} y no registraron entrada?">
+      {% csrf_token %}<input type="hidden" name="fecha" value="{{ fecha|date:'Y-m-d' }}">
+      <button type="submit" class="btn btn-outline-danger btn-sm"><i class="bi bi-person-x me-1" aria-hidden="true"></i>Marcar ausencias del día</button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-6 col-lg-3"><div class="card resumen-dia"><div class="card-body"><div class="valor text-success">{{ resumen.presentes }}</div><div class="small text-body-secondary">Con entrada</div></div></div></div>
+  <div class="col-6 col-lg-3"><div class="card resumen-dia"><div class="card-body"><div class="valor text-warning-emphasis">{{ resumen.atrasos }}</div><div class="small text-body-secondary">Atrasos</div></div></div></div>
+  <div class="col-6 col-lg-3"><div class="card resumen-dia"><div class="card-body"><div class="valor text-danger">{{ resumen.ausentes }}</div><div class="small text-body-secondary">Ausentes</div></div></div></div>
+  <div class="col-6 col-lg-3"><div class="card resumen-dia"><div class="card-body"><div class="valor">{{ resumen.pendientes }}</div><div class="small text-body-secondary">Sin marcar</div></div></div></div>
+</div>
+
+{% if sin_horario %}
+<div class="alert alert-info small py-2" role="status">
+  <i class="bi bi-info-circle me-1" aria-hidden="true"></i>
+  {{ sin_horario }} empleado{{ sin_horario|pluralize }} sin horario asignado: se puede registrar su asistencia, pero no se calculan atrasos ni ausencias.
+  {% if perms.asistencia.add_asignacionhorario %}<a href="{% url 'asistencia:horarios' %}">Asignar horario</a>{% endif %}
+</div>
+{% endif %}
+
+{% if filas %}
+<div class="card">
+  <div class="table-responsive">
+    <table class="table align-middle mb-0 tabla-asistencia">
+      <thead>
+        <tr>
+          <th scope="col">Empleado</th>
+          <th scope="col" class="d-none d-md-table-cell">Horario</th>
+          <th scope="col">Entrada</th>
+          <th scope="col">Salida</th>
+          <th scope="col">Estado</th>
+          <th scope="col" class="text-end">Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for f in filas %}
+        <tr class="{% if not f.activo %}text-body-secondary{% endif %}">
+          <td>
+            <div class="fw-semibold">{% if perms.personal.view_empleado %}<a class="text-reset" href="{% url 'personal:empleado_detalle' f.empleado.pk %}">{{ f.empleado.apellidos }} {{ f.empleado.nombres }}</a>{% else %}{{ f.empleado.apellidos }} {{ f.empleado.nombres }}{% endif %}</div>
+            <div class="small text-body-secondary">{{ f.empleado.cargo }}</div>
+          </td>
+          <td class="d-none d-md-table-cell small">
+            {% if f.horario %}{{ f.horario.hora_entrada|time:"H:i" }}–{{ f.horario.hora_salida|time:"H:i" }}{% else %}<span class="text-body-secondary">Sin horario</span>{% endif %}
+          </td>
+          <td class="text-nowrap">
+            {% if f.registro %}{{ f.registro.entrada|time:"H:i" }}{% if f.atraso %}<br><span class="small text-warning-emphasis">+{{ f.atraso.minutos }} min</span>{% endif %}{% else %}—{% endif %}
+          </td>
+          <td class="text-nowrap">{% if f.registro.salida %}{{ f.registro.salida|time:"H:i" }}{% else %}—{% endif %}</td>
+          <td>
+            {% with e=f.estado %}
+            <span class="badge estado-asistencia estado-{{ e|slugify }}">{{ e }}</span>
+            {% endwith %}
+            {% for n in f.novedades %}{% if n.tipo == 'SALIDA_ANTICIPADA' %}<span class="badge text-bg-light border ms-1">Salió {{ n.minutos }} min antes</span>{% endif %}{% endfor %}
+          </td>
+          <td class="text-end text-nowrap">
+            {% if f.activo %}
+              {% if es_hoy and not f.registro and f.estado != 'Ausente' and perms.asistencia.add_registroasistencia %}
+              <form class="d-inline" method="post" action="{% url 'asistencia:entrada' f.empleado.pk %}" hx-post="{% url 'asistencia:entrada' f.empleado.pk %}" hx-target="#tablero">
+                {% csrf_token %}<input type="hidden" name="fecha" value="{{ fecha|date:'Y-m-d' }}">
+                <button type="submit" class="btn btn-sm btn-success"><i class="bi bi-box-arrow-in-right me-1" aria-hidden="true"></i>Entrada</button>
+              </form>
+              {% endif %}
+              {% if es_hoy and f.registro and not f.registro.salida and perms.asistencia.change_registroasistencia %}
+              <form class="d-inline" method="post" action="{% url 'asistencia:salida' f.empleado.pk %}" hx-post="{% url 'asistencia:salida' f.empleado.pk %}" hx-target="#tablero">
+                {% csrf_token %}<input type="hidden" name="fecha" value="{{ fecha|date:'Y-m-d' }}">
+                <button type="submit" class="btn btn-sm btn-outline-primary"><i class="bi bi-box-arrow-right me-1" aria-hidden="true"></i>Salida</button>
+              </form>
+              {% endif %}
+              {% if not f.registro and f.estado != 'Ausente' and perms.asistencia.add_novedadasistencia %}
+              <form class="d-inline" method="post" action="{% url 'asistencia:ausente' f.empleado.pk %}" hx-post="{% url 'asistencia:ausente' f.empleado.pk %}" hx-target="#tablero"
+                    hx-confirm="¿Marcar a {{ f.empleado.nombres }} {{ f.empleado.apellidos }} como ausente el {{ fecha|date:'d/m/Y' }}?">
+                {% csrf_token %}<input type="hidden" name="fecha" value="{{ fecha|date:'Y-m-d' }}">
+                <button type="submit" class="btn btn-sm btn-outline-danger" title="Marcar ausente"><i class="bi bi-person-x" aria-hidden="true"></i><span class="visually-hidden">Marcar ausente</span></button>
+              </form>
+              {% endif %}
+              {% if perms.asistencia.add_registroasistencia %}
+              <a class="btn btn-sm btn-outline-secondary" title="Corregir o registrar a mano" href="{% url 'asistencia:registro_manual' %}?empleado={{ f.empleado.pk }}&fecha={{ fecha|date:'Y-m-d' }}"><i class="bi bi-pencil" aria-hidden="true"></i><span class="visually-hidden">Registro manual</span></a>
+              {% endif %}
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% else %}
+<div class="text-center text-body-secondary py-5">
+  No hay empleados registrados. {% if perms.personal.add_empleado %}<a href="{% url 'personal:empleado_crear' %}">Registre el primero</a>.{% endif %}
+</div>
+{% endif %}

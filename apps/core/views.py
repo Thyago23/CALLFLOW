@@ -68,6 +68,14 @@ def dashboard(request):
             "valor": Usuario.objects.filter(is_active=True).count(),
             "url": reverse("usuarios"),
         })
+    if usuario.has_perm("asistencia.view_novedadasistencia"):
+        from apps.asistencia.models import NovedadAsistencia
+
+        indicadores.append({
+            "titulo": "Novedades de asistencia por revisar", "icono": "clock-history",
+            "valor": NovedadAsistencia.objects.filter(estado=NovedadAsistencia.Estado.PENDIENTE).count(),
+            "url": reverse("asistencia:novedades"), "alerta": True,
+        })
     if usuario.has_perm("inventario.view_material"):
         indicadores.append({
             "titulo": "Materiales con stock bajo", "icono": "box-seam",
