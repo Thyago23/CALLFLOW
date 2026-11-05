@@ -1,4 +1,4 @@
-from django.contrib.auth.models import AbstractUser
+from django.contrib.auth.models import AbstractUser, UserManager
 from django.db import models
 from django.db.models import Q
 from django.db.models.functions import Now
@@ -20,11 +20,31 @@ class Rol(models.TextChoices):
     ENCARGADO_CIERRE = "ENCARGADO_CIERRE", "Encargado de cierre"
 
 
+class GestorUsuarios(UserManager):
+    def create_superuser(self, username, email=None, password=None, **extra_fields):
+        from django.utils import timezone
+
+        extra_fields.setdefault("rol", Rol.ADMINISTRADOR)
+        extra_fields.setdefault("aprobado_en", timezone.now())
+        return super().create_superuser(username, email, password, **extra_fields)
+
+
 class Usuario(AbstractUser):
     """Usuario del sistema. El rol define a qué módulos tiene acceso (sección 6 de la propuesta)."""
 
     email = models.EmailField("correo electrónico", unique=True)
     rol = models.CharField(max_length=20, choices=Rol.choices, default=Rol.VENDEDOR)
+    aprobado_en = models.DateTimeField(
+        "aprobado en", null=True, blank=True,
+        help_text="Vacío y cuenta inactiva = solicitud de registro pendiente de aprobación.",
+    )
+    aprobado_por = models.ForeignKey("self", on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+
+    objects = GestorUsuarios()
+
+    @property
+    def pendiente_aprobacion(self) -> bool:
+        return not self.is_active and self.aprobado_en is None
 
     class Meta:
         verbose_name = "usuario"

@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block titulo %}Personal{% endblock %}
+{% block contenido %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+  <div>
+    <h1 class="h3 mb-0">Personal</h1>
+    <p class="text-body-secondary mb-0 small">Empleados registrados en CALLFLOW.</p>
+  </div>
+  {% if perms.personal.add_empleado %}
+  <a href="{% url 'personal:empleado_crear' %}" class="btn btn-primary">Registrar empleado</a>
+  {% endif %}
+</div>
+
+<form class="row g-2 mb-3" role="search"
+      hx-get="{% url 'personal:empleado_lista' %}"
+      hx-target="#tabla-empleados"
+      hx-trigger="input changed delay:300ms from:#busqueda, change from:#filtro-estado, submit"
+      hx-push-url="true">
+  <div class="col-sm-8 col-md-6">
+    <label class="visually-hidden" for="busqueda">Buscar</label>
+    <input id="busqueda" name="q" type="search" class="form-control" value="{{ q }}"
+           placeholder="Buscar por nombre, apellido o identificación" autocomplete="off">
+  </div>
+  <div class="col-sm-4 col-md-3">
+    <label class="visually-hidden" for="filtro-estado">Estado</label>
+    <select id="filtro-estado" name="estado" class="form-select">
+      <option value="">Todos los estados</option>
+      {% for valor, texto in estados %}
+      <option value="{{ valor }}" {% if valor == estado %}selected{% endif %}>{{ texto }}</option>
+      {% endfor %}
+    </select>
+  </div>
+</form>
+
+<div id="tabla-empleados">
+  {% include "personal/_empleado_tabla.html" %}
+</div>
+{% endblock %}

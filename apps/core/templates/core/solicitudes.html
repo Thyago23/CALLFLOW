@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block titulo %}Solicitudes de acceso{% endblock %}
+{% block contenido %}
+<h1 class="h3 mb-1">Solicitudes de acceso</h1>
+<p class="text-body-secondary mb-4">Personas que se registraron y esperan aprobación. Confirme o cambie el rol antes de aprobar.</p>
+<div class="card" style="max-width: 48rem">
+  <ul class="list-group list-group-flush">
+    {% for u in pendientes %}
+      {% include "core/_solicitud.html" %}
+    {% empty %}
+    <li class="list-group-item text-body-secondary py-4 text-center">No hay solicitudes pendientes.</li>
+    {% endfor %}
+  </ul>
+</div>
+{% endblock %}

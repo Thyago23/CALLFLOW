@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block titulo %}Registrar empleado{% endblock %}
+{% block contenido %}
+<nav aria-label="Ruta" class="mb-2">
+  <ol class="breadcrumb small mb-0">
+    <li class="breadcrumb-item"><a href="{% url 'personal:empleado_lista' %}">Personal</a></li>
+    <li class="breadcrumb-item active" aria-current="page">Registrar empleado</li>
+  </ol>
+</nav>
+<h1 class="h3 mb-1">Registrar empleado</h1>
+<p class="text-body-secondary mb-4">Los campos con <span class="text-danger">*</span> son obligatorios.</p>
+
+{% if form.errors %}
+<div class="alert alert-danger" role="alert">
+  Revise los campos marcados en rojo antes de guardar.
+  {% for error in form.non_field_errors %}<div>{{ error }}</div>{% endfor %}
+</div>
+{% endif %}
+
+<form method="post" novalidate class="formulario-empleado">
+  {% csrf_token %}
+
+  <section class="card mb-4">
+    <div class="card-body">
+      <h2 class="h6 text-uppercase text-body-secondary mb-3">Identificación</h2>
+      <div class="row">
+        <div class="col-md-4">{% include "_campo.html" with campo=form.tipo_identificacion %}</div>
+        <div class="col-md-8">
+          {% include "_campo.html" with campo=form.identificacion %}
+          <div id="estado-identificacion" class="estado-identificacion" aria-live="polite"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card mb-4">
+    <div class="card-body">
+      <h2 class="h6 text-uppercase text-body-secondary mb-3">Datos personales</h2>
+      <div class="row">
+        <div class="col-md-6">{% include "_campo.html" with campo=form.nombres %}</div>
+        <div class="col-md-6">{% include "_campo.html" with campo=form.apellidos %}</div>
+        <div class="col-md-4">{% include "_campo.html" with campo=form.fecha_nacimiento %}</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card mb-4">
+    <div class="card-body">
+      <h2 class="h6 text-uppercase text-body-secondary mb-3">Contacto</h2>
+      <div class="row">
+        <div class="col-md-4">{% include "_campo.html" with campo=form.telefono %}</div>
+        <div class="col-md-8">{% include "_campo.html" with campo=form.email %}</div>
+        <div class="col-12">{% include "_campo.html" with campo=form.direccion %}</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card mb-4">
+    <div class="card-body">
+      <h2 class="h6 text-uppercase text-body-secondary mb-3">Datos laborales</h2>
+      <div class="row">
+        <div class="col-md-4">{% include "_campo.html" with campo=form.cargo %}</div>
+        <div class="col-md-4">{% include "_campo.html" with campo=form.tipo_contrato %}</div>
+        <div class="col-md-4">{% include "_campo.html" with campo=form.fecha_ingreso %}</div>
+      </div>
+    </div>
+  </section>
+
+  <div class="d-flex gap-2 justify-content-end">
+    <a href="{% url 'personal:empleado_lista' %}" class="btn btn-outline-secondary">Cancelar</a>
+    <button type="submit" class="btn btn-primary">Guardar empleado</button>
+  </div>
+</form>
+{% endblock %}

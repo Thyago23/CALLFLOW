@@ -1,0 +1,25 @@
+{% if notificaciones %}
+<ul class="list-group list-group-flush">
+  {% for n in notificaciones %}
+  <li class="list-group-item notificacion {% if not n.leida %}no-leida{% endif %} py-3">
+    <div class="d-flex justify-content-between gap-2">
+      <div class="min-w-0">
+        <div class="small fw-semibold">{% if n.url %}<a href="{{ n.url }}" class="text-reset">{{ n.titulo }}</a>{% else %}{{ n.titulo }}{% endif %}</div>
+        {% if n.mensaje %}<div class="small text-body-secondary">{{ n.mensaje }}</div>{% endif %}
+      </div>
+      <span class="small text-body-secondary text-nowrap">{{ n.creado_en|timesince }}</span>
+    </div>
+  </li>
+  {% endfor %}
+</ul>
+{% if notificaciones_sin_leer %}
+<div class="card-footer bg-body text-end">
+  <form method="post" action="{% url 'notificaciones_leidas' %}" hx-post="{% url 'notificaciones_leidas' %}" hx-target="#lista-notificaciones">
+    {% csrf_token %}
+    <button class="btn btn-sm btn-link p-0" type="submit">Marcar todas como leídas</button>
+  </form>
+</div>
+{% endif %}
+{% else %}
+<p class="text-body-secondary small px-3 py-3 mb-0">No tiene notificaciones.</p>
+{% endif %}

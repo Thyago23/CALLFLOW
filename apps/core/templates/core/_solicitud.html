@@ -1,0 +1,27 @@
+<li class="list-group-item solicitud py-3">
+  <div class="d-flex justify-content-between gap-2 mb-2">
+    <div class="min-w-0">
+      <div class="fw-semibold text-truncate">{{ u.get_full_name }}</div>
+      <div class="small text-body-secondary text-truncate">{{ u.username }} · {{ u.email }}</div>
+    </div>
+    <span class="small text-body-secondary text-nowrap" title="{{ u.date_joined|date:'d/m/Y H:i' }}">hace {{ u.date_joined|timesince }}</span>
+  </div>
+  <form method="post" action="{% url 'aprobar_solicitud' u.pk %}"
+        hx-post="{% url 'aprobar_solicitud' u.pk %}" hx-target="closest .solicitud" hx-swap="outerHTML">
+    {% csrf_token %}
+    <input type="hidden" name="volver" value="{% url volver|default:'solicitudes_acceso' %}">
+    <label class="form-label small text-body-secondary mb-1" for="rol-{{ u.pk }}">Rol que tendrá</label>
+    <select id="rol-{{ u.pk }}" name="rol" class="form-select form-select-sm mb-2">
+      {% for valor, texto in roles %}
+      <option value="{{ valor }}" {% if valor == u.rol %}selected{% endif %}>{{ texto }}</option>
+      {% endfor %}
+    </select>
+    <div class="d-flex gap-2">
+      <button type="submit" class="btn btn-sm btn-success flex-fill"><i class="bi bi-check-lg me-1" aria-hidden="true"></i>Aprobar</button>
+      <button type="submit" class="btn btn-sm btn-outline-danger flex-fill"
+              formaction="{% url 'rechazar_solicitud' u.pk %}"
+              hx-post="{% url 'rechazar_solicitud' u.pk %}" hx-target="closest .solicitud" hx-swap="outerHTML"
+              hx-confirm="¿Rechazar la solicitud de {{ u.get_full_name }}? Se eliminará su registro."><i class="bi bi-x-lg me-1" aria-hidden="true"></i>Rechazar</button>
+    </div>
+  </form>
+</li>

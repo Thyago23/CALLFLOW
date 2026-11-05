@@ -1,0 +1,28 @@
+{% extends "registration/base_acceso.html" %}
+{% block titulo %}Crear cuenta{% endblock %}
+{% block formulario %}
+<h1 class="h3 mb-1">Crear cuenta</h1>
+<p class="text-body-secondary mb-4">Un administrador revisará su solicitud y le dará acceso.</p>
+
+{% if form.errors %}
+<div class="alert alert-danger" role="alert">Revise los campos marcados en rojo.</div>
+{% endif %}
+
+<form method="post" novalidate>
+  {% csrf_token %}
+  <div class="row">
+    <div class="col-sm-6">{% include "_campo.html" with campo=form.first_name %}</div>
+    <div class="col-sm-6">{% include "_campo.html" with campo=form.last_name %}</div>
+  </div>
+  {% include "_campo.html" with campo=form.email %}
+  {% include "_campo.html" with campo=form.rol %}
+  {% include "_campo.html" with campo=form.username ayuda=form.username.help_text %}
+  {% include "_campo.html" with campo=form.password1 ayuda=form.password1.help_text %}
+  {% include "_campo.html" with campo=form.password2 %}
+  <button class="btn btn-primary w-100 py-2 mt-2" type="submit">Enviar solicitud</button>
+</form>
+
+<p class="text-center text-body-secondary mt-4 mb-0">
+  ¿Ya tiene cuenta? <a href="{% url 'login' %}">Ingrese aquí</a>
+</p>
+{% endblock %}

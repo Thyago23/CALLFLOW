@@ -1,0 +1,222 @@
+/* Estilos propios de CALLFLOW (complementan Bootstrap 5.3) */
+:root {
+  --cf-primario: #2453c7;
+  --cf-primario-suave: #e8eefc;
+  --cf-resaltado: #fff3cd;
+  --cf-ancho-menu: 248px;
+  --cf-alto-barra: 60px;
+  --bs-primary: var(--cf-primario);
+  --bs-primary-rgb: 36, 83, 199;
+  --bs-link-color: var(--cf-primario);
+  --bs-link-color-rgb: 36, 83, 199;
+  --bs-link-hover-color: #1b3f99;
+}
+
+.btn-primary {
+  --bs-btn-bg: var(--cf-primario);
+  --bs-btn-border-color: var(--cf-primario);
+  --bs-btn-hover-bg: #1d47ad;
+  --bs-btn-hover-border-color: #1d47ad;
+  --bs-btn-active-bg: #1b3f99;
+  --bs-btn-active-border-color: #1b3f99;
+}
+
+.btn-outline-primary {
+  --bs-btn-color: var(--cf-primario);
+  --bs-btn-border-color: var(--cf-primario);
+  --bs-btn-hover-bg: var(--cf-primario);
+  --bs-btn-hover-border-color: var(--cf-primario);
+  --bs-btn-active-bg: #1b3f99;
+}
+
+body {
+  background-color: var(--bs-tertiary-bg);
+}
+
+.min-w-0 { min-width: 0; }
+
+/* ------------------------------------------------------------------ estructura */
+.barra-superior {
+  height: var(--cf-alto-barra);
+  z-index: 1030;
+}
+
+.marca-logo {
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--cf-primario);
+  color: #fff;
+  font-size: 1rem;
+}
+.marca-logo.grande { width: 44px; height: 44px; font-size: 1.35rem; border-radius: 10px; }
+
+.avatar {
+  display: inline-grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--cf-primario-suave);
+  color: var(--cf-primario);
+  font-weight: 600;
+  font-size: 0.8rem;
+}
+
+.contador { font-size: 0.65rem; }
+
+@media (min-width: 768px) {
+  .menu-lateral {
+    width: var(--cf-ancho-menu);
+    flex-shrink: 0;
+    position: sticky;
+    top: var(--cf-alto-barra);
+    height: calc(100vh - var(--cf-alto-barra));
+    overflow-y: auto;
+  }
+}
+
+.contenido {
+  min-width: 0;
+  min-height: calc(100vh - var(--cf-alto-barra));
+}
+
+.titulo-seccion {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--bs-secondary-color);
+  padding: 1rem 0.75rem 0.35rem;
+}
+
+.enlace-menu {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  color: var(--bs-body-color);
+  text-decoration: none;
+  font-size: 0.925rem;
+}
+.enlace-menu:hover { background: var(--bs-tertiary-bg); color: var(--bs-body-color); }
+.enlace-menu.activo { background: var(--cf-primario-suave); color: var(--cf-primario); font-weight: 600; }
+.enlace-menu.deshabilitado { color: var(--bs-secondary-color); cursor: default; }
+.enlace-menu.deshabilitado:hover { background: transparent; }
+.enlace-menu .badge { font-weight: 500; font-size: 0.65rem; }
+
+/* ------------------------------------------------------------------ acceso (login / registro) */
+.pantalla-acceso {
+  display: grid;
+  min-height: 100vh;
+  grid-template-columns: 1fr;
+}
+@media (min-width: 992px) {
+  .pantalla-acceso { grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); }
+}
+
+.panel-marca {
+  align-items: center;
+  padding: 4rem;
+  color: #fff;
+  background: linear-gradient(150deg, #1b3f99 0%, var(--cf-primario) 55%, #3f74e6 100%);
+}
+.panel-marca li { opacity: 0.92; }
+.panel-marca .marca-logo { background: #fff; color: var(--cf-primario); box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15); }
+
+.panel-formulario {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2.5rem 1rem;
+  background: var(--bs-body-bg);
+}
+
+.formulario-acceso { width: 100%; max-width: 440px; }
+
+.icono-estado {
+  display: inline-grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--cf-primario-suave);
+  color: var(--cf-primario);
+  font-size: 1.75rem;
+}
+
+/* ------------------------------------------------------------------ dashboard */
+.fecha-hoy::first-letter { text-transform: uppercase; }
+
+.card { border-color: var(--bs-border-color-translucent); }
+
+.indicador .icono-indicador {
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  background: var(--cf-primario-suave);
+  color: var(--cf-primario);
+  font-size: 1.25rem;
+}
+.indicador.con-alerta .icono-indicador { background: #fdecea; color: #b42318; }
+a .indicador { transition: border-color 0.15s, box-shadow 0.15s; }
+a:hover .indicador { border-color: var(--cf-primario); box-shadow: 0 2px 8px rgba(36, 83, 199, 0.1); }
+
+.titulo-grupo {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--bs-secondary-color);
+  margin: 0.75rem 0 0.6rem;
+}
+
+.tarjeta-modulo { transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s; }
+a.tarjeta-modulo:hover {
+  border-color: var(--cf-primario);
+  box-shadow: 0 4px 14px rgba(36, 83, 199, 0.12);
+  transform: translateY(-1px);
+}
+.tarjeta-modulo.pendiente { background: transparent; border-style: dashed; }
+.tarjeta-modulo.pendiente .icono-modulo { background: var(--bs-secondary-bg); color: var(--bs-secondary-color); }
+
+.icono-modulo {
+  display: inline-grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: var(--cf-primario-suave);
+  color: var(--cf-primario);
+  font-size: 1.15rem;
+}
+
+.notificacion.no-leida { background: var(--cf-primario-suave); }
+
+/* ------------------------------------------------------------------ personal */
+.formulario-empleado .card-body { padding-bottom: 0.5rem; }
+
+.estado-identificacion {
+  min-height: 1.25rem;
+  margin-top: -0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.fila-nueva > td {
+  background-color: var(--cf-resaltado);
+  transition: background-color 2s ease 3s;
+}
+
+.badge.estado-activo { background-color: #198754; }
+.badge.estado-vacaciones { background-color: #0d6efd; }
+.badge.estado-licencia { background-color: #6f42c1; }
+.badge.estado-inactivo { background-color: #6c757d; }
+.badge.estado-desvinculado { background-color: #dc3545; }
+
+#tabla-empleados.htmx-request { opacity: 0.6; transition: opacity 0.2s; }
