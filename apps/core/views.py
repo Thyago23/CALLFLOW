@@ -1,26 +1,25 @@
-from datetime import timedelta
-
 from django.contrib import messages
+from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth import views as auth_views
 from django.contrib.auth.decorators import login_required, permission_required
-from django.db import connection, transaction
-from django.db.models import F
+from django.db import transaction
+from django.db.models import F, Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
+from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_POST
 
 from apps.agenda.models import Evento
 from apps.inventario.models import Material
 from apps.personal.models import Empleado
 
-from .forms import AprobacionForm, IngresoForm, RegistroForm
+from .codigos import generar_codigo_acceso, generar_usuario
+from .forms import CambioClaveForm, IngresoForm, UsuarioCrearForm
 from .modulos import SECCIONES, modulos_de
 from .models import Notificacion, Rol, Usuario
 
-
-def _pendientes():
-    return Usuario.objects.filter(is_active=False, aprobado_en__isnull=True).order_by("date_joined")
+_CLAVE_SESION_CREDENCIALES = "credenciales_generadas"
 
 
 def _es_htmx(request) -> bool:
@@ -33,44 +32,20 @@ class IngresoView(auth_views.LoginView):
     redirect_authenticated_user = True
 
 
-def registro(request):
-    if request.user.is_authenticated:
-        return redirect("inicio")
-
-    form = RegistroForm(request.POST or None)
+@login_required
+@never_cache
+def cambiar_clave(request):
+    """Cambio de contraseña. Obligatorio cuando la contraseña es temporal."""
+    obligatorio = request.user.debe_cambiar_clave
+    form = CambioClaveForm(request.user, request.POST or None)
     if request.method == "POST" and form.is_valid():
-        with transaction.atomic():
-            # Bloqueo para que dos registros simultáneos no se conviertan ambos en el primer administrador.
-            with connection.cursor() as cursor:
-                cursor.execute("SELECT pg_advisory_xact_lock(hashtext('callflow_registro'))")
-            hay_admin = Usuario.objects.filter(rol=Rol.ADMINISTRADOR, is_active=True).exists()
-
-            usuario = form.save(commit=False)
-            if hay_admin:
-                usuario.is_active = False  # queda pendiente de aprobación
-            else:
-                usuario.rol = Rol.ADMINISTRADOR
-                usuario.is_active = True
-                usuario.aprobado_en = timezone.now()
-            usuario.save()
-
-            if hay_admin:
-                Notificacion.objects.bulk_create(
-                    Notificacion(
-                        destinatario=admin, tipo=Notificacion.Tipo.GENERAL,
-                        titulo=f"Nueva solicitud de acceso: {usuario.get_full_name()}",
-                        mensaje=f"Solicita el rol {usuario.get_rol_display()}. Usuario: {usuario.username}.",
-                        url=reverse("solicitudes_acceso"),
-                    )
-                    for admin in Usuario.objects.filter(rol=Rol.ADMINISTRADOR, is_active=True)
-                )
-
-        if hay_admin:
-            return render(request, "registration/registro_enviado.html", {"usuario": usuario})
-        messages.success(request, "Cuenta creada. Como es la primera cuenta del sistema, quedó como Administrador. Ya puede ingresar.")
-        return redirect("login")
-
-    return render(request, "registration/registro.html", {"form": form})
+        usuario = form.save(commit=False)
+        usuario.debe_cambiar_clave = False
+        usuario.save()
+        update_session_auth_hash(request, usuario)
+        messages.success(request, "Contraseña actualizada.")
+        return redirect("inicio")
+    return render(request, "registration/cambiar_clave.html", {"form": form, "obligatorio": obligatorio})
 
 
 # --------------------------------------------------------------------------- dashboard
@@ -87,10 +62,11 @@ def dashboard(request):
             "valor": Empleado.objects.filter(estado=Empleado.Estado.ACTIVO).count(),
             "url": reverse("personal:empleado_lista") + "?estado=ACTIVO",
         })
-    if usuario.has_perm("core.change_usuario"):
+    if usuario.has_perm("core.view_usuario"):
         indicadores.append({
-            "titulo": "Solicitudes de acceso", "icono": "person-plus",
-            "valor": _pendientes().count(), "url": reverse("solicitudes_acceso"), "alerta": True,
+            "titulo": "Usuarios activos", "icono": "person-badge",
+            "valor": Usuario.objects.filter(is_active=True).count(),
+            "url": reverse("usuarios"),
         })
     if usuario.has_perm("inventario.view_material"):
         indicadores.append({
@@ -101,8 +77,7 @@ def dashboard(request):
     if usuario.has_perm("agenda.view_evento"):
         indicadores.append({
             "titulo": "Mis actividades de hoy", "icono": "calendar3",
-            "valor": Evento.objects.filter(
-                propietario=usuario, estado=Evento.Estado.PENDIENTE, inicio__date=hoy).count(),
+            "valor": Evento.objects.filter(propietario=usuario, estado=Evento.Estado.PENDIENTE, inicio__date=hoy).count(),
         })
 
     secciones = [
@@ -110,64 +85,104 @@ def dashboard(request):
         for codigo, nombre in SECCIONES
     ]
     hora = timezone.localtime().hour
-    contexto = {
+    return render(request, "core/dashboard.html", {
         "saludo": "Buenos días" if hora < 12 else "Buenas tardes" if hora < 19 else "Buenas noches",
         "indicadores": indicadores,
         "secciones": [s for s in secciones if s["modulos"]],
         "notificaciones": Notificacion.objects.filter(destinatario=usuario).order_by("leida", "-creado_en")[:6],
         "modulos_listos": sum(m.disponible for m in visibles),
         "modulos_total": len(visibles),
-    }
-    if usuario.has_perm("core.change_usuario"):
-        contexto["pendientes"] = _pendientes()[:5]
-        contexto["roles"] = Rol.choices
-    return render(request, "core/dashboard.html", contexto)
+    })
 
 
-# --------------------------------------------------------------------------- solicitudes de acceso
+# --------------------------------------------------------------------------- usuarios
 @login_required
-@permission_required("core.change_usuario", raise_exception=True)
-def solicitudes_acceso(request):
-    return render(request, "core/solicitudes.html", {"pendientes": _pendientes(), "roles": Rol.choices})
+@permission_required("core.view_usuario", raise_exception=True)
+def usuarios(request):
+    qs = Usuario.objects.select_related("empleado").order_by("-is_active", "username")
+    texto = request.GET.get("q", "").strip()
+    if texto:
+        filtro = Q(username__icontains=texto) | Q(email__icontains=texto)
+        for palabra in texto.split():
+            filtro |= Q(first_name__icontains=palabra) | Q(last_name__icontains=palabra)
+        qs = qs.filter(filtro)
+    rol = request.GET.get("rol", "")
+    if rol in Rol.values:
+        qs = qs.filter(rol=rol)
+    contexto = {"usuarios": qs, "q": texto, "rol": rol, "roles": Rol.choices}
+    plantilla = "core/_usuarios_tabla.html" if _es_htmx(request) else "core/usuarios.html"
+    return render(request, plantilla, contexto)
+
+
+@login_required
+@permission_required("core.add_usuario", raise_exception=True)
+def usuario_crear(request):
+    form = UsuarioCrearForm(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        with transaction.atomic():
+            usuario = form.save(commit=False)
+            usuario.username = generar_usuario(usuario.first_name, usuario.last_name)
+            clave = generar_codigo_acceso(usuario.first_name, usuario.last_name)
+            usuario.set_password(clave)
+            usuario.debe_cambiar_clave = False
+            usuario.creado_por = request.user
+            usuario.save()
+            empleado = form.cleaned_data.get("empleado")
+            if empleado:
+                empleado.usuario = usuario
+                empleado.save(update_fields=["usuario", "actualizado_en"])
+        _guardar_credenciales(request, usuario, clave, nuevo=True)
+        return redirect("usuario_credenciales")
+    return render(request, "core/usuario_form.html", {"form": form})
 
 
 @login_required
 @permission_required("core.change_usuario", raise_exception=True)
 @require_POST
-def aprobar_solicitud(request, pk):
-    usuario = get_object_or_404(Usuario, pk=pk, is_active=False, aprobado_en__isnull=True)
-    form = AprobacionForm(request.POST)
-    if form.is_valid():
-        usuario.rol = form.cleaned_data["rol"]
-        usuario.is_active = True
-        usuario.aprobado_en = timezone.now()
-        usuario.aprobado_por = request.user
-        usuario.save()
-        Notificacion.objects.create(
-            destinatario=usuario, titulo="¡Bienvenido a CALLFLOW!",
-            mensaje=f"Su cuenta fue aprobada con el rol {usuario.get_rol_display()}.",
-        )
-        texto = f"Se aprobó la cuenta de {usuario.get_full_name()} como {usuario.get_rol_display()}."
+def usuario_restablecer_clave(request, pk):
+    usuario = get_object_or_404(Usuario, pk=pk)
+    clave = generar_codigo_acceso(usuario.first_name, usuario.last_name)
+    usuario.set_password(clave)
+    usuario.debe_cambiar_clave = False
+    usuario.save()
+    _guardar_credenciales(request, usuario, clave, nuevo=False)
+    return redirect("usuario_credenciales")
+
+
+@login_required
+@permission_required("core.change_usuario", raise_exception=True)
+@require_POST
+def usuario_cambiar_estado(request, pk):
+    usuario = get_object_or_404(Usuario, pk=pk)
+    if usuario == request.user:
+        messages.error(request, "No puede desactivar su propia cuenta.")
+    elif usuario.is_active and usuario.rol == Rol.ADMINISTRADOR and not Usuario.objects.filter(
+        rol=Rol.ADMINISTRADOR, is_active=True).exclude(pk=usuario.pk).exists():
+        messages.error(request, "Debe quedar al menos un administrador activo.")
     else:
-        texto = "Seleccione un rol válido."
-    return _respuesta_solicitud(request, texto, aprobada=form.is_valid())
+        usuario.is_active = not usuario.is_active
+        usuario.save(update_fields=["is_active"])
+        estado = "activó" if usuario.is_active else "desactivó"
+        messages.success(request, f"Se {estado} la cuenta {usuario.username} ({usuario.get_full_name()}).")
+    return redirect("usuarios")
 
 
 @login_required
-@permission_required("core.change_usuario", raise_exception=True)
-@require_POST
-def rechazar_solicitud(request, pk):
-    usuario = get_object_or_404(Usuario, pk=pk, is_active=False, aprobado_en__isnull=True)
-    nombre = usuario.get_full_name() or usuario.username
-    usuario.delete()  # nunca tuvo acceso; el borrado queda en la bitácora de auditoría
-    return _respuesta_solicitud(request, f"Se rechazó la solicitud de {nombre}.", aprobada=False)
+@permission_required("core.add_usuario", raise_exception=True)
+@never_cache
+def usuario_credenciales(request):
+    """Muestra el usuario y su código de acceso UNA sola vez; el código no se guarda en texto plano."""
+    datos = request.session.pop(_CLAVE_SESION_CREDENCIALES, None)
+    if datos is None:
+        return redirect("usuarios")
+    return render(request, "core/usuario_credenciales.html", datos)
 
 
-def _respuesta_solicitud(request, texto, aprobada):
-    if _es_htmx(request):
-        return render(request, "core/_solicitud_resuelta.html", {"texto": texto, "aprobada": aprobada})
-    messages.success(request, texto) if aprobada else messages.info(request, texto)
-    return redirect(request.POST.get("volver") or "solicitudes_acceso")
+def _guardar_credenciales(request, usuario, clave, nuevo):
+    request.session[_CLAVE_SESION_CREDENCIALES] = {
+        "usuario": usuario.username, "clave": clave, "nombre": usuario.get_full_name(),
+        "rol": usuario.get_rol_display(), "nuevo": nuevo,
+    }
 
 
 # --------------------------------------------------------------------------- notificaciones

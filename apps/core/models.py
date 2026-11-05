@@ -21,40 +21,52 @@ class Rol(models.TextChoices):
 
 
 class GestorUsuarios(UserManager):
-    def create_superuser(self, username, email=None, password=None, **extra_fields):
-        from django.utils import timezone
+    @classmethod
+    def normalize_email(cls, email):
+        # Sin correo = NULL (la columna es única; "" repetido violaría la unicidad).
+        return super().normalize_email(email) or None
 
+    def create_superuser(self, username, email=None, password=None, **extra_fields):
         extra_fields.setdefault("rol", Rol.ADMINISTRADOR)
-        extra_fields.setdefault("aprobado_en", timezone.now())
-        return super().create_superuser(username, email, password, **extra_fields)
+        return super().create_superuser(username, email or None, password, **extra_fields)
 
 
 class Usuario(AbstractUser):
-    """Usuario del sistema. El rol define a qué módulos tiene acceso (sección 6 de la propuesta)."""
+    """
+    Usuario del sistema. Lo crea un administrador; `username` guarda el código único
+    con el que la persona inicia sesión (iniciales + secuencia, ej. LM001).
+    El rol define a qué módulos tiene acceso (sección 6 de la propuesta).
+    """
 
-    email = models.EmailField("correo electrónico", unique=True)
+    email = models.EmailField("correo electrónico", unique=True, null=True, blank=True)
     rol = models.CharField(max_length=20, choices=Rol.choices, default=Rol.VENDEDOR)
-    aprobado_en = models.DateTimeField(
-        "aprobado en", null=True, blank=True,
-        help_text="Vacío y cuenta inactiva = solicitud de registro pendiente de aprobación.",
+    debe_cambiar_clave = models.BooleanField(
+        "debe cambiar la contraseña", default=False,
+        help_text="La contraseña es temporal: se exigirá cambiarla en el próximo ingreso.",
     )
-    aprobado_por = models.ForeignKey("self", on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    creado_por = models.ForeignKey("self", on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
 
     objects = GestorUsuarios()
-
-    @property
-    def pendiente_aprobacion(self) -> bool:
-        return not self.is_active and self.aprobado_en is None
 
     class Meta:
         verbose_name = "usuario"
         verbose_name_plural = "usuarios"
         constraints = [
             models.CheckConstraint(condition=Q(rol__in=Rol.values), name="usuario_rol_valido"),
+            models.CheckConstraint(condition=~Q(email=""), name="usuario_email_vacio_es_nulo"),
         ]
 
+    @property
+    def codigo(self) -> str:
+        return self.username
+
+    def save(self, *args, **kwargs):
+        self.email = (self.email or "").strip().lower() or None
+        super().save(*args, **kwargs)
+
     def __str__(self):
-        return self.get_full_name() or self.username
+        nombre = self.get_full_name()
+        return f"{nombre} ({self.username})" if nombre else self.username
 
 
 class RegistroCambio(models.Model):

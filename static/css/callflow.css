@@ -220,3 +220,46 @@ a.tarjeta-modulo:hover {
 .badge.estado-desvinculado { background-color: #dc3545; }
 
 #tabla-empleados.htmx-request { opacity: 0.6; transition: opacity 0.2s; }
+
+/* ------------------------------------------------------------------ usuarios y códigos */
+.codigo-chip {
+  display: inline-block;
+  padding: 0.1rem 0.45rem;
+  border-radius: 0.35rem;
+  background: var(--cf-primario-suave);
+  color: var(--cf-primario);
+  font-family: var(--bs-font-monospace);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.dato-credencial {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.85rem 1rem;
+  border: 1px dashed var(--bs-border-color);
+  border-radius: 0.6rem;
+  background: var(--bs-tertiary-bg);
+}
+.dato-credencial .etiqueta { font-size: 0.8rem; color: var(--bs-secondary-color); }
+.dato-credencial .valor {
+  font-family: var(--bs-font-monospace);
+  font-size: 1.6rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--bs-emphasis-color);
+  user-select: all;
+  word-break: break-all;
+}
+
+.codigo-recordatorio {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  border-radius: 0.6rem;
+  background: var(--cf-primario-suave);
+}
+.codigo-recordatorio .codigo { font-family: var(--bs-font-monospace); font-weight: 700; font-size: 1.2rem; color: var(--cf-primario); letter-spacing: 0.06em; }
+.dato-credencial .valor.valor-usuario { font-size: 1.35rem; letter-spacing: 0.02em; }

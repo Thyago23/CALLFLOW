@@ -67,21 +67,6 @@
   </div>
 
   <div class="col-lg-4">
-    {% if pendientes is not None %}
-    <section class="card mb-4" aria-labelledby="titulo-solicitudes">
-      <div class="card-header bg-body d-flex justify-content-between align-items-center">
-        <h2 class="h6 mb-0" id="titulo-solicitudes">Solicitudes de acceso</h2>
-        <a href="{% url 'solicitudes_acceso' %}" class="small">Ver todas</a>
-      </div>
-      <ul class="list-group list-group-flush">
-        {% for u in pendientes %}
-          {% include "core/_solicitud.html" with volver="inicio" %}
-        {% empty %}
-        <li class="list-group-item text-body-secondary small py-3">No hay solicitudes pendientes.</li>
-        {% endfor %}
-      </ul>
-    </section>
-    {% endif %}
 
     <section class="card" id="notificaciones" aria-labelledby="titulo-notificaciones">
       <div class="card-header bg-body">

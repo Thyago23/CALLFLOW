@@ -69,6 +69,7 @@ MIDDLEWARE = [
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "apps.core.middleware.UsuarioAuditoriaMiddleware",
+    "apps.core.middleware.CambioClaveObligatorioMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
@@ -107,6 +108,7 @@ DATABASES = {
 }
 
 AUTH_USER_MODEL = "core.Usuario"
+AUTHENTICATION_BACKENDS = ["apps.core.backends.UsuarioNombreBackend"]
 
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},

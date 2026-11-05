@@ -1,0 +1,60 @@
+{% if usuarios %}
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead>
+        <tr>
+          <th scope="col">Usuario</th>
+          <th scope="col">Nombre</th>
+          <th scope="col">Rol</th>
+          <th scope="col" class="d-none d-lg-table-cell">Último ingreso</th>
+          <th scope="col">Estado</th>
+          {% if perms.core.change_usuario %}<th scope="col" class="text-end">Acciones</th>{% endif %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for u in usuarios %}
+        <tr class="{% if not u.is_active %}text-body-secondary{% endif %}">
+          <td><span class="codigo-chip">{{ u.username }}</span></td>
+          <td>
+            {{ u.get_full_name|default:"—" }}
+            {% if u.email %}<br><span class="small text-body-secondary">{{ u.email }}</span>{% endif %}
+          </td>
+          <td>{{ u.get_rol_display }}</td>
+          <td class="d-none d-lg-table-cell small text-nowrap">{% if u.last_login %}{{ u.last_login|date:"d/m/Y H:i" }}{% else %}Nunca{% endif %}</td>
+          <td>
+            {% if not u.is_active %}<span class="badge text-bg-secondary">Desactivado</span>
+            {% else %}<span class="badge bg-success-subtle text-success-emphasis border border-success-subtle">Activo</span>{% endif %}
+          </td>
+          {% if perms.core.change_usuario %}
+          <td class="text-end text-nowrap">
+            <form method="post" action="{% url 'usuario_restablecer_clave' u.pk %}" class="d-inline"
+                  onsubmit="return confirm('¿Generar un código de acceso nuevo para {{ u.username }}? El actual dejará de funcionar.');">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-sm btn-outline-secondary" title="Generar código de acceso nuevo">
+                <i class="bi bi-key" aria-hidden="true"></i><span class="d-none d-xl-inline ms-1">Nuevo código</span>
+              </button>
+            </form>
+            {% if u != user %}
+            <form method="post" action="{% url 'usuario_cambiar_estado' u.pk %}" class="d-inline"
+                  {% if u.is_active %}onsubmit="return confirm('¿Desactivar la cuenta {{ u.username }}? No podrá ingresar hasta que la active de nuevo.');"{% endif %}>
+              {% csrf_token %}
+              {% if u.is_active %}
+              <button type="submit" class="btn btn-sm btn-outline-danger" title="Desactivar"><i class="bi bi-person-slash" aria-hidden="true"></i><span class="d-none d-xl-inline ms-1">Desactivar</span></button>
+              {% else %}
+              <button type="submit" class="btn btn-sm btn-outline-success" title="Activar"><i class="bi bi-person-check" aria-hidden="true"></i><span class="d-none d-xl-inline ms-1">Activar</span></button>
+              {% endif %}
+            </form>
+            {% endif %}
+          </td>
+          {% endif %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+<p class="text-body-secondary small mt-2">{{ usuarios|length }} usuario{{ usuarios|length|pluralize }}.</p>
+{% else %}
+<div class="text-center text-body-secondary py-5">No hay usuarios que coincidan con la búsqueda.</div>
+{% endif %}

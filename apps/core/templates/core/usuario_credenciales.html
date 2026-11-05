@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block titulo %}Credenciales{% endblock %}
+{% block contenido %}
+<div class="mx-auto" style="max-width: 34rem">
+  <div class="card credenciales">
+    <div class="card-body p-4 text-center">
+      <div class="icono-estado mb-3" aria-hidden="true"><i class="bi {% if nuevo %}bi-person-check{% else %}bi-key{% endif %}"></i></div>
+      <h1 class="h4 mb-1">{% if nuevo %}Usuario creado{% else %}Nuevo código de acceso{% endif %}</h1>
+      <p class="text-body-secondary mb-4">{{ nombre }} · {{ rol }}</p>
+
+      <div class="dato-credencial mb-3">
+        <span class="etiqueta">Usuario</span>
+        <span class="valor valor-usuario" id="cred-usuario">{{ usuario }}</span>
+      </div>
+      <div class="dato-credencial mb-4">
+        <span class="etiqueta">Código de acceso (contraseña)</span>
+        <span class="valor" id="cred-clave">{{ clave }}</span>
+      </div>
+
+      <button type="button" class="btn btn-outline-primary w-100 mb-3" id="copiar-credenciales">
+        <i class="bi bi-clipboard me-1" aria-hidden="true"></i><span>Copiar usuario y código</span>
+      </button>
+
+      <div class="alert alert-warning text-start small mb-4" role="alert">
+        <i class="bi bi-exclamation-triangle me-1" aria-hidden="true"></i>
+        Entréguele estos datos a la persona. <strong>Esta es la única vez que se muestra el código de acceso</strong>;
+        el sistema no lo guarda legible. Si se pierde, genere uno nuevo desde Usuarios.
+      </div>
+      <a href="{% url 'usuarios' %}" class="btn btn-primary w-100">Listo</a>
+    </div>
+  </div>
+</div>
+<script>
+  document.getElementById("copiar-credenciales").addEventListener("click", function () {
+    const texto = "Usuario: " + document.getElementById("cred-usuario").textContent +
+                  "\nCódigo de acceso: " + document.getElementById("cred-clave").textContent;
+    const etiqueta = this.querySelector("span");
+    navigator.clipboard.writeText(texto).then(
+      () => { etiqueta.textContent = "Copiado"; },
+      () => { etiqueta.textContent = "No se pudo copiar; cópielo a mano"; }
+    );
+  });
+</script>
+{% endblock %}

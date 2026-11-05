@@ -33,7 +33,7 @@
           </span>
         </button>
         <ul class="dropdown-menu dropdown-menu-end">
-          <li><span class="dropdown-item-text small text-body-secondary">{{ user.email }}</span></li>
+          <li><span class="dropdown-item-text small">Usuario: <span class="codigo-chip">{{ user.username }}</span></span></li>
           <li><hr class="dropdown-divider"></li>
           <li>
             <form method="post" action="{% url 'logout' %}">
@@ -71,11 +71,10 @@
           {% endif %}
         {% endfor %}
         {% endfor %}
-        {% if perms.core.change_usuario %}
+        {% if perms.core.view_usuario %}
         <div class="titulo-seccion">Sistema</div>
-        <a class="enlace-menu {% if request.resolver_match.url_name == 'solicitudes_acceso' %}activo{% endif %}" href="{% url 'solicitudes_acceso' %}">
-          <i class="bi bi-person-check" aria-hidden="true"></i> Accesos
-          {% if solicitudes_pendientes %}<span class="badge rounded-pill bg-danger ms-auto">{{ solicitudes_pendientes }}</span>{% endif %}
+        <a class="enlace-menu {% if request.resolver_match.url_name|slice:':7' == 'usuario' %}activo{% endif %}" href="{% url 'usuarios' %}">
+          <i class="bi bi-person-badge" aria-hidden="true"></i> Usuarios
         </a>
         {% endif %}
       </nav>
