@@ -1,9 +1,10 @@
 import json
+from datetime import date, timedelta
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, permission_required
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
-from django.core.exceptions import ValidationError
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import IntegrityError, transaction
 from django.db.models import Q
 from django.http import FileResponse
@@ -12,17 +13,18 @@ from django.urls import reverse
 from django.utils import timezone
 from django.utils.http import content_disposition_header
 from django.views.decorators.http import require_POST
-from django.views.generic import CreateView, DetailView, ListView
+from django.views.generic import CreateView, DetailView, ListView, UpdateView
 
 from apps.core import validadores
-from apps.core.cuentas import crear_cuenta_para_empleado, preparar_credenciales
+from apps.core.cuentas import crear_cuenta_para_empleado, preparar_credenciales, rol_para_cargo
 from apps.documentos import archivos
 from apps.documentos.forms import GenerarContratoForm
 from apps.documentos.models import Documento, TipoDocumento
 
 from . import cv
-from .forms import DocumentosIngresoForm, EmpleadoForm, ObservacionForm
-from .models import Empleado
+from . import historial
+from .forms import DocumentosIngresoForm, EmpleadoEditarForm, EmpleadoForm, EquipoForm, ObservacionForm, SalarioForm
+from .models import AsignacionComision, Empleado, HistorialSalario
 
 # Campos que el lector de CV puede llenar, con el nombre que ve el usuario.
 CAMPOS_CV = (
@@ -107,6 +109,7 @@ class EmpleadoCrearView(LoginRequiredMixin, PermissionRequiredMixin, CreateView)
                         archivo=documentos_form.cleaned_data[campo], usuario=self.request.user,
                     )
                 usuario, clave = crear_cuenta_para_empleado(self.object, creado_por=self.request.user)
+                configurar_ingreso(self.object, form.cleaned_data, self.request.user)
         except IntegrityError:
             # Otro usuario registró la misma identificación entre la validación y el guardado.
             self.object = None
@@ -119,6 +122,86 @@ class EmpleadoCrearView(LoginRequiredMixin, PermissionRequiredMixin, CreateView)
             volver=reverse("personal:empleado_detalle", args=[self.object.pk]),
         )
         return redirect("usuario_credenciales")
+
+
+class EmpleadoEditarView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView):
+    """SCRUM-13 · Actualizar datos de empleados. Cada cambio queda en la auditoría con el usuario y el valor anterior."""
+
+    permission_required = "personal.change_empleado"
+    model = Empleado
+    form_class = EmpleadoEditarForm
+    template_name = "personal/empleado_form.html"
+
+    def get_queryset(self):
+        return Empleado.objects.select_related("cargo", "usuario")
+
+    def get_context_data(self, **kwargs):
+        return super().get_context_data(**kwargs) | {"editando": True}
+
+    def form_valid(self, form):
+        cambiados = set(form.changed_data)
+        if not cambiados:
+            messages.info(self.request, "No hubo cambios que guardar.")
+            return redirect(self.get_success_url())
+        try:
+            with transaction.atomic():
+                self.object = form.save()
+                self._sincronizar_cuenta(cambiados)
+        except IntegrityError:
+            form.add_error("identificacion", "Ya existe un empleado registrado con esta identificación.")
+            return self.form_invalid(form)
+        nombres = ", ".join(str(form.fields[c].label).lower() for c in form.changed_data)
+        messages.success(self.request, f"Datos actualizados: {nombres}.")
+        return redirect(self.get_success_url())
+
+    def _sincronizar_cuenta(self, cambiados):
+        """La cuenta de acceso refleja el nombre, el rol del cargo y la desvinculación del empleado."""
+        usuario = self.object.usuario
+        if not usuario:
+            return
+        campos = []
+        if cambiados & {"nombres", "apellidos"}:
+            usuario.first_name, usuario.last_name = self.object.nombres, self.object.apellidos
+            campos += ["first_name", "last_name"]
+        if "cargo" in cambiados:
+            usuario.rol = rol_para_cargo(self.object.cargo.nombre)
+            campos.append("rol")
+        if "estado" in cambiados and self.object.estado == Empleado.Estado.DESVINCULADO and usuario.is_active:
+            usuario.is_active = False  # un empleado desvinculado ya no puede ingresar
+            campos.append("is_active")
+            messages.warning(self.request, f"Se desactivó la cuenta {usuario.username}: el empleado está desvinculado.")
+        if campos:
+            usuario.save()  # save() completo: dispara la sincronización del grupo de permisos por rol
+
+    def get_success_url(self):
+        return reverse("personal:empleado_detalle", args=[self.object.pk]) + "#datos"
+
+
+def configurar_ingreso(empleado, datos, usuario):
+    """Sueldo inicial (el indicado o el de la regla SUELDO_BASE), equipo de comisiones y horario estándar."""
+    from apps.asistencia.models import AsignacionHorario, Horario
+    from apps.nomina.calculo import sueldo_base_por_defecto
+
+    HistorialSalario.objects.create(
+        empleado=empleado, salario_base=datos.get("salario_base") or sueldo_base_por_defecto(empleado.fecha_ingreso),
+        vigente_desde=empleado.fecha_ingreso, motivo="Sueldo inicial", registrado_por=usuario,
+    )
+    if datos.get("equipo"):
+        AsignacionComision.objects.create(empleado=empleado, esquema=datos["equipo"], vigente_desde=empleado.fecha_ingreso)
+    estandar = Horario.objects.filter(nombre="Jornada estándar", activo=True).first()
+    if estandar and not AsignacionHorario.objects.filter(empleado=empleado).exists():
+        AsignacionHorario.objects.create(empleado=empleado, horario=estandar, vigente_desde=empleado.fecha_ingreso)
+
+
+def _mes_consultado(request):
+    """?mes=2026-11 → (2026, 11); por defecto, el mes actual."""
+    hoy = timezone.localdate()
+    try:
+        anio, mes = (int(x) for x in request.GET.get("mes", "").split("-"))
+        date(anio, mes, 1)
+        return anio, mes
+    except (ValueError, TypeError):
+        return hoy.year, hoy.month
 
 
 class EmpleadoDetalleView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
@@ -161,6 +244,23 @@ class EmpleadoDetalleView(LoginRequiredMixin, PermissionRequiredMixin, DetailVie
                 "periodos": self.PERIODOS,
                 "horario_actual": horario_de(self.object, hoy),
             })
+
+        if self.request.user.has_perm("core.view_registrocambio"):
+            ctx["historial_cambios"] = historial.cambios_de(self.object)
+
+        if self.request.user.has_perm("personal.view_historialsalario"):
+            from apps.nomina.calculo import estimar_mes
+
+            anio, mes = _mes_consultado(self.request)
+            ctx.update({
+                "salarios": self.object.salarios.select_related("registrado_por").order_by("-vigente_desde"),
+                "equipos": self.object.comisiones.select_related("esquema").order_by("-vigente_desde"),
+                "estimacion": estimar_mes(self.object, anio, mes),
+                "mes_consultado": f"{anio:04d}-{mes:02d}",
+            })
+            if self.request.user.has_perm("personal.add_historialsalario"):
+                ctx["salario_form"] = SalarioForm(empleado=self.object)
+                ctx["equipo_form"] = EquipoForm(empleado=self.object)
 
         ctx["observaciones"] = self.object.observaciones.select_related("autor")
         ctx["observacion_form"] = ObservacionForm()
@@ -250,9 +350,11 @@ def empleado_crear_cuenta(request, pk):
 
 
 @login_required
-@permission_required("personal.add_empleado", raise_exception=True)
 def verificar_identificacion(request):
     """HTMX: avisa mientras se escribe si la identificación ya está registrada o no es válida."""
+    if not (request.user.has_perm("personal.add_empleado") or request.user.has_perm("personal.change_empleado")):
+        raise PermissionDenied
+    excluir = request.GET.get("excluir", "")
     tipo = request.GET.get("tipo_identificacion", "")
     identificacion = validadores.normalizar_identificacion(request.GET.get("identificacion", ""))
     contexto = {"estado": ""}
@@ -262,6 +364,56 @@ def verificar_identificacion(request):
         except ValidationError as error:
             contexto = {"estado": "invalida", "mensaje": " ".join(error.messages)}
         else:
-            existente = Empleado.objects.filter(tipo_identificacion=tipo, identificacion=identificacion).first()
+            existente = Empleado.objects.filter(tipo_identificacion=tipo, identificacion=identificacion)
+            if excluir.isdigit():
+                existente = existente.exclude(pk=int(excluir))
+            existente = existente.first()
             contexto = {"estado": "duplicada", "empleado": existente} if existente else {"estado": "disponible"}
     return render(request, "personal/_identificacion_estado.html", contexto)
+
+
+# --------------------------------------------------------------------------- SCRUM-14 · salarios y comisiones
+def _volver_a_sueldo(pk):
+    return redirect(reverse("personal:empleado_detalle", args=[pk]) + "#sueldo")
+
+
+def _cerrar_vigente(modelo, empleado, desde):
+    """El registro vigente termina el día anterior al nuevo: el historial no tiene huecos ni solapes."""
+    modelo.objects.filter(empleado=empleado, vigente_hasta__isnull=True).update(vigente_hasta=desde - timedelta(days=1))
+
+
+@login_required
+@permission_required("personal.add_historialsalario", raise_exception=True)
+@require_POST
+def salario_cambiar(request, pk):
+    empleado = get_object_or_404(Empleado, pk=pk)
+    form = SalarioForm(request.POST, empleado=empleado)
+    if not form.is_valid():
+        messages.error(request, "No se cambió el sueldo: " + " ".join(e for lista in form.errors.values() for e in lista))
+        return _volver_a_sueldo(pk)
+    with transaction.atomic():
+        desde = form.cleaned_data["vigente_desde"]
+        _cerrar_vigente(HistorialSalario, empleado, desde)
+        nuevo = HistorialSalario.objects.create(
+            empleado=empleado, salario_base=form.cleaned_data["salario_base"], vigente_desde=desde,
+            motivo=form.cleaned_data["motivo"], registrado_por=request.user,
+        )
+    messages.success(request, f"Sueldo base actualizado a $ {nuevo.salario_base} desde el {desde:%d/%m/%Y}.")
+    return _volver_a_sueldo(pk)
+
+
+@login_required
+@permission_required("personal.add_asignacioncomision", raise_exception=True)
+@require_POST
+def equipo_cambiar(request, pk):
+    empleado = get_object_or_404(Empleado, pk=pk)
+    form = EquipoForm(request.POST, empleado=empleado)
+    if not form.is_valid():
+        messages.error(request, "No se cambió el equipo: " + " ".join(e for lista in form.errors.values() for e in lista))
+        return _volver_a_sueldo(pk)
+    with transaction.atomic():
+        desde = form.cleaned_data["vigente_desde"]
+        _cerrar_vigente(AsignacionComision, empleado, desde)
+        AsignacionComision.objects.create(empleado=empleado, esquema=form.cleaned_data["esquema"], vigente_desde=desde)
+    messages.success(request, f"Equipo cambiado a {form.cleaned_data['esquema']} desde el {desde:%d/%m/%Y}.")
+    return _volver_a_sueldo(pk)

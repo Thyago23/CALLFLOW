@@ -9,6 +9,7 @@ Reglas de asistencia (SCRUM-18 a SCRUM-21).
 - Las novedades nacen PENDIENTES; el administrador las clasifica como justificadas o no.
   Si se corrige una marcación, solo se recalculan las novedades que siguen pendientes.
 """
+import math
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
 
@@ -47,9 +48,15 @@ def _minutos_entre(desde: time, hasta: time) -> int:
 
 
 def minutos_atraso(horario: Horario | None, fecha: date, entrada: datetime) -> int:
+    """
+    Minutos de atraso, contando cada minuto empezado: 9:00:01 → 1, 9:01:00 → 1, 9:01:01 → 2.
+    Los segundos importan: la multa más baja (de 9:00 a 9:01) depende de ellos.
+    """
     if not es_laborable(horario, fecha):
         return 0
-    minutos = _minutos_entre(horario.hora_entrada, timezone.localtime(entrada).time().replace(second=0, microsecond=0))
+    llegada = timezone.localtime(entrada)
+    segundos = (llegada - datetime.combine(llegada.date(), horario.hora_entrada, tzinfo=llegada.tzinfo)).total_seconds()
+    minutos = math.ceil(segundos / 60) if segundos > 0 else 0
     return minutos if minutos > horario.minutos_tolerancia else 0
 
 

@@ -93,7 +93,7 @@ class Command(BaseCommand):
 
         Horario.objects.get_or_create(
             nombre="Jornada estándar",
-            defaults={"hora_entrada": time(8, 0), "hora_salida": time(17, 0), "minutos_tolerancia": 5},
+            defaults={"hora_entrada": time(9, 0), "hora_salida": time(17, 0), "minutos_tolerancia": 0},
         )
 
         for codigo, nombre, modulo, filtros, roles in TIPOS_REPORTE:

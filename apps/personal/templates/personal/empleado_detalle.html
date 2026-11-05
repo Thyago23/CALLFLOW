@@ -17,6 +17,11 @@
       {% if empleado.usuario %} · <span class="font-monospace small">{{ empleado.usuario.username }}</span>{% endif %}
     </div>
   </div>
+  {% if perms.personal.change_empleado %}
+  <a href="{% url 'personal:empleado_editar' empleado.pk %}" class="btn btn-outline-primary ms-md-auto">
+    <i class="bi bi-pencil me-1" aria-hidden="true"></i>Editar datos
+  </a>
+  {% endif %}
 </div>
 
 {# ------------------------------------------------------------------ pestañas #}
@@ -39,6 +44,14 @@
         <span class="badge rounded-pill text-bg-light">{{ contratos|length }}</span>
       </button>
     </li>
+    {% if estimacion %}
+    <li class="nav-item" role="presentation">
+      <button class="nav-link" id="tab-sueldo" data-bs-toggle="tab" data-bs-target="#sueldo" data-pestana="sueldo" type="button" role="tab" aria-controls="sueldo" aria-selected="false">
+        <i class="bi bi-cash-coin" aria-hidden="true"></i> Sueldo y comisiones
+        {% if estimacion.requiere_visto_bueno %}<span class="badge rounded-pill text-bg-danger" title="Llamados de atención">!</span>{% endif %}
+      </button>
+    </li>
+    {% endif %}
     {% if asistencia %}
     <li class="nav-item" role="presentation">
       <button class="nav-link" id="tab-asistencia" data-bs-toggle="tab" data-bs-target="#asistencia" data-pestana="asistencia" type="button" role="tab" aria-controls="asistencia" aria-selected="false">
@@ -89,6 +102,7 @@
               <div class="col-sm-6"><dt>Estado</dt><dd><span class="badge estado-{{ empleado.estado|lower }}">{{ empleado.get_estado_display }}</span></dd></div>
               <div class="col-sm-6"><dt>Contrato</dt><dd>{{ empleado.get_tipo_contrato_display }}</dd></div>
               <div class="col-sm-6"><dt>Fecha de ingreso</dt><dd>{{ empleado.fecha_ingreso|date:"d/m/Y" }}</dd></div>
+              {% if empleado.fecha_salida %}<div class="col-sm-6"><dt>Fecha de salida</dt><dd>{{ empleado.fecha_salida|date:"d/m/Y" }}</dd></div>{% endif %}
               {% if asistencia %}
               <div class="col-12"><dt>Horario</dt><dd class="mb-0">{% if horario_actual %}{{ horario_actual.nombre }} ({{ horario_actual.hora_entrada|time:"H:i" }}–{{ horario_actual.hora_salida|time:"H:i" }}){% else %}Sin horario asignado{% if perms.asistencia.add_asignacionhorario %} · <a href="{% url 'asistencia:horarios' %}">Asignar</a>{% endif %}{% endif %}</dd></div>
               {% endif %}
@@ -97,6 +111,32 @@
         </div>
       </div>
     </div>
+
+    {% if historial_cambios %}
+    <details class="card mt-4 historial-cambios">
+      <summary class="card-header bg-body d-flex justify-content-between align-items-center">
+        <span class="h6 mb-0"><i class="bi bi-clock-history me-1" aria-hidden="true"></i>Historial de cambios</span>
+        <span class="small text-body-secondary">{{ historial_cambios|length }} registro{{ historial_cambios|length|pluralize }}</span>
+      </summary>
+      <ul class="list-group list-group-flush">
+        {% for h in historial_cambios %}
+        <li class="list-group-item">
+          <div class="d-flex flex-wrap justify-content-between gap-2">
+            <span class="fw-semibold">{% if h.es_alta %}Registro del empleado{% else %}{{ h.accion }}{% endif %}</span>
+            <span class="small text-body-secondary">{{ h.fecha|date:"d/m/Y H:i" }} · {{ h.usuario }}</span>
+          </div>
+          {% if h.cambios %}
+          <ul class="list-unstyled small mb-0 mt-1">
+            {% for c in h.cambios %}
+            <li><span class="text-body-secondary">{{ c.campo }}:</span> <del class="text-danger-emphasis">{{ c.antes }}</del> <i class="bi bi-arrow-right" aria-hidden="true"></i> <strong>{{ c.despues }}</strong></li>
+            {% endfor %}
+          </ul>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+    </details>
+    {% endif %}
   </section>
 
   {# ---------------------------------------------------------------- Documentos #}
@@ -197,6 +237,8 @@
       </div>
     </div>
   </section>
+
+  {% if estimacion %}{% include "personal/_pestana_sueldo.html" %}{% endif %}
 
   {# ---------------------------------------------------------------- Faltas y atrasos #}
   {% if asistencia %}

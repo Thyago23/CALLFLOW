@@ -446,3 +446,16 @@ input[type="checkbox"].form-check-input + .dia-check { margin-left: 0; }
 .hoja-contrato .titulo-contrato { font-size: 1.05rem; font-weight: 700; text-align: center; margin-bottom: 1rem; }
 .hoja-contrato .firma-contrato { margin-top: 2.5rem; text-align: left; }
 @media (max-width: 576px) { .hoja-contrato { padding: 1.25rem 1rem; } }
+
+/* Historial de cambios del empleado (plegable) */
+.historial-cambios > summary { cursor: pointer; list-style: none; }
+.historial-cambios > summary::-webkit-details-marker { display: none; }
+.historial-cambios > summary::after { content: "\F282"; font-family: "bootstrap-icons"; transition: transform 0.2s; margin-left: 0.5rem; }
+.historial-cambios[open] > summary::after { transform: rotate(180deg); }
+.historial-cambios del { text-decoration-thickness: 1px; }
+
+/* Sueldo y comisiones */
+.tabla-pago th { font-weight: 400; }
+.tabla-pago .fila-total > * { border-top: 2px solid var(--bs-border-color); }
+.tabla-pago .fila-neto > * { font-size: 1.1rem; font-weight: 700; border-top: 2px solid var(--cf-primario); color: var(--cf-primario); border-bottom: 0; }
+.historial-sueldo li:last-child { border-bottom: 0 !important; }
