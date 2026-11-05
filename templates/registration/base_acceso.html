@@ -1,25 +1,20 @@
 {% extends "base.html" %}
+{% load static %}
 {% block cuerpo %}
 <div class="pantalla-acceso">
   <section class="panel-marca d-none d-lg-flex">
-    <div>
-      <div class="d-flex align-items-center gap-2 mb-4">
-        <span class="marca-logo grande" aria-hidden="true"><i class="bi bi-headset"></i></span>
-        <span class="fs-3 fw-semibold">CALLFLOW</span>
-      </div>
-      <p class="fs-5 mb-4">Administración, nómina y gestión comercial del centro de llamadas en un solo sistema.</p>
-      <ul class="list-unstyled d-grid gap-2 mb-0">
-        <li><i class="bi bi-people me-2" aria-hidden="true"></i>Personal, asistencia y documentos</li>
-        <li><i class="bi bi-cash-coin me-2" aria-hidden="true"></i>Cálculo de nómina por periodos</li>
-        <li><i class="bi bi-telephone-outbound me-2" aria-hidden="true"></i>Formularios DAMI y hoja de producción</li>
-        <li><i class="bi bi-graph-up-arrow me-2" aria-hidden="true"></i>Cierres, metas y reportes</li>
-      </ul>
+    <div class="insignia-callflow">
+      <span class="marca-logo" aria-hidden="true"><i class="bi bi-headset"></i></span>
+      <span>CALLFLOW</span>
+    </div>
+    <div class="circulo-logo">
+      <img src="{% static 'img/logo-multivisa.png' %}" alt="Multivisa · asesoría migratoria" class="logo-acceso" width="640" height="621">
     </div>
   </section>
   <section class="panel-formulario">
     <div class="formulario-acceso">
       <div class="d-flex d-lg-none align-items-center gap-2 mb-4">
-        <span class="marca-logo" aria-hidden="true"><i class="bi bi-headset"></i></span>
+        <img src="{% static 'img/logo-multivisa.png' %}" alt="" class="logo-marca" width="640" height="621">
         <span class="fs-4 fw-semibold">CALLFLOW</span>
       </div>
       {% for message in messages %}
