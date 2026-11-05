@@ -1,0 +1,7 @@
+{% if estado == "duplicada" %}
+<div class="text-danger small">Ya está registrada: <strong>{{ empleado }}</strong> ({{ empleado.cargo }}).</div>
+{% elif estado == "invalida" %}
+<div class="text-warning-emphasis small">{{ mensaje }}</div>
+{% elif estado == "disponible" %}
+<div class="text-success small">Identificación válida y disponible.</div>
+{% endif %}

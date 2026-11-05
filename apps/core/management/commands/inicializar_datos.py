@@ -110,4 +110,5 @@ class Command(BaseCommand):
                 permisos = permisos | Permission.objects.filter(content_type__app_label=app, codename__in=codenames)
             grupo.permissions.set(permisos.distinct())
 
-        self.stdout.write(self.style.SUCCESS("Datos iniciales de CALLFLOW cargados."))
+        if options["verbosity"] > 0:
+            self.stdout.write(self.style.SUCCESS("Datos iniciales de CALLFLOW cargados."))
