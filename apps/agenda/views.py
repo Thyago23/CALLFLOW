@@ -10,6 +10,7 @@ from django.utils.dateparse import parse_date
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
+from apps.core import jornada
 from apps.core.models import Notificacion
 
 from . import servicios
@@ -56,6 +57,7 @@ def calendario(request):
         "vista": vista, "vistas": VISTAS, "fecha": fecha,
         "url_anterior": _url(vista, anterior), "url_siguiente": _url(vista, siguiente),
         "url_hoy": _url(vista, timezone.localdate()),
+        "jornada_texto": jornada.descripcion(),
         "vencidos": servicios.vencidos(usuario)[:8],
         "proximos": servicios.proximos(usuario)[:8],
     })

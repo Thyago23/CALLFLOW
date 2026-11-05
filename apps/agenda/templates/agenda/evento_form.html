@@ -23,7 +23,7 @@
         </fieldset>
         {% include "_campo.html" with campo=form.titulo %}
         <div class="row align-items-end">
-          <div class="col-sm-4">{% include "_campo.html" with campo=form.fecha %}</div>
+          <div class="col-sm-4">{% include "_campo.html" with campo=form.fecha ayuda=form.fecha.help_text %}</div>
           <div class="col-sm-3 col-6 campo-hora">{% include "_campo.html" with campo=form.hora_inicio %}</div>
           <div class="col-sm-3 col-6 campo-hora">{% include "_campo.html" with campo=form.hora_fin %}</div>
           <div class="col-sm-2 mb-3">

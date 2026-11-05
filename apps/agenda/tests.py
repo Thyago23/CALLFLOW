@@ -12,6 +12,16 @@ from . import servicios
 from .models import Evento, ParticipanteEvento
 
 
+def proximo_laborable(desde: date | None = None, saltar: int = 1) -> date:
+    """El siguiente día laborable (lunes a viernes) después de `desde`, para que las pruebas no fallen en fin de semana."""
+    dia = desde or timezone.localdate()
+    while saltar:
+        dia += timedelta(days=1)
+        if dia.isoweekday() <= 5:
+            saltar -= 1
+    return dia
+
+
 def a_las(dia: date, hh: int, mm: int = 0):
     return timezone.make_aware(datetime.combine(dia, time(hh, mm)), timezone.get_current_timezone())
 
@@ -35,7 +45,7 @@ class RegistrarEventosTests(BaseAgenda):
 
     def test_crear_desde_la_pantalla(self):
         self.client.force_login(self.lucia)
-        manana = timezone.localdate() + timedelta(days=1)
+        manana = proximo_laborable()
         respuesta = self.client.post(reverse("agenda:crear"), {
             "titulo": "  Llamar a cliente   VIP ", "tipo": "RECORDATORIO", "fecha": manana.isoformat(),
             "hora_inicio": "10:30", "hora_fin": "", "ubicacion": "", "minutos_aviso": "15",
@@ -49,7 +59,7 @@ class RegistrarEventosTests(BaseAgenda):
 
     def test_todo_el_dia_y_validaciones(self):
         self.client.force_login(self.diego)
-        hoy = timezone.localdate().isoformat()
+        hoy = proximo_laborable().isoformat()
         self.client.post(reverse("agenda:crear"), {"titulo": "Inventario anual", "tipo": "ACTIVIDAD", "fecha": hoy,
                                                    "todo_el_dia": "on", "minutos_aviso": "0"})
         evento = Evento.objects.get()
@@ -74,7 +84,7 @@ class RegistrarEventosTests(BaseAgenda):
         self.assertEqual(self.client.post(reverse("agenda:eliminar", args=[invitado.pk])).status_code, 403)
 
     def test_completar_cancelar_editar_y_eliminar(self):
-        evento = self.evento()
+        evento = self.evento(inicio=a_las(proximo_laborable(), 10))
         self.client.force_login(self.diego)
         self.client.post(reverse("agenda:estado", args=[evento.pk]), {"estado": "COMPLETADO"})
         evento.refresh_from_db()
@@ -139,11 +149,11 @@ class AvisosTests(BaseAgenda):
         self.evento(inicio=timezone.now() + timedelta(minutes=10), minutos_aviso=15)
         self.assertEqual(servicios.generar_avisos(), 1)
 
-    def test_todo_el_dia_avisa_antes_de_las_8(self):
-        manana = timezone.localdate() + timedelta(days=1)
+    def test_todo_el_dia_avisa_antes_del_inicio_de_la_jornada(self):
+        manana = proximo_laborable()
         self.evento(inicio=a_las(manana, 0), todo_el_dia=True, minutos_aviso=15, titulo="Auditoría")
-        self.assertEqual(servicios.generar_avisos(ahora=a_las(manana, 7, 44)), 0)
-        self.assertEqual(servicios.generar_avisos(ahora=a_las(manana, 7, 45)), 1)
+        self.assertEqual(servicios.generar_avisos(ahora=a_las(manana, 8, 44)), 0)
+        self.assertEqual(servicios.generar_avisos(ahora=a_las(manana, 8, 45)), 1)  # 15 min antes de las 09:00
 
     def test_cambiar_la_hora_reprograma_el_aviso(self):
         inicio = timezone.now() + timedelta(minutes=10)
@@ -178,6 +188,52 @@ class AvisosTests(BaseAgenda):
         respuesta = self.client.get(reverse("agenda:calendario"))
         self.assertContains(respuesta, "Informe atrasado")
         self.assertContains(respuesta, "Vencidos sin completar")
+
+
+class HorarioLaboralTests(BaseAgenda):
+    """No se agenda fuera de la jornada laboral (lunes a viernes, 09:00 a 18:00)."""
+
+    def datos(self, **cambios):
+        return {"titulo": "Reunión", "tipo": "REUNION", "fecha": proximo_laborable().isoformat(),
+                "hora_inicio": "10:00", "hora_fin": "11:00", "minutos_aviso": "15"} | cambios
+
+    def errores(self, **cambios):
+        self.client.force_login(self.diego)
+        respuesta = self.client.post(reverse("agenda:crear"), self.datos(**cambios))
+        return respuesta.context["form"].errors if respuesta.context else {}
+
+    def test_dentro_del_horario_se_guarda(self):
+        self.assertEqual(self.errores(hora_inicio="09:00", hora_fin="18:00"), {})
+        self.assertEqual(Evento.objects.count(), 1)
+
+    def test_antes_de_las_9_o_despues_de_las_18_no(self):
+        self.assertIn("Fuera del horario laboral", self.errores(hora_inicio="08:30", hora_fin="10:00")["hora_inicio"][0])
+        self.assertIn("Fuera del horario laboral", self.errores(hora_inicio="18:00", hora_fin="")["hora_inicio"][0])
+        self.assertIn("a más tardar a las 18:00", self.errores(hora_inicio="17:30", hora_fin="18:30")["hora_fin"][0])
+        self.assertEqual(Evento.objects.count(), 0)
+
+    def test_fin_de_semana_no(self):
+        sabado = proximo_laborable()
+        while sabado.isoweekday() != 6:
+            sabado += timedelta(days=1)
+        self.assertIn("no es laborable", self.errores(fecha=sabado.isoformat())["fecha"][0])
+        self.assertIn("no es laborable", self.errores(fecha=sabado.isoformat(), todo_el_dia="on")["fecha"][0])
+
+    def test_el_formulario_limita_las_horas_y_muestra_la_jornada(self):
+        self.client.force_login(self.diego)
+        respuesta = self.client.get(reverse("agenda:crear"))
+        self.assertContains(respuesta, 'min="09:00"')
+        self.assertContains(respuesta, 'max="18:00"')
+        self.assertContains(respuesta, "de lunes a viernes, de 09:00 a 18:00")
+
+    def test_jornada_estandar_de_asistencia_es_de_9_a_18(self):
+        from apps.asistencia.forms import HorarioForm
+        from apps.asistencia.models import Horario
+
+        estandar = Horario.objects.get(nombre="Jornada estándar")
+        self.assertEqual((estandar.hora_entrada, estandar.hora_salida, estandar.dias_laborables), (time(9), time(18), [1, 2, 3, 4, 5]))
+        form = HorarioForm()
+        self.assertEqual((form.initial["hora_entrada"], form.initial["hora_salida"]), (time(9), time(18)))
 
 
 class AccesoTests(BaseAgenda):

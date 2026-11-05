@@ -28,8 +28,12 @@
   </ul>
   {% else %}
   <div class="card-body text-center text-body-secondary py-5">
+    {% if dia.laborable %}
     No hay nada agendado este día.
     {% if perms.agenda.add_evento %}<div class="mt-2"><a href="{% url 'agenda:crear' %}?fecha={{ fecha|date:'Y-m-d' }}">Agregar un evento</a></div>{% endif %}
+    {% else %}
+    <i class="bi bi-moon-stars fs-3 d-block mb-2" aria-hidden="true"></i>Día no laborable: no se agendan actividades.
+    {% endif %}
   </div>
   {% endif %}
 </div>

@@ -1,6 +1,6 @@
 <div class="calendario-semana">
   {% for d in dias %}
-  <section class="card dia-semana-col {% if d.es_hoy %}hoy{% endif %}">
+  <section class="card dia-semana-col {% if d.es_hoy %}hoy{% endif %} {% if not d.laborable %}no-laborable{% endif %}">
     <a class="card-header bg-body text-reset text-decoration-none" href="?vista=dia&fecha={{ d.fecha|date:'Y-m-d' }}">
       <span class="small text-body-secondary text-uppercase">{{ d.fecha|date:"D" }}</span>
       <span class="fw-semibold ms-1">{{ d.fecha|date:"j" }}</span>

@@ -3,6 +3,7 @@ from datetime import date
 from django import forms
 from django.utils import timezone
 
+from apps.core import jornada
 from apps.core.forms import FormularioEstilizado, _estilizar
 from apps.personal.models import Empleado
 
@@ -93,6 +94,10 @@ class HorarioForm(FormularioEstilizado, forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        if not self.is_bound and not self.instance.pk:
+            self.initial.setdefault("hora_entrada", jornada.inicio())
+            self.initial.setdefault("hora_salida", jornada.fin())
+            self.initial.setdefault("dias_laborables", jornada.dias())
         _estilizar(self)
         self.fields["dias_laborables"].widget.attrs["class"] = "btn-check"
 

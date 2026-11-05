@@ -3,7 +3,7 @@ Agenda (SCRUM-28 y SCRUM-29).
 
 - Cada persona ve sus eventos y aquellos a los que fue invitada; solo quien lo creó lo edita.
 - Avisos: se notifica `minutos_aviso` antes del inicio (en los eventos de todo el día, antes
-  de las 08:00 de ese día) al dueño y a los participantes, una sola vez.
+  del inicio de la jornada laboral) al dueño y a los participantes, una sola vez.
   No hay un proceso en segundo plano: los avisos se generan mientras las personas usan el
   sistema (middleware, como máximo una vez por minuto) y con el comando
   `python manage.py enviar_avisos_agenda`, que puede programarse cada minuto.
@@ -18,11 +18,11 @@ from django.urls import reverse
 from django.utils import timezone
 from django.utils.formats import date_format
 
+from apps.core import jornada
 from apps.core.models import Notificacion
 
 from .models import Evento, ParticipanteEvento
 
-HORA_AVISO_TODO_EL_DIA = time(8, 0)
 MAX_AVISO = timedelta(minutes=10080)  # una semana, igual que la restricción de la tabla
 
 OPCIONES_AVISO = [
@@ -54,7 +54,7 @@ def momento_aviso(evento: Evento) -> datetime:
     base = evento.inicio
     if evento.todo_el_dia:
         dia = timezone.localtime(evento.inicio).date()
-        base = timezone.make_aware(datetime.combine(dia, HORA_AVISO_TODO_EL_DIA), timezone.get_current_timezone())
+        base = timezone.make_aware(datetime.combine(dia, jornada.inicio()), timezone.get_current_timezone())
     return base - timedelta(minutes=evento.minutos_aviso)
 
 
@@ -147,6 +147,10 @@ class Dia:
     @property
     def es_hoy(self) -> bool:
         return self.fecha == timezone.localdate()
+
+    @property
+    def laborable(self) -> bool:
+        return jornada.es_laborable(self.fecha)
 
 
 def _agrupar(eventos, dias: list[Dia]) -> list[Dia]:

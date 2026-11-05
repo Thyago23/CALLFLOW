@@ -3,7 +3,7 @@ Reglas de asistencia (SCRUM-18 a SCRUM-21).
 
 - Entrada/salida: una marcación por empleado y día.
 - Atraso: entrada después de la hora del horario + tolerancia. Se registran los minutos
-  desde la hora de entrada (ej.: horario 08:00, tolerancia 5, llega 08:12 -> 12 min).
+  desde la hora de entrada (ej.: horario 09:00, tolerancia 5, llega 09:12 -> 12 min).
 - Salida anticipada: salida antes de la hora de salida del horario (con la misma tolerancia).
 - Ausencia: día laborable sin entrada.
 - Las novedades nacen PENDIENTES; el administrador las clasifica como justificadas o no.

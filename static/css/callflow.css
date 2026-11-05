@@ -518,3 +518,7 @@ input[type="checkbox"].form-check-input + .dia-check { margin-left: 0; }
 .hoja-contrato .titulo-contrato { font-size: 1.05rem; font-weight: 700; text-align: center; margin-bottom: 1rem; }
 .hoja-contrato .firma-contrato { margin-top: 2.5rem; text-align: left; }
 @media (max-width: 576px) { .hoja-contrato { padding: 1.25rem 1rem; } }
+
+/* Días no laborables en la agenda */
+.celda-dia.no-laborable { background: repeating-linear-gradient(135deg, var(--bs-tertiary-bg), var(--bs-tertiary-bg) 6px, transparent 6px, transparent 12px); }
+.dia-semana-col.no-laborable .card-body { background: var(--bs-tertiary-bg); }

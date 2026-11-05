@@ -3,6 +3,7 @@ from datetime import datetime, time
 from django import forms
 from django.utils import timezone
 
+from apps.core import jornada
 from apps.core.forms import FormularioEstilizado, _estilizar
 from apps.core.models import Usuario
 
@@ -38,6 +39,11 @@ class EventoForm(FormularioEstilizado, forms.Form):
         self.fields["tipo"].widget.attrs["class"] = "btn-check"
         self.fields["todo_el_dia"].widget.attrs["class"] = "form-check-input"
         self.fields["participantes"].widget.attrs["class"] = "form-check-input"
+        # Solo se puede agendar dentro de la jornada laboral.
+        limites = {"min": f"{jornada.inicio():%H:%M}", "max": f"{jornada.fin():%H:%M}", "step": 300}
+        self.fields["hora_inicio"].widget.attrs.update(limites)
+        self.fields["hora_fin"].widget.attrs.update(limites)
+        self.fields["fecha"].help_text = f"Horario laboral: {jornada.descripcion()}."
 
     @classmethod
     def desde_evento(cls, evento: Evento, **kwargs):
@@ -52,14 +58,25 @@ class EventoForm(FormularioEstilizado, forms.Form):
         }
         return cls(initial=inicial, **kwargs)
 
+    def clean_fecha(self):
+        fecha = self.cleaned_data["fecha"]
+        if not jornada.es_laborable(fecha):
+            raise forms.ValidationError(f"Ese día no es laborable. Solo se agenda {jornada.texto_dias()}.")
+        return fecha
+
     def clean(self):
         datos = super().clean()
         todo_el_dia, inicio, fin = datos.get("todo_el_dia"), datos.get("hora_inicio"), datos.get("hora_fin")
+        apertura, cierre = jornada.inicio(), jornada.fin()
         if not todo_el_dia:
             if inicio is None:
                 self.add_error("hora_inicio", "Indique la hora (o marque «Todo el día»).")
+            elif not (apertura <= inicio < cierre):
+                self.add_error("hora_inicio", f"Fuera del horario laboral: debe ser desde las {apertura:%H:%M} y antes de las {cierre:%H:%M}.")
             elif fin is not None and fin <= inicio:
                 self.add_error("hora_fin", "Debe ser posterior a la hora de inicio.")
+            elif fin is not None and fin > cierre:
+                self.add_error("hora_fin", f"Fuera del horario laboral: debe terminar a más tardar a las {cierre:%H:%M}.")
         return datos
 
     def aplicar(self, evento: Evento) -> Evento:

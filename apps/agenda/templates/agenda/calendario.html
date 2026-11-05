@@ -4,7 +4,7 @@
 <div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
   <div>
     <h1 class="h3 mb-0">Agenda</h1>
-    <p class="text-body-secondary small mb-0">Actividades, reuniones y recordatorios.</p>
+    <p class="text-body-secondary small mb-0">Actividades, reuniones y recordatorios · Horario laboral {{ jornada_texto }}.</p>
   </div>
   {% if perms.agenda.add_evento %}
   <a href="{% url 'agenda:crear' %}?fecha={{ fecha|date:'Y-m-d' }}" class="btn btn-primary"><i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Nuevo evento</a>

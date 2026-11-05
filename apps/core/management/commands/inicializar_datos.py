@@ -11,6 +11,7 @@ from django.core.management.base import BaseCommand
 from django.db import transaction
 
 from apps.asistencia.models import Horario
+from apps.core import jornada
 from apps.core.models import Rol
 from apps.documentos.models import TipoDocumento
 from apps.inventario.models import CategoriaMaterial
@@ -93,7 +94,8 @@ class Command(BaseCommand):
 
         Horario.objects.get_or_create(
             nombre="Jornada estándar",
-            defaults={"hora_entrada": time(8, 0), "hora_salida": time(17, 0), "minutos_tolerancia": 5},
+            defaults={"hora_entrada": jornada.inicio(), "hora_salida": jornada.fin(), "minutos_tolerancia": 5,
+                      "dias_laborables": jornada.dias()},
         )
 
         for codigo, nombre, modulo, filtros, roles in TIPOS_REPORTE:

@@ -118,6 +118,14 @@ AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
 
+# Jornada laboral de la empresa: única fuente para asistencia (horario estándar),
+# agenda (no se agenda fuera de este horario) y avisos. ISO: 1 = lunes … 7 = domingo.
+JORNADA_LABORAL = {
+    "inicio": "09:00",
+    "fin": "18:00",
+    "dias": [1, 2, 3, 4, 5],
+}
+
 LANGUAGE_CODE = "es-ec"
 TIME_ZONE = "America/Guayaquil"
 USE_I18N = True
