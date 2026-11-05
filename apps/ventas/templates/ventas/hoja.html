@@ -24,15 +24,15 @@
   <div class="table-responsive">
     <table class="table table-hover align-middle mb-0">
       <thead>
-        <tr><th scope="col">Fecha</th><th scope="col">Formulario</th><th scope="col">Cliente</th><th scope="col" class="d-none d-md-table-cell">Producto</th><th scope="col">Estado</th><th scope="col" class="text-end">Valor</th></tr>
+        <tr><th scope="col">Fecha</th><th scope="col">Formulario</th><th scope="col">Cédula / RUC</th><th scope="col" class="d-none d-md-table-cell">Ciudad</th><th scope="col">Estado</th><th scope="col" class="text-end">Valor</th></tr>
       </thead>
       <tbody>
         {% for r in registros %}
         <tr class="{% if r.estado == 'ANULADO' %}text-body-secondary{% endif %}">
           <td class="text-nowrap">{{ r.fecha|date:"D d/m" }}</td>
-          <td><a class="text-reset fw-semibold" href="{% url 'ventas:formulario_detalle' r.formulario_id %}">{{ r.formulario }}</a></td>
-          <td>{{ r.formulario.cliente }}</td>
-          <td class="d-none d-md-table-cell">{{ r.formulario.producto }}</td>
+          <td class="fw-semibold text-nowrap">{{ r.formulario }}</td>
+          <td>{{ r.formulario.cliente.identificacion }}</td>
+          <td class="d-none d-md-table-cell">{{ r.formulario.cliente.ciudad|default:"—" }}</td>
           <td><span class="badge estado-dami estado-{{ r.estado|lower }}">{{ r.get_estado_display }}</span></td>
           <td class="text-end text-nowrap">{% if r.valor_venta %}${{ r.valor_venta|dinero }}{% else %}—{% endif %}</td>
         </tr>

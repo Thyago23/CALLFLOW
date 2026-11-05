@@ -109,6 +109,9 @@ DATABASES = {
 }
 
 AUTH_USER_MODEL = "core.Usuario"
+
+# Clave Fernet para cifrar los números de tarjeta del DAMI (ver apps/ventas/tarjetas.py).
+CLAVE_TARJETAS = env("CLAVE_TARJETAS", "")
 AUTHENTICATION_BACKENDS = ["apps.core.backends.UsuarioNombreBackend"]
 
 AUTH_PASSWORD_VALIDATORS = [

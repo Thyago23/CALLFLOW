@@ -53,9 +53,7 @@ def formularios(request):
     texto = request.GET.get("q", "").strip()
     if texto:
         ident = validadores.normalizar_identificacion(texto)
-        filtro = Q(cliente__identificacion__icontains=ident) | Q(producto__icontains=texto)
-        for palabra in texto.split():
-            filtro |= Q(cliente__nombres__icontains=palabra) | Q(cliente__apellidos__icontains=palabra)
+        filtro = Q(cliente__identificacion__icontains=ident) | Q(cliente__ruc__icontains=ident) | Q(cliente__ciudad__icontains=texto)
         if texto.upper().startswith("DAMI-") and texto[5:].isdigit():
             filtro |= Q(pk=int(texto[5:]))
         qs = qs.filter(filtro)
@@ -73,9 +71,8 @@ def formularios(request):
     return render(request, plantilla, contexto)
 
 
-def _form_dami(request, data=None, **kwargs):
-    empleado = servicios.empleado_de(request.user)
-    return FormularioDAMIForm(data, bases=servicios.bases_del_vendedor(empleado), **kwargs)
+def _form_dami(request, data=None, formulario=None):
+    return FormularioDAMIForm(data, tarjeta_guardada=getattr(formulario, "tarjeta", None) if formulario else None)
 
 
 def _guardar(request, form, formulario=None):
@@ -83,12 +80,12 @@ def _guardar(request, form, formulario=None):
     try:
         f = servicios.guardar_formulario(request.user, form.cleaned_data, formulario, enviar=enviar)
     except ValidationError as error:
-        form.add_error("producto" if "producto" in " ".join(error.messages) else None, error)
+        form.add_error("numero_tarjeta" if "tarjeta" in " ".join(error.messages) else None, error)
         return None
     if enviar:
-        messages.success(request, f"{f} enviado a los encargados de cierre. Se agregó a su hoja de producción.")
-    else:
-        messages.success(request, f"{f} guardado como borrador.")
+        messages.success(request, f"{f} enviado a los encargados de cierre. Quedó registrado en su hoja de producción.")
+        return redirect("ventas:hoja")
+    messages.success(request, f"{f} guardado como borrador.")
     return redirect("ventas:formulario_detalle", pk=f.pk)
 
 
@@ -107,32 +104,47 @@ def formulario_nuevo(request):
 @login_required
 @permission_required("ventas.change_formulariodami", raise_exception=True)
 def formulario_editar(request, pk):
+    if (respuesta := _ya_enviado(request, pk)):
+        return respuesta
     formulario = get_object_or_404(servicios.formularios_visibles(request.user), pk=pk)
     if not servicios.formulario_editable(request.user, formulario):
         messages.error(request, "Este formulario ya fue enviado o finalizado y no se puede modificar.")
         return redirect("ventas:formulario_detalle", pk=pk)
     if request.method == "POST":
-        form = _form_dami(request, request.POST)
+        form = _form_dami(request, request.POST, formulario)
         if form.is_valid():
             respuesta = _guardar(request, form, formulario)
             if respuesta:
                 return respuesta
     else:
-        form = FormularioDAMIForm.desde_formulario(formulario, bases=servicios.bases_del_vendedor(formulario.vendedor))
+        form = FormularioDAMIForm.desde_formulario(formulario)
     return render(request, "ventas/formulario_form.html", {"form": form, "nuevo": False, "formulario": formulario})
 
 
 @login_required
 @permission_required("ventas.view_formulariodami", raise_exception=True)
 def formulario_detalle(request, pk):
+    if (respuesta := _ya_enviado(request, pk)):
+        return respuesta
     formulario = get_object_or_404(servicios.formularios_visibles(request.user), pk=pk)
     return render(request, "ventas/formulario_detalle.html", {
         "f": formulario,
         "historial": _historial(formulario),
         "registro": getattr(formulario, "registro_produccion", None),
+        "tarjeta": getattr(formulario, "tarjeta", None),
         "editable": servicios.formulario_editable(request.user, formulario),
         "otros_en_curso": servicios.dami_en_curso(formulario.cliente, excluir=formulario),
     })
+
+
+def _ya_enviado(request, pk):
+    """El vendedor no vuelve a abrir un DAMI enviado: solo queda en su hoja de producción."""
+    empleado = servicios.empleado_de(request.user)
+    if servicios.es_vendedor(request.user) and FormularioDAMI.objects.filter(
+            pk=pk, vendedor=empleado).exclude(estado=Estado.BORRADOR).exists():
+        messages.info(request, "Ese DAMI ya fue enviado: ya no se puede abrir. Su resultado se ve en la hoja de producción.")
+        return redirect("ventas:hoja")
+    return None
 
 
 def _historial(formulario):
@@ -169,22 +181,19 @@ def formulario_accion(request, pk):
 @permission_required("ventas.add_formulariodami", raise_exception=True)
 def buscar_cliente(request):
     """HTMX (SCRUM-39): si el cliente ya existe, avisa y llena sus datos en el formulario."""
-    tipo = request.GET.get("tipo_identificacion", "")
-    identificacion = validadores.normalizar_identificacion(request.GET.get("identificacion", ""))
+    cedula = validadores.normalizar_identificacion(request.GET.get("cedula", ""))
+    ruc = validadores.normalizar_identificacion(request.GET.get("ruc", ""))
     contexto, campos = {}, None
-    if identificacion:
-        try:
-            validadores.validar_identificacion(tipo, identificacion)
-        except ValidationError as error:
-            contexto = {"estado": "invalida", "mensaje": " ".join(error.messages)}
+    if cedula and not validadores.cedula_valida(cedula):
+        contexto = {"estado": "invalida", "mensaje": "La cédula no es válida. Revise que tenga 10 dígitos y que estén bien escritos."}
+    elif cedula or len(ruc) == 13:
+        cliente = servicios.buscar_cliente(cedula, ruc)
+        if cliente:
+            contexto = {"estado": "existe", "cliente": cliente, "en_curso": servicios.dami_en_curso(cliente)}
+            campos = {k: getattr(cliente, k) for k in servicios.CAMPOS_CLIENTE} | {
+                "cedula": cliente.cedula, "ruc": cliente.ruc_mostrar}
         else:
-            cliente = servicios.buscar_cliente(tipo, identificacion)
-            if cliente:
-                contexto = {"estado": "existe", "cliente": cliente, "en_curso": servicios.dami_en_curso(cliente)}
-                campos = {k: getattr(cliente, k) for k in
-                          ("nombres", "apellidos", "telefono", "telefono_alterno", "email", "ciudad", "direccion")}
-            else:
-                contexto = {"estado": "nuevo"}
+            contexto = {"estado": "nuevo"}
     respuesta = render(request, "ventas/_cliente_estado.html", contexto)
     if campos:
         respuesta["HX-Trigger"] = json.dumps({"clienteEncontrado": {"campos": campos}})

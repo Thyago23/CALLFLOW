@@ -3,13 +3,11 @@
 {% block contenido %}
 <nav aria-label="Ruta" class="mb-2">
   <ol class="breadcrumb small mb-0">
-    <li class="breadcrumb-item"><a href="{% url 'ventas:formularios' %}">Mis formularios</a></li>
+    <li class="breadcrumb-item"><a href="{% url 'ventas:formularios' %}">Mis borradores</a></li>
     {% if not nuevo %}<li class="breadcrumb-item"><a href="{% url 'ventas:formulario_detalle' formulario.pk %}">{{ formulario }}</a></li>{% endif %}
-    <li class="breadcrumb-item active" aria-current="page">{% if nuevo %}Nuevo formulario DAMI{% else %}Editar borrador{% endif %}</li>
+    <li class="breadcrumb-item active" aria-current="page">{% if nuevo %}Nuevo DAMI{% else %}Editar borrador{% endif %}</li>
   </ol>
 </nav>
-<h1 class="h3 mb-1">{% if nuevo %}Nuevo formulario DAMI{% else %}Editar {{ formulario }}{% endif %}</h1>
-<p class="text-body-secondary mb-4">Guárdelo como borrador si le falta información; envíelo a cierre cuando esté completo.</p>
 
 {% if form.errors %}
 <div class="alert alert-danger" role="alert">
@@ -18,41 +16,63 @@
 </div>
 {% endif %}
 
-<form method="post" novalidate id="formulario-dami" class="formulario-empleado">
+<form method="post" novalidate id="formulario-dami" class="formulario-empleado" autocomplete="off">
   {% csrf_token %}
-  <section class="card mb-4">
+  <section class="card mb-4 hoja-dami">
     <div class="card-body">
-      <h2 class="h6 text-uppercase text-body-secondary mb-3">Cliente</h2>
+      <h1 class="h2 fw-bold mb-3">Dami</h1>
+      <div class="row small mb-3 dami-cabecera">
+        <div class="col-sm-6"><span class="fw-semibold">Fecha:</span> {% if formulario %}{{ formulario.creado_en|date:"d/m/Y" }}{% else %}{% now "d/m/Y" %}{% endif %}</div>
+        <div class="col-sm-6"><span class="fw-semibold">Código único:</span> {% if formulario %}{{ formulario }}{% else %}<span class="text-body-secondary">se asigna al guardar</span>{% endif %}</div>
+        <div class="col-12"><span class="fw-semibold">Asesor:</span> {{ asesor|default:user.get_full_name|default:user.username }}</div>
+      </div>
       <div class="row">
-        <div class="col-md-4">{% include "_campo.html" with campo=form.tipo_identificacion %}</div>
-        <div class="col-md-8">
-          {% include "_campo.html" with campo=form.identificacion %}
-          <div id="estado-cliente" class="estado-identificacion" aria-live="polite"></div>
-        </div>
-        <div class="col-md-6">{% include "_campo.html" with campo=form.nombres %}</div>
-        <div class="col-md-6">{% include "_campo.html" with campo=form.apellidos %}</div>
+        <div class="col-md-6">{% include "_campo.html" with campo=form.cedula %}</div>
+        <div class="col-md-6">{% include "_campo.html" with campo=form.ruc %}</div>
+        <div class="col-12"><div id="estado-cliente" class="estado-identificacion mb-2" aria-live="polite"></div></div>
         <div class="col-md-4">{% include "_campo.html" with campo=form.telefono %}</div>
         <div class="col-md-4">{% include "_campo.html" with campo=form.telefono_alterno %}</div>
-        <div class="col-md-4">{% include "_campo.html" with campo=form.email %}</div>
-        <div class="col-md-4">{% include "_campo.html" with campo=form.ciudad %}</div>
-        <div class="col-md-8">{% include "_campo.html" with campo=form.direccion %}</div>
+        <div class="col-md-4">{% include "_campo.html" with campo=form.telefono3 %}</div>
+      </div>
+      <hr class="my-3">
+      <div class="row">
+        <div class="col-md-7">{% include "_campo.html" with campo=form.direccion %}</div>
+        <div class="col-md-5">{% include "_campo.html" with campo=form.sector %}</div>
+        <div class="col-md-5">{% include "_campo.html" with campo=form.ciudad %}</div>
+        <div class="col-md-7">{% include "_campo.html" with campo=form.referencia %}</div>
+        <div class="col-md-7">{% include "_campo.html" with campo=form.email %}</div>
       </div>
     </div>
   </section>
 
-  <section class="card mb-4">
+  <section class="card mb-4 hoja-dami">
     <div class="card-body">
-      <h2 class="h6 text-uppercase text-body-secondary mb-3">Venta</h2>
+      <h2 class="h4 fw-bold mb-3">Tarjetas para realizar el pago</h2>
+      <fieldset class="mb-3">
+        <legend class="visually-hidden">Marca de la tarjeta</legend>
+        <div class="row g-2 marcas-tarjeta" style="max-width: 34rem">
+          {% for opcion in form.marca %}
+          <div class="col-6">
+            {{ opcion.tag }}
+            <label class="btn btn-outline-primary w-100 d-flex justify-content-between align-items-center" for="{{ opcion.id_for_label }}">
+              <span class="fw-semibold">{{ opcion.choice_label }}</span><i class="bi bi-check-square-fill marca-check" aria-hidden="true"></i><i class="bi bi-square marca-vacia" aria-hidden="true"></i>
+            </label>
+          </div>
+          {% endfor %}
+        </div>
+        {% for error in form.marca.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+      </fieldset>
       <div class="row">
-        <div class="col-md-7">{% include "_campo.html" with campo=form.producto ayuda=form.producto.help_text %}</div>
-        <div class="col-md-5">{% include "_campo.html" with campo=form.base_comercial %}</div>
+        <div class="col-md-6">{% include "_campo.html" with campo=form.banco %}</div>
+        <div class="col-md-3">{% include "_campo.html" with campo=form.caducidad %}</div>
+        <div class="col-md-9">{% include "_campo.html" with campo=form.numero_tarjeta %}</div>
       </div>
-      <div class="form-check form-switch mb-1">
-        {{ form.tiene_tarjeta_activa }}
-        <label class="form-check-label fw-semibold" for="{{ form.tiene_tarjeta_activa.id_for_label }}">{{ form.tiene_tarjeta_activa.label }}</label>
-      </div>
-      <div class="form-text mb-3"><i class="bi bi-shield-lock me-1" aria-hidden="true"></i>{{ form.tiene_tarjeta_activa.help_text }}</div>
-      {% include "_campo.html" with campo=form.observaciones %}
+      <div class="form-text mb-2"><i class="bi bi-shield-lock me-1" aria-hidden="true"></i>El número se guarda cifrado y no se vuelve a mostrar: después solo se ven los últimos 4 dígitos. Una vez enviado, el DAMI ya no se puede abrir.</div>
+      <hr class="my-3">
+      <h2 class="h4 fw-bold mb-2">Observación</h2>
+      <label class="visually-hidden" for="{{ form.observaciones.id_for_label }}">Observación</label>
+      {{ form.observaciones }}
+      {% for error in form.observaciones.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
     </div>
   </section>
 
@@ -60,14 +80,14 @@
     <a href="{% if nuevo %}{% url 'ventas:formularios' %}{% else %}{% url 'ventas:formulario_detalle' formulario.pk %}{% endif %}" class="btn btn-outline-secondary">Cancelar</a>
     <button type="submit" name="guardar" class="btn btn-outline-primary"><i class="bi bi-save me-1" aria-hidden="true"></i>Guardar borrador</button>
     <button type="submit" name="enviar" class="btn btn-primary"
-            onclick="return confirm('¿Enviar el formulario a los encargados de cierre? Después ya no podrá modificar los datos del cliente.');">
-      <i class="bi bi-send me-1" aria-hidden="true"></i>Guardar y enviar a cierre
+            onclick="return confirm('¿Enviar el DAMI a cierre? Después ya no podrá volver a abrirlo: solo quedará en su hoja de producción.');">
+      <i class="bi bi-send me-1" aria-hidden="true"></i>Enviar DAMI
     </button>
   </div>
 </form>
 
 <script>
-  // SCRUM-39: si el cliente ya existe, se llenan sus datos (solo en los campos vacíos o llenados antes por esta búsqueda).
+  // Si el cliente ya existe, se llenan sus datos (solo en los campos vacíos o llenados antes por esta búsqueda).
   document.body.addEventListener("clienteEncontrado", function (evento) {
     const form = document.getElementById("formulario-dami");
     const campos = (evento.detail && evento.detail.campos) || {};

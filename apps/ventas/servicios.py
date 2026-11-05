@@ -19,8 +19,9 @@ from django.utils import timezone
 
 from apps.core.models import Notificacion, Rol, Usuario
 
+from . import tarjetas
 from .models import (AsignacionBase, BaseComercial, Cliente, FormularioDAMI, HojaProduccion, RegistroProduccion,
-                     SolicitudBase)
+                     SolicitudBase, TarjetaDAMI)
 
 Estado = FormularioDAMI.Estado
 EN_CURSO = [Estado.ENVIADO, Estado.EN_GESTION]
@@ -36,11 +37,15 @@ def es_vendedor(usuario) -> bool:
 
 
 def formularios_visibles(usuario):
-    """El vendedor solo ve los suyos; encargados y administradores ven todos."""
+    """
+    El vendedor solo ve sus BORRADORES: una vez enviado, el DAMI ya no se abre; queda
+    registrado en su hoja de producción sin datos de la tarjeta. Encargados y
+    administradores ven todos (de la tarjeta, solo los últimos 4 dígitos).
+    """
     qs = FormularioDAMI.objects.select_related("cliente", "vendedor", "base_comercial", "encargado_asignado")
     if usuario.rol == Rol.VENDEDOR:
         empleado = empleado_de(usuario)
-        return qs.filter(vendedor=empleado) if empleado else qs.none()
+        return qs.filter(vendedor=empleado, estado=Estado.BORRADOR) if empleado else qs.none()
     return qs
 
 
@@ -60,8 +65,14 @@ def usuarios_con_rol(*roles):
 
 
 # --------------------------------------------------------------------------- clientes (SCRUM-39)
-def buscar_cliente(tipo: str, identificacion: str) -> Cliente | None:
-    return Cliente.objects.filter(tipo_identificacion=tipo, identificacion=identificacion).first()
+def buscar_cliente(cedula: str = "", ruc: str = "") -> Cliente | None:
+    if cedula:
+        cliente = Cliente.objects.filter(tipo_identificacion=Cliente.TipoIdentificacion.CEDULA, identificacion=cedula).first()
+        if cliente:
+            return cliente
+    if ruc:
+        return Cliente.objects.filter(Q(ruc=ruc) | Q(tipo_identificacion=Cliente.TipoIdentificacion.RUC, identificacion=ruc)).first()
+    return None
 
 
 def dami_en_curso(cliente: Cliente, excluir=None):
@@ -69,12 +80,21 @@ def dami_en_curso(cliente: Cliente, excluir=None):
     return qs.exclude(pk=excluir.pk) if excluir else qs
 
 
+CAMPOS_CLIENTE = ("telefono", "telefono_alterno", "telefono3", "email", "direccion", "sector", "ciudad", "referencia")
+
+
 def guardar_cliente(datos: dict) -> Cliente:
-    """Reutiliza el cliente si ya existe (misma identificación) y actualiza sus datos de contacto."""
-    campos = {k: datos[k] for k in ("nombres", "apellidos", "telefono", "telefono_alterno", "email", "direccion", "ciudad")}
-    cliente, creado = Cliente.objects.get_or_create(
-        tipo_identificacion=datos["tipo_identificacion"], identificacion=datos["identificacion"], defaults=campos,
-    )
+    """
+    Reutiliza el cliente si ya existe (misma cédula o RUC) y actualiza sus datos de contacto.
+    Identificación principal: la cédula; si solo hay RUC, el RUC.
+    """
+    cedula, ruc = datos.get("cedula") or "", datos.get("ruc") or ""
+    campos = {k: datos.get(k) or "" for k in CAMPOS_CLIENTE} | ({"ruc": ruc} if ruc else {})
+    cliente, creado = buscar_cliente(cedula, ruc), False
+    if cliente is None:
+        tipo = Cliente.TipoIdentificacion.CEDULA if cedula else Cliente.TipoIdentificacion.RUC
+        cliente = Cliente.objects.create(tipo_identificacion=tipo, identificacion=cedula or ruc, **campos)
+        creado = True
     if not creado:
         cambios = {k: v for k, v in campos.items() if v and getattr(cliente, k) != v}
         if cambios:
@@ -92,17 +112,15 @@ def guardar_formulario(usuario, datos: dict, formulario: FormularioDAMI | None =
         raise PermissionDenied("Solo los vendedores registran formularios DAMI.")
     if formulario is not None and not formulario_editable(usuario, formulario):
         raise ValidationError("Este formulario ya no se puede modificar.")
-    if enviar and not (datos.get("producto") or "").strip():
-        raise ValidationError("Para enviar el formulario indique el producto.")
 
     cliente = guardar_cliente(datos)
     formulario = formulario or FormularioDAMI(vendedor=empleado)
     formulario.cliente = cliente
-    formulario.producto = (datos.get("producto") or "").strip()
-    formulario.tiene_tarjeta_activa = bool(datos.get("tiene_tarjeta_activa"))
     formulario.base_comercial = datos.get("base_comercial")
     formulario.observaciones = (datos.get("observaciones") or "").strip()
     formulario.save()
+    if datos.get("tarjeta"):
+        guardar_tarjeta(formulario, datos["tarjeta"])
     if enviar:
         enviar_formulario(usuario, formulario)
     return formulario
@@ -113,21 +131,36 @@ def enviar_formulario(usuario, formulario: FormularioDAMI) -> FormularioDAMI:
     """BORRADOR -> ENVIADO. La base de datos crea su fila en la hoja de producción (SCRUM-43)."""
     if not formulario_editable(usuario, formulario):
         raise ValidationError("Solo se pueden enviar los borradores propios.")
-    if not formulario.producto:
-        raise ValidationError("Para enviar el formulario indique el producto.")
+    if not TarjetaDAMI.objects.filter(formulario=formulario).exists():
+        raise ValidationError("Para enviar el DAMI complete los datos de la tarjeta para realizar el pago.")
     formulario.estado = Estado.ENVIADO
     formulario.enviado_en = timezone.now()
     formulario.save(update_fields=["estado", "enviado_en", "actualizado_en"])
     formulario.refresh_from_db()
 
-    prioridad = " · PRIORITARIO (tarjeta activa)" if formulario.tiene_tarjeta_activa else ""
+    tarjeta = formulario.tarjeta
     _notificar(
         usuarios_con_rol(Rol.ENCARGADO_CIERRE),
-        titulo=f"Nuevo DAMI para cierre: {formulario.cliente}{prioridad}",
-        mensaje=f"{formulario} · {formulario.producto} · vendedor {formulario.vendedor}",
+        titulo=f"Nuevo DAMI para cierre: {formulario} · {formulario.cliente.identificacion}",
+        mensaje=f"{tarjeta.get_marca_display()} · {tarjeta.banco} · asesor {formulario.vendedor}",
         url=reverse("ventas:formulario_detalle", args=[formulario.pk]),
     )
     return formulario
+
+
+def guardar_tarjeta(formulario: FormularioDAMI, datos: dict) -> TarjetaDAMI:
+    """Guarda la tarjeta del pago: el número completo cifrado y, a la vista, solo los últimos 4 dígitos."""
+    tarjeta = TarjetaDAMI.objects.filter(formulario=formulario).first() or TarjetaDAMI(formulario=formulario)
+    tarjeta.marca, tarjeta.banco = datos["marca"], datos["banco"]
+    tarjeta.caducidad_mes, tarjeta.caducidad_anio = datos["mes"], datos["anio"]
+    if datos.get("numero"):
+        tarjeta.ultimos4 = datos["numero"][-4:]
+        tarjeta.numero_cifrado = tarjetas.cifrar(datos["numero"])
+    tarjeta.save()
+    if not formulario.tiene_tarjeta_activa:
+        formulario.tiene_tarjeta_activa = True  # la columna "prioridad" la recalcula la base de datos
+        formulario.save(update_fields=["tiene_tarjeta_activa", "actualizado_en"])
+    return tarjeta
 
 
 @transaction.atomic

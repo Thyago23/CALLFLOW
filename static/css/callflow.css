@@ -535,3 +535,9 @@ input[type="checkbox"].form-check-input + .dia-check { margin-left: 0; }
 .estado-solicitud.estado-atendida { background: #d1e7dd; color: #0a3622; }
 .estado-solicitud.estado-rechazada { background: #f8d7da; color: #58151c; }
 .panel-meta .display-6 { font-size: 2.1rem; }
+
+/* DAMI: marcas de tarjeta como casillas del formato en papel */
+.marcas-tarjeta .marca-check { display: none; }
+.marcas-tarjeta .btn-check:checked + .btn .marca-check { display: inline; }
+.marcas-tarjeta .btn-check:checked + .btn .marca-vacia { display: none; }
+.hoja-dami .form-label { font-weight: 600; }

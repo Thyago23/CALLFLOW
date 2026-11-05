@@ -4,7 +4,7 @@
 {% block contenido %}
 <nav aria-label="Ruta" class="mb-2">
   <ol class="breadcrumb small mb-0">
-    <li class="breadcrumb-item"><a href="{% url 'ventas:formularios' %}">{% if user.rol == "VENDEDOR" %}Mis formularios{% else %}Formularios DAMI{% endif %}</a></li>
+    <li class="breadcrumb-item"><a href="{% url 'ventas:formularios' %}">{% if user.rol == "VENDEDOR" %}Mis borradores{% else %}Formularios DAMI{% endif %}</a></li>
     <li class="breadcrumb-item active" aria-current="page">{{ f }}</li>
   </ol>
 </nav>
@@ -13,14 +13,13 @@
   <div>
     <h1 class="h3 mb-1">{{ f }}
       <span class="badge estado-dami estado-{{ f.estado|lower }} align-middle fs-6">{{ f.get_estado_display }}</span>
-      {% if f.tiene_tarjeta_activa %}<span class="badge bg-danger-subtle text-danger-emphasis border border-danger-subtle align-middle fs-6">Prioritario · tarjeta activa</span>{% endif %}
     </h1>
-    <div class="text-body-secondary">Vendedor: {{ f.vendedor }} · creado {{ f.creado_en|date:"d/m/Y H:i" }}</div>
+    <div class="text-body-secondary">Fecha: {{ f.creado_en|date:"d/m/Y" }} · Asesor: {{ f.vendedor }}</div>
   </div>
   {% if editable %}
   <div class="d-flex flex-wrap gap-2">
     <a href="{% url 'ventas:formulario_editar' f.pk %}" class="btn btn-outline-secondary"><i class="bi bi-pencil me-1" aria-hidden="true"></i>Editar</a>
-    <form method="post" action="{% url 'ventas:formulario_accion' f.pk %}" onsubmit="return confirm('¿Enviar a los encargados de cierre? Después ya no podrá modificarlo.');">
+    <form method="post" action="{% url 'ventas:formulario_accion' f.pk %}" onsubmit="return confirm('¿Enviar a los encargados de cierre? Después ya no podrá volver a abrirlo.');">
       {% csrf_token %}<input type="hidden" name="accion" value="enviar">
       <button type="submit" class="btn btn-primary"><i class="bi bi-send me-1" aria-hidden="true"></i>Enviar a cierre</button>
     </form>
@@ -44,23 +43,34 @@
       <div class="card-body">
         <h2 class="h6 text-uppercase text-body-secondary mb-3">Cliente</h2>
         <dl class="row datos-ficha mb-0">
-          <div class="col-sm-6"><dt>{{ f.cliente.get_tipo_identificacion_display }}</dt><dd>{{ f.cliente.identificacion }}</dd></div>
-          <div class="col-sm-6"><dt>Nombre</dt><dd>{{ f.cliente.nombres }} {{ f.cliente.apellidos }}</dd></div>
-          <div class="col-sm-6"><dt>Teléfono</dt><dd>{{ f.cliente.telefono }}{% if f.cliente.telefono_alterno %} · {{ f.cliente.telefono_alterno }}{% endif %}</dd></div>
-          <div class="col-sm-6"><dt>Correo</dt><dd class="text-break">{{ f.cliente.email|default:"—" }}</dd></div>
-          <div class="col-12"><dt>Dirección</dt><dd class="mb-0">{% if f.cliente.direccion and f.cliente.ciudad %}{{ f.cliente.direccion }} · {{ f.cliente.ciudad }}{% else %}{{ f.cliente.direccion|default:f.cliente.ciudad|default:"—" }}{% endif %}</dd></div>
+          <div class="col-sm-6"><dt>Cédula</dt><dd>{{ f.cliente.cedula|default:"—" }}</dd></div>
+          <div class="col-sm-6"><dt>RUC</dt><dd>{{ f.cliente.ruc_mostrar|default:"—" }}</dd></div>
+          <div class="col-sm-4"><dt>Telf</dt><dd>{{ f.cliente.telefono }}</dd></div>
+          <div class="col-sm-4"><dt>Telf2</dt><dd>{{ f.cliente.telefono_alterno|default:"—" }}</dd></div>
+          <div class="col-sm-4"><dt>Telf3</dt><dd>{{ f.cliente.telefono3|default:"—" }}</dd></div>
+          <div class="col-sm-8"><dt>Dirección</dt><dd>{{ f.cliente.direccion|default:"—" }}</dd></div>
+          <div class="col-sm-4"><dt>Sector</dt><dd>{{ f.cliente.sector|default:"—" }}</dd></div>
+          <div class="col-sm-4"><dt>Ciudad</dt><dd>{{ f.cliente.ciudad|default:"—" }}</dd></div>
+          <div class="col-sm-8"><dt>Referencia</dt><dd>{{ f.cliente.referencia|default:"—" }}</dd></div>
+          <div class="col-12"><dt>Email</dt><dd class="mb-0 text-break">{{ f.cliente.email|default:"—" }}</dd></div>
         </dl>
       </div>
     </section>
     <section class="card">
       <div class="card-body">
-        <h2 class="h6 text-uppercase text-body-secondary mb-3">Venta</h2>
+        <h2 class="h6 text-uppercase text-body-secondary mb-3">Tarjeta para realizar el pago</h2>
         <dl class="row datos-ficha mb-0">
-          <div class="col-sm-6"><dt>Producto</dt><dd>{{ f.producto|default:"—" }}</dd></div>
-          <div class="col-sm-6"><dt>Base comercial</dt><dd>{{ f.base_comercial|default:"Sin base / referido" }}</dd></div>
+          {% if tarjeta %}
+          <div class="col-sm-6"><dt>Tarjeta</dt><dd>{{ tarjeta.get_marca_display }}</dd></div>
+          <div class="col-sm-6"><dt>Banco</dt><dd>{{ tarjeta.banco }}</dd></div>
+          <div class="col-sm-6"><dt>Caducidad</dt><dd>{{ tarjeta.caducidad }}</dd></div>
+          <div class="col-sm-6"><dt>Tarjeta No</dt><dd class="font-monospace">**** **** **** {{ tarjeta.ultimos4 }}</dd></div>
+          {% else %}
+          <div class="col-12"><dd class="text-body-secondary">Sin datos de tarjeta todavía.</dd></div>
+          {% endif %}
           <div class="col-sm-6"><dt>Enviado a cierre</dt><dd>{% if f.enviado_en %}{{ f.enviado_en|date:"d/m/Y H:i" }}{% else %}Aún no{% endif %}</dd></div>
           <div class="col-sm-6"><dt>Hoja de producción</dt><dd>{% if registro %}{{ registro.get_estado_display }}{% if registro.valor_venta %} · ${{ registro.valor_venta|dinero }}{% endif %}{% else %}Se agrega al enviar{% endif %}</dd></div>
-          {% if f.observaciones %}<div class="col-12"><dt>Observaciones</dt><dd class="mb-0" style="white-space: pre-line">{{ f.observaciones }}</dd></div>{% endif %}
+          {% if f.observaciones %}<div class="col-12"><dt>Observación</dt><dd class="mb-0" style="white-space: pre-line">{{ f.observaciones }}</dd></div>{% endif %}
         </dl>
       </div>
     </section>

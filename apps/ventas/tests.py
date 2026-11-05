@@ -4,7 +4,8 @@ from decimal import Decimal as D
 
 from django.core.exceptions import ValidationError
 from django.core.management import call_command
-from django.test import TestCase
+from cryptography.fernet import Fernet
+from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
@@ -12,16 +13,21 @@ from apps.cierre.models import GestionCierre, MetaMensual
 from apps.core.models import Notificacion, Rol, Usuario
 from apps.personal.models import Cargo, Empleado
 
-from . import servicios
+from . import servicios, tarjetas
 from .forms import sin_numero_de_tarjeta
-from .models import AsignacionBase, BaseComercial, Cliente, FormularioDAMI, RegistroProduccion, SolicitudBase
+from .models import AsignacionBase, BaseComercial, Cliente, FormularioDAMI, RegistroProduccion, SolicitudBase, TarjetaDAMI
 
-CLIENTE = {"tipo_identificacion": "CEDULA", "identificacion": "1710034065", "nombres": "carla", "apellidos": "vega",
-           "telefono": "0991234567", "telefono_alterno": "", "email": "Carla@Correo.com", "ciudad": "quito",
-           "direccion": "Av. Amazonas", "producto": "Tarjeta de crédito Oro", "tiene_tarjeta_activa": "",
-           "base_comercial": "", "observaciones": ""}
+CLAVE_PRUEBA = Fernet.generate_key().decode()
+VISA = "4111 1111 1111 1111"
+
+# Mismos campos que el DAMI en papel.
+CLIENTE = {"cedula": "1710034065", "ruc": "", "telefono": "0991234567", "telefono_alterno": "", "telefono3": "",
+           "direccion": "Av. Amazonas N34-12", "sector": "La Carolina", "ciudad": "quito", "referencia": "Junto al parque",
+           "email": "Carla@Correo.com", "marca": "VISA", "banco": "Banco Pichincha", "caducidad": "08/35",
+           "numero_tarjeta": VISA, "observaciones": ""}
 
 
+@override_settings(CLAVE_TARJETAS=CLAVE_PRUEBA)
 class BaseVentas(TestCase):
     @classmethod
     def setUpTestData(cls):
@@ -51,43 +57,64 @@ class BaseVentas(TestCase):
 
 
 class FormularioDAMITests(BaseVentas):
-    """SCRUM-38 y SCRUM-41"""
+    """SCRUM-38 y SCRUM-41: DAMI con el formato en papel."""
 
     def test_guardar_borrador(self):
         respuesta = self.crear()
         f = FormularioDAMI.objects.get()
-        self.assertEqual((f.estado, f.vendedor, f.producto), ("BORRADOR", self.lucia.empleado, "Tarjeta de crédito Oro"))
-        self.assertEqual((f.cliente.nombres, f.cliente.ciudad, f.cliente.email), ("Carla", "Quito", "carla@correo.com"))
+        self.assertEqual((f.estado, f.vendedor), ("BORRADOR", self.lucia.empleado))
+        c = f.cliente
+        self.assertEqual((c.cedula, c.sector, c.ciudad, c.referencia, c.email),
+                         ("1710034065", "La Carolina", "Quito", "Junto al parque", "carla@correo.com"))
         self.assertContains(respuesta, "guardado como borrador")
         self.assertFalse(RegistroProduccion.objects.exists())  # el borrador no va a la hoja
 
     def test_validaciones(self):
-        form = self.crear(identificacion="1710034066", telefono="abc", nombres="Carla123").context["form"]
-        self.assertEqual({"identificacion", "telefono", "nombres"}, set(form.errors))
-        form = self.crear(enviar=True, producto="").context["form"]
-        self.assertIn("producto", form.errors)
+        form = self.crear(cedula="1710034066", telefono="abc", telefono3="12").context["form"]
+        self.assertEqual({"cedula", "telefono", "telefono3"}, set(form.errors))
+        form = self.crear(cedula="", ruc="").context["form"]
+        self.assertIn("Ingrese la cédula o el RUC", form.errors["cedula"][0])
+        form = self.crear(ruc="17123").context["form"]
+        self.assertIn("13 dígitos", form.errors["ruc"][0])
         self.assertFalse(FormularioDAMI.objects.exists())
+
+    def test_solo_ruc(self):
+        self.crear(cedula="", ruc="1790012345001")
+        c = Cliente.objects.get()
+        self.assertEqual((c.tipo_identificacion, c.identificacion, c.ruc_mostrar, c.cedula), ("RUC", "1790012345001", "1790012345001", ""))
 
     def test_enviar_notifica_a_encargados_y_crea_fila_en_la_hoja(self):
         respuesta = self.crear(enviar=True)
         f = FormularioDAMI.objects.get()
         self.assertEqual(f.estado, "ENVIADO")
         self.assertIsNotNone(f.enviado_en)
+        self.assertRedirects(respuesta, reverse("ventas:hoja"))  # el vendedor termina en su hoja
         self.assertContains(respuesta, "enviado a los encargados de cierre")
-        self.assertTrue(Notificacion.objects.filter(destinatario=self.ana, tipo="FORMULARIO_DAMI").exists())
+        aviso = Notificacion.objects.get(destinatario=self.ana, tipo="FORMULARIO_DAMI")
+        self.assertNotIn("1111", aviso.titulo + aviso.mensaje)  # sin datos del número de tarjeta
         self.assertFalse(Notificacion.objects.filter(destinatario=self.pedro).exists())
         registro = RegistroProduccion.objects.get(formulario=f)  # SCRUM-43
         self.assertEqual((registro.estado, registro.hoja.vendedor), ("PENDIENTE", self.lucia.empleado))
         historial = list(f.historial.values_list("estado_nuevo", "usuario_id"))
         self.assertEqual(historial, [("BORRADOR", self.lucia.pk), ("ENVIADO", self.lucia.pk)])
 
-    def test_enviado_ya_no_se_edita_y_borrador_se_puede_anular(self):
+    def test_enviado_el_vendedor_ya_no_lo_abre(self):
         self.crear(enviar=True)
         enviado = FormularioDAMI.objects.get()
-        respuesta = self.client.get(reverse("ventas:formulario_editar", args=[enviado.pk]), follow=True)
-        self.assertContains(respuesta, "no se puede modificar")
-        self.crear(identificacion="0926687856")
-        borrador = FormularioDAMI.objects.get(estado="BORRADOR")
+        for vista in ("ventas:formulario_detalle", "ventas:formulario_editar"):
+            respuesta = self.client.get(reverse(vista, args=[enviado.pk]), follow=True)
+            self.assertRedirects(respuesta, reverse("ventas:hoja"))
+            self.assertContains(respuesta, "ya no se puede abrir")
+        self.assertNotContains(self.client.get(reverse("ventas:formularios")), str(enviado))
+        hoja = self.client.get(reverse("ventas:hoja"))
+        self.assertContains(hoja, str(enviado))  # queda en la hoja de producción…
+        for dato in ("1111", "Visa", "Pichincha", "08/35"):
+            self.assertNotContains(hoja, dato)  # …sin información de la tarjeta
+        self.assertNotContains(hoja, reverse("ventas:formulario_detalle", args=[enviado.pk]))
+
+    def test_borrador_se_puede_anular(self):
+        self.crear()
+        borrador = FormularioDAMI.objects.get()
         self.client.post(reverse("ventas:formulario_accion", args=[borrador.pk]), {"accion": "anular"})
         borrador.refresh_from_db()
         self.assertEqual(borrador.estado, "ANULADO")
@@ -99,17 +126,26 @@ class FormularioDAMITests(BaseVentas):
         f.refresh_from_db()
         self.assertEqual(f.estado, "ENVIADO")
 
+    def test_no_se_envia_sin_tarjeta(self):
+        sin_tarjeta = {"marca": "", "banco": "", "caducidad": "", "numero_tarjeta": ""}
+        self.crear(**sin_tarjeta)
+        f = FormularioDAMI.objects.get()
+        respuesta = self.client.post(reverse("ventas:formulario_accion", args=[f.pk]), {"accion": "enviar"}, follow=True)
+        self.assertContains(respuesta, "complete los datos de la tarjeta")
+        f.refresh_from_db()
+        self.assertEqual(f.estado, "BORRADOR")
+
     def test_cada_vendedor_ve_solo_lo_suyo(self):
         self.crear()
         f = FormularioDAMI.objects.get()
         self.client.force_login(self.pedro)
         self.assertEqual(self.client.get(reverse("ventas:formulario_detalle", args=[f.pk])).status_code, 404)
         self.assertEqual(self.client.get(reverse("ventas:formulario_editar", args=[f.pk])).status_code, 404)
-        self.assertNotContains(self.client.get(reverse("ventas:formularios")), "Vega Carla")
+        self.assertNotContains(self.client.get(reverse("ventas:formularios")), str(f))
         # Encargados y administradores ven todos (solo lectura).
         for usuario in [self.ana, self.admin]:
             self.client.force_login(usuario)
-            self.assertContains(self.client.get(reverse("ventas:formularios")), "Vega Carla")
+            self.assertContains(self.client.get(reverse("ventas:formularios")), str(f))
             self.assertEqual(self.client.get(reverse("ventas:formulario_nuevo")).status_code, 403)
 
 
@@ -118,40 +154,76 @@ class ClientesTests(BaseVentas):
 
     def test_reutiliza_cliente_y_actualiza_contacto(self):
         self.crear()
-        self.crear(usuario=self.pedro, telefono="0987654321", producto="Seguro de vida")
+        self.crear(usuario=self.pedro, telefono="0987654321", sector="Iñaquito")
         self.assertEqual(Cliente.objects.count(), 1)
-        self.assertEqual(Cliente.objects.get().telefono, "0987654321")
+        self.assertEqual((Cliente.objects.get().telefono, Cliente.objects.get().sector), ("0987654321", "Iñaquito"))
         self.assertEqual(FormularioDAMI.objects.count(), 2)
 
     def test_busqueda_en_vivo_llena_los_datos_y_avisa_si_esta_en_curso(self):
         self.crear(enviar=True)
         self.client.force_login(self.pedro)
         url = reverse("ventas:buscar_cliente")
-        respuesta = self.client.get(url, {"tipo_identificacion": "CEDULA", "identificacion": "1710034065"})
+        respuesta = self.client.get(url, {"cedula": "1710034065", "ruc": ""})
         self.assertContains(respuesta, "Cliente ya registrado")
         self.assertContains(respuesta, "en curso")
         self.assertIn("clienteEncontrado", respuesta["HX-Trigger"])
-        self.assertIn("Carla", respuesta["HX-Trigger"])
-        self.assertContains(self.client.get(url, {"tipo_identificacion": "CEDULA", "identificacion": "0926687856"}), "Cliente nuevo")
-        self.assertContains(self.client.get(url, {"tipo_identificacion": "CEDULA", "identificacion": "123"}), "no es válida")
+        self.assertIn("La Carolina", respuesta["HX-Trigger"])
+        self.assertNotIn("1111", respuesta["HX-Trigger"])
+        self.assertContains(self.client.get(url, {"cedula": "0926687856"}), "Cliente nuevo")
+        self.assertContains(self.client.get(url, {"cedula": "1234567890"}), "no es válida")
 
 
-class TarjetaActivaTests(BaseVentas):
-    """SCRUM-40"""
+class TarjetaTests(BaseVentas):
+    """SCRUM-40: tarjeta para realizar el pago, cifrada."""
 
-    def test_tarjeta_activa_es_prioritaria(self):
-        self.crear(enviar=True, tiene_tarjeta_activa="on")
+    def test_numero_cifrado_y_solo_ultimos_4_a_la_vista(self):
+        self.crear(enviar=True)
         f = FormularioDAMI.objects.get()
+        tarjeta = TarjetaDAMI.objects.get(formulario=f)
+        self.assertEqual((tarjeta.marca, tarjeta.banco, tarjeta.caducidad, tarjeta.ultimos4), ("VISA", "Banco Pichincha", "08/35", "1111"))
+        self.assertNotIn("4111111111111111", tarjeta.numero_cifrado)
+        self.assertEqual(tarjetas.descifrar(tarjeta.numero_cifrado), "4111111111111111")
         self.assertEqual(f.prioridad, 1)
-        self.assertContains(self.client.get(reverse("ventas:formularios")), "Prioritario")
-        self.assertIn("PRIORITARIO", Notificacion.objects.get(destinatario=self.ana).titulo)
+        # El número completo no aparece en la auditoría ni en las pantallas del encargado.
+        from apps.core.models import RegistroCambio
+        self.assertFalse(any("4111111111111111" in str(a.datos_nuevos) + str(a.datos_anteriores) for a in RegistroCambio.objects.all()))
+        self.client.force_login(self.ana)
+        detalle = self.client.get(reverse("ventas:formulario_detalle", args=[f.pk]))
+        self.assertContains(detalle, "**** 1111")
+        self.assertNotContains(detalle, "4111")
 
-    def test_no_se_aceptan_numeros_de_tarjeta(self):
+    def test_validaciones_de_la_tarjeta(self):
+        form = self.crear(numero_tarjeta="4111 1111 1111 1112").context["form"]
+        self.assertIn("no es válido", form.errors["numero_tarjeta"][0])
+        form = self.crear(marca="AMEX").context["form"]
+        self.assertIn("15", form.errors["numero_tarjeta"][0])
+        form = self.crear(marca="MASTERCARD").context["form"]
+        self.assertIn("no corresponde a una tarjeta Mastercard", form.errors["numero_tarjeta"][0])
+        form = self.crear(caducidad="01/20", banco="", marca="").context["form"]
+        self.assertEqual({"caducidad", "banco", "marca"}, set(form.errors))
+        self.assertIn("caducada", form.errors["caducidad"][0])
+        self.assertFalse(FormularioDAMI.objects.exists())
+        self.assertNotIn(b"4111", self.crear(numero_tarjeta="4111 1111 1111 1112").content)  # no se devuelve al navegador
+        self.crear(marca="MASTERCARD", numero_tarjeta="5555 5555 5555 4444")
+        self.assertEqual(TarjetaDAMI.objects.get().ultimos4, "4444")
+
+    def test_borrador_conserva_la_tarjeta_sin_reescribir_el_numero(self):
+        self.crear()
+        f = FormularioDAMI.objects.get()
+        antes = TarjetaDAMI.objects.get().numero_cifrado
+        self.client.post(reverse("ventas:formulario_editar", args=[f.pk]), CLIENTE | {"numero_tarjeta": "", "banco": "Produbanco"})
+        tarjeta = TarjetaDAMI.objects.get()
+        self.assertEqual((tarjeta.banco, tarjeta.numero_cifrado), ("Produbanco", antes))
+        form = self.client.post(reverse("ventas:formulario_editar", args=[f.pk]),
+                                CLIENTE | {"numero_tarjeta": "", "marca": "AMEX"}).context["form"]
+        self.assertIn("vuelva a escribir el número", form.errors["numero_tarjeta"][0])
+
+    def test_no_se_aceptan_numeros_de_tarjeta_en_textos(self):
         with self.assertRaises(ValidationError):
             sin_numero_de_tarjeta("Pagará con 4111 1111 1111 1111")
         self.assertEqual(sin_numero_de_tarjeta("Llamar al 0991234567"), "Llamar al 0991234567")
         form = self.crear(observaciones="tarjeta 4111-1111-1111-1111").context["form"]
-        self.assertIn("No escriba números de tarjeta", form.errors["observaciones"][0])
+        self.assertIn("Tarjeta No", form.errors["observaciones"][0])
         self.assertFalse(FormularioDAMI.objects.exists())
 
 
@@ -160,8 +232,8 @@ class HojaProduccionTests(BaseVentas):
 
     def test_la_hoja_se_actualiza_al_cerrar_y_suma_totales(self):
         self.crear(enviar=True)
-        self.crear(enviar=True, identificacion="0926687856", producto="Seguro")
-        self.crear(enviar=True, identificacion="1710000009", producto="Crédito")
+        self.crear(enviar=True, cedula="0926687856")
+        self.crear(enviar=True, cedula="1710000009")
         f1, f2, f3 = FormularioDAMI.objects.order_by("pk")
         self.cerrar(f1, valor=D("150.50"))
         self.cerrar(f2, resultado="NO_CONCRETADA")
@@ -194,7 +266,7 @@ class PanelTests(BaseVentas):
         hoy = timezone.localdate()
         MetaMensual.objects.create(vendedor=self.lucia.empleado, anio=hoy.year, mes=hoy.month, monto_meta=D("1000"))
         self.crear(enviar=True)
-        self.crear(enviar=True, identificacion="0926687856")
+        self.crear(enviar=True, cedula="0926687856")
         f1, f2 = FormularioDAMI.objects.order_by("pk")
         self.cerrar(f1, valor=D("250"))
         self.cerrar(f2, resultado="NO_CONCRETADA")
@@ -235,7 +307,6 @@ class BasesComercialesTests(BaseVentas):
         self.assertEqual((solicitud.estado, solicitud.base_asignada, solicitud.atendida_por), ("ATENDIDA", self.base, self.ana))
         self.assertTrue(AsignacionBase.objects.filter(base=self.base, vendedor=self.lucia.empleado).exists())
         self.assertTrue(Notificacion.objects.filter(destinatario=self.lucia, titulo__contains="Quito norte").exists())
-        # La base aparece para elegirla en el DAMI.
         self.assertEqual(list(servicios.bases_del_vendedor(self.lucia.empleado)), [self.base])
         with self.assertRaisesMessage(ValidationError, "ya tiene asignada"):
             servicios.atender_solicitud(servicios.solicitar_base(self.lucia, ""), self.base, self.ana)

@@ -82,15 +82,20 @@ class Cliente(ModeloBase):
         RUC = "RUC", "RUC"
         PASAPORTE = "PASAPORTE", "Pasaporte"
 
+    # Identificación principal: la cédula si la hay; si solo hay RUC, el RUC.
     tipo_identificacion = models.CharField(max_length=10, choices=TipoIdentificacion.choices, default=TipoIdentificacion.CEDULA)
     identificacion = models.CharField(max_length=20)
-    nombres = models.CharField(max_length=100)
-    apellidos = models.CharField(max_length=100)
-    telefono = models.CharField(max_length=20)
-    telefono_alterno = models.CharField(max_length=20, blank=True, default="")
+    ruc = models.CharField("RUC", max_length=13, blank=True, default="")
+    nombres = models.CharField(max_length=100, blank=True, default="")
+    apellidos = models.CharField(max_length=100, blank=True, default="")
+    telefono = models.CharField("teléfono", max_length=20)
+    telefono_alterno = models.CharField("teléfono 2", max_length=20, blank=True, default="")
+    telefono3 = models.CharField("teléfono 3", max_length=20, blank=True, default="")
     email = models.EmailField(blank=True, default="")
     direccion = models.CharField(max_length=255, blank=True, default="")
+    sector = models.CharField(max_length=120, blank=True, default="")
     ciudad = models.CharField(max_length=80, blank=True, default="")
+    referencia = models.CharField(max_length=255, blank=True, default="")
 
     class Meta:
         verbose_name = "cliente"
@@ -102,7 +107,16 @@ class Cliente(ModeloBase):
         ]
 
     def __str__(self):
-        return f"{self.apellidos} {self.nombres}"
+        nombre = f"{self.apellidos} {self.nombres}".strip()
+        return nombre or f"{self.get_tipo_identificacion_display()} {self.identificacion}"
+
+    @property
+    def cedula(self) -> str:
+        return self.identificacion if self.tipo_identificacion == self.TipoIdentificacion.CEDULA else ""
+
+    @property
+    def ruc_mostrar(self) -> str:
+        return self.ruc or (self.identificacion if self.tipo_identificacion == self.TipoIdentificacion.RUC else "")
 
 
 class FormularioDAMI(ModeloBase):
@@ -230,3 +244,48 @@ class RegistroProduccion(ModeloBase):
                 name="produccion_valor_segun_estado",
             ),
         ]
+
+
+class TarjetaDAMI(ModeloBase):
+    """
+    Tarjeta para realizar el pago, indicada en el DAMI.
+
+    El número completo se guarda CIFRADO (clave CLAVE_TARJETAS del .env, fuera de la base de datos)
+    y ninguna pantalla lo muestra: solo los últimos 4 dígitos. Quién y cuándo podrá ver el número
+    completo se definirá en el módulo de cierre. Esta tabla no se audita ni se registra en el
+    panel /admin, para que el número no se copie a otros lugares.
+    """
+
+    class Marca(models.TextChoices):
+        DINERS = "DINERS", "Diners"
+        VISA = "VISA", "Visa"
+        MASTERCARD = "MASTERCARD", "Mastercard"
+        AMEX = "AMEX", "American Express"
+
+    formulario = models.OneToOneField(FormularioDAMI, on_delete=models.CASCADE, related_name="tarjeta")
+    marca = models.CharField(max_length=10, choices=Marca.choices)
+    banco = models.CharField(max_length=80)
+    caducidad_mes = models.PositiveSmallIntegerField()
+    caducidad_anio = models.PositiveSmallIntegerField()
+    ultimos4 = models.CharField("últimos 4 dígitos", max_length=4)
+    numero_cifrado = models.TextField(editable=False)
+
+    class Meta:
+        verbose_name = "tarjeta del DAMI"
+        verbose_name_plural = "tarjetas del DAMI"
+        default_permissions = ()  # ningún rol recibe permisos sobre esta tabla
+        constraints = [
+            models.CheckConstraint(condition=Q(marca__in=["DINERS", "VISA", "MASTERCARD", "AMEX"]), name="tarjeta_marca_valida"),
+            models.CheckConstraint(condition=Q(caducidad_mes__gte=1, caducidad_mes__lte=12), name="tarjeta_mes_valido"),
+            models.CheckConstraint(condition=Q(caducidad_anio__gte=2020, caducidad_anio__lte=2100), name="tarjeta_anio_valido"),
+            models.CheckConstraint(condition=Q(ultimos4__regex=r"^[0-9]{4}$"), name="tarjeta_ultimos4_validos"),
+            models.CheckConstraint(condition=~Q(numero_cifrado=""), name="tarjeta_numero_cifrado"),
+        ]
+
+    def __str__(self):
+        return f"{self.get_marca_display()} **** {self.ultimos4}"
+
+    @property
+    def caducidad(self) -> str:
+        return f"{self.caducidad_mes:02d}/{self.caducidad_anio % 100:02d}"
+
