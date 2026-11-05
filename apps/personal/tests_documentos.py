@@ -91,6 +91,29 @@ class LecturaCVTests(TestCase):
         self.assertNotIn("identificacion", datos)
         self.assertEqual(datos["telefono"], "0991234567")
 
+    def test_formato_de_la_empresa_con_datos_separados_por_barras(self):
+        """Formato estándar: nombre, cargo, contacto con '|' y una línea de datos personales."""
+        texto = (
+            "ANA LUCÍA VERA MORA\nASESORA COMERCIAL | ATENCIÓN AL CLIENTE\n"
+            "Quito, Ecuador | +593 991234567 | ana.vera@correo.com\n"
+            f"Cédula: {CEDULA_VALIDA} | Fecha de nacimiento: 14/03/1998 | Dirección: Av. 10 de Agosto N24-15 y Colón, Quito\n"
+            "PERFIL PROFESIONAL\nAsesora con experiencia en ventas telefónicas.\n"
+        )
+        datos = cv.extraer_datos(texto)
+        self.assertEqual((datos["nombres"], datos["apellidos"]), ("Ana Lucía", "Vera Mora"))
+        self.assertEqual(datos["identificacion"], CEDULA_VALIDA)
+        self.assertEqual(datos["fecha_nacimiento"], "1998-03-14")
+        self.assertEqual(datos["telefono"], "0991234567")
+        self.assertEqual(datos["email"], "ana.vera@correo.com")
+        self.assertEqual(datos["direccion"], "Av. 10 de Agosto N24-15 y Colón, Quito")
+
+    def test_sin_direccion_usa_la_ciudad_del_encabezado(self):
+        texto = "LUIS ANDRADE PAZ\nVENDEDOR\nGuayaquil, Ecuador | +593 987654321 | luis@correo.com\nPERFIL PROFESIONAL\n"
+        datos = cv.extraer_datos(texto)
+        self.assertEqual(datos["direccion"], "Guayaquil, Ecuador")
+        self.assertEqual(datos["telefono"], "0987654321")
+        self.assertNotIn("identificacion", datos)  # el CV no trae cédula: no se inventa
+
     def test_cv_sin_datos_reconocibles(self):
         self.assertEqual(cv.extraer_datos("EXPERIENCIA\n2019-2023 ventas\n"), {})
 
