@@ -207,3 +207,141 @@ def estimar_mes(empleado, anio: int, mes: int) -> Estimacion:
     ).count()
     estimacion.llamados_ventana = por_atraso + manuales
     return estimacion
+
+
+# --------------------------------------------------------------------------- nómina de todos
+def empleados_del_mes(anio: int, mes: int):
+    """Empleados que trabajaron en algún momento del mes (ingresaron antes de que termine y no salieron antes)."""
+    from apps.personal.models import Empleado
+
+    inicio, fin = date(anio, mes, 1), ultimo_dia(anio, mes)
+    return (
+        Empleado.objects.filter(fecha_ingreso__lte=fin)
+        .filter(Q(fecha_salida__isnull=True) | Q(fecha_salida__gte=inicio))
+        .select_related("cargo").order_by("apellidos", "nombres")
+    )
+
+
+@dataclass
+class ResumenNomina:
+    roles: list
+
+    def _suma(self, atributo) -> Decimal:
+        return _dinero(sum((getattr(r, atributo) or 0 for r in self.roles), Decimal("0")))
+
+    @property
+    def total_sueldos(self):
+        return self._suma("sueldo_base")
+
+    @property
+    def total_comisiones(self):
+        return self._suma("comision")
+
+    @property
+    def total_descuentos(self):
+        return self._suma("total_descuentos")
+
+    @property
+    def total_neto(self):
+        return self._suma("neto")
+
+    @property
+    def pendientes(self):
+        return sum(r.pendientes for r in self.roles)
+
+    @property
+    def sin_sueldo(self):
+        return [r for r in self.roles if not r.sueldo_base]
+
+    @property
+    def visto_bueno(self):
+        return [r for r in self.roles if r.requiere_visto_bueno]
+
+
+def nomina_del_mes(anio: int, mes: int) -> ResumenNomina:
+    return ResumenNomina([estimar_mes(e, anio, mes) for e in empleados_del_mes(anio, mes)])
+
+
+# --------------------------------------------------------------------------- rol de pagos en PDF
+MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto",
+         "septiembre", "octubre", "noviembre", "diciembre"]
+
+
+def nombre_mes(anio: int, mes: int) -> str:
+    return f"{MESES[mes - 1]} de {anio}"
+
+
+def rol_de_pagos_pdf(e: Estimacion) -> bytes:
+    from django.contrib.staticfiles import finders
+    from fpdf import FPDF
+
+    from apps.documentos.contratos import _latin1, dinero
+
+    emp = e.empleado
+    pdf = FPDF(format="A4")
+    pdf.set_title(_latin1(f"Rol de pagos {nombre_mes(e.anio, e.mes)} - {emp.nombres} {emp.apellidos}"))
+    pdf.set_creator("CALLFLOW")
+    pdf.set_margins(20, 18, 20)
+    pdf.add_page()
+    logo = finders.find("img/logo-multivisa.png")
+    if logo:
+        pdf.image(logo, x=pdf.w - 20 - 24, y=12, w=24)
+
+    pdf.set_font("Helvetica", "B", 15)
+    pdf.cell(0, 9, "ROL DE PAGOS", new_x="LMARGIN", new_y="NEXT")
+    pdf.set_font("Helvetica", size=10.5)
+    pdf.cell(0, 6, _latin1(f"Periodo: {nombre_mes(e.anio, e.mes)}"), new_x="LMARGIN", new_y="NEXT")
+    pdf.ln(4)
+
+    datos = [
+        ("Empleado", f"{emp.nombres} {emp.apellidos}"),
+        (emp.get_tipo_identificacion_display(), emp.identificacion),
+        ("Cargo", str(emp.cargo)),
+        ("Equipo", str(e.esquema) if e.esquema else "-"),
+    ]
+    for etiqueta, valor in datos:
+        pdf.set_font("Helvetica", "B", 10)
+        pdf.cell(32, 6, _latin1(etiqueta))
+        pdf.set_font("Helvetica", size=10)
+        pdf.cell(0, 6, _latin1(valor), new_x="LMARGIN", new_y="NEXT")
+    pdf.ln(5)
+
+    ancho = pdf.w - pdf.l_margin - pdf.r_margin
+
+    def fila(concepto, valor, negrita=False, gris=False):
+        pdf.set_font("Helvetica", "B" if negrita else "", 10)
+        pdf.set_fill_color(238, 241, 246)
+        pdf.cell(ancho - 40, 7, _latin1(concepto), border="B", fill=gris)
+        pdf.cell(40, 7, _latin1(valor), border="B", align="R", fill=gris, new_x="LMARGIN", new_y="NEXT")
+
+    fila("INGRESOS", "", negrita=True, gris=True)
+    fila("Sueldo base", dinero(e.sueldo_base or Decimal("0")))
+    if e.es_vendedor:
+        detalle = f"Comisión ({e.porcentaje_comision.normalize()} % de ventas por {dinero(e.total_ventas)})" if e.esquema else "Comisión (sin equipo asignado)"
+        fila(detalle, dinero(e.comision))
+    fila("Total ingresos", dinero(e.total_ingresos), negrita=True)
+    pdf.ln(3)
+    fila("DESCUENTOS", "", negrita=True, gris=True)
+    for d in e.descuentos:
+        fila(f"{d.concepto} - {d.fecha:%d/%m/%Y}" + (" (sin clasificar)" if d.pendiente else ""), f"- {dinero(d.valor)}")
+    if not e.descuentos:
+        fila("Sin descuentos", dinero(Decimal("0")))
+    fila("Total descuentos", f"- {dinero(e.total_descuentos)}", negrita=True)
+    pdf.ln(3)
+    pdf.set_font("Helvetica", "B", 12)
+    pdf.cell(ancho - 40, 9, "NETO A RECIBIR")
+    pdf.cell(40, 9, _latin1(dinero(e.neto)), align="R", new_x="LMARGIN", new_y="NEXT")
+
+    pdf.ln(22)
+    pdf.set_font("Helvetica", size=10)
+    pdf.cell(ancho / 2, 6, "______________________________")
+    pdf.cell(ancho / 2, 6, "______________________________", new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(ancho / 2, 6, "Empleador")
+    pdf.cell(ancho / 2, 6, _latin1(f"{emp.nombres} {emp.apellidos}"), new_x="LMARGIN", new_y="NEXT")
+
+    pdf.set_y(-25)
+    pdf.set_font("Helvetica", "I", 8)
+    pdf.set_text_color(110)
+    pdf.multi_cell(0, 4, _latin1("Estimación generada por CALLFLOW con las reglas de nómina vigentes. "
+                                 "Las faltas y atrasos sin clasificar se cuentan como no justificados."))
+    return bytes(pdf.output())

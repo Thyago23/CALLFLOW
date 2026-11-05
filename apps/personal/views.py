@@ -1,5 +1,5 @@
 import json
-from datetime import date, timedelta
+from datetime import timedelta
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, permission_required
@@ -193,17 +193,6 @@ def configurar_ingreso(empleado, datos, usuario):
         AsignacionHorario.objects.create(empleado=empleado, horario=estandar, vigente_desde=empleado.fecha_ingreso)
 
 
-def _mes_consultado(request):
-    """?mes=2026-11 → (2026, 11); por defecto, el mes actual."""
-    hoy = timezone.localdate()
-    try:
-        anio, mes = (int(x) for x in request.GET.get("mes", "").split("-"))
-        date(anio, mes, 1)
-        return anio, mes
-    except (ValueError, TypeError):
-        return hoy.year, hoy.month
-
-
 class EmpleadoDetalleView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
     """
     Ficha del empleado: datos, documentos del expediente, cuenta de acceso y
@@ -251,12 +240,11 @@ class EmpleadoDetalleView(LoginRequiredMixin, PermissionRequiredMixin, DetailVie
         if self.request.user.has_perm("personal.view_historialsalario"):
             from apps.nomina.calculo import estimar_mes
 
-            anio, mes = _mes_consultado(self.request)
+            hoy = timezone.localdate()
             ctx.update({
                 "salarios": self.object.salarios.select_related("registrado_por").order_by("-vigente_desde"),
                 "equipos": self.object.comisiones.select_related("esquema").order_by("-vigente_desde"),
-                "estimacion": estimar_mes(self.object, anio, mes),
-                "mes_consultado": f"{anio:04d}-{mes:02d}",
+                "estimacion": estimar_mes(self.object, hoy.year, hoy.month),
             })
             if self.request.user.has_perm("personal.add_historialsalario"):
                 ctx["salario_form"] = SalarioForm(empleado=self.object)

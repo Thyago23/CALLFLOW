@@ -1,4 +1,4 @@
-{# SCRUM-14 · Sueldo, equipo de comisiones y estimación del pago del mes #}
+{# SCRUM-14 · Sueldo y equipo de comisiones. El rol de pagos completo está en el módulo Nómina. #}
 <section class="tab-pane fade" id="sueldo" role="tabpanel" aria-labelledby="tab-sueldo" tabindex="0">
   {% with e=estimacion %}
   {% if e.requiere_visto_bueno %}
@@ -9,90 +9,28 @@
   </div>
   {% endif %}
 
-  <div class="row g-4">
-    {# ------------------------------------------------ estimación del mes #}
-    <div class="col-xl-7">
-      <div class="card">
-        <div class="card-header bg-body d-flex flex-wrap justify-content-between align-items-center gap-2">
-          <h2 class="h6 mb-0">Estimación del pago del mes</h2>
-          <form method="get" class="d-flex gap-2 align-items-center" onsubmit="this.action = location.pathname + '#sueldo'">
-            <label class="visually-hidden" for="mes-sueldo">Mes</label>
-            <input type="month" id="mes-sueldo" name="mes" value="{{ mes_consultado }}" class="form-control form-control-sm" onchange="this.form.requestSubmit()">
-          </form>
-        </div>
-        <div class="card-body">
-          {% if not e.sueldo_base %}
-          <div class="alert alert-warning small py-2">El empleado no tiene sueldo base vigente en este mes. Regístrelo a la derecha.</div>
-          {% endif %}
-          {% if e.pendientes %}
-          <div class="alert alert-warning small py-2">
-            <i class="bi bi-hourglass-split me-1" aria-hidden="true"></i>
-            {{ e.pendientes }} falta{{ e.pendientes|pluralize }} o atraso{{ e.pendientes|pluralize }} sin clasificar: se cuentan como <strong>no justificados</strong>.
-            {% if perms.asistencia.change_novedadasistencia %}<a href="{% url 'asistencia:novedades' %}">Clasificar</a> antes de pagar.{% endif %}
-          </div>
-          {% endif %}
-
-          <table class="table table-sm align-middle mb-0 tabla-pago">
-            <tbody>
-              <tr><th scope="row" class="fw-normal">Sueldo base</th><td class="text-end">$ {{ e.sueldo_base|default:"0.00" }}</td></tr>
-              {% if e.es_vendedor %}
-              <tr>
-                <th scope="row" class="fw-normal">
-                  Comisión {% if e.esquema %}· {{ e.esquema }}{% endif %}
-                  <div class="small text-body-secondary">
-                    {% if e.esquema %}Ventas cerradas del mes: $ {{ e.total_ventas }} → {{ e.porcentaje_comision|floatformat:"-2" }} %
-                    {% else %}Sin equipo asignado: no se calculan comisiones.{% endif %}
-                  </div>
-                </th>
-                <td class="text-end">$ {{ e.comision }}</td>
-              </tr>
-              {% endif %}
-              <tr class="fila-total"><th scope="row">Total ingresos</th><td class="text-end fw-semibold">$ {{ e.total_ingresos }}</td></tr>
-              {% for d in e.descuentos %}
-              <tr class="text-danger-emphasis">
-                <th scope="row" class="fw-normal">
-                  {{ d.concepto }} <span class="small text-body-secondary">· {{ d.fecha|date:"D d/m" }}</span>
-                  {% if d.pendiente %}<span class="badge text-bg-warning ms-1">Sin clasificar</span>{% endif %}
-                </th>
-                <td class="text-end">− $ {{ d.valor }}</td>
-              </tr>
-              {% empty %}
-              <tr><th scope="row" class="fw-normal text-body-secondary">Sin descuentos por faltas ni atrasos</th><td class="text-end">$ 0.00</td></tr>
-              {% endfor %}
-              {% if e.descuentos %}
-              <tr class="fila-total"><th scope="row">Total descuentos</th><td class="text-end fw-semibold text-danger-emphasis">− $ {{ e.total_descuentos }}</td></tr>
-              {% endif %}
-              <tr class="fila-neto"><th scope="row">Neto estimado</th><td class="text-end">$ {{ e.neto }}</td></tr>
-            </tbody>
-          </table>
-
-          {% if e.multas_superan_aviso %}
-          <div class="alert alert-warning small py-2 mt-3 mb-0">
-            Los descuentos superan el {{ e.aviso_multas_porcentaje|floatformat:"-2" }} % del sueldo base: verifique el límite permitido por el reglamento interno.
-          </div>
-          {% endif %}
-
-          {% if e.llamados_mes %}
-          <h3 class="h6 mt-4">Llamados de atención por atraso en el mes</h3>
-          <ul class="small mb-0">
-            {% for n in e.llamados_mes %}<li>{{ n.fecha|date:"D d/m/Y" }} · {{ n.minutos }} min de atraso</li>{% endfor %}
-          </ul>
-          {% endif %}
-          <p class="small text-body-secondary mt-3 mb-0">
-            Estimación con las reglas vigentes: entrada 9:00 · atraso hasta 9:01 $1 · hasta 9:10 $5 · más tarde, llamado de atención ·
-            falta no justificada 10 % del sueldo · falta justificada $13,33. Llamados de atención acumulados en el año: <strong>{{ e.llamados_ventana }}</strong> de {{ e.llamados_para_visto_bueno }}.
-          </p>
+  {% if perms.nomina.view_periodonomina %}
+  <div class="card mb-4 enlace-rol">
+    <div class="card-body d-flex flex-wrap align-items-center justify-content-between gap-3">
+      <div>
+        <div class="small text-body-secondary">Pago estimado de este mes</div>
+        <div class="fs-4 fw-semibold">$ {{ e.neto }}</div>
+        <div class="small text-body-secondary">
+          Sueldo $ {{ e.sueldo_base|default:"0,00" }}{% if e.es_vendedor %} + comisión $ {{ e.comision }}{% endif %}{% if e.total_descuentos %} − descuentos $ {{ e.total_descuentos }}{% endif %}
         </div>
       </div>
+      <a href="{% url 'nomina:rol' empleado.pk %}" class="btn btn-outline-primary"><i class="bi bi-receipt me-1" aria-hidden="true"></i>Ver rol de pagos en Nómina</a>
     </div>
+  </div>
+  {% endif %}
 
-    {# ------------------------------------------------ sueldo y equipo #}
-    <div class="col-xl-5">
-      <div class="card mb-4">
+  <div class="row g-4">
+    <div class="col-lg-6">
+      <div class="card h-100">
         <div class="card-body">
           <h2 class="h6 text-uppercase text-body-secondary mb-2">Sueldo base</h2>
           {% with actual=salarios.0 %}
-          <div class="fs-4 fw-semibold mb-3">{% if actual %}$ {{ actual.salario_base }}{% else %}<span class="text-body-secondary fs-6">Sin sueldo registrado</span>{% endif %}</div>
+          <div class="fs-4 fw-semibold mb-3">{% if actual and not actual.vigente_hasta %}$ {{ actual.salario_base }}{% else %}<span class="text-body-secondary fs-6">Sin sueldo vigente</span>{% endif %}</div>
           {% endwith %}
           {% if salario_form %}
           <form method="post" action="{% url 'personal:salario_cambiar' empleado.pk %}" class="row g-2 align-items-end mb-3">
@@ -116,9 +54,11 @@
           {% endif %}
         </div>
       </div>
+    </div>
 
-      {% if estimacion.es_vendedor or equipos %}
-      <div class="card">
+    {% if e.es_vendedor or equipos %}
+    <div class="col-lg-6">
+      <div class="card h-100">
         <div class="card-body">
           <h2 class="h6 text-uppercase text-body-secondary mb-2">Equipo y comisiones</h2>
           {% with actual=equipos.0 %}
@@ -155,8 +95,8 @@
           {% endif %}
         </div>
       </div>
-      {% endif %}
     </div>
+    {% endif %}
   </div>
   {% endwith %}
 </section>

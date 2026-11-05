@@ -157,7 +157,8 @@ class EstimacionMesTests(TestCase):
         ficha = self.client.get(reverse("personal:empleado_detalle", args=[self.vendedor.pk]))
         self.assertContains(ficha, 'data-pestana="sueldo"')
         self.assertContains(ficha, "Visas")
-        self.assertContains(ficha, "Neto estimado")
+        self.assertContains(ficha, reverse("nomina:rol", args=[self.vendedor.pk]))  # el detalle del pago está en Nómina
+        self.assertNotContains(ficha, "Total descuentos")
 
     def test_cambiar_sueldo_conserva_historial_con_vigencia(self):
         self.client.force_login(self.admin)
@@ -184,3 +185,54 @@ class EstimacionMesTests(TestCase):
                                      {"salario_base": "9999", "vigente_desde": "2026-06-01"})
         self.assertEqual(respuesta.status_code, 403)
         self.assertEqual(self.vendedor.salarios.count(), 1)
+
+
+    # ----------------------------------------------------------- módulo Nómina
+    def test_nomina_resume_a_todos_con_totales(self):
+        HistorialSalario.objects.create(empleado=self.encargado, salario_base=D("500.00"), vigente_desde=date(2026, 1, 1))
+        self.venta_cerrada("2000.00", 1)                         # Visas 11 % = 220
+        self.novedad(0, "AUSENCIA", "NO_JUSTIFICADA")            # − 40
+        self.client.force_login(self.admin)
+        respuesta = self.client.get(reverse("nomina:resumen"), {"mes": f"{self.anio}-{self.mes:02d}"})
+        nomina = respuesta.context["nomina"]
+        self.assertEqual(len(nomina.roles), 2)
+        self.assertEqual(nomina.total_sueldos, D("900.00"))
+        self.assertEqual(nomina.total_comisiones, D("220.00"))
+        self.assertEqual(nomina.total_descuentos, D("40.00"))
+        self.assertEqual(nomina.total_neto, D("1080.00"))
+        self.assertContains(respuesta, "Vera Ana")
+        self.assertContains(respuesta, reverse("nomina:rol_pdf", args=[self.vendedor.pk]))
+
+    def test_nomina_filtra_por_equipo_y_busqueda(self):
+        self.client.force_login(self.admin)
+        visas = EsquemaComision.objects.get(nombre="Visas")
+        roles = self.client.get(reverse("nomina:resumen"), {"equipo": visas.pk}).context["roles"]
+        self.assertEqual([r.empleado for r in roles], [self.vendedor])
+        roles = self.client.get(reverse("nomina:resumen"), {"q": "paz"}).context["roles"]
+        self.assertEqual([r.empleado for r in roles], [self.encargado])
+
+    def test_nomina_no_incluye_a_quien_salio_antes_del_mes(self):
+        Empleado.objects.filter(pk=self.encargado.pk).update(estado="DESVINCULADO", fecha_salida=date(2026, 1, 31))
+        empleados = list(calculo.empleados_del_mes(self.anio, self.mes))
+        self.assertNotIn(self.encargado, empleados)
+        self.assertIn(self.encargado, list(calculo.empleados_del_mes(2026, 1)))
+
+    def test_rol_de_pagos_y_pdf(self):
+        import io
+        from pypdf import PdfReader
+        self.venta_cerrada("1500.00", 1)
+        self.client.force_login(self.admin)
+        mes = f"{self.anio}-{self.mes:02d}"
+        rol = self.client.get(reverse("nomina:rol", args=[self.vendedor.pk]), {"mes": mes})
+        self.assertContains(rol, "Neto a recibir")
+        self.assertContains(rol, "$ 565,00")  # 400 + 11 % de 1.500
+        pdf = self.client.get(reverse("nomina:rol_pdf", args=[self.vendedor.pk]), {"mes": mes})
+        self.assertEqual(pdf["Content-Type"], "application/pdf")
+        texto = PdfReader(io.BytesIO(pdf.content)).pages[0].extract_text()
+        for esperado in ("ROL DE PAGOS", "Ana Vera", "1710034065", "Visas", "Comisión", "NETO A RECIBIR", "$ 565,00"):
+            self.assertIn(esperado, texto)
+
+    def test_nomina_solo_para_autorizados(self):
+        self.client.force_login(Usuario.objects.create_user("vend2", None, "clave-segura-123", rol=Rol.VENDEDOR))
+        self.assertEqual(self.client.get(reverse("nomina:resumen")).status_code, 403)
+        self.assertEqual(self.client.get(reverse("nomina:rol_pdf", args=[self.vendedor.pk])).status_code, 403)

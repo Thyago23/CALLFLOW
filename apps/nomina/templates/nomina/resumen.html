@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block titulo %}Nómina{% endblock %}
+{% block contenido %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+  <div>
+    <h1 class="h3 mb-0">Nómina</h1>
+    <p class="text-body-secondary mb-0 small">Roles de pago de {{ nombre_mes }} con las reglas vigentes de sueldos, comisiones y penalizaciones.</p>
+  </div>
+  <form method="get" class="d-flex gap-2 align-items-center">
+    <label class="small text-body-secondary" for="mes-nomina">Mes</label>
+    <input type="month" id="mes-nomina" name="mes" value="{{ mes_consultado }}" class="form-control" onchange="this.form.requestSubmit()">
+  </form>
+</div>
+
+{# ---------------------------------------------------------------- totales #}
+<div class="row g-3 mb-3">
+  <div class="col-6 col-lg-3"><div class="card h-100 indicador"><div class="card-body">
+    <div class="small text-body-secondary">Sueldos base</div><div class="fs-4 fw-semibold">$ {{ nomina.total_sueldos }}</div>
+    <div class="small text-body-secondary">{{ nomina.roles|length }} empleado{{ nomina.roles|length|pluralize }}</div>
+  </div></div></div>
+  <div class="col-6 col-lg-3"><div class="card h-100 indicador"><div class="card-body">
+    <div class="small text-body-secondary">Comisiones</div><div class="fs-4 fw-semibold">$ {{ nomina.total_comisiones }}</div>
+  </div></div></div>
+  <div class="col-6 col-lg-3"><div class="card h-100 indicador"><div class="card-body">
+    <div class="small text-body-secondary">Descuentos</div><div class="fs-4 fw-semibold text-danger-emphasis">− $ {{ nomina.total_descuentos }}</div>
+  </div></div></div>
+  <div class="col-6 col-lg-3"><div class="card h-100 indicador total-nomina"><div class="card-body">
+    <div class="small">Total a pagar</div><div class="fs-4 fw-bold">$ {{ nomina.total_neto }}</div>
+  </div></div></div>
+</div>
+
+{% if nomina.pendientes or nomina.sin_sueldo or nomina.visto_bueno %}
+<div class="alert alert-warning small" role="alert">
+  <ul class="mb-0 ps-3">
+    {% if nomina.pendientes %}<li><strong>{{ nomina.pendientes }}</strong> falta{{ nomina.pendientes|pluralize }} o atraso{{ nomina.pendientes|pluralize }} sin clasificar se cuentan como no justificados.{% if perms.asistencia.change_novedadasistencia %} <a href="{% url 'asistencia:novedades' %}">Clasificar</a>{% endif %}</li>{% endif %}
+    {% if nomina.sin_sueldo %}<li>Sin sueldo base registrado: {% for r in nomina.sin_sueldo %}<a href="{% url 'personal:empleado_detalle' r.empleado.pk %}#sueldo">{{ r.empleado.nombres }} {{ r.empleado.apellidos }}</a>{% if not forloop.last %}, {% endif %}{% endfor %}.</li>{% endif %}
+    {% if nomina.visto_bueno %}<li class="text-danger-emphasis">Con 3 o más llamados de atención (visto bueno): {% for r in nomina.visto_bueno %}{{ r.empleado.nombres }} {{ r.empleado.apellidos }}{% if not forloop.last %}, {% endif %}{% endfor %}.</li>{% endif %}
+  </ul>
+</div>
+{% endif %}
+
+{# ---------------------------------------------------------------- filtros #}
+<form method="get" class="row g-2 mb-3">
+  <input type="hidden" name="mes" value="{{ mes_consultado }}">
+  <div class="col-sm-7 col-md-5">
+    <label class="visually-hidden" for="busqueda-nomina">Buscar</label>
+    <input id="busqueda-nomina" type="search" name="q" value="{{ q }}" class="form-control" placeholder="Buscar por nombre o identificación">
+  </div>
+  <div class="col-sm-5 col-md-3">
+    <label class="visually-hidden" for="equipo-nomina">Equipo</label>
+    <select id="equipo-nomina" name="equipo" class="form-select" onchange="this.form.requestSubmit()">
+      <option value="">Todos los equipos</option>
+      {% for eq in equipos %}<option value="{{ eq.pk }}" {% if equipo == eq.pk|stringformat:"s" %}selected{% endif %}>{{ eq }}</option>{% endfor %}
+      <option value="sin" {% if equipo == "sin" %}selected{% endif %}>Vendedores sin equipo</option>
+    </select>
+  </div>
+</form>
+
+{# ---------------------------------------------------------------- roles de pago #}
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead>
+        <tr>
+          <th scope="col">Empleado</th>
+          <th scope="col" class="d-none d-md-table-cell">Equipo</th>
+          <th scope="col" class="text-end">Sueldo base</th>
+          <th scope="col" class="text-end d-none d-lg-table-cell">Ventas</th>
+          <th scope="col" class="text-end">Comisión</th>
+          <th scope="col" class="text-end">Descuentos</th>
+          <th scope="col" class="text-end">Neto</th>
+          <th scope="col"><span class="visually-hidden">Acciones</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in roles %}
+        <tr>
+          <td>
+            <a href="{% url 'nomina:rol' r.empleado.pk %}?mes={{ mes_consultado }}" class="fw-semibold text-decoration-none">{{ r.empleado.apellidos }} {{ r.empleado.nombres }}</a>
+            <div class="small text-body-secondary">{{ r.empleado.cargo }}</div>
+            {% if r.pendientes %}<span class="badge text-bg-warning">{{ r.pendientes }} sin clasificar</span>{% endif %}
+            {% if r.requiere_visto_bueno %}<span class="badge text-bg-danger">Visto bueno</span>{% endif %}
+          </td>
+          <td class="d-none d-md-table-cell">{% if r.esquema %}{{ r.esquema }}{% elif r.es_vendedor %}<span class="text-body-secondary small">Sin equipo</span>{% else %}—{% endif %}</td>
+          <td class="text-end text-nowrap">{% if r.sueldo_base %}$ {{ r.sueldo_base }}{% else %}<span class="text-danger small">Sin sueldo</span>{% endif %}</td>
+          <td class="text-end text-nowrap d-none d-lg-table-cell">{% if r.es_vendedor %}$ {{ r.total_ventas }}{% else %}—{% endif %}</td>
+          <td class="text-end text-nowrap">{% if r.es_vendedor %}$ {{ r.comision }}{% if r.porcentaje_comision %} <span class="small text-body-secondary">({{ r.porcentaje_comision|floatformat:"-2" }} %)</span>{% endif %}{% else %}—{% endif %}</td>
+          <td class="text-end text-nowrap {% if r.total_descuentos %}text-danger-emphasis{% endif %}">{% if r.total_descuentos %}− $ {{ r.total_descuentos }}{% else %}$ 0,00{% endif %}</td>
+          <td class="text-end text-nowrap fw-semibold">$ {{ r.neto }}</td>
+          <td class="text-end">
+            <a href="{% url 'nomina:rol_pdf' r.empleado.pk %}?mes={{ mes_consultado }}" class="btn btn-sm btn-outline-primary" target="_blank" rel="noopener" title="Rol de pagos en PDF">
+              <i class="bi bi-file-earmark-pdf" aria-hidden="true"></i><span class="visually-hidden">PDF</span>
+            </a>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="8" class="text-center text-body-secondary py-4">No hay empleados que coincidan.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+<p class="small text-body-secondary mt-3 mb-0">
+  Estimación con las reglas vigentes (entrada 9:00 · atraso hasta 9:01 $1 · hasta 9:10 $5 · después llamado de atención ·
+  falta no justificada 10 % del sueldo · falta justificada $13,33). Las comisiones se calculan sobre las ventas cerradas del mes.
+</p>
+{% endblock %}

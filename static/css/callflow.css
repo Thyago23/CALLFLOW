@@ -459,3 +459,7 @@ input[type="checkbox"].form-check-input + .dia-check { margin-left: 0; }
 .tabla-pago .fila-total > * { border-top: 2px solid var(--bs-border-color); }
 .tabla-pago .fila-neto > * { font-size: 1.1rem; font-weight: 700; border-top: 2px solid var(--cf-primario); color: var(--cf-primario); border-bottom: 0; }
 .historial-sueldo li:last-child { border-bottom: 0 !important; }
+
+/* Nómina */
+.indicador.total-nomina { background: var(--cf-primario); color: #fff; border-color: var(--cf-primario); }
+.enlace-rol { border-left: 4px solid var(--cf-primario); }
