@@ -14,4 +14,5 @@ urlpatterns = [
     path("usuarios/<int:pk>/restablecer-clave/", views.usuario_restablecer_clave, name="usuario_restablecer_clave"),
     path("usuarios/<int:pk>/cambiar-estado/", views.usuario_cambiar_estado, name="usuario_cambiar_estado"),
     path("notificaciones/marcar-leidas/", views.marcar_notificaciones_leidas, name="notificaciones_leidas"),
+    path("notificaciones/contadores/", views.contadores, name="contadores"),
 ]

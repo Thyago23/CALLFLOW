@@ -11,7 +11,7 @@
       </div>
       <ul class="list-group list-group-flush">
         {% for s in pendientes %}
-        <li class="list-group-item py-3">
+        <li class="list-group-item py-3 solicitud-pendiente" id="solicitud-{{ s.pk }}">
           <div class="d-flex justify-content-between gap-2 mb-2">
             <div><div class="fw-semibold">{{ s.vendedor }}</div>{% if s.mensaje %}<div class="small">{{ s.mensaje }}</div>{% endif %}</div>
             <span class="small text-body-secondary text-nowrap">{{ s.creado_en|date:"d/m H:i" }}</span>

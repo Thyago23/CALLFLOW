@@ -541,3 +541,9 @@ input[type="checkbox"].form-check-input + .dia-check { margin-left: 0; }
 .marcas-tarjeta .btn-check:checked + .btn .marca-check { display: inline; }
 .marcas-tarjeta .btn-check:checked + .btn .marca-vacia { display: none; }
 .hoja-dami .form-label { font-weight: 600; }
+
+/* 4.4 Cierre de ventas */
+.fila-prioritaria > td:first-child { box-shadow: inset 3px 0 0 var(--bs-danger); }
+.borde-prioritario { border-left: 3px solid var(--bs-danger); }
+.solicitud-pendiente:target { background: var(--bs-warning-bg-subtle); }
+details.card > summary { cursor: pointer; list-style: revert; }

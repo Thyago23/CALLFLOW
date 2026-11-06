@@ -55,7 +55,7 @@ MODULOS = [
     Modulo("ventas", "Ventas", "4.3", "telephone-outbound", "ventas.view_formulariodami",
            "Formularios DAMI, hoja de producción y bases comerciales.", url="ventas:inicio"),
     Modulo("cierre", "Cierre de ventas", "4.4", "check2-circle", "cierre.view_gestioncierre",
-           "Gestión de cierres, metas mensuales y panel comercial."),
+           "Gestión de cierres, metas mensuales y panel comercial.", url="cierre:bandeja"),
     Modulo("reportes", "Reportes", "4.5", "file-earmark-bar-graph", "reportes.view_tiporeporte",
            "Reportes en PDF con filtros por fechas, empleados y periodos."),
 ]

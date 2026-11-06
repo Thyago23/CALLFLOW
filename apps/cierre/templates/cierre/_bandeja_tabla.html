@@ -1,0 +1,52 @@
+{% load humanize_cf %}
+<div class="card">
+{% if formularios %}
+<div class="table-responsive">
+  <table class="table table-hover align-middle mb-0">
+    <thead>
+      <tr>
+        <th scope="col">Formulario</th>
+        <th scope="col">Cliente</th>
+        <th scope="col" class="d-none d-lg-table-cell">Vendedor</th>
+        <th scope="col" class="d-none d-md-table-cell">Enviado</th>
+        <th scope="col" class="d-none d-md-table-cell">Tarjeta</th>
+        <th scope="col">{% if vista == "gestionados" %}Resultado{% else %}Estado{% endif %}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for f in formularios %}
+      <tr class="{% if f.prioridad == 1 and vista != 'gestionados' %}fila-prioritaria{% endif %}">
+        <td class="text-nowrap">
+          <a class="fw-semibold text-reset" href="{% url 'cierre:formulario' f.pk %}">{{ f }}</a>
+          {% if f.prioridad == 1 %}<span class="badge text-bg-danger ms-1">Prioritario</span>{% endif %}
+        </td>
+        <td>{{ f.cliente.identificacion }}<div class="small text-body-secondary">{{ f.cliente.telefono }}{% if f.cliente.ciudad %} · {{ f.cliente.ciudad }}{% endif %}</div></td>
+        <td class="d-none d-lg-table-cell small">{{ f.vendedor }}</td>
+        <td class="d-none d-md-table-cell small text-nowrap">{{ f.enviado_en|date:"d/m/Y H:i" }}<div class="text-body-secondary">hace {{ f.enviado_en|timesince }}</div></td>
+        <td class="d-none d-md-table-cell small text-nowrap">{% if f.tarjeta %}{{ f.tarjeta.get_marca_display }} <span class="font-monospace">**** {{ f.tarjeta.ultimos4 }}</span>{% else %}—{% endif %}</td>
+        <td>
+          {% if vista == "gestionados" %}
+            <span class="badge estado-dami estado-{{ f.estado|lower }}">{{ f.get_estado_display }}</span>
+            {% if f.gestion.valor_venta %}<div class="small fw-semibold">${{ f.gestion.valor_venta|dinero }}</div>{% endif %}
+            <div class="small text-body-secondary">{{ f.gestion.gestionado_en|date:"d/m/Y H:i" }}</div>
+          {% elif f.encargado_asignado %}
+            <span class="badge estado-dami estado-en_gestion">En gestión</span>
+            <div class="small {% if f.encargado_asignado_id == empleado.pk %}fw-semibold{% else %}text-body-secondary{% endif %}">{% if f.encargado_asignado_id == empleado.pk %}Usted{% else %}{{ f.encargado_asignado }}{% endif %}</div>
+          {% else %}
+            <span class="badge estado-dami estado-enviado">Sin asignar</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="card-body text-center text-body-secondary py-5">
+  {% if q or estado or vendedor or desde or hasta or solo_prioritarios or mios %}No hay formularios que coincidan con los filtros.
+  {% elif vista == "gestionados" %}Todavía no hay formularios gestionados.
+  {% else %}No hay formularios por gestionar. Cuando un vendedor envíe un DAMI, aparecerá aquí.{% endif %}
+</div>
+{% endif %}
+</div>
+{% if formularios %}<p class="text-body-secondary small mt-2">{{ formularios|length }} formulario{{ formularios|length|pluralize }}.{% if vista != "gestionados" %} Ordenados: primero los de tarjeta activa, luego del más antiguo al más reciente.{% endif %}</p>{% endif %}

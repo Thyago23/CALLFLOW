@@ -23,7 +23,7 @@
     <div class="d-flex align-items-center gap-1">
       <a href="{% url 'inicio' %}#notificaciones" class="btn btn-link text-body position-relative p-2" aria-label="Notificaciones: {{ notificaciones_sin_leer }} sin leer">
         <i class="bi bi-bell fs-5" aria-hidden="true"></i>
-        {% if notificaciones_sin_leer %}<span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger contador">{{ notificaciones_sin_leer }}</span>{% endif %}
+        <span id="contador-notificaciones" hx-get="{% url 'contadores' %}" hx-trigger="every 30s" hx-swap="innerHTML">{% if notificaciones_sin_leer %}<span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger contador">{{ notificaciones_sin_leer }}</span>{% endif %}</span>
       </a>
       <div class="dropdown">
         <button class="btn btn-link text-body text-decoration-none dropdown-toggle d-flex align-items-center gap-2" type="button" data-bs-toggle="dropdown" aria-expanded="false">
@@ -63,6 +63,8 @@
           {% if m.disponible %}
           <a class="enlace-menu {% if request.resolver_match.app_name == m.clave %}activo{% endif %}" href="{{ m.href }}">
             <i class="bi bi-{{ m.icono }}" aria-hidden="true"></i> {{ m.nombre }}
+            {% if m.clave == "cierre" and dami_sin_asignar is not None %}<span id="pendientes-cierre" class="badge rounded-pill text-bg-danger ms-auto {% if not dami_sin_asignar %}d-none{% endif %}" title="Formularios DAMI sin asignar">{{ dami_sin_asignar }}</span>{% endif %}
+            {% if m.clave == "ventas" and solicitudes_base_pendientes is not None %}<span id="pendientes-bases-menu" class="badge rounded-pill text-bg-danger ms-auto {% if not solicitudes_base_pendientes %}d-none{% endif %}" title="Solicitudes de bases pendientes">{{ solicitudes_base_pendientes }}</span>{% endif %}
           </a>
           {% else %}
           <span class="enlace-menu deshabilitado" aria-disabled="true" title="Próximamente">
