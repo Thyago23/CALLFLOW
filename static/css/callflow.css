@@ -594,3 +594,20 @@ details.card > summary { cursor: pointer; list-style: revert; }
 .revisiones-tarjeta .revision-error .bi { color: var(--bs-danger); }
 .revisiones-tarjeta .revision-aviso .bi { color: var(--bs-warning); }
 .revisiones-tarjeta .revision-pendiente .bi { color: var(--bs-secondary-color); }
+
+/* Historial de cambios del empleado (plegable) */
+.historial-cambios > summary { cursor: pointer; list-style: none; }
+.historial-cambios > summary::-webkit-details-marker { display: none; }
+.historial-cambios > summary::after { content: "\F282"; font-family: "bootstrap-icons"; transition: transform 0.2s; margin-left: 0.5rem; }
+.historial-cambios[open] > summary::after { transform: rotate(180deg); }
+.historial-cambios del { text-decoration-thickness: 1px; }
+
+/* Sueldo y comisiones */
+.tabla-pago th { font-weight: 400; }
+.tabla-pago .fila-total > * { border-top: 2px solid var(--bs-border-color); }
+.tabla-pago .fila-neto > * { font-size: 1.1rem; font-weight: 700; border-top: 2px solid var(--cf-primario); color: var(--cf-primario); border-bottom: 0; }
+.historial-sueldo li:last-child { border-bottom: 0 !important; }
+
+/* Nómina */
+.indicador.total-nomina { background: var(--cf-primario); color: #fff; border-color: var(--cf-primario); }
+.enlace-rol { border-left: 4px solid var(--cf-primario); }

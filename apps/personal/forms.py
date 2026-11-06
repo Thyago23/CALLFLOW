@@ -1,13 +1,16 @@
+import json
 from datetime import date, timedelta
+from decimal import Decimal
 
 from django import forms
 from django.core.exceptions import ValidationError
+from django.db.models import Q
 from django.urls import reverse
 
 from apps.core import validadores
 from apps.documentos import archivos
 
-from .models import Cargo, Empleado, ObservacionEmpleado
+from .models import Cargo, Empleado, EsquemaComision, ObservacionEmpleado
 
 
 class EmpleadoForm(forms.ModelForm):
@@ -38,8 +41,22 @@ class EmpleadoForm(forms.ModelForm):
             "email": forms.EmailInput(attrs={"placeholder": "nombre@correo.com"}),
         }
 
+    salario_base = forms.DecimalField(
+        label="Sueldo base (USD)", required=False, max_digits=12, decimal_places=2, min_value=Decimal("0.01"),
+        widget=forms.NumberInput(attrs={"step": "0.01", "inputmode": "decimal"}),
+        help_text="Se puede cambiar después en la ficha; el cambio queda en el historial.",
+    )
+    equipo = forms.ModelChoiceField(
+        EsquemaComision.objects.none(), label="Equipo", required=False, empty_label="Sin equipo",
+        help_text="Define las comisiones del vendedor (Visas o Baymont Travel).",
+    )
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields["equipo"].queryset = _esquemas_activos()
+        if not self.is_bound and not self.instance.pk:
+            from apps.nomina.calculo import sueldo_base_por_defecto
+            self.initial.setdefault("salario_base", sueldo_base_por_defecto())
         self.fields["cargo"].queryset = Cargo.objects.filter(activo=True).order_by("nombre")
         self.fields["cargo"].empty_label = "Seleccione un cargo"
         self.fields["telefono"].required = True  # el contacto principal es obligatorio
@@ -221,3 +238,88 @@ class ObservacionForm(forms.ModelForm):
         if len(texto) > 2000:
             raise ValidationError("La observación no puede pasar de 2000 caracteres.")
         return texto
+
+
+class EmpleadoEditarForm(EmpleadoForm):
+    """SCRUM-13 · Actualizar datos de empleados: las mismas validaciones del registro, más estado y salida."""
+
+    class Meta(EmpleadoForm.Meta):
+        fields = EmpleadoForm.Meta.fields + ["estado", "fecha_salida"]
+        labels = EmpleadoForm.Meta.labels | {"estado": "Estado", "fecha_salida": "Fecha de salida"}
+        widgets = EmpleadoForm.Meta.widgets | {
+            "fecha_salida": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
+        }
+        help_texts = {"fecha_salida": "Obligatoria si el estado es «Desvinculado»."}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Sueldo y equipo se cambian desde la ficha (pestaña Sueldo y comisiones), con su historial.
+        del self.fields["salario_base"], self.fields["equipo"]
+        # El cargo actual se puede conservar aunque ya no esté activo para nuevos registros.
+        cargo_actual = self.instance.cargo_id
+        self.fields["cargo"].queryset = Cargo.objects.filter(Q(activo=True) | Q(pk=cargo_actual)).order_by("nombre")
+        # La verificación en vivo no debe marcar como "duplicada" la identificación del propio empleado.
+        hx_vals = json.dumps({"excluir": self.instance.pk})
+        self.fields["identificacion"].widget.attrs["hx-vals"] = hx_vals
+        self.fields["tipo_identificacion"].widget.attrs["hx-vals"] = hx_vals
+
+    def clean(self):
+        datos = super().clean()
+        estado, salida, ingreso = datos.get("estado"), datos.get("fecha_salida"), datos.get("fecha_ingreso")
+        if estado == Empleado.Estado.DESVINCULADO and not salida:
+            self.add_error("fecha_salida", "Indique la fecha de salida del empleado desvinculado.")
+        if salida and ingreso and salida < ingreso:
+            self.add_error("fecha_salida", "La fecha de salida no puede ser anterior a la fecha de ingreso.")
+        if salida and salida > date.today() + timedelta(days=365):
+            self.add_error("fecha_salida", "La fecha de salida no puede ser más de un año en el futuro.")
+        return datos
+
+
+# --------------------------------------------------------------------------- SCRUM-14 · salarios y comisiones
+def _esquemas_activos():
+    return EsquemaComision.objects.filter(activo=True).order_by("nombre")
+
+
+class SalarioForm(forms.Form):
+    salario_base = forms.DecimalField(
+        label="Nuevo sueldo base (USD)", max_digits=12, decimal_places=2, min_value=Decimal("0.01"),
+        widget=forms.NumberInput(attrs={"step": "0.01", "inputmode": "decimal", "class": "form-control"}),
+    )
+    vigente_desde = forms.DateField(label="Vigente desde", widget=forms.DateInput(attrs={"type": "date", "class": "form-control"}, format="%Y-%m-%d"))
+    motivo = forms.CharField(label="Motivo", max_length=200, required=False,
+                             widget=forms.TextInput(attrs={"class": "form-control", "placeholder": "Ej.: aumento por desempeño"}))
+
+    def __init__(self, *args, empleado, **kwargs):
+        self.empleado = empleado
+        super().__init__(*args, **kwargs)
+        self.initial.setdefault("vigente_desde", date.today())
+
+    def clean_vigente_desde(self):
+        desde = self.cleaned_data["vigente_desde"]
+        if desde < self.empleado.fecha_ingreso:
+            raise ValidationError("No puede ser anterior a la fecha de ingreso del empleado.")
+        ultimo = self.empleado.salarios.order_by("-vigente_desde").first()
+        if ultimo and desde <= ultimo.vigente_desde:
+            raise ValidationError(f"Debe ser posterior al {ultimo.vigente_desde:%d/%m/%Y}, inicio del sueldo actual.")
+        return desde
+
+
+class EquipoForm(forms.Form):
+    esquema = forms.ModelChoiceField(EsquemaComision.objects.none(), label="Equipo", empty_label=None,
+                                     widget=forms.Select(attrs={"class": "form-select"}))
+    vigente_desde = forms.DateField(label="Desde", widget=forms.DateInput(attrs={"type": "date", "class": "form-control"}, format="%Y-%m-%d"))
+
+    def __init__(self, *args, empleado, **kwargs):
+        self.empleado = empleado
+        super().__init__(*args, **kwargs)
+        self.fields["esquema"].queryset = _esquemas_activos()
+        self.initial.setdefault("vigente_desde", date.today())
+
+    def clean_vigente_desde(self):
+        desde = self.cleaned_data["vigente_desde"]
+        if desde < self.empleado.fecha_ingreso:
+            raise ValidationError("No puede ser anterior a la fecha de ingreso del empleado.")
+        ultima = self.empleado.comisiones.order_by("-vigente_desde").first()
+        if ultima and desde <= ultima.vigente_desde:
+            raise ValidationError(f"Debe ser posterior al {ultima.vigente_desde:%d/%m/%Y}, inicio del equipo actual.")
+        return desde
