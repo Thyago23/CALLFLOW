@@ -1,7 +1,7 @@
 <div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
   <div>
     <h1 class="h3 mb-0">Ventas</h1>
-    <p class="text-body-secondary small mb-0">Formularios DAMI, hoja de producción y bases comerciales.</p>
+    <p class="text-body-secondary small mb-0">Formularios DAMI, hoja de producción, validación de tarjetas y bases comerciales.</p>
   </div>
   {% if perms.ventas.add_formulariodami and user.rol == "VENDEDOR" and user.empleado %}
   <a href="{% url 'ventas:formulario_nuevo' %}" class="btn btn-primary"><i class="bi bi-file-earmark-plus me-1" aria-hidden="true"></i>Nuevo DAMI</a>
@@ -14,6 +14,9 @@
   <li class="nav-item"><a class="nav-link {% if seccion == 'formularios' %}active{% endif %}" href="{% url 'ventas:formularios' %}"><i class="bi bi-file-earmark-text me-1" aria-hidden="true"></i>{% if user.rol == "VENDEDOR" %}Mis borradores{% else %}Formularios DAMI{% endif %}</a></li>
   {% if user.rol == "VENDEDOR" and user.empleado %}
   <li class="nav-item"><a class="nav-link {% if seccion == 'hoja' %}active{% endif %}" href="{% url 'ventas:hoja' %}"><i class="bi bi-table me-1" aria-hidden="true"></i>Hoja de producción</a></li>
+  {% endif %}
+  {% if perms.ventas.view_rangobin %}
+  <li class="nav-item"><a class="nav-link {% if seccion == 'tarjetas' %}active{% endif %}" href="{% url 'ventas:validar_tarjeta' %}"><i class="bi bi-credit-card-2-front me-1" aria-hidden="true"></i>Validar tarjetas</a></li>
   {% endif %}
   {% if perms.ventas.view_basecomercial %}
   <li class="nav-item"><a class="nav-link {% if seccion == 'bases' %}active{% endif %}" href="{% url 'ventas:bases' %}"><i class="bi bi-database me-1" aria-hidden="true"></i>Bases comerciales</a></li>

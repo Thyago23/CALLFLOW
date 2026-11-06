@@ -7,6 +7,7 @@ Reglas que también cuida la base de datos (triggers de la migración 0002):
 - VENTA_CERRADA / NO_CONCRETADA solo las pone el módulo de cierre.
 Aquí: quién puede ver/editar cada formulario, notificaciones y estadísticas.
 """
+import re
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
@@ -80,7 +81,7 @@ def dami_en_curso(cliente: Cliente, excluir=None):
     return qs.exclude(pk=excluir.pk) if excluir else qs
 
 
-CAMPOS_CLIENTE = ("telefono", "telefono_alterno", "telefono3", "email", "direccion", "sector", "ciudad", "referencia")
+CAMPOS_CLIENTE = ("nombres", "apellidos", "telefono", "telefono_alterno", "telefono3", "email", "direccion", "sector", "ciudad", "referencia")
 
 
 def guardar_cliente(datos: dict) -> Cliente:
@@ -173,11 +174,38 @@ def anular_formulario(usuario, formulario: FormularioDAMI) -> FormularioDAMI:
 
 
 # --------------------------------------------------------------------------- hoja de producción (SCRUM-43, 44)
+FILAS_HOJA_PAPEL = 26  # la hoja impresa trae 26 renglones
+
+
 def hoja_del_mes(empleado, anio: int, mes: int) -> dict:
+    """Hoja con las columnas del formato en papel: N°, fecha, nombre cliente, aprobación, ciudad y valor."""
     hoja = HojaProduccion.objects.filter(vendedor=empleado, anio=anio, mes=mes).first()
-    registros = (RegistroProduccion.objects.filter(hoja=hoja).select_related("formulario__cliente").order_by("fecha", "pk")
-                 if hoja else RegistroProduccion.objects.none())
-    return {"hoja": hoja, "registros": registros, "totales": totales(registros)}
+    registros = (list(RegistroProduccion.objects.filter(hoja=hoja).select_related("formulario__cliente").order_by("fecha", "pk"))
+                 if hoja else [])
+    return {
+        "hoja": hoja,
+        "asesor": f"{empleado.nombres} {empleado.apellidos}".strip(),
+        "registros": registros,
+        "filas_vacias": range(len(registros) + 1, FILAS_HOJA_PAPEL + 1),
+        "totales": totales(registros),
+    }
+
+
+def guardar_aprobacion(usuario, registro_id: int, texto: str) -> RegistroProduccion:
+    """El vendedor escribe el número de aprobación en una fila de su propia hoja (solo dígitos)."""
+    aprobacion = re.sub(r"\s+", "", texto or "")
+    if not re.fullmatch(r"\d{0,20}", aprobacion):
+        raise ValidationError("La aprobación lleva solo números (máximo 20).")
+    registro = RegistroProduccion.objects.select_for_update().filter(
+        pk=registro_id, hoja__vendedor=empleado_de(usuario)).first()
+    if registro is None or not es_vendedor(usuario):
+        raise PermissionDenied("Esa fila no es de su hoja de producción.")
+    if registro.estado == "ANULADO":
+        raise ValidationError("El formulario está anulado.")
+    if registro.aprobacion != aprobacion:
+        registro.aprobacion = aprobacion
+        registro.save(update_fields=["aprobacion", "actualizado_en"])
+    return registro
 
 
 def totales(registros) -> dict:

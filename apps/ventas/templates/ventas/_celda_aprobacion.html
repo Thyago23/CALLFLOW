@@ -1,0 +1,13 @@
+<div class="celda-aprobacion">
+  {% if r.estado == "ANULADO" %}
+  <span class="font-monospace">{{ r.aprobacion }}</span>
+  {% else %}
+  <label class="visually-hidden" for="aprobacion-{{ r.pk }}">Aprobación de {{ r.formulario }}</label>
+  <input type="text" id="aprobacion-{{ r.pk }}" name="aprobacion" value="{% if error %}{{ valor }}{% else %}{{ r.aprobacion }}{% endif %}"
+         class="form-control form-control-sm font-monospace{% if error %} is-invalid{% elif guardado %} is-valid{% endif %}"
+         inputmode="numeric" pattern="[0-9]*" maxlength="20" autocomplete="off" placeholder="Escriba el número"
+         oninput="this.value = this.value.replace(/\D/g, '')"
+         hx-post="{% url 'ventas:hoja_aprobacion' r.pk %}" hx-trigger="change" hx-target="closest .celda-aprobacion" hx-swap="outerHTML">
+  {% if error %}<div class="invalid-feedback">{{ error }}</div>{% endif %}
+  {% endif %}
+</div>

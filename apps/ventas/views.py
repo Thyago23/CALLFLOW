@@ -13,9 +13,11 @@ from django.views.decorators.http import require_POST
 
 from apps.core import validadores
 
-from . import servicios
-from .forms import AsignarBaseForm, BaseComercialForm, FormularioDAMIForm, SolicitudBaseForm
-from .models import AsignacionBase, BaseComercial, FormularioDAMI, SolicitudBase
+from . import bin as bines
+from . import servicios, tarjetas
+from .forms import (AsignarBaseForm, BaseComercialForm, EntidadEmisoraForm, FormularioDAMIForm, ImportarBINForm, RangoBINForm,
+                    SolicitudBaseForm)
+from .models import AsignacionBase, BaseComercial, EntidadEmisora, FormularioDAMI, RangoBIN, RegistroProduccion, SolicitudBase
 
 Estado = FormularioDAMI.Estado
 
@@ -41,7 +43,6 @@ def inicio(request):
     return render(request, "ventas/panel.html", {
         "panel": servicios.panel_vendedor(empleado, hoy),
         "hoy": hoy,
-        "recientes": servicios.formularios_visibles(request.user).order_by("-actualizado_en")[:6],
     })
 
 
@@ -218,6 +219,95 @@ def hoja(request):
         "anterior": f"{anterior[0]}-{anterior[1]:02d}",
         "siguiente": f"{siguiente[0]}-{siguiente[1]:02d}" if date(*siguiente, 1) <= hoy.replace(day=1) else None,
     })
+
+
+@login_required
+@permission_required("ventas.change_registroproduccion", raise_exception=True)
+@require_POST
+def hoja_aprobacion(request, pk):
+    """HTMX: guarda la aprobación al salir de la celda y devuelve la celda actualizada."""
+    try:
+        registro = servicios.guardar_aprobacion(request.user, pk, request.POST.get("aprobacion", ""))
+        contexto = {"r": registro, "guardado": True}
+    except ValidationError as error:
+        registro = get_object_or_404(RegistroProduccion, pk=pk, hoja__vendedor=servicios.empleado_de(request.user))
+        contexto = {"r": registro, "error": " ".join(error.messages), "valor": request.POST.get("aprobacion", "")}
+    return render(request, "ventas/_celda_aprobacion.html", contexto)
+
+
+# --------------------------------------------------------------------------- validación de tarjetas
+@login_required
+@permission_required("ventas.view_rangobin", raise_exception=True)
+def validar_tarjeta(request):
+    """
+    GET: la pantalla. POST (HTMX, mientras se escribe): el resultado.
+    El número viaja por POST (nunca en la URL), no se guarda y la respuesta solo lo muestra enmascarado.
+    """
+    if request.method == "POST":
+        resultado = bines.analizar(request.POST.get("numero", ""), request.POST.get("caducidad", ""))
+        return render(request, "ventas/_resultado_tarjeta.html", {"r": resultado})
+    return render(request, "ventas/validar_tarjeta.html", {
+        "r": bines.Resultado(),
+        "marcas": tarjetas.MARCAS.values(),
+        "total_bins": RangoBIN.objects.count(),
+        "total_entidades": EntidadEmisora.objects.filter(activa=True).count(),
+    })
+
+
+@login_required
+@permission_required("ventas.view_rangobin", raise_exception=True)
+def catalogo_bin(request):
+    puede_editar = request.user.has_perm("ventas.add_rangobin")
+    form_bin, form_entidad, form_importar = RangoBINForm(prefix="b"), EntidadEmisoraForm(prefix="e"), ImportarBINForm(prefix="i")
+    if request.method == "POST":
+        if not puede_editar:
+            raise PermissionDenied
+        if "agregar_bin" in request.POST:
+            form_bin = RangoBINForm(request.POST, prefix="b")
+            if form_bin.is_valid():
+                rango = form_bin.save(commit=False)
+                rango.registrado_por = request.user
+                rango.save()
+                messages.success(request, f"BIN {rango.bin} agregado: {rango.entidad}.")
+                return redirect("ventas:catalogo_bin")
+        elif "agregar_entidad" in request.POST and request.user.has_perm("ventas.add_entidademisora"):
+            form_entidad = EntidadEmisoraForm(request.POST, prefix="e")
+            if form_entidad.is_valid():
+                entidad = form_entidad.save()
+                messages.success(request, f"«{entidad}» agregada al catálogo.")
+                return redirect("ventas:catalogo_bin")
+        elif "importar" in request.POST:
+            form_importar = ImportarBINForm(request.POST, request.FILES, prefix="i")
+            if form_importar.is_valid():
+                r = bines.importar_csv(form_importar.cleaned_data["archivo"], request.user)
+                messages.success(request, f"Importación: {r.creados} BIN nuevos y {r.actualizados} actualizados.")
+                for error in r.errores[:15]:
+                    messages.warning(request, error)
+                if len(r.errores) > 15:
+                    messages.warning(request, f"…y {len(r.errores) - 15} filas más con errores.")
+                return redirect("ventas:catalogo_bin")
+        else:
+            raise PermissionDenied
+
+    rangos = RangoBIN.objects.select_related("entidad").order_by("bin")
+    texto = request.GET.get("q", "").strip()
+    if texto:
+        rangos = rangos.filter(Q(bin__startswith=texto) | Q(entidad__nombre__icontains=texto))
+    return render(request, "ventas/catalogo_bin.html", {
+        "rangos": rangos[:500], "q": texto, "puede_editar": puede_editar,
+        "entidades": EntidadEmisora.objects.filter(activa=True).order_by("tipo", "nombre"),
+        "form_bin": form_bin, "form_entidad": form_entidad, "form_importar": form_importar,
+    })
+
+
+@login_required
+@permission_required("ventas.delete_rangobin", raise_exception=True)
+@require_POST
+def eliminar_bin(request, pk):
+    rango = get_object_or_404(RangoBIN, pk=pk)
+    rango.delete()
+    messages.success(request, f"BIN {rango.bin} eliminado del catálogo.")
+    return redirect("ventas:catalogo_bin")
 
 
 # --------------------------------------------------------------------------- bases comerciales (SCRUM-46, 47)

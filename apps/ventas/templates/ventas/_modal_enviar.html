@@ -1,0 +1,41 @@
+<div class="modal fade" id="modal-enviar-dami" tabindex="-1" aria-labelledby="modal-enviar-dami-titulo" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-body p-4 text-center">
+        <div class="icono-confirmar mb-3" aria-hidden="true"><i class="bi bi-send-check"></i></div>
+        <h2 class="h5 fw-semibold mb-2" id="modal-enviar-dami-titulo">¿Listo para enviar el DAMI?</h2>
+        <p class="text-body-secondary mb-3">El equipo de cierre lo recibirá para concretar la venta.</p>
+        <ul class="list-unstyled text-start small bg-body-tertiary rounded p-3 mb-0">
+          <li class="mb-2"><i class="bi bi-check2-circle text-success me-2" aria-hidden="true"></i>Revise que los datos del cliente y de la tarjeta estén correctos.</li>
+          <li class="mb-2"><i class="bi bi-lock me-2 text-body-secondary" aria-hidden="true"></i>Después de enviarlo ya no podrá modificarlo.</li>
+          <li><i class="bi bi-table me-2 text-body-secondary" aria-hidden="true"></i>Lo verá en su hoja de producción, con el resultado del cierre.</li>
+        </ul>
+      </div>
+      <div class="modal-footer border-0 pt-0 px-4 pb-4 justify-content-center gap-2">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Seguir revisando</button>
+        <button type="button" class="btn btn-primary" data-confirmar-envio><i class="bi bi-send me-1" aria-hidden="true"></i>Sí, enviar DAMI</button>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+  // Los botones con [data-pide-confirmacion] abren esta ventana; al confirmar se envía su formulario con ese mismo botón.
+  (function () {
+    const modal = document.getElementById("modal-enviar-dami");
+    let pendiente = null;
+    document.querySelectorAll("[data-pide-confirmacion]").forEach(function (boton) {
+      boton.addEventListener("click", function (evento) {
+        if (boton.dataset.confirmado) return;
+        evento.preventDefault();
+        pendiente = boton;
+        bootstrap.Modal.getOrCreateInstance(modal).show();
+      });
+    });
+    modal.querySelector("[data-confirmar-envio]").addEventListener("click", function () {
+      if (!pendiente) return;
+      this.disabled = true;
+      pendiente.dataset.confirmado = "1";
+      pendiente.form.requestSubmit(pendiente);
+    });
+  })();
+</script>

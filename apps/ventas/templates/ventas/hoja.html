@@ -2,16 +2,17 @@
 {% load humanize_cf %}
 {% block titulo %}Hoja de producción · Ventas{% endblock %}
 {% block contenido %}
-{% include "ventas/_subnav.html" with seccion="hoja" %}
+<div class="d-print-none">{% include "ventas/_subnav.html" with seccion="hoja" %}</div>
 
-<div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+<div class="d-flex flex-wrap align-items-center gap-2 mb-3 d-print-none">
   <a class="btn btn-outline-secondary btn-sm" href="?mes={{ anterior }}" aria-label="Mes anterior"><i class="bi bi-chevron-left" aria-hidden="true"></i></a>
   {% if siguiente %}<a class="btn btn-outline-secondary btn-sm" href="?mes={{ siguiente }}" aria-label="Mes siguiente"><i class="bi bi-chevron-right" aria-hidden="true"></i></a>{% endif %}
   <h2 class="h5 mb-0 ms-1 fecha-hoy">{{ mes_actual|date:"F Y" }}</h2>
-  <span class="small text-body-secondary ms-2">Las filas se crean solas al enviar un DAMI y se actualizan cuando se cierra.</span>
+  <span class="small text-body-secondary ms-2">Se llena sola: cada DAMI enviado agrega una fila. Escriba el número de aprobación en su fila; se guarda solo.</span>
+  <button type="button" class="btn btn-outline-secondary btn-sm ms-auto" onclick="window.print()"><i class="bi bi-printer me-1" aria-hidden="true"></i>Imprimir</button>
 </div>
 
-<div class="row g-3 mb-3">
+<div class="row g-3 mb-3 d-print-none">
   <div class="col-6 col-lg"><div class="card resumen-dia h-100"><div class="card-body"><div class="valor">{{ totales.enviados }}</div><div class="small text-body-secondary">Enviados</div></div></div></div>
   <div class="col-6 col-lg"><div class="card resumen-dia h-100"><div class="card-body"><div class="valor text-success">{{ totales.cerradas }}</div><div class="small text-body-secondary">Ventas cerradas</div></div></div></div>
   <div class="col-6 col-lg"><div class="card resumen-dia h-100"><div class="card-body"><div class="valor text-danger">{{ totales.no_concretadas }}</div><div class="small text-body-secondary">No concretadas</div></div></div></div>
@@ -19,32 +20,52 @@
   <div class="col-12 col-lg"><div class="card resumen-dia h-100"><div class="card-body"><div class="valor">${{ totales.total_vendido|dinero }}</div><div class="small text-body-secondary">Total vendido</div></div></div></div>
 </div>
 
-<div class="card">
-  {% if registros %}
+<section class="card hoja-produccion">
+  <div class="card-body pb-0">
+    <h1 class="hoja-titulo">Hoja de producción</h1>
+    <dl class="hoja-cabecera">
+      <div><dt>Nombre asesor/a</dt><dd>{{ asesor }}</dd></div>
+      <div><dt>Mes</dt><dd class="fecha-hoy">{{ mes_actual|date:"F Y" }}</dd></div>
+    </dl>
+  </div>
   <div class="table-responsive">
-    <table class="table table-hover align-middle mb-0">
+    <table class="table table-bordered align-middle mb-0 tabla-hoja">
       <thead>
-        <tr><th scope="col">Fecha</th><th scope="col">Formulario</th><th scope="col">Cédula / RUC</th><th scope="col" class="d-none d-md-table-cell">Ciudad</th><th scope="col">Estado</th><th scope="col" class="text-end">Valor</th></tr>
+        <tr>
+          <th scope="col" class="text-center">N°</th>
+          <th scope="col">Fecha</th>
+          <th scope="col">Nombre cliente</th>
+          <th scope="col">Aprobación</th>
+          <th scope="col">Ciudad</th>
+          <th scope="col" class="text-end">Valor</th>
+          <th scope="col" class="d-print-none">Estado</th>
+        </tr>
       </thead>
       <tbody>
         {% for r in registros %}
-        <tr class="{% if r.estado == 'ANULADO' %}text-body-secondary{% endif %}">
-          <td class="text-nowrap">{{ r.fecha|date:"D d/m" }}</td>
-          <td class="fw-semibold text-nowrap">{{ r.formulario }}</td>
-          <td>{{ r.formulario.cliente.identificacion }}</td>
-          <td class="d-none d-md-table-cell">{{ r.formulario.cliente.ciudad|default:"—" }}</td>
-          <td><span class="badge estado-dami estado-{{ r.estado|lower }}">{{ r.get_estado_display }}</span></td>
-          <td class="text-end text-nowrap">{% if r.valor_venta %}${{ r.valor_venta|dinero }}{% else %}—{% endif %}</td>
+        {% with c=r.formulario.cliente %}
+        <tr class="{% if r.estado == 'ANULADO' %}fila-anulada{% endif %}">
+          <td class="text-center text-body-secondary">{{ forloop.counter }}</td>
+          <td class="text-nowrap">{{ r.fecha|date:"d/m" }}</td>
+          <td>
+            {% if c.nombres %}{{ c.nombres }} {{ c.apellidos }}{% else %}<span class="text-body-secondary">{{ c.identificacion }}</span>{% endif %}
+            <div class="small text-body-secondary d-print-none">{{ r.formulario }}</div>
+          </td>
+          <td>{% include "ventas/_celda_aprobacion.html" %}</td>
+          <td>{{ c.ciudad }}</td>
+          <td class="text-end text-nowrap">{% if r.valor_venta %}${{ r.valor_venta|dinero }}{% endif %}</td>
+          <td class="d-print-none"><span class="badge estado-dami estado-{{ r.estado|lower }}">{{ r.get_estado_display }}</span></td>
         </tr>
+        {% endwith %}
+        {% endfor %}
+        {% for n in filas_vacias %}
+        <tr class="fila-vacia"><td class="text-center text-body-secondary">{{ n }}</td><td>/</td><td></td><td></td><td></td><td></td><td class="d-print-none"></td></tr>
         {% endfor %}
       </tbody>
       <tfoot>
-        <tr class="fw-semibold"><td colspan="5" class="text-end">Total vendido</td><td class="text-end text-nowrap">${{ totales.total_vendido|dinero }}</td></tr>
+        <tr class="fw-semibold"><td colspan="5" class="text-end">Total vendido</td><td class="text-end text-nowrap">${{ totales.total_vendido|dinero }}</td><td class="d-print-none"></td></tr>
       </tfoot>
     </table>
   </div>
-  {% else %}
-  <div class="card-body text-center text-body-secondary py-5">Sin formularios enviados este mes.</div>
-  {% endif %}
-</div>
+</section>
 {% endblock %}
