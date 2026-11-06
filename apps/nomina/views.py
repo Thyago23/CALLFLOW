@@ -94,10 +94,18 @@ def reporte_roles(request):
     """Roles de pago del mes para imprimir: cuadro general con firmas, o un rol por hoja."""
     anio, mes = _mes(request)
     equipo = request.GET.get("equipo", "")
-    roles = _roles_filtrados(calculo.nomina_del_mes(anio, mes).roles, equipo)
+    empleado = None
+    if request.GET.get("empleado", "").isdigit():  # imprimir el rol de una sola persona
+        empleado = get_object_or_404(Empleado.objects.select_related("cargo"), pk=int(request.GET["empleado"]))
+        roles = [calculo.estimar_mes(empleado, anio, mes)]
+    else:
+        roles = _roles_filtrados(calculo.nomina_del_mes(anio, mes).roles, equipo)
+    formato = "individual" if empleado or request.GET.get("formato") == "individual" else "general"
     return render(request, "nomina/reporte_roles.html", {
         "nomina": calculo.ResumenNomina(roles),
-        "formato": "individual" if request.GET.get("formato") == "individual" else "general",
+        "formato": formato,
+        "empleado": empleado,
+        "nombre_mes_corto": calculo.MESES[mes - 1],
         "mes_consultado": f"{anio:04d}-{mes:02d}",
         "nombre_mes": calculo.nombre_mes(anio, mes),
         "equipos": EsquemaComision.objects.filter(activo=True).order_by("nombre"),

@@ -229,7 +229,7 @@ class EstimacionMesTests(TestCase):
         pdf = self.client.get(reverse("nomina:rol_pdf", args=[self.vendedor.pk]), {"mes": mes})
         self.assertEqual(pdf["Content-Type"], "application/pdf")
         texto = PdfReader(io.BytesIO(pdf.content)).pages[0].extract_text()
-        for esperado in ("ROL DE PAGOS", "Ana Vera", "1710034065", "Visas", "Comisión", "NETO A RECIBIR", "$ 565,00"):
+        for esperado in ("ROL DE PAGOS", "Ana Vera", "1710034065", "Visas", "Comisión", "TOTAL A RECIBIR", "$ 565,00", "Firma Contabilidad", "Días Trabajados"):
             self.assertIn(esperado, texto)
 
     def test_nomina_solo_para_autorizados(self):

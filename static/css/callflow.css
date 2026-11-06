@@ -655,3 +655,29 @@ details.anular-caja > summary::-webkit-details-marker { display: none; }
   .resumen-caja { grid-template-columns: repeat(4, 1fr); }
   .firmas-reporte { break-inside: avoid; }
 }
+
+/* Rol de pagos con el formato que usa la empresa (franja azul y verde) */
+.rol-empresa { --rol-azul: #2f75b5; --rol-verde: #70ad47; background: var(--bs-body-bg); border: 1px solid var(--bs-border-color);
+  border-radius: .5rem; padding: 1.25rem; margin-bottom: 1.5rem; overflow-x: auto; }
+.rol-empresa table { width: 100%; border-collapse: collapse; }
+.rol-empresa-cabecera th, .rol-empresa-cabecera td { padding: .4rem .6rem; text-align: center; white-space: nowrap; }
+.rol-empresa-titulo { background: var(--rol-azul); color: #fff; font-size: 1.35rem; font-weight: 700; letter-spacing: .04em; padding: .5rem !important; }
+.rol-empresa-cabecera .azul { background: var(--rol-azul); color: #fff; font-weight: 600; }
+.rol-empresa-cabecera .verde { background: var(--rol-verde); color: #fff; font-weight: 600; }
+.rol-empresa-cabecera tbody td { font-size: 1.05rem; border-bottom: 1px solid var(--bs-border-color); }
+.rol-empresa-cuerpo { display: grid; grid-template-columns: minmax(16rem, 2fr) minmax(18rem, 3fr); gap: 2rem; margin-top: 1.5rem; align-items: start; }
+.rol-empresa-asistencia th, .rol-empresa-asistencia td { padding: .3rem .6rem; }
+.rol-empresa-asistencia thead th { font-size: .75rem; text-transform: uppercase; color: var(--bs-secondary-color); text-align: center; }
+.rol-empresa-asistencia tbody th { text-align: right; font-weight: 500; }
+.rol-empresa-asistencia tbody td { text-align: center; }
+.rol-empresa-detalle td { padding: .25rem .5rem; border-bottom: 1px solid var(--bs-border-color-translucent); font-size: .9rem; }
+.rol-empresa-detalle td:last-child { text-align: right; white-space: nowrap; }
+.rol-empresa-detalle .fila-seccion th { background: var(--bs-tertiary-bg); text-transform: uppercase; font-size: .75rem; padding: .3rem .5rem; }
+.rol-empresa-detalle .fila-neto td { font-weight: 700; font-size: 1.05rem; border-top: 2px solid var(--rol-azul); border-bottom: 0; }
+.rol-empresa-firmas { margin-top: 3rem; }
+@media (max-width: 767.98px) { .rol-empresa-cuerpo { grid-template-columns: 1fr; } }
+@media print {
+  .rol-empresa { border: 0; border-radius: 0; padding: 0; margin: 0; overflow: visible; }
+  .rol-empresa-cabecera th, .rol-empresa-cabecera .rol-empresa-titulo { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .rol-empresa-detalle td { font-size: 9.5pt; }
+}

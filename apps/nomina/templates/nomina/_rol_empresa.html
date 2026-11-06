@@ -1,0 +1,72 @@
+{% load humanize_cf %}
+{# Rol de pagos con el formato de la empresa (franja azul y verde) más el detalle de CALLFLOW. Recibe `e` y `nombre_mes_corto`. #}
+<section class="rol-empresa rol-individual">
+  <table class="rol-empresa-cabecera">
+    <thead>
+      <tr><th colspan="9" class="rol-empresa-titulo">ROL DE PAGOS</th></tr>
+      <tr>
+        <th class="azul">Año</th>
+        <th class="azul">Mes</th>
+        <th class="verde">Cédula</th>
+        <th class="verde">Trabajador</th>
+        <th class="azul">Cargo</th>
+        <th class="verde">Sueldo Base</th>
+        <th class="azul">Comisión</th>
+        <th class="verde">Anticipos</th>
+        <th class="verde">TOTAL</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>{{ e.anio }}</td>
+        <td class="text-uppercase">{{ nombre_mes_corto }}</td>
+        <td>{{ e.empleado.identificacion }}</td>
+        <td>{{ e.empleado.nombres }} {{ e.empleado.apellidos }}</td>
+        <td>{{ e.empleado.cargo }}</td>
+        <td>{% if e.sueldo_base %}${{ e.sueldo_base|dinero }}{% else %}<span class="text-danger">Sin sueldo</span>{% endif %}</td>
+        <td>{% if e.es_vendedor %}${{ e.comision|dinero }}{% else %}—{% endif %}</td>
+        <td>${{ e.total_anticipos|dinero }}</td>
+        <td class="fw-bold">${{ e.neto|dinero }}</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="rol-empresa-cuerpo">
+    <table class="rol-empresa-asistencia">
+      <thead><tr><th scope="col"></th><th scope="col">Cantidad</th><th scope="col">Descuento</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">Faltas Justificadas</th><td>{{ e.faltas_justificadas|length }}</td><td>${{ e.valor_faltas_justificadas|dinero }}</td></tr>
+        <tr><th scope="row">Faltas Injustificadas</th><td>{{ e.faltas_injustificadas|length }}</td><td>${{ e.valor_faltas_injustificadas|dinero }}</td></tr>
+        <tr><th scope="row">Atrasos</th><td>{{ e.total_atrasos }}</td><td>${{ e.valor_atrasos|dinero }}</td></tr>
+        <tr><th scope="row">Días Trabajados</th><td>{{ e.dias_trabajados }}</td><td></td></tr>
+      </tbody>
+    </table>
+
+    <table class="rol-empresa-detalle">
+      <tbody>
+        <tr class="fila-seccion"><th colspan="2">Ingresos</th></tr>
+        <tr><td>Sueldo base</td><td>${{ e.sueldo_base|default:0|dinero }}</td></tr>
+        {% if e.es_vendedor %}
+        <tr><td>Comisión{% if e.esquema %} {{ e.esquema }} ({{ e.porcentaje_comision|floatformat:"-2" }} % de ${{ e.total_ventas|dinero }} vendidos){% else %} (sin equipo asignado){% endif %}</td><td>${{ e.comision|dinero }}</td></tr>
+        {% endif %}
+        <tr class="fw-semibold"><td>Total ingresos</td><td>${{ e.total_ingresos|dinero }}</td></tr>
+        <tr class="fila-seccion"><th colspan="2">Descuentos</th></tr>
+        {% for d in e.descuentos %}
+        <tr><td>{{ d.concepto }} · {{ d.fecha|date:"d/m/Y" }}{% if d.pendiente %} (sin clasificar){% endif %}</td><td>−${{ d.valor|dinero }}</td></tr>
+        {% endfor %}
+        {% for a in e.anticipos %}
+        <tr><td>Anticipo{% if a.concepto != "Anticipo" %}: {{ a.concepto }}{% endif %}{% if a.fecha %} · {{ a.fecha|date:"d/m/Y" }}{% endif %}</td><td>−${{ a.valor|dinero }}</td></tr>
+        {% endfor %}
+        {% if not e.descuentos and not e.anticipos %}<tr><td>Sin descuentos</td><td>$0,00</td></tr>{% endif %}
+        <tr class="fw-semibold"><td>Total descuentos</td><td>−${{ e.total_descuentos_y_anticipos|dinero }}</td></tr>
+        <tr class="fila-neto"><td>TOTAL A RECIBIR</td><td>${{ e.neto|dinero }}</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="firmas-reporte rol-empresa-firmas">
+    <div><span class="linea-firma"></span>Firma Empleado<br><small>{{ e.empleado.nombres }} {{ e.empleado.apellidos }} · {{ e.empleado.identificacion }}</small></div>
+    <div><span class="linea-firma"></span>Firma Contabilidad</div>
+  </div>
+  <p class="pie-reporte">Generado por CALLFLOW el {{ generado_en|date:"d/m/Y H:i" }}. Mes comercial de 30 días; las faltas y atrasos sin clasificar se cuentan como no justificados.</p>
+</section>

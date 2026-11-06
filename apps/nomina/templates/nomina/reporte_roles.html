@@ -11,6 +11,7 @@
   </div>
   {% include "nomina/_subnav.html" with seccion="reporte_roles" %}
   <form method="get" class="row g-2 align-items-end mb-4">
+    {% if empleado %}<input type="hidden" name="empleado" value="{{ empleado.pk }}">{% endif %}
     <div class="col-sm-4 col-md-3">
       <label class="form-label small mb-1" for="mes-reporte">Mes</label>
       <input type="month" id="mes-reporte" name="mes" value="{{ mes_consultado }}" class="form-control" onchange="this.form.requestSubmit()">
@@ -29,13 +30,17 @@
         <input type="radio" class="btn-check" name="formato" id="formato-general" value="general" {% if formato == "general" %}checked{% endif %} onchange="this.form.requestSubmit()">
         <label class="btn btn-outline-secondary" for="formato-general">Cuadro general</label>
         <input type="radio" class="btn-check" name="formato" id="formato-individual" value="individual" {% if formato == "individual" %}checked{% endif %} onchange="this.form.requestSubmit()">
-        <label class="btn btn-outline-secondary" for="formato-individual">Un rol por hoja</label>
+        <label class="btn btn-outline-secondary" for="formato-individual">Rol por empleado</label>
       </div>
     </div>
     <div class="col-md-3 text-md-end">
       <button type="button" class="btn btn-primary" onclick="window.print()"><i class="bi bi-printer me-1" aria-hidden="true"></i>Imprimir</button>
     </div>
   </form>
+  {% if empleado %}
+  <div class="alert alert-info small py-2">Mostrando solo el rol de <strong>{{ empleado.nombres }} {{ empleado.apellidos }}</strong>.
+    <a href="?mes={{ mes_consultado }}&formato={{ formato }}">Ver todos los empleados</a></div>
+  {% endif %}
   {% if nomina.pendientes %}
   <div class="alert alert-warning small">
     <strong>{{ nomina.pendientes }}</strong> falta{{ nomina.pendientes|pluralize }} o atraso{{ nomina.pendientes|pluralize }} sin clasificar se cuentan como no justificados.
@@ -61,7 +66,9 @@
           <th scope="col" class="text-end">Comisión</th>
           <th scope="col" class="text-end">Total ingresos</th>
           <th scope="col" class="text-end">Descuentos</th>
-          <th scope="col" class="text-end">Neto a recibir</th>
+          <th scope="col" class="text-end">Anticipos</th>
+          <th scope="col" class="text-center">Días</th>
+          <th scope="col" class="text-end">Total a recibir</th>
           <th scope="col" class="columna-firma">Firma</th>
         </tr>
       </thead>
@@ -77,11 +84,13 @@
           <td class="text-end text-nowrap">{% if r.es_vendedor %}${{ r.comision|dinero }}{% if r.porcentaje_comision %} <span class="small text-body-secondary">({{ r.porcentaje_comision|floatformat:"-2" }} %)</span>{% endif %}{% else %}—{% endif %}</td>
           <td class="text-end text-nowrap">${{ r.total_ingresos|dinero }}</td>
           <td class="text-end text-nowrap">{% if r.total_descuentos %}−${{ r.total_descuentos|dinero }}{% if r.pendientes %}<span class="d-print-none text-warning-emphasis" title="Incluye novedades sin clasificar"> *</span>{% endif %}{% else %}$0,00{% endif %}</td>
+          <td class="text-end text-nowrap">{% if r.total_anticipos %}−${{ r.total_anticipos|dinero }}{% else %}$0,00{% endif %}</td>
+          <td class="text-center">{{ r.dias_trabajados }}</td>
           <td class="text-end text-nowrap fw-semibold">${{ r.neto|dinero }}</td>
           <td class="columna-firma"></td>
         </tr>
         {% empty %}
-        <tr><td colspan="11" class="text-center text-body-secondary py-4">No hay empleados en este mes.</td></tr>
+        <tr><td colspan="13" class="text-center text-body-secondary py-4">No hay empleados en este mes.</td></tr>
         {% endfor %}
       </tbody>
       {% if nomina.roles %}
@@ -93,6 +102,8 @@
           <td class="text-end text-nowrap">${{ nomina.total_comisiones|dinero }}</td>
           <td class="text-end text-nowrap">${{ nomina.total_ingresos|dinero }}</td>
           <td class="text-end text-nowrap">−${{ nomina.total_descuentos|dinero }}</td>
+          <td class="text-end text-nowrap">−${{ nomina.total_anticipos|dinero }}</td>
+          <td></td>
           <td class="text-end text-nowrap">${{ nomina.total_neto|dinero }}</td>
           <td></td>
         </tr>
@@ -108,40 +119,9 @@
 </section>
 
 {% else %}
-{# ------------------------------------------------------------------ un rol por hoja (vertical) #}
+{# ------------------------------------------------------------------ un rol por hoja: formato de la empresa #}
 {% for e in nomina.roles %}
-<section class="reporte-impreso pagina-vertical rol-individual">
-  {% with titulo="Rol de pagos" subtitulo="Periodo: "|add:nombre_mes %}{% include "nomina/_encabezado_reporte.html" %}{% endwith %}
-  <dl class="datos-rol">
-    <div><dt>Empleado</dt><dd>{{ e.empleado.nombres }} {{ e.empleado.apellidos }}</dd></div>
-    <div><dt>{{ e.empleado.get_tipo_identificacion_display }}</dt><dd>{{ e.empleado.identificacion }}</dd></div>
-    <div><dt>Cargo</dt><dd>{{ e.empleado.cargo }}</dd></div>
-    <div><dt>Equipo</dt><dd>{{ e.esquema|default:"—" }}</dd></div>
-  </dl>
-  <table class="table table-sm tabla-reporte tabla-rol">
-    <tbody>
-      <tr class="fila-seccion"><th colspan="2">Ingresos</th></tr>
-      <tr><td>Sueldo base</td><td class="text-end">${{ e.sueldo_base|default:0|dinero }}</td></tr>
-      {% if e.es_vendedor %}
-      <tr><td>Comisión{% if e.esquema %} ({{ e.porcentaje_comision|floatformat:"-2" }} % de ventas por ${{ e.total_ventas|dinero }}){% else %} (sin equipo asignado){% endif %}</td><td class="text-end">${{ e.comision|dinero }}</td></tr>
-      {% endif %}
-      <tr class="fw-semibold"><td>Total ingresos</td><td class="text-end">${{ e.total_ingresos|dinero }}</td></tr>
-      <tr class="fila-seccion"><th colspan="2">Descuentos</th></tr>
-      {% for d in e.descuentos %}
-      <tr><td>{{ d.concepto }} · {{ d.fecha|date:"d/m/Y" }}{% if d.pendiente %} (sin clasificar){% endif %}</td><td class="text-end">−${{ d.valor|dinero }}</td></tr>
-      {% empty %}
-      <tr><td>Sin descuentos</td><td class="text-end">$0,00</td></tr>
-      {% endfor %}
-      <tr class="fw-semibold"><td>Total descuentos</td><td class="text-end">−${{ e.total_descuentos|dinero }}</td></tr>
-      <tr class="fila-neto"><td>NETO A RECIBIR</td><td class="text-end">${{ e.neto|dinero }}</td></tr>
-    </tbody>
-  </table>
-  <div class="firmas-reporte">
-    <div><span class="linea-firma"></span>Empleador</div>
-    <div><span class="linea-firma"></span>Recibí conforme<br><strong>{{ e.empleado.nombres }} {{ e.empleado.apellidos }}</strong><br>{{ e.empleado.identificacion }}</div>
-  </div>
-  <p class="pie-reporte">Generado por CALLFLOW el {{ generado_en|date:"d/m/Y H:i" }}.</p>
-</section>
+{% include "nomina/_rol_empresa.html" %}
 {% empty %}
 <div class="card"><div class="card-body text-center text-body-secondary py-5">No hay empleados en este mes.</div></div>
 {% endfor %}

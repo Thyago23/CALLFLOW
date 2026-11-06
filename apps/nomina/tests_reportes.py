@@ -17,7 +17,8 @@ from apps.core.models import RegistroCambio, Rol, Usuario
 from apps.personal.models import Cargo, Empleado, HistorialSalario
 
 from . import caja_chica as caja
-from .models import MovimientoCajaChica
+from . import calculo
+from .models import MovimientoCajaChica, NovedadNomina, PeriodoNomina, TipoNovedadNomina
 
 INGRESO, EGRESO = MovimientoCajaChica.Tipo.INGRESO, MovimientoCajaChica.Tipo.EGRESO
 
@@ -57,13 +58,56 @@ class ReporteRolesTests(BaseReportes):
         self.assertContains(respuesta, "Firma")
         self.assertContains(respuesta, "window.print()")
 
-    def test_un_rol_por_hoja(self):
+    def test_rol_por_empleado_con_el_formato_de_la_empresa(self):
         self.client.force_login(self.admin)
         respuesta = self.client.get(reverse("nomina:reporte_roles"), {"mes": f"{self.hoy:%Y-%m}", "formato": "individual"})
-        self.assertContains(respuesta, 'class="reporte-impreso pagina-vertical rol-individual"', count=2)
-        self.assertContains(respuesta, "Recibí conforme", count=2)
-        self.assertContains(respuesta, "NETO A RECIBIR", count=2)
+        self.assertContains(respuesta, 'class="rol-empresa rol-individual"', count=2)
+        for texto in ("ROL DE PAGOS", "Trabajador", "Sueldo Base", "Anticipos", "TOTAL", "Faltas Justificadas",
+                      "Faltas Injustificadas", "Atrasos", "Días Trabajados", "Firma Empleado", "Firma Contabilidad"):
+            self.assertContains(respuesta, texto)
+        self.assertContains(respuesta, calculo.MESES[self.hoy.month - 1])
         self.assertContains(respuesta, "$460,00")
+
+    def test_imprimir_un_solo_empleado(self):
+        lucia = Empleado.objects.get(identificacion="1712345675")
+        self.client.force_login(self.admin)
+        respuesta = self.client.get(reverse("nomina:reporte_roles"), {"mes": f"{self.hoy:%Y-%m}", "empleado": lucia.pk})
+        self.assertContains(respuesta, 'class="rol-empresa rol-individual"', count=1)
+        self.assertContains(respuesta, "Lucía Mora")
+        self.assertNotContains(respuesta, "Pedro Paz")
+
+    def test_anticipo_aprobado_se_descuenta(self):
+        lucia = Empleado.objects.get(identificacion="1712345675")
+        inicio = self.hoy.replace(day=1)
+        periodo = PeriodoNomina.objects.create(nombre="Mes", fecha_inicio=inicio, fecha_fin=calculo.ultimo_dia(inicio.year, inicio.month))
+        NovedadNomina.objects.create(empleado=lucia, periodo=periodo, tipo=TipoNovedadNomina.objects.get(codigo="ANTICIPO"),
+                                     valor=D("60"), estado="APROBADA", aprobada_en=timezone.now())
+        NovedadNomina.objects.create(empleado=lucia, periodo=periodo, tipo=TipoNovedadNomina.objects.get(codigo="ANTICIPO"),
+                                     valor=D("999"))  # pendiente: no se descuenta
+        e = calculo.estimar_mes(lucia, self.hoy.year, self.hoy.month)
+        self.assertEqual((e.total_anticipos, e.neto), (D("60.00"), D("400.00")))
+        self.client.force_login(self.admin)
+        respuesta = self.client.get(reverse("nomina:reporte_roles"), {"mes": f"{self.hoy:%Y-%m}", "empleado": lucia.pk})
+        self.assertContains(respuesta, "$60,00")
+
+    def test_pdf_con_el_formato_de_la_empresa(self):
+        lucia = Empleado.objects.get(identificacion="1712345675")
+        self.client.force_login(self.admin)
+        respuesta = self.client.get(reverse("nomina:rol_pdf", args=[lucia.pk]), {"mes": f"{self.hoy:%Y-%m}"})
+        self.assertEqual(respuesta["Content-Type"], "application/pdf")
+        self.assertTrue(respuesta.content.startswith(b"%PDF"))
+
+
+class DiasTrabajadosTests(BaseReportes):
+    def test_mes_comercial_de_30_dias(self):
+        e = Empleado.objects.get(identificacion="1712345675")
+        self.assertEqual(calculo.dias_trabajados(e, 2026, 2, 0), 30)  # febrero también cuenta 30
+        self.assertEqual(calculo.dias_trabajados(e, 2026, 3, 2), 28)  # menos las faltas no justificadas
+        e.fecha_ingreso = date(2026, 3, 16)
+        self.assertEqual(calculo.dias_trabajados(e, 2026, 3, 0), 15)  # ingresó a mitad de mes
+        e.fecha_ingreso, e.fecha_salida = date(2026, 1, 5), date(2026, 3, 10)
+        self.assertEqual(calculo.dias_trabajados(e, 2026, 3, 0), 10)  # salió el 10
+        self.assertEqual(calculo.dias_trabajados(e, 2026, 4, 0), 0)
 
 
 class CajaChicaReglasTests(BaseReportes):

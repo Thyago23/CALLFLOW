@@ -21,8 +21,11 @@
       <label class="visually-hidden" for="mes-rol">Mes</label>
       <input type="month" id="mes-rol" name="mes" value="{{ mes_consultado }}" class="form-control" onchange="this.form.requestSubmit()">
     </form>
-    <a href="{% url 'nomina:rol_pdf' e.empleado.pk %}?mes={{ mes_consultado }}" class="btn btn-primary text-nowrap" target="_blank" rel="noopener">
-      <i class="bi bi-file-earmark-pdf me-1" aria-hidden="true"></i>Descargar PDF
+    <a href="{% url 'nomina:reporte_roles' %}?mes={{ mes_consultado }}&empleado={{ e.empleado.pk }}" class="btn btn-primary text-nowrap">
+      <i class="bi bi-printer me-1" aria-hidden="true"></i>Imprimir rol
+    </a>
+    <a href="{% url 'nomina:rol_pdf' e.empleado.pk %}?mes={{ mes_consultado }}" class="btn btn-outline-primary text-nowrap" target="_blank" rel="noopener">
+      <i class="bi bi-file-earmark-pdf me-1" aria-hidden="true"></i>PDF
     </a>
   </div>
 </div>
