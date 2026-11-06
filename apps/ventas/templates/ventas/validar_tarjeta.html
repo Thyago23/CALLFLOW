@@ -77,6 +77,8 @@
       const partes = [];
       let i = 0;
       for (const largo of grupos(d)) { if (i >= d.length) break; partes.push(d.slice(i, i + largo)); i += largo; }
+      // Nunca se recortan dígitos: si sobran, quedan pegados al último grupo para que el validador avise del largo.
+      if (i < d.length) partes[partes.length - 1] += d.slice(i);
       numero.value = partes.join(" ");
     });
     caducidad.addEventListener("input", function (evento) {

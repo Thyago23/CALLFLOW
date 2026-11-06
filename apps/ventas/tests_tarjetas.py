@@ -40,6 +40,15 @@ class MarcasTests(BaseVentas):
         self.assertEqual(r.veredicto, "invalida")  # caducada
         self.assertEqual(bines.analizar(PRUEBA["VISA"], "1031", hoy=HOY).veredicto, "valida")
 
+    def test_digitos_de_mas_se_explican_claro(self):
+        r = bines.analizar(PRUEBA["AMEX"] + "3", hoy=HOY)
+        self.assertEqual(r.veredicto, "invalida")
+        self.assertIn("Sobra 1 dígito", r.motivo)
+        self.assertIn("15 dígitos", r.motivo)
+        control = next(x for x in r.revisiones if x.titulo == "Dígito de control")
+        self.assertIn("cantidad correcta", control.detalle)
+        self.assertIn("mal copiado", bines.analizar("378282246310006", hoy=HOY).motivo)
+
     def test_mascara_no_expone_el_numero(self):
         self.assertEqual(bines.enmascarar("4111111111111111"), "411111••••••1111")
 

@@ -12,7 +12,8 @@
 {% else %}
 <div class="veredicto-tarjeta veredicto-{{ r.veredicto }} mb-3" role="status">
   {% if r.veredicto == "valida" %}<i class="bi bi-check-circle-fill" aria-hidden="true"></i> Número válido
-  {% elif r.veredicto == "invalida" %}<i class="bi bi-x-circle-fill" aria-hidden="true"></i> Número no válido
+  {% elif r.veredicto == "invalida" %}<i class="bi bi-x-circle-fill" aria-hidden="true"></i> Revise el número
+  {% if r.motivo %}<div class="fw-normal small mt-1">{{ r.motivo }}</div>{% endif %}
   {% else %}<i class="bi bi-hourglass-split" aria-hidden="true"></i> Siga escribiendo…{% endif %}
 </div>
 <ul class="list-unstyled mb-0 revisiones-tarjeta">

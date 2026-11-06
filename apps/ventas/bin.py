@@ -39,6 +39,7 @@ class Resultado:
     marca_nombre: str = ""
     rango: RangoBIN | None = None
     revisiones: list[Revision] = field(default_factory=list)
+    motivo: str = ""  # explicación principal cuando el número no es válido, en palabras simples
 
     @property
     def completo(self) -> bool:
@@ -87,6 +88,7 @@ def analizar(numero: str, caducidad: str = "", hoy: date | None = None) -> Resul
         r.revisiones.append(Revision(OK, "Marca", r.marca_nombre))
     elif len(numero) >= 4:
         r.revisiones.append(Revision(ERROR, "Marca", "Los primeros dígitos no corresponden a ninguna marca conocida."))
+        r.motivo = "Los primeros dígitos no son de ninguna tarjeta conocida. Revise cómo empieza el número."
     else:
         r.revisiones.append(Revision(PENDIENTE, "Marca", "Siga escribiendo…"))
 
@@ -96,7 +98,10 @@ def analizar(numero: str, caducidad: str = "", hoy: date | None = None) -> Resul
     if len(numero) in largos:
         r.revisiones.append(Revision(OK, "Cantidad de dígitos", f"{len(numero)} dígitos"))
     elif len(numero) > max(largos):
+        sobran = len(numero) - max(largos)
         r.revisiones.append(Revision(ERROR, "Cantidad de dígitos", f"Tiene {len(numero)}; una {r.marca_nombre or 'tarjeta'} tiene {texto_largos}."))
+        r.motivo = (f"Sobra{'n' if sobran > 1 else ''} {sobran} dígito{'s' if sobran > 1 else ''}: una {r.marca_nombre or 'tarjeta'} "
+                    f"tiene {texto_largos} dígitos. Compare el número con la tarjeta y borre el que está de más.")
     else:
         r.revisiones.append(Revision(PENDIENTE, "Cantidad de dígitos", f"Lleva {len(numero)} de {texto_largos}."))
 
@@ -106,6 +111,10 @@ def analizar(numero: str, caducidad: str = "", hoy: date | None = None) -> Resul
             r.revisiones.append(Revision(OK, "Dígito de control", "El número es coherente (algoritmo de Luhn)."))
         else:
             r.revisiones.append(Revision(ERROR, "Dígito de control", "Hay un dígito mal escrito o dos dígitos invertidos."))
+            r.motivo = r.motivo or ("Algún dígito está mal copiado o hay dos dígitos cambiados de lugar. "
+                                    "Compare el número con la tarjeta, dígito por dígito.")
+    elif len(numero) > max(largos):
+        r.revisiones.append(Revision(PENDIENTE, "Dígito de control", "Se revisa cuando el número tenga la cantidad correcta de dígitos."))
     else:
         r.revisiones.append(Revision(PENDIENTE, "Dígito de control", "Se revisa al completar el número."))
 
