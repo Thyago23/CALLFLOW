@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block titulo %}Validar tarjeta · Ventas{% endblock %}
+{% block contenido %}
+{% include "ventas/_subnav.html" with seccion="tarjetas" %}
+
+<div class="row g-4">
+  <div class="col-lg-6">
+    <section class="card h-100">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-start gap-2 mb-3">
+          <div>
+            <h2 class="h5 mb-1">Validar tarjeta</h2>
+            <p class="small text-body-secondary mb-0">Escriba el número: el resultado aparece mientras escribe.</p>
+          </div>
+          <a class="btn btn-outline-secondary btn-sm text-nowrap" href="{% url 'ventas:catalogo_bin' %}"><i class="bi bi-bank me-1" aria-hidden="true"></i>Catálogo de bancos</a>
+        </div>
+
+        <form id="form-validar" autocomplete="off" hx-post="{% url 'ventas:validar_tarjeta' %}" hx-trigger="input delay:250ms, submit"
+              hx-target="#resultado-tarjeta" hx-swap="innerHTML" onsubmit="return false">
+          <div class="mb-3">
+            <label class="form-label fw-semibold" for="numero-tarjeta">Número de tarjeta</label>
+            <input type="text" class="form-control form-control-lg font-monospace" id="numero-tarjeta" name="numero"
+                   inputmode="numeric" autocomplete="off" spellcheck="false" maxlength="23" placeholder="0000 0000 0000 0000" autofocus>
+          </div>
+          <div class="row">
+            <div class="col-sm-5 mb-3">
+              <label class="form-label fw-semibold" for="caducidad-tarjeta">Caducidad <span class="fw-normal text-body-secondary">(opcional)</span></label>
+              <input type="text" class="form-control font-monospace" id="caducidad-tarjeta" name="caducidad" inputmode="numeric" maxlength="5" placeholder="MM/AA">
+            </div>
+            <div class="col-sm-7 mb-3 d-flex align-items-end">
+              <button type="button" class="btn btn-outline-secondary w-100" id="limpiar-tarjeta"><i class="bi bi-eraser me-1" aria-hidden="true"></i>Limpiar</button>
+            </div>
+          </div>
+        </form>
+
+        <div class="alert alert-light border small mb-0">
+          <i class="bi bi-shield-lock me-1" aria-hidden="true"></i>
+          El número no se guarda: solo se revisa y se muestra enmascarado.
+          La validación confirma que el número está bien escrito y de qué banco es; <strong>no</strong> consulta al banco,
+          así que no garantiza que la tarjeta esté activa ni que tenga cupo.
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div class="col-lg-6">
+    <section class="card h-100" aria-live="polite">
+      <div class="card-body" id="resultado-tarjeta">
+        {% include "ventas/_resultado_tarjeta.html" %}
+      </div>
+    </section>
+  </div>
+</div>
+
+<section class="mt-4">
+  <h2 class="h6 text-body-secondary text-uppercase mb-2">Marcas que reconoce</h2>
+  <div class="d-flex flex-wrap gap-2 small">
+    {% for m in marcas %}<span class="badge text-bg-light border fw-normal py-2 px-3">{{ m.nombre }}</span>{% endfor %}
+  </div>
+  <p class="small text-body-secondary mt-2 mb-0">
+    {{ total_entidades }} bancos, cooperativas y mutualistas del Ecuador en el catálogo · {{ total_bins }} BIN registrado{{ total_bins|pluralize }}.
+  </p>
+</section>
+
+<script>
+  (function () {
+    const numero = document.getElementById("numero-tarjeta");
+    const caducidad = document.getElementById("caducidad-tarjeta");
+    // Agrupa los dígitos como vienen impresos: Amex 4-6-5, Diners de 14 dígitos 4-6-4, el resto de 4 en 4.
+    function grupos(d) {
+      if (/^3[47]/.test(d)) return [4, 6, 5];
+      if (/^(30[0-5]|3095|3[689])/.test(d) && d.length <= 14) return [4, 6, 4];
+      return [4, 4, 4, 4, 3];
+    }
+    numero.addEventListener("input", function () {
+      const d = numero.value.replace(/\D/g, "").slice(0, 19);
+      const partes = [];
+      let i = 0;
+      for (const largo of grupos(d)) { if (i >= d.length) break; partes.push(d.slice(i, i + largo)); i += largo; }
+      numero.value = partes.join(" ");
+    });
+    caducidad.addEventListener("input", function (evento) {
+      let d = caducidad.value.replace(/\D/g, "");
+      if (d.length === 1 && d > "1") d = "0" + d;
+      d = d.slice(0, 4);
+      const borrando = evento.inputType && evento.inputType.startsWith("delete");
+      caducidad.value = d.length > 2 ? d.slice(0, 2) + "/" + d.slice(2) : (d.length === 2 && !borrando ? d + "/" : d);
+    });
+    document.getElementById("limpiar-tarjeta").addEventListener("click", function () {
+      numero.value = ""; caducidad.value = "";
+      htmx.trigger("#form-validar", "submit");
+      numero.focus();
+    });
+  })();
+</script>
+{% endblock %}

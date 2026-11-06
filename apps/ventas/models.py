@@ -6,6 +6,8 @@ from django.db.models.functions import Now
 
 from apps.core.models import ModeloBase
 
+from .tarjetas import MARCAS
+
 DINERO = {"max_digits": 12, "decimal_places": 2}
 
 
@@ -225,13 +227,19 @@ class HojaProduccion(ModeloBase):
 
 
 class RegistroProduccion(ModeloBase):
-    """Fila de la hoja de producción. Se crea sola al enviar un DAMI y se actualiza al cerrarlo."""
+    """
+    Fila de la hoja de producción. Se crea sola al enviar un DAMI y la gestión de cierre
+    actualiza su estado y valor. La aprobación la escribe el vendedor en su hoja.
+    """
 
     hoja = models.ForeignKey(HojaProduccion, on_delete=models.PROTECT, related_name="registros")
     formulario = models.OneToOneField(FormularioDAMI, on_delete=models.PROTECT, related_name="registro_produccion")
     fecha = models.DateField()
     estado = models.CharField(max_length=14, choices=EstadoProduccion.choices, default=EstadoProduccion.PENDIENTE)
     valor_venta = models.DecimalField(**DINERO, null=True, blank=True)
+    # db_default: los triggers de la base crean la fila sin indicar este campo.
+    aprobacion = models.CharField("aprobación", max_length=20, blank=True, default="", db_default="",
+                                  help_text="Número de aprobación del cobro. Solo dígitos.")
 
     class Meta:
         verbose_name = "registro de producción"
@@ -243,6 +251,7 @@ class RegistroProduccion(ModeloBase):
                 | (~Q(estado="VENTA_CERRADA") & Q(valor_venta__isnull=True)),
                 name="produccion_valor_segun_estado",
             ),
+            models.CheckConstraint(condition=Q(aprobacion__regex=r"^[0-9]*$"), name="produccion_aprobacion_numerica"),
         ]
 
 
@@ -289,3 +298,59 @@ class TarjetaDAMI(ModeloBase):
     def caducidad(self) -> str:
         return f"{self.caducidad_mes:02d}/{self.caducidad_anio % 100:02d}"
 
+
+
+class EntidadEmisora(ModeloBase):
+    """Bancos y cooperativas del Ecuador que emiten tarjetas. Catálogo para el DAMI y la validación."""
+
+    class Tipo(models.TextChoices):
+        BANCO = "BANCO", "Banco"
+        COOPERATIVA = "COOPERATIVA", "Cooperativa"
+        MUTUALISTA = "MUTUALISTA", "Mutualista"
+
+    nombre = models.CharField(max_length=120, unique=True)
+    tipo = models.CharField(max_length=12, choices=Tipo.choices, default=Tipo.BANCO)
+    activa = models.BooleanField(default=True)
+
+    class Meta:
+        verbose_name = "entidad emisora"
+        verbose_name_plural = "entidades emisoras"
+        ordering = ["tipo", "nombre"]
+        constraints = [models.CheckConstraint(condition=Q(tipo__in=["BANCO", "COOPERATIVA", "MUTUALISTA"]), name="entidad_tipo_valido")]
+
+    def __str__(self):
+        return self.nombre
+
+
+class RangoBIN(ModeloBase):
+    """
+    BIN: primeros 6 a 8 dígitos de la tarjeta, que identifican a la entidad que la emitió.
+    Se carga desde la lista que entrega el procesador de pagos (no se inventan).
+    """
+
+    class TipoTarjeta(models.TextChoices):
+        CREDITO = "CREDITO", "Crédito"
+        DEBITO = "DEBITO", "Débito"
+        PREPAGO = "PREPAGO", "Prepago"
+
+    bin = models.CharField("BIN", max_length=8, unique=True)
+    entidad = models.ForeignKey(EntidadEmisora, on_delete=models.PROTECT, related_name="bins")
+    marca = models.CharField(max_length=10, choices=[(c, m.nombre) for c, m in MARCAS.items()])
+    tipo_tarjeta = models.CharField("tipo", max_length=8, choices=TipoTarjeta.choices, default=TipoTarjeta.CREDITO)
+    registrado_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+
+    class Meta:
+        verbose_name = "rango BIN"
+        verbose_name_plural = "rangos BIN"
+        ordering = ["bin"]
+        constraints = [
+            models.CheckConstraint(condition=Q(bin__regex=r"^[0-9]{6,8}$"), name="bin_6_a_8_digitos"),
+            models.CheckConstraint(condition=Q(tipo_tarjeta__in=["CREDITO", "DEBITO", "PREPAGO"]), name="bin_tipo_valido"),
+            models.CheckConstraint(
+                condition=Q(marca__in=["VISA", "MASTERCARD", "MAESTRO", "AMEX", "DINERS", "DISCOVER", "JCB", "UNIONPAY"]),
+                name="bin_marca_valida",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.bin} · {self.entidad}"

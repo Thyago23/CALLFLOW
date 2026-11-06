@@ -62,15 +62,21 @@ _GESTION_BASES = {
     "ventas.asignacionbase": ["view", "add", "change"],
     "ventas.solicitudbase": ["view", "change"],
 }
+# Catálogo de bancos y BIN para la validación de tarjetas (lo mantienen administración y cierre).
+_CATALOGO_TARJETAS = {
+    "ventas.entidademisora": ["view", "add", "change"],
+    "ventas.rangobin": ["view", "add", "change", "delete"],
+}
 PERMISOS_POR_ROL = {
     Rol.ADMINISTRADOR: {
         app: ["view", "add", "change", "delete"]
         for app in ["personal", "documentos", "asistencia", "inventario", "agenda", "nomina", "reportes", "core"]
-    } | {"ventas": ["view"], "cierre": ["view", "add", "change"]} | _GESTION_BASES,
+    } | {"ventas": ["view"], "cierre": ["view", "add", "change"]} | _GESTION_BASES | _CATALOGO_TARJETAS,
     Rol.VENDEDOR: {
         "ventas": ["view"],
         "ventas.formulariodami": ["view", "add", "change"],
         "ventas.cliente": ["view", "add", "change"],
+        "ventas.registroproduccion": ["view", "change"],  # escribe la aprobación en su hoja
         "ventas.solicitudbase": ["view", "add"],
         "agenda": ["view", "add", "change", "delete"],
         "reportes": ["view"],
@@ -80,7 +86,7 @@ PERMISOS_POR_ROL = {
         "cierre": ["view", "add", "change"],
         "agenda": ["view", "add", "change", "delete"],
         "reportes": ["view"],
-    } | _GESTION_BASES,
+    } | _GESTION_BASES | _CATALOGO_TARJETAS,
 }
 
 

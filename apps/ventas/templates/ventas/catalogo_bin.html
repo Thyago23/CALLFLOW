@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block titulo %}Catálogo de bancos y BIN · Ventas{% endblock %}
+{% block contenido %}
+{% include "ventas/_subnav.html" with seccion="tarjetas" %}
+
+<nav aria-label="Ruta" class="mb-3">
+  <ol class="breadcrumb small mb-0">
+    <li class="breadcrumb-item"><a href="{% url 'ventas:validar_tarjeta' %}">Validar tarjeta</a></li>
+    <li class="breadcrumb-item active" aria-current="page">Catálogo de bancos y BIN</li>
+  </ol>
+</nav>
+
+<div class="row g-4">
+  <div class="{% if puede_editar %}col-xl-8{% else %}col-12{% endif %}">
+    <section class="card mb-4">
+      <div class="card-header bg-body d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <h2 class="h6 mb-0">BIN registrados <span class="badge text-bg-light border ms-1">{{ rangos|length }}</span></h2>
+        <form method="get" class="d-flex gap-2" role="search">
+          <label class="visually-hidden" for="buscar-bin">Buscar BIN o banco</label>
+          <input type="search" id="buscar-bin" name="q" value="{{ q }}" class="form-control form-control-sm" placeholder="BIN o banco">
+          <button class="btn btn-sm btn-outline-secondary" type="submit" aria-label="Buscar"><i class="bi bi-search" aria-hidden="true"></i></button>
+        </form>
+      </div>
+      {% if rangos %}
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+          <thead><tr><th scope="col">BIN</th><th scope="col">Entidad</th><th scope="col">Marca</th><th scope="col">Tipo</th>{% if perms.ventas.delete_rangobin %}<th scope="col"><span class="visually-hidden">Acciones</span></th>{% endif %}</tr></thead>
+          <tbody>
+            {% for b in rangos %}
+            <tr>
+              <td class="font-monospace fw-semibold">{{ b.bin }}</td>
+              <td>{{ b.entidad }}</td>
+              <td>{{ b.get_marca_display }}</td>
+              <td>{{ b.get_tipo_tarjeta_display }}</td>
+              {% if perms.ventas.delete_rangobin %}
+              <td class="text-end">
+                <form method="post" action="{% url 'ventas:eliminar_bin' b.pk %}" onsubmit="return confirm('¿Quitar el BIN {{ b.bin }} del catálogo?');">
+                  {% csrf_token %}<button type="submit" class="btn btn-sm btn-link text-danger" aria-label="Eliminar BIN {{ b.bin }}"><i class="bi bi-trash" aria-hidden="true"></i></button>
+                </form>
+              </td>
+              {% endif %}
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="card-body text-center text-body-secondary py-5">
+        {% if q %}Ningún BIN coincide con «{{ q }}».{% else %}Todavía no hay BIN registrados.
+        {% if puede_editar %}<div class="small mt-2">Pida al procesador de pagos (Datafast, Medianet) o a los bancos su lista de BIN e impórtela en CSV.</div>{% endif %}{% endif %}
+      </div>
+      {% endif %}
+    </section>
+
+    <section class="card">
+      <div class="card-header bg-body"><h2 class="h6 mb-0">Entidades emisoras del Ecuador <span class="badge text-bg-light border ms-1">{{ entidades|length }}</span></h2></div>
+      <div class="card-body">
+        {% regroup entidades by get_tipo_display as grupos %}
+        {% for g in grupos %}
+        <h3 class="small text-uppercase text-body-secondary fw-semibold mt-2">{{ g.grouper }}s</h3>
+        <div class="d-flex flex-wrap gap-2 mb-2">
+          {% for e in g.list %}<span class="badge text-bg-light border fw-normal">{{ e.nombre }}</span>{% endfor %}
+        </div>
+        {% endfor %}
+      </div>
+    </section>
+  </div>
+
+  {% if puede_editar %}
+  <div class="col-xl-4">
+    <section class="card mb-4">
+      <div class="card-header bg-body"><h2 class="h6 mb-0">Agregar BIN</h2></div>
+      <div class="card-body">
+        <form method="post" novalidate>
+          {% csrf_token %}
+          {% include "_campo.html" with campo=form_bin.bin %}
+          {% include "_campo.html" with campo=form_bin.entidad %}
+          {% include "_campo.html" with campo=form_bin.marca %}
+          {% include "_campo.html" with campo=form_bin.tipo_tarjeta %}
+          <button type="submit" name="agregar_bin" class="btn btn-primary w-100"><i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Agregar</button>
+        </form>
+      </div>
+    </section>
+    <section class="card mb-4">
+      <div class="card-header bg-body"><h2 class="h6 mb-0">Importar lista de BIN</h2></div>
+      <div class="card-body">
+        <form method="post" enctype="multipart/form-data" novalidate>
+          {% csrf_token %}
+          {% include "_campo.html" with campo=form_importar.archivo ayuda=form_importar.archivo.help_text %}
+          <pre class="small bg-body-tertiary rounded p-2 mb-3">bin;entidad;marca;tipo
+(6 a 8 dígitos);(banco del catálogo);Visa;credito</pre>
+          <button type="submit" name="importar" class="btn btn-outline-primary w-100"><i class="bi bi-upload me-1" aria-hidden="true"></i>Importar</button>
+        </form>
+      </div>
+    </section>
+    {% if perms.ventas.add_entidademisora %}
+    <section class="card">
+      <div class="card-header bg-body"><h2 class="h6 mb-0">Agregar banco o cooperativa</h2></div>
+      <div class="card-body">
+        <form method="post" novalidate>
+          {% csrf_token %}
+          {% include "_campo.html" with campo=form_entidad.nombre %}
+          {% include "_campo.html" with campo=form_entidad.tipo %}
+          <button type="submit" name="agregar_entidad" class="btn btn-outline-secondary w-100">Agregar entidad</button>
+        </form>
+      </div>
+    </section>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

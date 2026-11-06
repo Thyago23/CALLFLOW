@@ -30,6 +30,8 @@
         <div class="col-md-6">{% include "_campo.html" with campo=form.cedula %}</div>
         <div class="col-md-6">{% include "_campo.html" with campo=form.ruc %}</div>
         <div class="col-12"><div id="estado-cliente" class="estado-identificacion mb-2" aria-live="polite"></div></div>
+        <div class="col-md-6">{% include "_campo.html" with campo=form.nombres ayuda=form.nombres.help_text %}</div>
+        <div class="col-md-6">{% include "_campo.html" with campo=form.apellidos %}</div>
         <div class="col-md-4">{% include "_campo.html" with campo=form.telefono %}</div>
         <div class="col-md-4">{% include "_campo.html" with campo=form.telefono_alterno %}</div>
         <div class="col-md-4">{% include "_campo.html" with campo=form.telefono3 %}</div>
@@ -63,7 +65,9 @@
         {% for error in form.marca.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
       </fieldset>
       <div class="row">
-        <div class="col-md-6">{% include "_campo.html" with campo=form.banco %}</div>
+        <div class="col-md-6">{% include "_campo.html" with campo=form.banco %}
+          <datalist id="entidades-emisoras">{% for nombre in form.entidades %}<option value="{{ nombre }}">{% endfor %}</datalist>
+        </div>
         <div class="col-md-3">{% include "_campo.html" with campo=form.caducidad %}</div>
         <div class="col-md-9">{% include "_campo.html" with campo=form.numero_tarjeta %}</div>
       </div>
@@ -79,14 +83,29 @@
   <div class="d-flex flex-wrap gap-2 justify-content-end">
     <a href="{% if nuevo %}{% url 'ventas:formularios' %}{% else %}{% url 'ventas:formulario_detalle' formulario.pk %}{% endif %}" class="btn btn-outline-secondary">Cancelar</a>
     <button type="submit" name="guardar" class="btn btn-outline-primary"><i class="bi bi-save me-1" aria-hidden="true"></i>Guardar borrador</button>
-    <button type="submit" name="enviar" class="btn btn-primary"
-            onclick="return confirm('¿Enviar el DAMI a cierre? Después ya no podrá volver a abrirlo: solo quedará en su hoja de producción.');">
+    <button type="submit" name="enviar" class="btn btn-primary" data-pide-confirmacion>
       <i class="bi bi-send me-1" aria-hidden="true"></i>Enviar DAMI
     </button>
   </div>
 </form>
+{% include "ventas/_modal_enviar.html" %}
 
 <script>
+  // Caducidad: el slash se pone solo (1031 -> 10/31). Si escribe un solo dígito mayor a 1 (p. ej. 8), queda 08/.
+  (function () {
+    const campo = document.querySelector("[data-caducidad]");
+    if (!campo) return;
+    campo.addEventListener("input", function (evento) {
+      let digitos = campo.value.replace(/\D/g, "");
+      if (digitos.length === 1 && digitos > "1") digitos = "0" + digitos;
+      digitos = digitos.slice(0, 4);
+      const borrando = evento.inputType && evento.inputType.startsWith("delete");
+      if (digitos.length > 2) campo.value = digitos.slice(0, 2) + "/" + digitos.slice(2);
+      else if (digitos.length === 2 && !borrando) campo.value = digitos + "/";
+      else campo.value = digitos;
+    });
+  })();
+
   // Si el cliente ya existe, se llenan sus datos (solo en los campos vacíos o llenados antes por esta búsqueda).
   document.body.addEventListener("clienteEncontrado", function (evento) {
     const form = document.getElementById("formulario-dami");

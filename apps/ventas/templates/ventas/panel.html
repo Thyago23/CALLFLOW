@@ -52,26 +52,29 @@
   </div>
 </div>
 
-<div class="row g-4">
-  <div class="col-lg-8">
-    <section class="card">
-      <div class="card-header bg-body d-flex justify-content-between align-items-center">
-        <h2 class="h6 mb-0">Mis borradores recientes</h2>
-        <a class="small" href="{% url 'ventas:formularios' %}">Ver todos</a>
-      </div>
-      {% include "ventas/_formularios_filas.html" with formularios=recientes compacto=True %}
-    </section>
+<section>
+  <h2 class="h6 text-body-secondary text-uppercase mb-2">Accesos rápidos</h2>
+  <div class="row g-3 accesos-ventas">
+    <div class="col-6 col-lg-3">
+      <a class="card h-100 text-reset text-decoration-none acceso" href="{% url 'ventas:formulario_nuevo' %}">
+        <div class="card-body"><i class="bi bi-file-earmark-plus" aria-hidden="true"></i><div class="fw-semibold mt-2">Nuevo DAMI</div><div class="small text-body-secondary">Registrar un cliente</div></div>
+      </a>
+    </div>
+    <div class="col-6 col-lg-3">
+      <a class="card h-100 text-reset text-decoration-none acceso" href="{% url 'ventas:formularios' %}?estado=BORRADOR">
+        <div class="card-body"><i class="bi bi-pencil-square" aria-hidden="true"></i><div class="fw-semibold mt-2">Mis borradores <span class="badge text-bg-light border ms-1">{{ panel.borradores }}</span></div><div class="small text-body-secondary">DAMI sin enviar</div></div>
+      </a>
+    </div>
+    <div class="col-6 col-lg-3">
+      <a class="card h-100 text-reset text-decoration-none acceso" href="{% url 'ventas:hoja' %}">
+        <div class="card-body"><i class="bi bi-table" aria-hidden="true"></i><div class="fw-semibold mt-2">Mi hoja de producción</div><div class="small text-body-secondary">Ventas del mes</div></div>
+      </a>
+    </div>
+    <div class="col-6 col-lg-3">
+      <a class="card h-100 text-reset text-decoration-none acceso" href="{% url 'ventas:bases' %}">
+        <div class="card-body"><i class="bi bi-database" aria-hidden="true"></i><div class="fw-semibold mt-2">{% if panel.solicitud_pendiente %}Solicitud pendiente{% else %}Solicitar nueva base{% endif %}</div><div class="small text-body-secondary">Bases comerciales</div></div>
+      </a>
+    </div>
   </div>
-  <div class="col-lg-4">
-    <section class="card mb-3">
-      <div class="card-header bg-body"><h2 class="h6 mb-0">Accesos rápidos</h2></div>
-      <div class="list-group list-group-flush">
-        <a class="list-group-item list-group-item-action" href="{% url 'ventas:formulario_nuevo' %}"><i class="bi bi-file-earmark-plus me-2" aria-hidden="true"></i>Nuevo formulario DAMI</a>
-        <a class="list-group-item list-group-item-action" href="{% url 'ventas:formularios' %}?estado=BORRADOR"><i class="bi bi-pencil-square me-2" aria-hidden="true"></i>Mis borradores <span class="badge text-bg-light border ms-1">{{ panel.borradores }}</span></a>
-        <a class="list-group-item list-group-item-action" href="{% url 'ventas:hoja' %}"><i class="bi bi-table me-2" aria-hidden="true"></i>Mi hoja de producción</a>
-        <a class="list-group-item list-group-item-action" href="{% url 'ventas:bases' %}"><i class="bi bi-database me-2" aria-hidden="true"></i>{% if panel.solicitud_pendiente %}Solicitud de base pendiente{% else %}Solicitar nueva base{% endif %}</a>
-      </div>
-    </section>
-  </div>
-</div>
+</section>
 {% endblock %}

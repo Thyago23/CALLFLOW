@@ -21,7 +21,7 @@ CLAVE_PRUEBA = Fernet.generate_key().decode()
 VISA = "4111 1111 1111 1111"
 
 # Mismos campos que el DAMI en papel.
-CLIENTE = {"cedula": "1710034065", "ruc": "", "telefono": "0991234567", "telefono_alterno": "", "telefono3": "",
+CLIENTE = {"cedula": "1710034065", "ruc": "", "nombres": "carla  andrea", "apellidos": "VEGA", "telefono": "0991234567", "telefono_alterno": "", "telefono3": "",
            "direccion": "Av. Amazonas N34-12", "sector": "La Carolina", "ciudad": "quito", "referencia": "Junto al parque",
            "email": "Carla@Correo.com", "marca": "VISA", "banco": "Banco Pichincha", "caducidad": "08/35",
            "numero_tarjeta": VISA, "observaciones": ""}
@@ -64,8 +64,8 @@ class FormularioDAMITests(BaseVentas):
         f = FormularioDAMI.objects.get()
         self.assertEqual((f.estado, f.vendedor), ("BORRADOR", self.lucia.empleado))
         c = f.cliente
-        self.assertEqual((c.cedula, c.sector, c.ciudad, c.referencia, c.email),
-                         ("1710034065", "La Carolina", "Quito", "Junto al parque", "carla@correo.com"))
+        self.assertEqual((c.cedula, c.nombres, c.apellidos, c.sector, c.ciudad, c.referencia, c.email),
+                         ("1710034065", "Carla Andrea", "Vega", "La Carolina", "Quito", "Junto al parque", "carla@correo.com"))
         self.assertContains(respuesta, "guardado como borrador")
         self.assertFalse(RegistroProduccion.objects.exists())  # el borrador no va a la hoja
 
@@ -202,6 +202,7 @@ class TarjetaTests(BaseVentas):
         form = self.crear(caducidad="01/20", banco="", marca="").context["form"]
         self.assertEqual({"caducidad", "banco", "marca"}, set(form.errors))
         self.assertIn("caducada", form.errors["caducidad"][0])
+        self.assertEqual(tarjetas.validar_caducidad("1031", date(2026, 11, 1)), (10, 2031))  # sin slash también vale
         self.assertFalse(FormularioDAMI.objects.exists())
         self.assertNotIn(b"4111", self.crear(numero_tarjeta="4111 1111 1111 1112").content)  # no se devuelve al navegador
         self.crear(marca="MASTERCARD", numero_tarjeta="5555 5555 5555 4444")
@@ -246,6 +247,44 @@ class HojaProduccionTests(BaseVentas):
         respuesta = self.client.get(reverse("ventas:hoja"))
         self.assertContains(respuesta, "150,50")
         self.assertContains(respuesta, str(f3))
+
+    def test_columnas_como_la_hoja_en_papel(self):
+        """N°, fecha, nombre cliente, ciudad y valor se llenan solos; no hay columna Completa/Cuota."""
+        self.crear(enviar=True)
+        self.crear(enviar=True, cedula="0926687856", nombres="luis", apellidos="paredes", ciudad="guayaquil")
+        f1, f2 = FormularioDAMI.objects.order_by("pk")
+        self.client.force_login(self.lucia)
+        respuesta = self.client.get(reverse("ventas:hoja"))
+        for texto in ("Nombre asesor/a", "Lucía Mora", "Carla Andrea Vega", "Luis Paredes", "Guayaquil", "Aprobación"):
+            self.assertContains(respuesta, texto)
+        self.assertNotContains(respuesta, "Completa/Cuota")
+        self.assertEqual(len(respuesta.context["filas_vacias"]), 24)  # 26 renglones como en papel
+        self.cerrar(f1, valor=D("320"))
+        self.cerrar(f2, valor=D("99.90"))
+        self.assertContains(self.client.get(reverse("ventas:hoja")), "419,90")
+
+    def test_vendedor_escribe_la_aprobacion_solo_con_numeros(self):
+        self.crear(enviar=True)
+        registro = RegistroProduccion.objects.get()
+        url = reverse("ventas:hoja_aprobacion", args=[registro.pk])
+        respuesta = self.client.post(url, {"aprobacion": "00 4512"}, HTTP_HX_REQUEST="true")
+        self.assertContains(respuesta, "is-valid")
+        registro.refresh_from_db()
+        self.assertEqual(registro.aprobacion, "004512")
+        self.assertContains(self.client.post(url, {"aprobacion": "AB12"}), "solo números")
+        registro.refresh_from_db()
+        self.assertEqual(registro.aprobacion, "004512")
+        self.assertContains(self.client.get(reverse("ventas:hoja")), 'value="004512"')
+        # otro vendedor no toca filas ajenas
+        self.client.force_login(self.pedro)
+        self.assertEqual(self.client.post(url, {"aprobacion": "1"}).status_code, 403)
+
+    def test_la_base_rechaza_aprobacion_con_letras(self):
+        from django.db import IntegrityError
+
+        self.crear(enviar=True)
+        with self.assertRaises(IntegrityError):
+            RegistroProduccion.objects.update(aprobacion="12A")
 
     def test_anular_no_suma(self):
         self.crear()

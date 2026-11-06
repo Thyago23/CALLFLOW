@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% load humanize_cf %}
-{% block titulo %}{{ f }} · Ventas{% endblock %}
+{% block titulo %}{{ f }} · Ventas{% if editable %}{% include "ventas/_modal_enviar.html" %}{% endif %}
+{% endblock %}
 {% block contenido %}
 <nav aria-label="Ruta" class="mb-2">
   <ol class="breadcrumb small mb-0">
@@ -19,9 +20,9 @@
   {% if editable %}
   <div class="d-flex flex-wrap gap-2">
     <a href="{% url 'ventas:formulario_editar' f.pk %}" class="btn btn-outline-secondary"><i class="bi bi-pencil me-1" aria-hidden="true"></i>Editar</a>
-    <form method="post" action="{% url 'ventas:formulario_accion' f.pk %}" onsubmit="return confirm('¿Enviar a los encargados de cierre? Después ya no podrá volver a abrirlo.');">
+    <form method="post" action="{% url 'ventas:formulario_accion' f.pk %}">
       {% csrf_token %}<input type="hidden" name="accion" value="enviar">
-      <button type="submit" class="btn btn-primary"><i class="bi bi-send me-1" aria-hidden="true"></i>Enviar a cierre</button>
+      <button type="submit" class="btn btn-primary" data-pide-confirmacion><i class="bi bi-send me-1" aria-hidden="true"></i>Enviar a cierre</button>
     </form>
     <form method="post" action="{% url 'ventas:formulario_accion' f.pk %}" onsubmit="return confirm('¿Anular este borrador?');">
       {% csrf_token %}<input type="hidden" name="accion" value="anular">
@@ -43,6 +44,7 @@
       <div class="card-body">
         <h2 class="h6 text-uppercase text-body-secondary mb-3">Cliente</h2>
         <dl class="row datos-ficha mb-0">
+          <div class="col-12"><dt>Nombre</dt><dd>{{ f.cliente.nombres }} {{ f.cliente.apellidos }}</dd></div>
           <div class="col-sm-6"><dt>Cédula</dt><dd>{{ f.cliente.cedula|default:"—" }}</dd></div>
           <div class="col-sm-6"><dt>RUC</dt><dd>{{ f.cliente.ruc_mostrar|default:"—" }}</dd></div>
           <div class="col-sm-4"><dt>Telf</dt><dd>{{ f.cliente.telefono }}</dd></div>

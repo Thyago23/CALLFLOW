@@ -9,7 +9,7 @@ from apps.core.forms import FormularioEstilizado, _estilizar
 from apps.personal.models import Empleado
 
 from . import tarjetas
-from .models import BaseComercial, TarjetaDAMI
+from .models import BaseComercial, EntidadEmisora, RangoBIN, TarjetaDAMI
 
 # Mismo orden que el DAMI en papel: Diners | Mastercard / Visa | American Express
 _MARCAS_COMO_EN_PAPEL = [(m, TarjetaDAMI.Marca(m).label) for m in ("DINERS", "MASTERCARD", "VISA", "AMEX")]
@@ -34,6 +34,10 @@ class FormularioDAMIForm(FormularioEstilizado, forms.Form):
 
     cedula = forms.CharField(label="Cédula", max_length=13, required=False)
     ruc = forms.CharField(label="RUC", max_length=13, required=False)
+    # La hoja de producción lleva el nombre del cliente, así que se pide aquí.
+    nombres = forms.CharField(label="Nombres del cliente", max_length=100,
+                              help_text="Si solo tiene RUC, la razón social.")
+    apellidos = forms.CharField(label="Apellidos", max_length=100, required=False)
     telefono = forms.CharField(label="Telf", max_length=20)
     telefono_alterno = forms.CharField(label="Telf2", max_length=20, required=False)
     telefono3 = forms.CharField(label="Telf3", max_length=20, required=False)
@@ -47,7 +51,8 @@ class FormularioDAMIForm(FormularioEstilizado, forms.Form):
     marca = forms.ChoiceField(label="Tarjeta", required=False, choices=_MARCAS_COMO_EN_PAPEL, widget=forms.RadioSelect)
     banco = forms.CharField(label="Banco", max_length=80, required=False)
     caducidad = forms.CharField(label="Caducidad", max_length=7, required=False,
-                                widget=forms.TextInput(attrs={"placeholder": "MM/AA", "inputmode": "numeric"}))
+                                widget=forms.TextInput(attrs={"placeholder": "MM/AA", "inputmode": "numeric",
+                                                             "maxlength": "5", "data-caducidad": ""}))
     numero_tarjeta = forms.CharField(
         label="Tarjeta No", max_length=23, required=False,
         widget=forms.PasswordInput(render_value=False, attrs={
@@ -75,13 +80,15 @@ class FormularioDAMIForm(FormularioEstilizado, forms.Form):
         for campo in ("telefono", "telefono_alterno", "telefono3"):
             self.fields[campo].widget.attrs["inputmode"] = "tel"
         self.fields["telefono"].widget.attrs["placeholder"] = "0991234567"
+        self.fields["banco"].widget.attrs["list"] = "entidades-emisoras"
+        self.entidades = EntidadEmisora.objects.filter(activa=True).values_list("nombre", flat=True).order_by("nombre")
 
     @classmethod
     def desde_formulario(cls, f, **kwargs):
         c = f.cliente
         tarjeta = getattr(f, "tarjeta", None)
         inicial = {
-            "cedula": c.cedula, "ruc": c.ruc_mostrar, "telefono": c.telefono, "telefono_alterno": c.telefono_alterno,
+            "cedula": c.cedula, "ruc": c.ruc_mostrar, "nombres": c.nombres, "apellidos": c.apellidos, "telefono": c.telefono, "telefono_alterno": c.telefono_alterno,
             "telefono3": c.telefono3, "direccion": c.direccion, "sector": c.sector, "ciudad": c.ciudad,
             "referencia": c.referencia, "email": c.email, "observaciones": f.observaciones,
         }
@@ -125,6 +132,12 @@ class FormularioDAMIForm(FormularioEstilizado, forms.Form):
 
     def clean_email(self):
         return (self.cleaned_data.get("email") or "").strip().lower()
+
+    def clean_nombres(self):
+        return sin_numero_de_tarjeta(validadores.normalizar_nombre(self.cleaned_data.get("nombres") or ""))
+
+    def clean_apellidos(self):
+        return sin_numero_de_tarjeta(validadores.normalizar_nombre(self.cleaned_data.get("apellidos") or ""))
 
     def clean_ciudad(self):
         return validadores.normalizar_nombre(self.cleaned_data.get("ciudad") or "")
@@ -217,3 +230,72 @@ class AsignarBaseForm(FormularioEstilizado, forms.Form):
             usuario__rol="VENDEDOR", estado=Empleado.Estado.ACTIVO).order_by("apellidos", "nombres")
         _estilizar(self)
         self.fields["vendedores"].widget.attrs["class"] = "form-check-input"
+
+
+# --------------------------------------------------------------------------- validación de tarjetas
+_MARCAS_TODAS = [(c, m.nombre) for c, m in tarjetas.MARCAS.items()]
+
+
+class RangoBINForm(FormularioEstilizado, forms.ModelForm):
+    marca = forms.ChoiceField(label="Marca", choices=[("", "Seleccione…"), *_MARCAS_TODAS])
+
+    class Meta:
+        model = RangoBIN
+        fields = ["bin", "entidad", "marca", "tipo_tarjeta"]
+        labels = {"bin": "BIN (6 a 8 dígitos)", "entidad": "Banco o cooperativa", "tipo_tarjeta": "Tipo"}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["entidad"].queryset = EntidadEmisora.objects.filter(activa=True)
+        self.fields["entidad"].empty_label = "Seleccione…"
+        self.fields["bin"].widget.attrs.update({"inputmode": "numeric", "maxlength": "8", "autocomplete": "off"})
+        _estilizar(self)
+
+    def clean_bin(self):
+        valor = tarjetas.solo_digitos(self.cleaned_data.get("bin") or "")
+        if not re.fullmatch(r"\d{6,8}", valor):
+            raise ValidationError("El BIN son los primeros 6 a 8 dígitos de la tarjeta.")
+        return valor
+
+    def clean(self):
+        datos = super().clean()
+        if datos.get("bin") and datos.get("marca"):
+            detectada = tarjetas.detectar_marca(datos["bin"])
+            if detectada != datos["marca"]:
+                self.add_error("marca", f"Ese BIN es de {tarjetas.MARCAS[detectada].nombre}." if detectada
+                               else "Ese BIN no corresponde a ninguna marca conocida.")
+        return datos
+
+
+class EntidadEmisoraForm(FormularioEstilizado, forms.ModelForm):
+    class Meta:
+        model = EntidadEmisora
+        fields = ["nombre", "tipo"]
+        labels = {"nombre": "Nombre", "tipo": "Tipo"}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        _estilizar(self)
+
+    def clean_nombre(self):
+        nombre = " ".join((self.cleaned_data.get("nombre") or "").split())
+        if EntidadEmisora.objects.filter(nombre__iexact=nombre).exists():
+            raise ValidationError("Esa entidad ya está en el catálogo.")
+        return nombre
+
+
+class ImportarBINForm(FormularioEstilizado, forms.Form):
+    archivo = forms.FileField(label="Archivo CSV", help_text="Columnas: bin, entidad, marca, tipo. Separadas por coma o punto y coma.",
+                              widget=forms.ClearableFileInput(attrs={"accept": ".csv,text/csv"}))
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        _estilizar(self)
+
+    def clean_archivo(self):
+        archivo = self.cleaned_data["archivo"]
+        if not archivo.name.lower().endswith(".csv"):
+            raise ValidationError("Suba un archivo .csv.")
+        if archivo.size > 2 * 1024 * 1024:
+            raise ValidationError("El archivo supera 2 MB.")
+        return archivo
