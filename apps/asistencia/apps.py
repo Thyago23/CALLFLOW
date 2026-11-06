@@ -6,3 +6,6 @@ class AsistenciaConfig(AppConfig):
     name = "apps.asistencia"
     label = "asistencia"
     verbose_name = "Asistencia"
+
+    def ready(self):
+        from . import signals  # noqa: F401  (entrada automática al iniciar sesión)

@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block titulo %}Rol de pagos · {{ e.empleado.nombres }} {{ e.empleado.apellidos }}{% endblock %}
+{% block contenido %}
+<nav aria-label="Ruta" class="mb-2">
+  <ol class="breadcrumb small mb-0">
+    <li class="breadcrumb-item"><a href="{% url 'nomina:resumen' %}?mes={{ mes_consultado }}">Nómina</a></li>
+    <li class="breadcrumb-item active" aria-current="page">{{ e.empleado.apellidos }} {{ e.empleado.nombres }}</li>
+  </ol>
+</nav>
+
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+  <div>
+    <h1 class="h3 mb-0">Rol de pagos · {{ nombre_mes|capfirst }}</h1>
+    <div class="text-body-secondary">
+      <a href="{% url 'personal:empleado_detalle' e.empleado.pk %}" class="text-decoration-none">{{ e.empleado.nombres }} {{ e.empleado.apellidos }}</a>
+      · {{ e.empleado.cargo }}{% if e.esquema %} · {{ e.esquema }}{% endif %}
+    </div>
+  </div>
+  <div class="d-flex gap-2 align-items-center">
+    <form method="get">
+      <label class="visually-hidden" for="mes-rol">Mes</label>
+      <input type="month" id="mes-rol" name="mes" value="{{ mes_consultado }}" class="form-control" onchange="this.form.requestSubmit()">
+    </form>
+    <a href="{% url 'nomina:reporte_roles' %}?mes={{ mes_consultado }}&empleado={{ e.empleado.pk }}" class="btn btn-primary text-nowrap">
+      <i class="bi bi-printer me-1" aria-hidden="true"></i>Imprimir rol
+    </a>
+    <a href="{% url 'nomina:rol_pdf' e.empleado.pk %}?mes={{ mes_consultado }}" class="btn btn-outline-primary text-nowrap" target="_blank" rel="noopener">
+      <i class="bi bi-file-earmark-pdf me-1" aria-hidden="true"></i>PDF
+    </a>
+  </div>
+</div>
+
+{% if e.requiere_visto_bueno %}
+<div class="alert alert-danger small" role="alert">
+  <strong>{{ e.llamados_ventana }} llamados de atención</strong> en el último año: procede el <strong>visto bueno</strong>.
+</div>
+{% endif %}
+
+<div class="card" style="max-width: 48rem">
+  <div class="card-body">
+    {% include "nomina/_detalle_rol.html" %}
+  </div>
+</div>
+{% endblock %}

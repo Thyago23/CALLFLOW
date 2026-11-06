@@ -26,6 +26,10 @@ No dependen de que la aplicación "se acuerde": aplican aunque alguien escriba S
 - **Inventario**: el stock solo cambia mediante movimientos; no se permiten salidas mayores al disponible; los movimientos son inmutables (los errores se corrigen con ajustes); al llegar al mínimo se notifica a los administradores.
 - **DAMI**: transiciones de estado válidas; con tarjeta activa → prioridad 1 (columna calculada); al enviar se crea sola la fila de la hoja de producción; historial de estados con el usuario; **bloqueo optimista** con `version` (actualizar con `WHERE id = ? AND version = ?`) para que los dos encargados no se sobrescriban. No se guardan números de tarjeta.
 - **Cierre**: solo el encargado asignado (y nunca el propio vendedor) registra el resultado; la gestión actualiza el DAMI y la hoja de producción; venta cerrada exige valor; las gestiones no se borran.
+  Reparto entre los dos encargados (propuesta a confirmar con la empresa, SCRUM-50): **cola compartida**. Cada encargado *toma*
+  el formulario que va a gestionar (primero los de tarjeta activa), puede devolverlo a la cola, y el administrador puede reasignarlo;
+  cada movimiento queda en `cierre_movimientoasignacion`. Todas las acciones envían la `version` que el usuario tenía en pantalla,
+  así que si el otro encargado guardó antes se avisa en lugar de sobrescribir.
 - **Nómina**: el neto siempre cuadra (`ingresos − deducciones`); un periodo cerrado queda congelado; tras aprobar un periodo no se cambian sus novedades; la solicitud de pago exige factura (PDF/imagen) del mismo empleado y no puede superar el neto.
 - **Documentos**: solo PDF, JPG y PNG de hasta 10 MB; sin duplicados por huella SHA-256; borrado lógico.
 - **Auditoría** (sección 6): los cambios en empleados, salarios, comisiones, nómina, producción, cierres, metas y usuarios quedan en `core_registrocambio` (sin contraseñas). La bitácora no se puede modificar ni borrar.
@@ -43,6 +47,12 @@ No dependen de que la aplicación "se acuerde": aplican aunque alguien escriba S
 3. Cargar catálogos y grupos por rol: `python manage.py inicializar_datos`
 4. Verificar todas las reglas (no deja datos): `python manage.py verificar_bd`
 5. Crear el usuario administrador del sistema: `python manage.py createsuperuser`
+
+Después de traer cambios con migraciones nuevas, repetir `python manage.py migrate` y `python manage.py inicializar_datos`
+(este último asigna a cada rol los permisos de las tablas nuevas).
+
+Pruebas: `python manage.py test`. El usuario `callflow_app` no puede crear la base de pruebas, así que se corren con el
+superusuario de la empresa (`DB_USER` y `DB_PASSWORD` de `DB_ADMIN_USER` como variables de entorno solo para ese comando).
 
 ## Respaldos (sección 6)
 

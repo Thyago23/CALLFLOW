@@ -1,0 +1,9 @@
+{% load estaticos %}
+{# Encabezado de los reportes impresos. Recibe `titulo` y `subtitulo`. #}
+<header class="encabezado-reporte">
+  <div>
+    <div class="titulo-reporte">{{ titulo }}</div>
+    <div class="subtitulo-reporte">{{ subtitulo }}</div>
+  </div>
+  <img src="{% estatico 'img/logo-multivisa.png' %}" alt="Multivisa" class="logo-reporte" width="640" height="621">
+</header>

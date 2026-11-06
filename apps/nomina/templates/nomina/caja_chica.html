@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% load humanize_cf %}
+{% block titulo %}Caja chica · Nómina{% endblock %}
+{% block contenido %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+  <div>
+    <h1 class="h3 mb-0">Nómina</h1>
+    <p class="text-body-secondary mb-0 small">Caja chica: reposiciones del fondo y gastos menores.</p>
+  </div>
+</div>
+{% include "nomina/_subnav.html" with seccion="caja" %}
+
+<div class="row g-3 mb-4">
+  <div class="col-sm-6 col-xl-3"><div class="card h-100 indicador total-nomina"><div class="card-body">
+    <div class="small">Saldo actual</div><div class="fs-4 fw-bold">${{ saldo_actual|dinero }}</div>
+  </div></div></div>
+  <div class="col-sm-6 col-xl-3"><div class="card h-100 indicador"><div class="card-body">
+    <div class="small text-body-secondary">Saldo al {{ desde|date:"d/m/Y" }}</div><div class="fs-5 fw-semibold">${{ reporte.saldo_inicial|dinero }}</div>
+  </div></div></div>
+  <div class="col-sm-6 col-xl-3"><div class="card h-100 indicador"><div class="card-body">
+    <div class="small text-body-secondary">Ingresos del periodo</div><div class="fs-5 fw-semibold text-success">+${{ reporte.total_ingresos|dinero }}</div>
+  </div></div></div>
+  <div class="col-sm-6 col-xl-3"><div class="card h-100 indicador"><div class="card-body">
+    <div class="small text-body-secondary">Gastos del periodo</div><div class="fs-5 fw-semibold text-danger-emphasis">−${{ reporte.total_egresos|dinero }}</div>
+  </div></div></div>
+</div>
+
+<div class="row g-4">
+  {% if perms.nomina.add_movimientocajachica %}
+  <div class="col-lg-4">
+    <section class="card">
+      <div class="card-header bg-body"><h2 class="h6 mb-0">Registrar movimiento</h2></div>
+      <div class="card-body">
+        <form method="post" novalidate>
+          {% csrf_token %}
+          {% for error in form.non_field_errors %}<div class="alert alert-danger small">{{ error }}</div>{% endfor %}
+          <div class="row g-2">
+            <div class="col-6">{% include "_campo.html" with campo=form.fecha %}</div>
+            <div class="col-6">{% include "_campo.html" with campo=form.valor %}</div>
+          </div>
+          {% include "_campo.html" with campo=form.tipo %}
+          {% include "_campo.html" with campo=form.concepto %}
+          {% include "_campo.html" with campo=form.beneficiario %}
+          {% include "_campo.html" with campo=form.comprobante %}
+          <button type="submit" class="btn btn-primary w-100">Registrar</button>
+          <p class="form-text mb-0 mt-2">Los movimientos no se editan ni se borran: si hay un error, anúlelo y registre uno nuevo.</p>
+        </form>
+      </div>
+    </section>
+  </div>
+  {% endif %}
+  <div class="{% if perms.nomina.add_movimientocajachica %}col-lg-8{% else %}col-12{% endif %}">
+    <form method="get" class="row g-2 align-items-end mb-3">
+      <div class="col-6 col-md-4">
+        <label class="form-label small mb-1" for="caja-desde">Desde</label>
+        <input type="date" id="caja-desde" name="desde" value="{{ desde|date:'Y-m-d' }}" class="form-control">
+      </div>
+      <div class="col-6 col-md-4">
+        <label class="form-label small mb-1" for="caja-hasta">Hasta</label>
+        <input type="date" id="caja-hasta" name="hasta" value="{{ hasta|date:'Y-m-d' }}" class="form-control">
+      </div>
+      <div class="col-md-4 d-flex gap-2">
+        <button type="submit" class="btn btn-outline-secondary">Ver</button>
+        <a class="btn btn-primary flex-grow-1" href="{% url 'nomina:caja_reporte' %}?desde={{ desde|date:'Y-m-d' }}&hasta={{ hasta|date:'Y-m-d' }}"><i class="bi bi-printer me-1" aria-hidden="true"></i>Reporte</a>
+      </div>
+    </form>
+    <section class="card">
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+          <thead>
+            <tr>
+              <th scope="col">Fecha</th>
+              <th scope="col">Concepto</th>
+              <th scope="col" class="text-end">Ingreso</th>
+              <th scope="col" class="text-end">Gasto</th>
+              <th scope="col" class="text-end">Saldo</th>
+              <th scope="col"><span class="visually-hidden">Acciones</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="text-body-secondary small"><td colspan="4">Saldo inicial al {{ desde|date:"d/m/Y" }}</td><td class="text-end">${{ reporte.saldo_inicial|dinero }}</td><td></td></tr>
+            {% for fila in reporte.filas %}
+            {% with m=fila.movimiento %}
+            <tr class="{% if m.anulado %}fila-anulada text-body-secondary{% endif %}">
+              <td class="text-nowrap small">{{ m.fecha|date:"d/m/Y" }}</td>
+              <td>
+                <span class="{% if m.anulado %}text-decoration-line-through{% endif %}">{{ m.concepto }}</span>
+                <div class="small text-body-secondary">
+                  {% if m.beneficiario %}{{ m.beneficiario }}{% endif %}{% if m.comprobante %} · Comp. {{ m.comprobante }}{% endif %}
+                  {% if m.anulado %}<span class="badge text-bg-secondary">Anulado</span> {{ m.motivo_anulacion }}{% endif %}
+                </div>
+              </td>
+              <td class="text-end text-nowrap text-success">{% if fila.ingreso %}+${{ fila.ingreso|dinero }}{% endif %}</td>
+              <td class="text-end text-nowrap text-danger-emphasis">{% if fila.egreso %}−${{ fila.egreso|dinero }}{% endif %}</td>
+              <td class="text-end text-nowrap fw-semibold">{% if fila.saldo is not None %}${{ fila.saldo|dinero }}{% else %}—{% endif %}</td>
+              <td class="text-end">
+                {% if not m.anulado and perms.nomina.change_movimientocajachica %}
+                <details class="anular-caja">
+                  <summary class="btn btn-sm btn-outline-danger">Anular</summary>
+                  <form method="post" action="{% url 'nomina:caja_anular' m.pk %}" class="mt-2 d-flex gap-1">
+                    {% csrf_token %}<input type="hidden" name="volver" value="{{ request.get_full_path }}">
+                    <label class="visually-hidden" for="motivo-{{ m.pk }}">Motivo</label>
+                    <input id="motivo-{{ m.pk }}" name="motivo" class="form-control form-control-sm" placeholder="Motivo" required maxlength="255">
+                    <button type="submit" class="btn btn-sm btn-danger">Anular</button>
+                  </form>
+                </details>
+                {% endif %}
+              </td>
+            </tr>
+            {% endwith %}
+            {% empty %}
+            <tr><td colspan="6" class="text-center text-body-secondary py-4">No hay movimientos en este periodo.</td></tr>
+            {% endfor %}
+          </tbody>
+          <tfoot>
+            <tr class="fw-semibold"><td colspan="2" class="text-end">Totales del periodo</td>
+              <td class="text-end text-nowrap">+${{ reporte.total_ingresos|dinero }}</td>
+              <td class="text-end text-nowrap">−${{ reporte.total_egresos|dinero }}</td>
+              <td class="text-end text-nowrap">${{ reporte.saldo_final|dinero }}</td><td></td></tr>
+          </tfoot>
+        </table>
+      </div>
+    </section>
+  </div>
+</div>
+{% endblock %}

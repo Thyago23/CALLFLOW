@@ -109,7 +109,8 @@ class Command(BaseCommand):
 
         Horario.objects.get_or_create(
             nombre="Jornada estándar",
-            defaults={"hora_entrada": jornada.inicio(), "hora_salida": jornada.fin(), "minutos_tolerancia": 5,
+            # 9:00 a 18:00 (settings.JORNADA_LABORAL) y sin tolerancia: las multas empiezan a las 9:00:01.
+            defaults={"hora_entrada": jornada.inicio(), "hora_salida": jornada.fin(), "minutos_tolerancia": 0,
                       "dias_laborables": jornada.dias()},
         )
 

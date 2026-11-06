@@ -1,14 +1,19 @@
 {% extends "base.html" %}
-{% block titulo %}Registrar empleado{% endblock %}
+{% block titulo %}{% if editando %}Editar {{ object.nombres }} {{ object.apellidos }}{% else %}Registrar empleado{% endif %}{% endblock %}
 {% block contenido %}
 <nav aria-label="Ruta" class="mb-2">
   <ol class="breadcrumb small mb-0">
     <li class="breadcrumb-item"><a href="{% url 'personal:empleado_lista' %}">Personal</a></li>
+    {% if editando %}
+    <li class="breadcrumb-item"><a href="{% url 'personal:empleado_detalle' object.pk %}">{{ object.apellidos }} {{ object.nombres }}</a></li>
+    <li class="breadcrumb-item active" aria-current="page">Editar</li>
+    {% else %}
     <li class="breadcrumb-item active" aria-current="page">Registrar empleado</li>
+    {% endif %}
   </ol>
 </nav>
-<h1 class="h3 mb-1">Registrar empleado</h1>
-<p class="text-body-secondary mb-4">Los campos con <span class="text-danger">*</span> son obligatorios.</p>
+<h1 class="h3 mb-1">{% if editando %}Editar datos de {{ object.nombres }} {{ object.apellidos }}{% else %}Registrar empleado{% endif %}</h1>
+<p class="text-body-secondary mb-4">Los campos con <span class="text-danger">*</span> son obligatorios.{% if editando %} Cada cambio queda registrado con su usuario y el valor anterior.{% endif %}</p>
 
 {% if form.errors or documentos_form.errors %}
 <div class="alert alert-danger" role="alert">
@@ -21,6 +26,7 @@
 <form method="post" enctype="multipart/form-data" novalidate class="formulario-empleado" id="formulario-empleado">
   {% csrf_token %}
 
+  {% if not editando %}
   <section class="card mb-4">
     <div class="card-body">
       <h2 class="h6 text-uppercase text-body-secondary mb-1">Documentos de ingreso</h2>
@@ -35,6 +41,7 @@
       </div>
     </div>
   </section>
+  {% endif %}
 
   <section class="card mb-4">
     <div class="card-body">
@@ -78,16 +85,33 @@
         <div class="col-md-4">{% include "_campo.html" with campo=form.cargo %}</div>
         <div class="col-md-4">{% include "_campo.html" with campo=form.tipo_contrato %}</div>
         <div class="col-md-4">{% include "_campo.html" with campo=form.fecha_ingreso %}</div>
+        {% if not editando %}
+        <div class="col-md-4">{% include "_campo.html" with campo=form.salario_base ayuda=form.salario_base.help_text %}</div>
+        <div class="col-md-4">{% include "_campo.html" with campo=form.equipo ayuda=form.equipo.help_text %}</div>
+        {% endif %}
+        {% if editando %}
+        <div class="col-md-4">{% include "_campo.html" with campo=form.estado %}</div>
+        <div class="col-md-4">{% include "_campo.html" with campo=form.fecha_salida ayuda=form.fecha_salida.help_text %}</div>
+        {% endif %}
       </div>
+      {% if editando and object.usuario %}
+      <p class="small text-body-secondary mb-0">
+        <i class="bi bi-info-circle me-1" aria-hidden="true"></i>
+        La cuenta <span class="font-monospace">{{ object.usuario.username }}</span> se actualiza sola: nombre, rol según el cargo,
+        y se desactiva si el empleado queda desvinculado. El usuario y el código de acceso no cambian.
+      </p>
+      {% endif %}
     </div>
   </section>
 
+  {% if not editando %}
   <p class="small text-body-secondary text-end mb-2">
     <i class="bi bi-person-badge me-1" aria-hidden="true"></i>Al guardar se crea automáticamente su usuario y su código de acceso.
   </p>
+  {% endif %}
   <div class="d-flex gap-2 justify-content-end">
-    <a href="{% url 'personal:empleado_lista' %}" class="btn btn-outline-secondary">Cancelar</a>
-    <button type="submit" class="btn btn-primary">Guardar empleado</button>
+    <a href="{% if editando %}{% url 'personal:empleado_detalle' object.pk %}{% else %}{% url 'personal:empleado_lista' %}{% endif %}" class="btn btn-outline-secondary">Cancelar</a>
+    <button type="submit" class="btn btn-primary">{% if editando %}Guardar cambios{% else %}Guardar empleado{% endif %}</button>
   </div>
 </form>
 

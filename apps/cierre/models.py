@@ -60,6 +60,33 @@ class GestionCierre(ModeloBase):
         ]
 
 
+class MovimientoAsignacion(models.Model):
+    """
+    Historial de quién tuvo a cargo cada DAMI (SCRUM-51): tomar, liberar y reasignar.
+    Solo se agregan filas; nunca se editan.
+    """
+
+    class Accion(models.TextChoices):
+        TOMAR = "TOMAR", "Tomó el formulario"
+        LIBERAR = "LIBERAR", "Devolvió el formulario a la cola"
+        REASIGNAR = "REASIGNAR", "Reasignó el formulario"
+
+    formulario = models.ForeignKey("ventas.FormularioDAMI", on_delete=models.CASCADE, related_name="movimientos_asignacion")
+    accion = models.CharField(max_length=10, choices=Accion.choices)
+    de_encargado = models.ForeignKey("personal.Empleado", on_delete=models.PROTECT, null=True, blank=True, related_name="+")
+    a_encargado = models.ForeignKey("personal.Empleado", on_delete=models.PROTECT, null=True, blank=True, related_name="+")
+    usuario = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    fecha = models.DateTimeField(db_default=Now())
+
+    class Meta:
+        verbose_name = "movimiento de asignación"
+        verbose_name_plural = "movimientos de asignación"
+        ordering = ["formulario", "fecha"]
+        constraints = [
+            models.CheckConstraint(condition=Q(accion__in=["TOMAR", "LIBERAR", "REASIGNAR"]), name="movimiento_accion_valida"),
+        ]
+
+
 class PreferenciaPanel(models.Model):
     """Permite ocultar temporalmente los valores económicos del panel comercial."""
 

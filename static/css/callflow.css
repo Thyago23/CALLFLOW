@@ -542,6 +542,12 @@ input[type="checkbox"].form-check-input + .dia-check { margin-left: 0; }
 .marcas-tarjeta .btn-check:checked + .btn .marca-vacia { display: none; }
 .hoja-dami .form-label { font-weight: 600; }
 
+/* 4.4 Cierre de ventas */
+.fila-prioritaria > td:first-child { box-shadow: inset 3px 0 0 var(--bs-danger); }
+.borde-prioritario { border-left: 3px solid var(--bs-danger); }
+.solicitud-pendiente:target { background: var(--bs-warning-bg-subtle); }
+details.card > summary { cursor: pointer; list-style: revert; }
+
 /* Hoja de producción: mismo formato que la hoja en papel */
 .hoja-produccion .hoja-titulo { font-size: 1.35rem; font-weight: 700; text-transform: uppercase; text-align: center; letter-spacing: .04em; margin-bottom: .75rem; }
 .hoja-produccion .hoja-cabecera { display: flex; flex-wrap: wrap; gap: .5rem 2rem; margin-bottom: 1rem; }
@@ -588,3 +594,90 @@ input[type="checkbox"].form-check-input + .dia-check { margin-left: 0; }
 .revisiones-tarjeta .revision-error .bi { color: var(--bs-danger); }
 .revisiones-tarjeta .revision-aviso .bi { color: var(--bs-warning); }
 .revisiones-tarjeta .revision-pendiente .bi { color: var(--bs-secondary-color); }
+
+/* Historial de cambios del empleado (plegable) */
+.historial-cambios > summary { cursor: pointer; list-style: none; }
+.historial-cambios > summary::-webkit-details-marker { display: none; }
+.historial-cambios > summary::after { content: "\F282"; font-family: "bootstrap-icons"; transition: transform 0.2s; margin-left: 0.5rem; }
+.historial-cambios[open] > summary::after { transform: rotate(180deg); }
+.historial-cambios del { text-decoration-thickness: 1px; }
+
+/* Sueldo y comisiones */
+.tabla-pago th { font-weight: 400; }
+.tabla-pago .fila-total > * { border-top: 2px solid var(--bs-border-color); }
+.tabla-pago .fila-neto > * { font-size: 1.1rem; font-weight: 700; border-top: 2px solid var(--cf-primario); color: var(--cf-primario); border-bottom: 0; }
+.historial-sueldo li:last-child { border-bottom: 0 !important; }
+
+/* Nómina */
+.indicador.total-nomina { background: var(--cf-primario); color: #fff; border-color: var(--cf-primario); }
+.enlace-rol { border-left: 4px solid var(--cf-primario); }
+
+/* 4.2 Nómina: reportes para imprimir (rol de pagos y caja chica) */
+.reporte-impreso { background: var(--bs-body-bg); border: 1px solid var(--bs-border-color); border-radius: .5rem; padding: 1.5rem; margin-bottom: 1.5rem; }
+.encabezado-reporte { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; border-bottom: 2px solid var(--cf-primario, #0d6efd); padding-bottom: .75rem; margin-bottom: 1rem; }
+.titulo-reporte { font-size: 1.3rem; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; }
+.subtitulo-reporte { color: var(--bs-secondary-color); }
+.logo-reporte { width: 3.5rem; height: auto; }
+.tabla-reporte thead th { font-size: .75rem; text-transform: uppercase; background: var(--bs-tertiary-bg); white-space: nowrap; }
+.tabla-reporte .columna-firma { min-width: 9rem; }
+.tabla-reporte .fila-anulada td { color: var(--bs-secondary-color); text-decoration: line-through; }
+.tabla-rol { max-width: 40rem; }
+.tabla-rol .fila-seccion th { background: var(--bs-tertiary-bg); text-transform: uppercase; font-size: .8rem; }
+.tabla-rol .fila-neto td { font-size: 1.1rem; font-weight: 700; border-top: 2px solid var(--bs-border-color); }
+.datos-rol { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .25rem 2rem; margin-bottom: 1rem; }
+.datos-rol > div { display: flex; gap: .5rem; }
+.datos-rol dt { font-weight: 600; min-width: 6.5rem; }
+.datos-rol dd { margin: 0; }
+.resumen-caja { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .5rem; margin-bottom: 1rem; }
+.resumen-caja > div { border: 1px solid var(--bs-border-color); border-radius: .375rem; padding: .5rem .75rem; display: flex; flex-direction: column; }
+.resumen-caja span { font-size: .75rem; text-transform: uppercase; color: var(--bs-secondary-color); }
+.resumen-caja .saldo-final { background: var(--bs-tertiary-bg); }
+.firmas-reporte { display: flex; justify-content: space-around; gap: 2rem; margin-top: 3.5rem; text-align: center; font-size: .9rem; }
+.firmas-reporte > div { min-width: 14rem; }
+.linea-firma { display: block; border-top: 1px solid currentColor; margin-bottom: .35rem; }
+.pie-reporte { margin-top: 1.5rem; margin-bottom: 0; font-size: .75rem; color: var(--bs-secondary-color); }
+details.anular-caja > summary { list-style: none; }
+details.anular-caja > summary::-webkit-details-marker { display: none; }
+@media (max-width: 575.98px) {
+  .resumen-caja, .datos-rol { grid-template-columns: 1fr 1fr; }
+  .firmas-reporte { flex-direction: column; align-items: center; }
+}
+@page vertical { size: A4 portrait; margin: 15mm; }
+@media print {
+  .contenido { padding: 0 !important; }
+  .reporte-impreso { border: 0; border-radius: 0; padding: 0; margin: 0; }
+  .pagina-vertical { page: vertical; }
+  .rol-individual { break-after: page; }
+  .rol-individual:last-of-type { break-after: auto; }
+  .tabla-reporte { font-size: 9.5pt; }
+  .tabla-reporte .columna-firma { min-width: 35mm; }
+  .table-responsive { overflow: visible !important; }
+  .resumen-caja { grid-template-columns: repeat(4, 1fr); }
+  .firmas-reporte { break-inside: avoid; }
+}
+
+/* Rol de pagos con el formato que usa la empresa (franja azul y verde) */
+.rol-empresa { --rol-azul: #2f75b5; --rol-verde: #70ad47; background: var(--bs-body-bg); border: 1px solid var(--bs-border-color);
+  border-radius: .5rem; padding: 1.25rem; margin-bottom: 1.5rem; overflow-x: auto; }
+.rol-empresa table { width: 100%; border-collapse: collapse; }
+.rol-empresa-cabecera th, .rol-empresa-cabecera td { padding: .4rem .6rem; text-align: center; white-space: nowrap; }
+.rol-empresa-titulo { background: var(--rol-azul); color: #fff; font-size: 1.35rem; font-weight: 700; letter-spacing: .04em; padding: .5rem !important; }
+.rol-empresa-cabecera .azul { background: var(--rol-azul); color: #fff; font-weight: 600; }
+.rol-empresa-cabecera .verde { background: var(--rol-verde); color: #fff; font-weight: 600; }
+.rol-empresa-cabecera tbody td { font-size: 1.05rem; border-bottom: 1px solid var(--bs-border-color); }
+.rol-empresa-cuerpo { display: grid; grid-template-columns: minmax(16rem, 2fr) minmax(18rem, 3fr); gap: 2rem; margin-top: 1.5rem; align-items: start; }
+.rol-empresa-asistencia th, .rol-empresa-asistencia td { padding: .3rem .6rem; }
+.rol-empresa-asistencia thead th { font-size: .75rem; text-transform: uppercase; color: var(--bs-secondary-color); text-align: center; }
+.rol-empresa-asistencia tbody th { text-align: right; font-weight: 500; }
+.rol-empresa-asistencia tbody td { text-align: center; }
+.rol-empresa-detalle td { padding: .25rem .5rem; border-bottom: 1px solid var(--bs-border-color-translucent); font-size: .9rem; }
+.rol-empresa-detalle td:last-child { text-align: right; white-space: nowrap; }
+.rol-empresa-detalle .fila-seccion th { background: var(--bs-tertiary-bg); text-transform: uppercase; font-size: .75rem; padding: .3rem .5rem; }
+.rol-empresa-detalle .fila-neto td { font-weight: 700; font-size: 1.05rem; border-top: 2px solid var(--rol-azul); border-bottom: 0; }
+.rol-empresa-firmas { margin-top: 3rem; }
+@media (max-width: 767.98px) { .rol-empresa-cuerpo { grid-template-columns: 1fr; } }
+@media print {
+  .rol-empresa { border: 0; border-radius: 0; padding: 0; margin: 0; overflow: visible; }
+  .rol-empresa-cabecera th, .rol-empresa-cabecera .rol-empresa-titulo { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .rol-empresa-detalle td { font-size: 9.5pt; }
+}

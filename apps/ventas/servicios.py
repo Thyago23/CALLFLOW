@@ -144,7 +144,7 @@ def enviar_formulario(usuario, formulario: FormularioDAMI) -> FormularioDAMI:
         usuarios_con_rol(Rol.ENCARGADO_CIERRE),
         titulo=f"Nuevo DAMI para cierre: {formulario} · {formulario.cliente.identificacion}",
         mensaje=f"{tarjeta.get_marca_display()} · {tarjeta.banco} · asesor {formulario.vendedor}",
-        url=reverse("ventas:formulario_detalle", args=[formulario.pk]),
+        url=reverse("cierre:formulario", args=[formulario.pk]),
     )
     return formulario
 
@@ -284,12 +284,29 @@ def solicitar_base(usuario, mensaje: str) -> SolicitudBase:
     if SolicitudBase.objects.filter(vendedor=empleado, estado=SolicitudBase.Estado.PENDIENTE).exists():
         raise ValidationError("Ya tiene una solicitud pendiente. Espere la respuesta antes de pedir otra.")
     solicitud = SolicitudBase.objects.create(vendedor=empleado, mensaje=mensaje.strip())
+    hora = timezone.localtime(solicitud.creado_en).strftime("%d/%m/%Y %H:%M")
     _notificar(
         usuarios_con_rol(Rol.ENCARGADO_CIERRE, Rol.ADMINISTRADOR),
-        titulo=f"{empleado} solicita una nueva base comercial", mensaje=solicitud.mensaje[:300],
-        url=reverse("ventas:bases"), tipo=Notificacion.Tipo.SOLICITUD_BASE,
+        titulo=f"{empleado} solicita una nueva base comercial",
+        mensaje=f"{hora} · {solicitud.mensaje[:280]}" if solicitud.mensaje else hora,
+        url=url_solicitud(solicitud), tipo=Notificacion.Tipo.SOLICITUD_BASE,
     )
     return solicitud
+
+
+def url_solicitud(solicitud) -> str:
+    """Enlace directo a la solicitud en la lista de pendientes (SCRUM-60)."""
+    return f"{reverse('ventas:bases')}#solicitud-{solicitud.pk}"
+
+
+def _solicitud_resuelta(solicitud) -> None:
+    """Cuando un encargado la atiende o rechaza, el aviso deja de estar pendiente para todos (SCRUM-60)."""
+    Notificacion.objects.filter(tipo=Notificacion.Tipo.SOLICITUD_BASE, url=url_solicitud(solicitud), leida=False).update(
+        leida=True, leida_en=timezone.now())
+
+
+def solicitudes_pendientes() -> int:
+    return SolicitudBase.objects.filter(estado=SolicitudBase.Estado.PENDIENTE).count()
 
 
 def _usuario_del_vendedor(solicitud):
@@ -313,6 +330,7 @@ def atender_solicitud(solicitud: SolicitudBase, base: BaseComercial, usuario, re
     solicitud.atendida_por = usuario
     solicitud.atendida_en = timezone.now()
     solicitud.save()
+    _solicitud_resuelta(solicitud)
     _notificar(_usuario_del_vendedor(solicitud), titulo=f"Se le asignó la base «{base.nombre}»",
                mensaje=solicitud.respuesta, url=reverse("ventas:bases"), tipo=Notificacion.Tipo.SOLICITUD_BASE)
     return solicitud
@@ -330,6 +348,7 @@ def rechazar_solicitud(solicitud: SolicitudBase, usuario, motivo: str) -> Solici
     solicitud.atendida_por = usuario
     solicitud.atendida_en = timezone.now()
     solicitud.save()
+    _solicitud_resuelta(solicitud)
     _notificar(_usuario_del_vendedor(solicitud), titulo="Su solicitud de base fue rechazada",
                mensaje=solicitud.respuesta, url=reverse("ventas:bases"), tipo=Notificacion.Tipo.SOLICITUD_BASE)
     return solicitud

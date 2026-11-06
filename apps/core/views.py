@@ -82,6 +82,21 @@ def dashboard(request):
             "valor": Material.objects.filter(activo=True, stock_actual__lte=F("stock_minimo")).count(),
             "url": reverse("inventario:materiales") + "?estado=bajo", "alerta": True,
         })
+    if usuario.has_perm("cierre.add_gestioncierre"):
+        from apps.ventas.models import FormularioDAMI
+
+        indicadores.append({
+            "titulo": "Formularios DAMI sin asignar", "icono": "inbox",
+            "valor": FormularioDAMI.objects.filter(estado=FormularioDAMI.Estado.ENVIADO).count(),
+            "url": reverse("cierre:bandeja") + "?estado=ENVIADO", "alerta": True,
+        })
+    if usuario.has_perm("ventas.change_solicitudbase"):
+        from apps.ventas.servicios import solicitudes_pendientes
+
+        indicadores.append({
+            "titulo": "Solicitudes de bases pendientes", "icono": "database",
+            "valor": solicitudes_pendientes(), "url": reverse("ventas:bases"), "alerta": True,
+        })
     if usuario.has_perm("agenda.view_evento"):
         indicadores.append({
             "titulo": "Mis actividades de hoy", "icono": "calendar3",
@@ -200,3 +215,12 @@ def marcar_notificaciones_leidas(request):
         notificaciones = Notificacion.objects.filter(destinatario=request.user).order_by("-creado_en")[:6]
         return render(request, "core/_notificaciones.html", {"notificaciones": notificaciones})
     return redirect("inicio")
+
+
+@login_required
+@never_cache
+def contadores(request):
+    """HTMX cada 30 s: campana y contadores del menú, sin recargar la página (SCRUM-60)."""
+    from .context_processors import contadores as calcular
+
+    return render(request, "core/_contadores.html", calcular(request.user))
