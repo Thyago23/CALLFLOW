@@ -238,6 +238,10 @@ class ResumenNomina:
         return self._suma("comision")
 
     @property
+    def total_ingresos(self):
+        return self._suma("total_ingresos")
+
+    @property
     def total_descuentos(self):
         return self._suma("total_descuentos")
 

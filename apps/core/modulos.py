@@ -51,7 +51,7 @@ MODULOS = [
     Modulo("agenda", "Agenda", "4.1", "calendar3", "agenda.view_evento",
            "Actividades, reuniones y recordatorios.", url="agenda:calendario"),
     Modulo("nomina", "Nómina", "4.2", "cash-coin", "nomina.view_periodonomina",
-           "Sueldos, comisiones, descuentos y roles de pago de todos los empleados.", url="nomina:resumen"),
+           "Roles de pago, reportes para imprimir y caja chica.", url="nomina:resumen"),
     Modulo("ventas", "Ventas", "4.3", "telephone-outbound", "ventas.view_formulariodami",
            "Formularios DAMI, hoja de producción y bases comerciales.", url="ventas:inicio"),
     Modulo("cierre", "Cierre de ventas", "4.4", "check2-circle", "cierre.view_gestioncierre",

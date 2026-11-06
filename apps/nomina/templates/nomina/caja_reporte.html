@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% load humanize_cf %}
+{% block titulo %}Reporte de caja chica{% endblock %}
+{% block contenido %}
+<div class="d-print-none">
+  <nav aria-label="Ruta" class="mb-2">
+    <ol class="breadcrumb small mb-0">
+      <li class="breadcrumb-item"><a href="{% url 'nomina:caja_chica' %}?desde={{ desde|date:'Y-m-d' }}&hasta={{ hasta|date:'Y-m-d' }}">Caja chica</a></li>
+      <li class="breadcrumb-item active" aria-current="page">Reporte</li>
+    </ol>
+  </nav>
+  <form method="get" class="row g-2 align-items-end mb-4">
+    <div class="col-6 col-md-3">
+      <label class="form-label small mb-1" for="rep-desde">Desde</label>
+      <input type="date" id="rep-desde" name="desde" value="{{ desde|date:'Y-m-d' }}" class="form-control">
+    </div>
+    <div class="col-6 col-md-3">
+      <label class="form-label small mb-1" for="rep-hasta">Hasta</label>
+      <input type="date" id="rep-hasta" name="hasta" value="{{ hasta|date:'Y-m-d' }}" class="form-control">
+    </div>
+    <div class="col-md-3">
+      <div class="form-check mb-2">
+        <input class="form-check-input" type="checkbox" name="anulados" value="1" id="rep-anulados" {% if incluir_anulados %}checked{% endif %}>
+        <label class="form-check-label small" for="rep-anulados">Mostrar anulados</label>
+      </div>
+    </div>
+    <div class="col-md-3 d-flex gap-2 justify-content-md-end">
+      <button type="submit" class="btn btn-outline-secondary">Actualizar</button>
+      <button type="button" class="btn btn-primary" onclick="window.print()"><i class="bi bi-printer me-1" aria-hidden="true"></i>Imprimir</button>
+    </div>
+  </form>
+</div>
+
+<section class="reporte-impreso pagina-vertical">
+  {% include "nomina/_encabezado_reporte.html" with titulo="Reporte de caja chica" subtitulo=rango_texto %}
+  <div class="resumen-caja">
+    <div><span>Saldo inicial</span><strong>${{ reporte.saldo_inicial|dinero }}</strong></div>
+    <div><span>(+) Ingresos</span><strong>${{ reporte.total_ingresos|dinero }}</strong></div>
+    <div><span>(−) Gastos</span><strong>${{ reporte.total_egresos|dinero }}</strong></div>
+    <div class="saldo-final"><span>Saldo final</span><strong>${{ reporte.saldo_final|dinero }}</strong></div>
+  </div>
+  <table class="table table-sm table-bordered align-middle tabla-reporte">
+    <thead>
+      <tr>
+        <th scope="col" class="text-center">N.°</th>
+        <th scope="col">Fecha</th>
+        <th scope="col">Concepto</th>
+        <th scope="col">Pagado a / entregado por</th>
+        <th scope="col">Comprobante</th>
+        <th scope="col" class="text-end">Ingreso</th>
+        <th scope="col" class="text-end">Gasto</th>
+        <th scope="col" class="text-end">Saldo</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td></td><td>{{ desde|date:"d/m/Y" }}</td><td colspan="5"><em>Saldo inicial</em></td><td class="text-end">${{ reporte.saldo_inicial|dinero }}</td></tr>
+      {% for fila in reporte.filas %}
+      {% with m=fila.movimiento %}
+      <tr class="{% if m.anulado %}fila-anulada{% endif %}">
+        <td class="text-center">{{ forloop.counter }}</td>
+        <td class="text-nowrap">{{ m.fecha|date:"d/m/Y" }}</td>
+        <td>{{ m.concepto }}{% if m.anulado %} <strong>(ANULADO: {{ m.motivo_anulacion }})</strong>{% endif %}</td>
+        <td>{{ m.beneficiario|default:"—" }}</td>
+        <td>{{ m.comprobante|default:"—" }}</td>
+        <td class="text-end text-nowrap">{% if fila.ingreso %}${{ fila.ingreso|dinero }}{% endif %}</td>
+        <td class="text-end text-nowrap">{% if fila.egreso %}${{ fila.egreso|dinero }}{% endif %}</td>
+        <td class="text-end text-nowrap">{% if fila.saldo is not None %}${{ fila.saldo|dinero }}{% else %}—{% endif %}</td>
+      </tr>
+      {% endwith %}
+      {% empty %}
+      <tr><td colspan="8" class="text-center py-3">Sin movimientos en este periodo.</td></tr>
+      {% endfor %}
+    </tbody>
+    <tfoot>
+      <tr class="fw-semibold">
+        <td colspan="5" class="text-end">Totales</td>
+        <td class="text-end text-nowrap">${{ reporte.total_ingresos|dinero }}</td>
+        <td class="text-end text-nowrap">${{ reporte.total_egresos|dinero }}</td>
+        <td class="text-end text-nowrap">${{ reporte.saldo_final|dinero }}</td>
+      </tr>
+    </tfoot>
+  </table>
+  {% if reporte.anulados and not incluir_anulados %}<p class="small mb-0">{{ reporte.anulados }} movimiento{{ reporte.anulados|pluralize }} anulado{{ reporte.anulados|pluralize }} en el periodo no se muestra{{ reporte.anulados|pluralize:"n" }} (no afectan el saldo).</p>{% endif %}
+  <div class="firmas-reporte">
+    <div><span class="linea-firma"></span>Elaborado por<br><strong>{{ user.get_full_name|default:user.username }}</strong></div>
+    <div><span class="linea-firma"></span>Revisado por</div>
+  </div>
+  <p class="pie-reporte">Generado por CALLFLOW el {{ generado_en|date:"d/m/Y H:i" }}.</p>
+</section>
+{% endblock %}

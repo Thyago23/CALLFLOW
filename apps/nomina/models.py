@@ -232,3 +232,46 @@ class SolicitudPago(ModeloBase):
                 condition=~Q(estado="PAGADA") | Q(pagada_en__isnull=False), name="solicitud_pagada_con_fecha"
             ),
         ]
+
+
+class MovimientoCajaChica(ModeloBase):
+    """
+    Caja chica: fondos que entran (reposiciones) y gastos menores que salen.
+    La base de datos impide que el saldo quede negativo y que un movimiento se modifique o se
+    borre: los errores se corrigen anulándolo, con un motivo (queda en la auditoría).
+    """
+
+    class Tipo(models.TextChoices):
+        INGRESO = "INGRESO", "Ingreso (reposición del fondo)"
+        EGRESO = "EGRESO", "Egreso (gasto)"
+
+    fecha = models.DateField()
+    tipo = models.CharField(max_length=7, choices=Tipo.choices)
+    concepto = models.CharField(max_length=200)
+    beneficiario = models.CharField("pagado a / entregado por", max_length=150, blank=True, default="")
+    comprobante = models.CharField("N.° de comprobante", max_length=50, blank=True, default="",
+                                   help_text="Factura, nota de venta o recibo.")
+    valor = models.DecimalField(**DINERO)
+    registrado_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    anulado = models.BooleanField(default=False)
+    motivo_anulacion = models.CharField(max_length=255, blank=True, default="")
+    anulado_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    anulado_en = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = "movimiento de caja chica"
+        verbose_name_plural = "movimientos de caja chica"
+        ordering = ["fecha", "pk"]
+        indexes = [models.Index(fields=["fecha"], name="caja_fecha_idx")]
+        constraints = [
+            models.CheckConstraint(condition=Q(tipo__in=["INGRESO", "EGRESO"]), name="caja_tipo_valido"),
+            models.CheckConstraint(condition=Q(valor__gt=0), name="caja_valor_positivo"),
+            models.CheckConstraint(condition=~Q(concepto=""), name="caja_concepto_obligatorio"),
+            models.CheckConstraint(
+                condition=Q(anulado=False) | (Q(anulado_en__isnull=False) & ~Q(motivo_anulacion="")),
+                name="caja_anulado_con_motivo",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.get_tipo_display()} · {self.concepto}"

@@ -611,3 +611,47 @@ details.card > summary { cursor: pointer; list-style: revert; }
 /* Nómina */
 .indicador.total-nomina { background: var(--cf-primario); color: #fff; border-color: var(--cf-primario); }
 .enlace-rol { border-left: 4px solid var(--cf-primario); }
+
+/* 4.2 Nómina: reportes para imprimir (rol de pagos y caja chica) */
+.reporte-impreso { background: var(--bs-body-bg); border: 1px solid var(--bs-border-color); border-radius: .5rem; padding: 1.5rem; margin-bottom: 1.5rem; }
+.encabezado-reporte { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; border-bottom: 2px solid var(--cf-primario, #0d6efd); padding-bottom: .75rem; margin-bottom: 1rem; }
+.titulo-reporte { font-size: 1.3rem; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; }
+.subtitulo-reporte { color: var(--bs-secondary-color); }
+.logo-reporte { width: 3.5rem; height: auto; }
+.tabla-reporte thead th { font-size: .75rem; text-transform: uppercase; background: var(--bs-tertiary-bg); white-space: nowrap; }
+.tabla-reporte .columna-firma { min-width: 9rem; }
+.tabla-reporte .fila-anulada td { color: var(--bs-secondary-color); text-decoration: line-through; }
+.tabla-rol { max-width: 40rem; }
+.tabla-rol .fila-seccion th { background: var(--bs-tertiary-bg); text-transform: uppercase; font-size: .8rem; }
+.tabla-rol .fila-neto td { font-size: 1.1rem; font-weight: 700; border-top: 2px solid var(--bs-border-color); }
+.datos-rol { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .25rem 2rem; margin-bottom: 1rem; }
+.datos-rol > div { display: flex; gap: .5rem; }
+.datos-rol dt { font-weight: 600; min-width: 6.5rem; }
+.datos-rol dd { margin: 0; }
+.resumen-caja { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .5rem; margin-bottom: 1rem; }
+.resumen-caja > div { border: 1px solid var(--bs-border-color); border-radius: .375rem; padding: .5rem .75rem; display: flex; flex-direction: column; }
+.resumen-caja span { font-size: .75rem; text-transform: uppercase; color: var(--bs-secondary-color); }
+.resumen-caja .saldo-final { background: var(--bs-tertiary-bg); }
+.firmas-reporte { display: flex; justify-content: space-around; gap: 2rem; margin-top: 3.5rem; text-align: center; font-size: .9rem; }
+.firmas-reporte > div { min-width: 14rem; }
+.linea-firma { display: block; border-top: 1px solid currentColor; margin-bottom: .35rem; }
+.pie-reporte { margin-top: 1.5rem; margin-bottom: 0; font-size: .75rem; color: var(--bs-secondary-color); }
+details.anular-caja > summary { list-style: none; }
+details.anular-caja > summary::-webkit-details-marker { display: none; }
+@media (max-width: 575.98px) {
+  .resumen-caja, .datos-rol { grid-template-columns: 1fr 1fr; }
+  .firmas-reporte { flex-direction: column; align-items: center; }
+}
+@page vertical { size: A4 portrait; margin: 15mm; }
+@media print {
+  .contenido { padding: 0 !important; }
+  .reporte-impreso { border: 0; border-radius: 0; padding: 0; margin: 0; }
+  .pagina-vertical { page: vertical; }
+  .rol-individual { break-after: page; }
+  .rol-individual:last-of-type { break-after: auto; }
+  .tabla-reporte { font-size: 9.5pt; }
+  .tabla-reporte .columna-firma { min-width: 35mm; }
+  .table-responsive { overflow: visible !important; }
+  .resumen-caja { grid-template-columns: repeat(4, 1fr); }
+  .firmas-reporte { break-inside: avoid; }
+}

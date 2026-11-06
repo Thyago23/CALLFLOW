@@ -1,0 +1,7 @@
+<ul class="nav nav-underline mb-4 subnav-modulo d-print-none">
+  <li class="nav-item"><a class="nav-link {% if seccion == 'roles' %}active{% endif %}" href="{% url 'nomina:resumen' %}{% if mes_consultado %}?mes={{ mes_consultado }}{% endif %}"><i class="bi bi-people me-1" aria-hidden="true"></i>Roles de pago</a></li>
+  <li class="nav-item"><a class="nav-link {% if seccion == 'reporte_roles' %}active{% endif %}" href="{% url 'nomina:reporte_roles' %}{% if mes_consultado %}?mes={{ mes_consultado }}{% endif %}"><i class="bi bi-printer me-1" aria-hidden="true"></i>Reporte de roles</a></li>
+  {% if perms.nomina.view_movimientocajachica %}
+  <li class="nav-item"><a class="nav-link {% if seccion == 'caja' %}active{% endif %}" href="{% url 'nomina:caja_chica' %}"><i class="bi bi-wallet2 me-1" aria-hidden="true"></i>Caja chica</a></li>
+  {% endif %}
+</ul>
