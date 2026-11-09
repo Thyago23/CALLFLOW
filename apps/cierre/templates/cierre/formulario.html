@@ -139,7 +139,7 @@
           <div class="col-sm-6"><dt>Tarjeta</dt><dd>{{ tarjeta.get_marca_display }}</dd></div>
           <div class="col-sm-6"><dt>Banco</dt><dd>{{ tarjeta.banco }}</dd></div>
           <div class="col-sm-6"><dt>Caducidad</dt><dd>{{ tarjeta.caducidad }}</dd></div>
-          <div class="col-sm-6"><dt>Tarjeta No</dt><dd class="font-monospace">**** **** **** {{ tarjeta.ultimos4 }}</dd></div>
+          <div class="col-sm-6"><dt>Tarjeta No</dt><dd class="font-monospace">{% if numero_tarjeta %}{{ numero_tarjeta }}{% else %}**** **** **** {{ tarjeta.ultimos4 }}{% endif %}</dd></div>
           {% else %}
           <div class="col-12"><dd class="text-body-secondary">Sin datos de tarjeta.</dd></div>
           {% endif %}

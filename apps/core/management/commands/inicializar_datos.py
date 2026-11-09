@@ -71,7 +71,11 @@ PERMISOS_POR_ROL = {
     Rol.ADMINISTRADOR: {
         app: ["view", "add", "change", "delete"]
         for app in ["personal", "documentos", "asistencia", "inventario", "agenda", "nomina", "reportes", "core"]
-    } | {"ventas": ["view"], "cierre": ["view", "add", "change"]} | _GESTION_BASES | _CATALOGO_TARJETAS,
+    } | {"cierre": ["view", "add", "change"]} | {
+        # En ventas solo consulta: sin bases comerciales ni catálogo de tarjetas.
+        f"ventas.{modelo}": ["view"]
+        for modelo in ["cliente", "formulariodami", "historialestadoformulario", "tarjetadami", "hojaproduccion", "registroproduccion"]
+    },
     Rol.VENDEDOR: {
         "ventas": ["view"],
         "ventas.formulariodami": ["view", "add", "change"],

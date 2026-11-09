@@ -101,7 +101,7 @@ class CatalogoBINTests(BaseVentas):
         self.assertFalse(RangoBIN.objects.exists())
 
     def test_importar_csv(self):
-        self.client.force_login(self.admin)
+        self.client.force_login(self.ana)
         contenido = ("bin;entidad;marca;tipo\n"
                      "411111;banco pichincha;Visa;crédito\n"
                      "555555;PRODUBANCO;Mastercard;debito\n"

@@ -20,6 +20,10 @@ class Rol(models.TextChoices):
     ENCARGADO_CIERRE = "ENCARGADO_CIERRE", "Encargado de cierre"
 
 
+# Bases comerciales y validación de tarjetas: el administrador no entra, aunque sea superusuario.
+MODELOS_VETADOS_AL_ADMINISTRADOR = {"basecomercial", "asignacionbase", "solicitudbase", "entidademisora", "rangobin"}
+
+
 class GestorUsuarios(UserManager):
     @classmethod
     def normalize_email(cls, email):
@@ -59,6 +63,13 @@ class Usuario(AbstractUser):
     @property
     def codigo(self) -> str:
         return self.username
+
+    def has_perm(self, perm, obj=None):
+        # Va aquí y no en los grupos porque a un superusuario Django le concede todo sin consultarlos.
+        app, _, codename = perm.partition(".")
+        if self.rol == Rol.ADMINISTRADOR and app == "ventas" and codename.partition("_")[2] in MODELOS_VETADOS_AL_ADMINISTRADOR:
+            return False
+        return super().has_perm(perm, obj)
 
     def save(self, *args, **kwargs):
         self.email = (self.email or "").strip().lower() or None

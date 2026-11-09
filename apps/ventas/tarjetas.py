@@ -127,5 +127,5 @@ def cifrar(numero: str) -> str:
 
 
 def descifrar(token: str) -> str:
-    """Solo para el futuro módulo de cierre (aún sin pantalla). No usar para mostrar en listas."""
+    """Solo a través de cierre.servicios.numero_tarjeta_visible. No usar para mostrar en listas."""
     return _fernet().decrypt(token.encode()).decode()

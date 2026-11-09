@@ -265,9 +265,9 @@ class TarjetaDAMI(ModeloBase):
     Tarjeta para realizar el pago, indicada en el DAMI.
 
     El número completo se guarda CIFRADO (clave CLAVE_TARJETAS del .env, fuera de la base de datos)
-    y ninguna pantalla lo muestra: solo los últimos 4 dígitos. Quién y cuándo podrá ver el número
-    completo se definirá en el módulo de cierre. Esta tabla no se audita ni se registra en el
-    panel /admin, para que el número no se copie a otros lugares.
+    y las pantallas solo muestran los últimos 4 dígitos. El número completo lo ve únicamente el
+    encargado que tiene tomado el DAMI, mientras lo gestiona (cierre.servicios.numero_tarjeta_visible).
+    Esta tabla no se audita ni se registra en el panel /admin, para que el número no se copie a otros lugares.
     """
 
     class Marca(models.TextChoices):

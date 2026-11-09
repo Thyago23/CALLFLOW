@@ -12,9 +12,11 @@ usuario tenía en pantalla. La base de datos incrementa la versión en cada camb
 otro encargado guardó antes, la actualización no encuentra la fila y se avisa en lugar de
 sobrescribir. La base también impide dos resultados para el mismo formulario.
 """
+import logging
 from dataclasses import dataclass, field
 from decimal import Decimal
 
+from cryptography.fernet import InvalidToken
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import IntegrityError, transaction
 from django.db.models import Q
@@ -25,9 +27,11 @@ from apps.core.models import Notificacion, Rol
 from apps.personal.models import Empleado
 from apps.ventas.models import FormularioDAMI
 from apps.ventas.servicios import _notificar, empleado_de, es_administrador
+from apps.ventas.tarjetas import descifrar
 
 from .models import GestionCierre, MetaMensual, MovimientoAsignacion, PreferenciaPanel, ResumenVendedorMes
 
+logger = logging.getLogger(__name__)
 Estado = FormularioDAMI.Estado
 EN_COLA = [Estado.ENVIADO, Estado.EN_GESTION]
 
@@ -54,6 +58,19 @@ class Conflicto(ValidationError):
 # --------------------------------------------------------------------------- quién es quién
 def es_encargado(usuario) -> bool:
     return usuario.rol == Rol.ENCARGADO_CIERRE and empleado_de(usuario) is not None
+
+
+def numero_tarjeta_visible(usuario, formulario, tarjeta) -> str | None:
+    """Número completo, en bloques de 4: solo para el encargado que tiene tomado el DAMI, mientras lo gestiona."""
+    if (tarjeta is None or formulario.estado != Estado.EN_GESTION or not es_encargado(usuario)
+            or formulario.encargado_asignado_id != empleado_de(usuario).pk):
+        return None
+    try:
+        numero = descifrar(tarjeta.numero_cifrado)
+    except InvalidToken:
+        logger.error("No se pudo descifrar la tarjeta del formulario %s: revise CLAVE_TARJETAS.", formulario.pk)
+        return None
+    return " ".join(numero[i:i + 4] for i in range(0, len(numero), 4))
 
 
 def encargados_activos():

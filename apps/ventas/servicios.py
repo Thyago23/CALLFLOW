@@ -309,7 +309,7 @@ def solicitar_base(usuario, mensaje: str) -> SolicitudBase:
     solicitud = SolicitudBase.objects.create(vendedor=empleado, mensaje=mensaje.strip())
     hora = timezone.localtime(solicitud.creado_en).strftime("%d/%m/%Y %H:%M")
     _notificar(
-        usuarios_con_rol(Rol.ENCARGADO_CIERRE, Rol.ADMINISTRADOR),
+        usuarios_con_rol(Rol.ENCARGADO_CIERRE),
         titulo=f"{empleado} solicita una nueva base comercial",
         mensaje=f"{hora} · {solicitud.mensaje[:280]}" if solicitud.mensaje else hora,
         url=url_solicitud(solicitud), tipo=Notificacion.Tipo.SOLICITUD_BASE,

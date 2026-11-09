@@ -2,6 +2,7 @@
 from datetime import date
 from decimal import Decimal as D
 
+from cryptography.fernet import Fernet
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.test import override_settings
 from django.urls import reverse
@@ -137,6 +138,60 @@ class AsignacionTests(BaseCierre):
         f = self.enviado()
         respuesta = self.post(self.lucia, "cierre:accion", f.pk, {"accion": "tomar", "version": f.version})
         self.assertEqual(respuesta.status_code, 403)
+
+
+class NumeroDeTarjetaTests(BaseCierre):
+    """El número completo solo lo ve quien cierra la venta, mientras la gestiona."""
+
+    NUMERO = "4111 1111 1111 1111"
+    MASCARA = "**** **** **** 1111"
+
+    def ver(self, usuario, formulario):
+        self.client.force_login(usuario)
+        return self.client.get(reverse("cierre:formulario", args=[formulario.pk]))
+
+    def test_el_encargado_a_cargo_lo_ve_completo_y_sin_cache(self):
+        respuesta = self.ver(self.ana, self.tomado(self.ana))
+        self.assertContains(respuesta, self.NUMERO)
+        self.assertNotContains(respuesta, self.MASCARA)
+        self.assertIn("no-store", respuesta["Cache-Control"])
+
+    def test_nadie_mas_lo_ve(self):
+        f = self.tomado(self.ana)
+        for usuario in (self.luis, self.admin):
+            respuesta = self.ver(usuario, f)
+            self.assertNotContains(respuesta, self.NUMERO)
+            self.assertContains(respuesta, self.MASCARA)
+
+    def test_sin_tomarlo_no_se_ve(self):
+        respuesta = self.ver(self.ana, self.enviado())
+        self.assertNotContains(respuesta, self.NUMERO)
+        self.assertContains(respuesta, self.MASCARA)
+
+    def test_al_devolverlo_a_la_cola_deja_de_verse(self):
+        f = self.tomado(self.ana)
+        f = servicios.liberar(self.ana, f, f.version)
+        self.assertNotContains(self.ver(self.ana, f), self.NUMERO)
+
+    def test_con_el_resultado_registrado_deja_de_verse(self):
+        f = self.tomado(self.ana)
+        servicios.registrar_resultado(self.ana, f, f.version, resultado="VENTA_CERRADA", valor_venta=D("100"))
+        f.refresh_from_db()
+        respuesta = self.ver(self.ana, f)
+        self.assertNotContains(respuesta, self.NUMERO)
+        self.assertContains(respuesta, self.MASCARA)
+
+    def test_la_bandeja_sigue_enmascarada(self):
+        self.tomado(self.ana)
+        self.client.force_login(self.ana)
+        self.assertNotContains(self.client.get(reverse("cierre:bandeja")), self.NUMERO)
+
+    def test_si_la_clave_cambio_muestra_la_mascara_sin_romper_la_pagina(self):
+        f = self.tomado(self.ana)
+        with override_settings(CLAVE_TARJETAS=Fernet.generate_key().decode()), self.assertLogs("apps.cierre.servicios", "ERROR"):
+            respuesta = self.ver(self.ana, f)
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertContains(respuesta, self.MASCARA)
 
 
 class ResultadoTests(BaseCierre):
@@ -326,10 +381,10 @@ class PanelTests(BaseCierre):
 class SolicitudBaseNotificacionTests(BaseCierre):
     """SCRUM-60."""
 
-    def test_avisa_a_encargados_y_admin_con_enlace_directo(self):
+    def test_avisa_a_encargados_con_enlace_directo(self):
         solicitud = solicitar_base(self.lucia, "Se me acabaron los contactos")
         avisos = Notificacion.objects.filter(tipo="SOLICITUD_BASE")
-        self.assertEqual({a.destinatario for a in avisos}, {self.ana, self.luis, self.admin})
+        self.assertEqual({a.destinatario for a in avisos}, {self.ana, self.luis})
         self.assertTrue(all(a.url.endswith(f"#solicitud-{solicitud.pk}") for a in avisos))
         self.assertTrue(all("Se me acabaron" in a.mensaje for a in avisos))
 
@@ -337,7 +392,7 @@ class SolicitudBaseNotificacionTests(BaseCierre):
         base = BaseComercial.objects.create(nombre="Quito norte", total_registros=100)
         solicitud = solicitar_base(self.lucia, "")
         atender_solicitud(solicitud, base, self.ana)
-        self.assertFalse(Notificacion.objects.filter(tipo="SOLICITUD_BASE", destinatario__in=[self.ana, self.luis, self.admin],
+        self.assertFalse(Notificacion.objects.filter(tipo="SOLICITUD_BASE", destinatario__in=[self.ana, self.luis],
                                                      leida=False).exists())
         self.assertTrue(Notificacion.objects.filter(destinatario=self.lucia, leida=False).exists())  # la respuesta al vendedor
 

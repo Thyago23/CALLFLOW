@@ -71,7 +71,7 @@
         <div class="col-md-3">{% include "_campo.html" with campo=form.caducidad %}</div>
         <div class="col-md-9">{% include "_campo.html" with campo=form.numero_tarjeta %}</div>
       </div>
-      <div class="form-text mb-2"><i class="bi bi-shield-lock me-1" aria-hidden="true"></i>El número se guarda cifrado y no se vuelve a mostrar: después solo se ven los últimos 4 dígitos. Una vez enviado, el DAMI ya no se puede abrir.</div>
+      <div class="form-text mb-2"><i class="bi bi-shield-lock me-1" aria-hidden="true"></i>El número se guarda cifrado: después solo se ven los últimos 4 dígitos y únicamente el encargado de cierre a cargo lo ve completo. Una vez enviado, el DAMI ya no se puede abrir.</div>
       <hr class="my-3">
       <h2 class="h4 fw-bold mb-2">Observación</h2>
       <label class="visually-hidden" for="{{ form.observaciones.id_for_label }}">Observación</label>

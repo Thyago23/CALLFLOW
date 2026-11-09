@@ -9,6 +9,7 @@ from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.cache import add_never_cache_headers
 from django.utils.dateparse import parse_date
 from django.views.decorators.http import require_POST
 
@@ -105,9 +106,12 @@ def _detalle(request, formulario, form_resultado=None, form_correccion=None, sta
     if gestion and servicios.es_administrador(usuario) and usuario.has_perm("cierre.change_gestioncierre") and form_correccion is None:
         form_correccion = CorreccionForm(initial={"resultado": gestion.resultado, "valor_venta": gestion.valor_venta,
                                                   "motivo": gestion.motivo_no_concretada})
-    return render(request, "cierre/formulario.html", {
+    tarjeta = getattr(formulario, "tarjeta", None)
+    numero_tarjeta = servicios.numero_tarjeta_visible(usuario, formulario, tarjeta)
+    respuesta = render(request, "cierre/formulario.html", {
         "f": formulario,
-        "tarjeta": getattr(formulario, "tarjeta", None),
+        "tarjeta": tarjeta,
+        "numero_tarjeta": numero_tarjeta,
         "registro": getattr(formulario, "registro_produccion", None),
         "gestion": gestion,
         "historial": servicios.historial(formulario),
@@ -120,6 +124,9 @@ def _detalle(request, formulario, form_resultado=None, form_correccion=None, sta
         "form_correccion": form_correccion,
         "form_reasignar": ReasignarForm(initial={"version": formulario.version}),
     }, status=status)
+    if numero_tarjeta:  # el navegador no debe guardar en caché una página con el número completo
+        add_never_cache_headers(respuesta)
+    return respuesta
 
 
 def _formulario(pk):
