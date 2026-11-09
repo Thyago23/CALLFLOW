@@ -11,7 +11,9 @@
   {% if user.rol == "VENDEDOR" and user.empleado %}
   <li class="nav-item"><a class="nav-link {% if seccion == 'panel' %}active{% endif %}" href="{% url 'ventas:inicio' %}"><i class="bi bi-speedometer2 me-1" aria-hidden="true"></i>Mi panel</a></li>
   {% endif %}
-  <li class="nav-item"><a class="nav-link {% if seccion == 'formularios' %}active{% endif %}" href="{% url 'ventas:formularios' %}"><i class="bi bi-file-earmark-text me-1" aria-hidden="true"></i>{% if user.rol == "VENDEDOR" %}Mis borradores{% else %}Formularios DAMI{% endif %}</a></li>
+  {% if user.rol != "VENDEDOR" %}
+  <li class="nav-item"><a class="nav-link {% if seccion == 'formularios' %}active{% endif %}" href="{% url 'ventas:formularios' %}"><i class="bi bi-file-earmark-text me-1" aria-hidden="true"></i>Formularios DAMI</a></li>
+  {% endif %}
   {% if user.rol == "VENDEDOR" and user.empleado %}
   <li class="nav-item"><a class="nav-link {% if seccion == 'hoja' %}active{% endif %}" href="{% url 'ventas:hoja' %}"><i class="bi bi-table me-1" aria-hidden="true"></i>Hoja de producción</a></li>
   {% elif user.rol == "ADMINISTRADOR" or user.is_superuser %}

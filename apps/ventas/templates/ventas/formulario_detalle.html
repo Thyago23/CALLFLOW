@@ -5,7 +5,7 @@
 {% block contenido %}
 <nav aria-label="Ruta" class="mb-2">
   <ol class="breadcrumb small mb-0">
-    <li class="breadcrumb-item"><a href="{% url 'ventas:formularios' %}">{% if user.rol == "VENDEDOR" %}Mis borradores{% else %}Formularios DAMI{% endif %}</a></li>
+    <li class="breadcrumb-item">{% if user.rol == "VENDEDOR" %}<a href="{% url 'ventas:inicio' %}">Ventas</a>{% else %}<a href="{% url 'ventas:formularios' %}">Formularios DAMI</a>{% endif %}</li>
     <li class="breadcrumb-item active" aria-current="page">{{ f }}</li>
   </ol>
 </nav>

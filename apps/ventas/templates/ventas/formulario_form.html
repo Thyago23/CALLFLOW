@@ -3,7 +3,7 @@
 {% block contenido %}
 <nav aria-label="Ruta" class="mb-2">
   <ol class="breadcrumb small mb-0">
-    <li class="breadcrumb-item"><a href="{% url 'ventas:formularios' %}">Mis borradores</a></li>
+    <li class="breadcrumb-item"><a href="{% url 'ventas:inicio' %}">Ventas</a></li>
     {% if not nuevo %}<li class="breadcrumb-item"><a href="{% url 'ventas:formulario_detalle' formulario.pk %}">{{ formulario }}</a></li>{% endif %}
     <li class="breadcrumb-item active" aria-current="page">{% if nuevo %}Nuevo DAMI{% else %}Editar borrador{% endif %}</li>
   </ol>

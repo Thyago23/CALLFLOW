@@ -55,22 +55,17 @@
 <section>
   <h2 class="h6 text-body-secondary text-uppercase mb-2">Accesos rápidos</h2>
   <div class="row g-3 accesos-ventas">
-    <div class="col-6 col-lg-3">
+    <div class="col-6 col-lg-4">
       <a class="card h-100 text-reset text-decoration-none acceso" href="{% url 'ventas:formulario_nuevo' %}">
         <div class="card-body"><i class="bi bi-file-earmark-plus" aria-hidden="true"></i><div class="fw-semibold mt-2">Nuevo DAMI</div><div class="small text-body-secondary">Registrar un cliente</div></div>
       </a>
     </div>
-    <div class="col-6 col-lg-3">
-      <a class="card h-100 text-reset text-decoration-none acceso" href="{% url 'ventas:formularios' %}?estado=BORRADOR">
-        <div class="card-body"><i class="bi bi-pencil-square" aria-hidden="true"></i><div class="fw-semibold mt-2">Mis borradores <span class="badge text-bg-light border ms-1">{{ panel.borradores }}</span></div><div class="small text-body-secondary">DAMI sin enviar</div></div>
-      </a>
-    </div>
-    <div class="col-6 col-lg-3">
+    <div class="col-6 col-lg-4">
       <a class="card h-100 text-reset text-decoration-none acceso" href="{% url 'ventas:hoja' %}">
         <div class="card-body"><i class="bi bi-table" aria-hidden="true"></i><div class="fw-semibold mt-2">Mi hoja de producción</div><div class="small text-body-secondary">Ventas del mes</div></div>
       </a>
     </div>
-    <div class="col-6 col-lg-3">
+    <div class="col-6 col-lg-4">
       <a class="card h-100 text-reset text-decoration-none acceso" href="{% url 'ventas:bases' %}">
         <div class="card-body"><i class="bi bi-database" aria-hidden="true"></i><div class="fw-semibold mt-2">{% if panel.solicitud_pendiente %}Solicitud pendiente{% else %}Solicitar nueva base{% endif %}</div><div class="small text-body-secondary">Bases comerciales</div></div>
       </a>
