@@ -13,9 +13,8 @@
       </select>
       <label for="rapido-fecha" class="visually-hidden">Fecha</label>
       <input type="date" name="fecha" id="rapido-fecha" class="form-control w-auto" value="{{ rapido.fecha|date:'Y-m-d' }}" required>
-      <label for="rapido-hora" class="visually-hidden">Hora</label>
-      <input type="time" name="hora_inicio" id="rapido-hora" class="form-control w-auto" value="{{ rapido.hora|time:'H:i' }}"
-             min="{{ rapido.min|time:'H:i' }}" max="{{ rapido.max|time:'H:i' }}" step="300" required>
+      <label for="rapido-hora_h" class="visually-hidden">Hora</label>
+      {{ rapido.selector_hora }}
       <button type="submit" class="btn btn-primary"><i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Agregar</button>
     </div>
     <div class="d-flex flex-wrap gap-2 align-items-center mt-2 small">
@@ -37,7 +36,11 @@
     form.querySelectorAll(".atajo-hora").forEach(function (b) {
       b.addEventListener("click", function () {
         document.getElementById("rapido-fecha").value = b.dataset.fecha;
-        document.getElementById("rapido-hora").value = b.dataset.hora;
+        const [h, m] = b.dataset.hora.split(":");
+        const selHora = document.getElementById("rapido-hora_h");
+        selHora.value = h;
+        selHora.dispatchEvent(new Event("change"));
+        document.getElementById("rapido-hora_m").value = m;
         titulo.focus();
       });
     });

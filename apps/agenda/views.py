@@ -15,6 +15,7 @@ from apps.core.models import Notificacion, Rol
 
 from . import servicios
 from .forms import EventoForm
+from .widgets import HoraLaboralWidget
 from .models import Evento
 
 VISTAS = [("mes", "Mes"), ("semana", "Semana"), ("dia", "Día")]
@@ -84,6 +85,7 @@ def calendario(request):
         en_una_hora -= timedelta(minutes=en_una_hora.minute % 5)
         contexto["rapido"] = {
             "fecha": sugerida, "hora": hora,
+            "selector_hora": HoraLaboralWidget(opcional=False).render("hora_inicio", hora, attrs={"id": "rapido-hora"}),
             "tipo": Evento.Tipo.RECORDATORIO if _es_vendedor(usuario) else Evento.Tipo.ACTIVIDAD,
             "tipos": Evento.Tipo.choices,
             "manana": servicios.siguiente_laborable(hoy), "hora_manana": jornada.inicio(),

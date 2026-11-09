@@ -11,6 +11,7 @@ from apps.ventas.models import Cliente
 
 from .models import Evento
 from .servicios import OPCIONES_AVISO, clientes_agendables
+from .widgets import HoraLaboralWidget
 
 
 class EventoForm(FormularioEstilizado, forms.Form):
@@ -20,8 +21,9 @@ class EventoForm(FormularioEstilizado, forms.Form):
     tipo = forms.ChoiceField(label="Tipo", choices=Evento.Tipo.choices, widget=forms.RadioSelect)
     fecha = forms.DateField(label="Fecha", widget=forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"))
     todo_el_dia = forms.BooleanField(label="Todo el día", required=False)
-    hora_inicio = forms.TimeField(label="Desde", required=False, widget=forms.TimeInput(attrs={"type": "time"}, format="%H:%M"))
-    hora_fin = forms.TimeField(label="Hasta", required=False, widget=forms.TimeInput(attrs={"type": "time"}, format="%H:%M"))
+    # Solo se ofrecen horas de la jornada laboral (el selector del navegador muestra las 24 horas).
+    hora_inicio = forms.TimeField(label="Desde", required=False, widget=HoraLaboralWidget())
+    hora_fin = forms.TimeField(label="Hasta", required=False, widget=HoraLaboralWidget(incluir_cierre=True))
     ubicacion = forms.CharField(label="Lugar", max_length=150, required=False,
                                 widget=forms.TextInput(attrs={"placeholder": "Ej.: Sala de reuniones, Zoom"}))
     minutos_aviso = forms.TypedChoiceField(label="Avisarme", choices=OPCIONES_AVISO, coerce=int, initial=15)
@@ -47,10 +49,6 @@ class EventoForm(FormularioEstilizado, forms.Form):
         self.fields["tipo"].widget.attrs["class"] = "btn-check"
         self.fields["todo_el_dia"].widget.attrs["class"] = "form-check-input"
         self.fields["participantes"].widget.attrs["class"] = "form-check-input"
-        # Solo se puede agendar dentro de la jornada laboral.
-        limites = {"min": f"{jornada.inicio():%H:%M}", "max": f"{jornada.fin():%H:%M}", "step": 300}
-        self.fields["hora_inicio"].widget.attrs.update(limites)
-        self.fields["hora_fin"].widget.attrs.update(limites)
         self.fields["fecha"].help_text = f"Horario laboral: {jornada.descripcion()}."
 
     @classmethod

@@ -222,9 +222,26 @@ class HorarioLaboralTests(BaseAgenda):
     def test_el_formulario_limita_las_horas_y_muestra_la_jornada(self):
         self.client.force_login(self.diego)
         respuesta = self.client.get(reverse("agenda:crear"))
-        self.assertContains(respuesta, 'min="09:00"')
-        self.assertContains(respuesta, 'max="18:00"')
         self.assertContains(respuesta, "de lunes a viernes, de 09:00 a 18:00")
+        # Las listas de horas solo ofrecen la jornada: «Desde» de 09 a 17 y «Hasta» de 09 a 18.
+        horas = lambda campo: respuesta.context["form"][campo].subwidgets[0].data["horas"]
+        self.assertEqual(horas("hora_inicio"), [f"{h:02d}" for h in range(9, 18)])
+        self.assertEqual(horas("hora_fin"), [f"{h:02d}" for h in range(9, 19)])
+        self.assertNotContains(respuesta, '<option value="08"')
+        self.assertNotContains(respuesta, '<option value="19"')
+
+    def test_las_listas_de_hora_se_envian_y_se_guardan(self):
+        self.client.force_login(self.lucia)
+        dia = proximo_laborable()
+        self.client.post(reverse("agenda:crear"), {
+            "titulo": "Llamar a Rosa", "tipo": "RECORDATORIO", "fecha": dia.isoformat(),
+            "hora_inicio_h": "16", "hora_inicio_m": "45", "hora_fin_h": "", "hora_fin_m": "00", "minutos_aviso": "15",
+        })
+        evento = Evento.objects.get(titulo="Llamar a Rosa")
+        self.assertEqual((timezone.localtime(evento.inicio), evento.fin), (a_las(dia, 16, 45), None))
+        respuesta = self.client.get(reverse("agenda:calendario"))
+        self.assertContains(respuesta, 'name="hora_inicio_h"')
+        self.assertNotContains(respuesta, 'type="time"')
 
     def test_jornada_estandar_de_asistencia_es_de_9_a_18(self):
         from apps.asistencia.forms import HorarioForm
