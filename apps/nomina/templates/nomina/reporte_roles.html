@@ -24,24 +24,26 @@
         <option value="sin" {% if equipo == "sin" %}selected{% endif %}>Vendedores sin equipo</option>
       </select>
     </div>
-    <div class="col-sm-4 col-md-3">
+    <div class="col-sm-12 col-md-4">
       <span class="form-label small mb-1 d-block">Formato</span>
       <div class="btn-group w-100" role="group" aria-label="Formato del reporte">
         <input type="radio" class="btn-check" name="formato" id="formato-general" value="general" {% if formato == "general" %}checked{% endif %} onchange="this.form.requestSubmit()">
         <label class="btn btn-outline-secondary" for="formato-general">Cuadro general</label>
         <input type="radio" class="btn-check" name="formato" id="formato-individual" value="individual" {% if formato == "individual" %}checked{% endif %} onchange="this.form.requestSubmit()">
         <label class="btn btn-outline-secondary" for="formato-individual">Rol por empleado</label>
+        <input type="radio" class="btn-check" name="formato" id="formato-comisiones" value="comisiones" {% if formato == "comisiones" %}checked{% endif %} onchange="this.form.requestSubmit()">
+        <label class="btn btn-outline-secondary" for="formato-comisiones">Comisiones</label>
       </div>
     </div>
-    <div class="col-md-3 text-md-end">
+    <div class="col-md-2 text-md-end">
       <button type="button" class="btn btn-primary" onclick="window.print()"><i class="bi bi-printer me-1" aria-hidden="true"></i>Imprimir</button>
     </div>
   </form>
   {% if empleado %}
-  <div class="alert alert-info small py-2">Mostrando solo el rol de <strong>{{ empleado.nombres }} {{ empleado.apellidos }}</strong>.
+  <div class="alert alert-info small py-2">Mostrando solo a <strong>{{ empleado.nombres }} {{ empleado.apellidos }}</strong>.
     <a href="?mes={{ mes_consultado }}&formato={{ formato }}">Ver todos los empleados</a></div>
   {% endif %}
-  {% if nomina.pendientes %}
+  {% if nomina.pendientes and formato != "comisiones" %}
   <div class="alert alert-warning small">
     <strong>{{ nomina.pendientes }}</strong> falta{{ nomina.pendientes|pluralize }} o atraso{{ nomina.pendientes|pluralize }} sin clasificar se cuentan como no justificados.
     {% if perms.asistencia.change_novedadasistencia %}<a href="{% url 'asistencia:novedades' %}">Clasifíquelos</a> antes de imprimir los roles definitivos.{% endif %}
@@ -62,9 +64,6 @@
           <th scope="col">Identificación</th>
           <th scope="col">Cargo</th>
           <th scope="col" class="text-end">Sueldo base</th>
-          <th scope="col" class="text-end">Ventas</th>
-          <th scope="col" class="text-end">Comisión</th>
-          <th scope="col" class="text-end">Total ingresos</th>
           <th scope="col" class="text-end">Descuentos</th>
           <th scope="col" class="text-end">Anticipos</th>
           <th scope="col" class="text-center">Días</th>
@@ -80,9 +79,6 @@
           <td>{{ r.empleado.identificacion }}</td>
           <td>{{ r.empleado.cargo }}{% if r.esquema %}<div class="small text-body-secondary">{{ r.esquema }}</div>{% endif %}</td>
           <td class="text-end text-nowrap">{% if r.sueldo_base %}${{ r.sueldo_base|dinero }}{% else %}<span class="text-danger">Sin sueldo</span>{% endif %}</td>
-          <td class="text-end text-nowrap">{% if r.es_vendedor %}${{ r.total_ventas|dinero }}{% else %}—{% endif %}</td>
-          <td class="text-end text-nowrap">{% if r.es_vendedor %}${{ r.comision|dinero }}{% if r.porcentaje_comision %} <span class="small text-body-secondary">({{ r.porcentaje_comision|floatformat:"-2" }} %)</span>{% endif %}{% else %}—{% endif %}</td>
-          <td class="text-end text-nowrap">${{ r.total_ingresos|dinero }}</td>
           <td class="text-end text-nowrap">{% if r.total_descuentos %}−${{ r.total_descuentos|dinero }}{% if r.pendientes %}<span class="d-print-none text-warning-emphasis" title="Incluye novedades sin clasificar"> *</span>{% endif %}{% else %}$0,00{% endif %}</td>
           <td class="text-end text-nowrap">{% if r.total_anticipos %}−${{ r.total_anticipos|dinero }}{% else %}$0,00{% endif %}</td>
           <td class="text-center">{{ r.dias_trabajados }}</td>
@@ -90,7 +86,7 @@
           <td class="columna-firma"></td>
         </tr>
         {% empty %}
-        <tr><td colspan="13" class="text-center text-body-secondary py-4">No hay empleados en este mes.</td></tr>
+        <tr><td colspan="10" class="text-center text-body-secondary py-4">No hay empleados en este mes.</td></tr>
         {% endfor %}
       </tbody>
       {% if nomina.roles %}
@@ -98,9 +94,6 @@
         <tr class="fw-semibold">
           <td colspan="4" class="text-end">Totales ({{ nomina.roles|length }} empleado{{ nomina.roles|length|pluralize }})</td>
           <td class="text-end text-nowrap">${{ nomina.total_sueldos|dinero }}</td>
-          <td></td>
-          <td class="text-end text-nowrap">${{ nomina.total_comisiones|dinero }}</td>
-          <td class="text-end text-nowrap">${{ nomina.total_ingresos|dinero }}</td>
           <td class="text-end text-nowrap">−${{ nomina.total_descuentos|dinero }}</td>
           <td class="text-end text-nowrap">−${{ nomina.total_anticipos|dinero }}</td>
           <td></td>
@@ -118,10 +111,18 @@
   <p class="pie-reporte">Generado por CALLFLOW el {{ generado_en|date:"d/m/Y H:i" }} con las reglas de nómina vigentes. Las faltas y atrasos sin clasificar se cuentan como no justificados.</p>
 </section>
 
-{% else %}
-{# ------------------------------------------------------------------ un rol por hoja: formato de la empresa #}
+{% elif formato == "comisiones" %}
+{# ------------------------------------------------------------------ un comprobante de comisión por vendedor #}
 {% for e in nomina.roles %}
-{% include "nomina/_rol_empresa.html" %}
+{% include "nomina/_comprobante_comision.html" %}
+{% empty %}
+<div class="card"><div class="card-body text-center text-body-secondary py-5">No hay vendedores en este mes.</div></div>
+{% endfor %}
+
+{% else %}
+{# ------------------------------------------------------------------ un rol por hoja #}
+{% for e in nomina.roles %}
+{% include "nomina/_rol_pago.html" %}
 {% empty %}
 <div class="card"><div class="card-body text-center text-body-secondary py-5">No hay empleados en este mes.</div></div>
 {% endfor %}

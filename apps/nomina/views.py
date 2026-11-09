@@ -4,7 +4,7 @@ from datetime import date
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, permission_required
 from django.core.exceptions import ValidationError
-from django.http import HttpResponse
+from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -70,13 +70,27 @@ def rol(request, empleado_pk):
 def rol_pdf(request, empleado_pk):
     anio, mes = _mes(request)
     empleado = get_object_or_404(Empleado.objects.select_related("cargo"), pk=empleado_pk)
-    pdf = calculo.rol_de_pagos_pdf(calculo.estimar_mes(empleado, anio, mes))
+    return _respuesta_pdf(calculo.rol_de_pagos_pdf(calculo.estimar_mes(empleado, anio, mes)),
+                          f"Rol de pagos {anio}-{mes:02d} {empleado.apellidos} {empleado.nombres}.pdf")
+
+
+@login_required
+@permission_required("nomina.view_periodonomina", raise_exception=True)
+def comision_pdf(request, empleado_pk):
+    anio, mes = _mes(request)
+    empleado = get_object_or_404(Empleado.objects.select_related("cargo"), pk=empleado_pk)
+    estimacion = calculo.estimar_mes(empleado, anio, mes)
+    if not estimacion.es_vendedor:
+        raise Http404("Solo los vendedores tienen comisión.")
+    return _respuesta_pdf(calculo.comprobante_comision_pdf(estimacion),
+                          f"Comision {anio}-{mes:02d} {empleado.apellidos} {empleado.nombres}.pdf")
+
+
+def _respuesta_pdf(pdf: bytes, nombre: str) -> HttpResponse:
     respuesta = HttpResponse(pdf, content_type="application/pdf")
-    nombre = f"Rol de pagos {anio}-{mes:02d} {empleado.apellidos} {empleado.nombres}.pdf"
     respuesta["Content-Disposition"] = content_disposition_header(False, nombre)
     respuesta["X-Content-Type-Options"] = "nosniff"
     return respuesta
-
 
 
 def _roles_filtrados(roles, equipo: str):
@@ -91,7 +105,7 @@ def _roles_filtrados(roles, equipo: str):
 @login_required
 @permission_required("nomina.view_periodonomina", raise_exception=True)
 def reporte_roles(request):
-    """Roles de pago del mes para imprimir: cuadro general con firmas, o un rol por hoja."""
+    """Para imprimir: cuadro general con firmas, un rol por hoja, o un comprobante de comisión por vendedor."""
     anio, mes = _mes(request)
     equipo = request.GET.get("equipo", "")
     empleado = None
@@ -100,12 +114,15 @@ def reporte_roles(request):
         roles = [calculo.estimar_mes(empleado, anio, mes)]
     else:
         roles = _roles_filtrados(calculo.nomina_del_mes(anio, mes).roles, equipo)
-    formato = "individual" if empleado or request.GET.get("formato") == "individual" else "general"
+    pedido = request.GET.get("formato")
+    if pedido == "comisiones":
+        formato, roles = "comisiones", [r for r in roles if r.es_vendedor]
+    else:
+        formato = "individual" if empleado or pedido == "individual" else "general"
     return render(request, "nomina/reporte_roles.html", {
         "nomina": calculo.ResumenNomina(roles),
         "formato": formato,
         "empleado": empleado,
-        "nombre_mes_corto": calculo.MESES[mes - 1],
         "mes_consultado": f"{anio:04d}-{mes:02d}",
         "nombre_mes": calculo.nombre_mes(anio, mes),
         "equipos": EsquemaComision.objects.filter(activo=True).order_by("nombre"),

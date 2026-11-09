@@ -27,7 +27,8 @@
     <div class="small text-body-secondary">Descuentos y anticipos</div><div class="fs-4 fw-semibold text-danger-emphasis">− $ {{ nomina.total_descuentos_y_anticipos }}</div>
   </div></div></div>
   <div class="col-6 col-lg-3"><div class="card h-100 indicador total-nomina"><div class="card-body">
-    <div class="small">Total a pagar</div><div class="fs-4 fw-bold">$ {{ nomina.total_neto }}</div>
+    <div class="small">Total a pagar</div><div class="fs-4 fw-bold">$ {{ nomina.total_a_pagar }}</div>
+    <div class="small">Roles $ {{ nomina.total_neto }} + comisiones</div>
   </div></div></div>
 </div>
 
@@ -70,7 +71,7 @@
           <th scope="col" class="text-end d-none d-lg-table-cell">Ventas</th>
           <th scope="col" class="text-end">Comisión</th>
           <th scope="col" class="text-end">Descuentos</th>
-          <th scope="col" class="text-end">Neto</th>
+          <th scope="col" class="text-end">Neto del rol</th>
           <th scope="col"><span class="visually-hidden">Acciones</span></th>
         </tr>
       </thead>
@@ -96,6 +97,11 @@
             <a href="{% url 'nomina:rol_pdf' r.empleado.pk %}?mes={{ mes_consultado }}" class="btn btn-sm btn-outline-primary" target="_blank" rel="noopener" title="Rol de pagos en PDF">
               <i class="bi bi-file-earmark-pdf" aria-hidden="true"></i><span class="visually-hidden">PDF</span>
             </a>
+            {% if r.es_vendedor %}
+            <a href="{% url 'nomina:comision_pdf' r.empleado.pk %}?mes={{ mes_consultado }}" class="btn btn-sm btn-outline-primary" target="_blank" rel="noopener" title="Comprobante de comisión en PDF">
+              <i class="bi bi-percent" aria-hidden="true"></i><span class="visually-hidden">Comisión en PDF</span>
+            </a>
+            {% endif %}
           </td>
         </tr>
         {% empty %}

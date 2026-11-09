@@ -54,25 +54,27 @@ class ReporteRolesTests(BaseReportes):
         self.assertContains(respuesta, "Rol de pagos general")
         self.assertContains(respuesta, "Mora Lucía")
         self.assertContains(respuesta, "Paz Pedro")
-        self.assertContains(respuesta, "$860,00", count=3)  # sueldos, total ingresos y neto (sin descuentos)
+        self.assertContains(respuesta, "$860,00", count=2)  # sueldos y neto (sin descuentos)
         self.assertContains(respuesta, "Firma")
         self.assertContains(respuesta, "window.print()")
 
-    def test_rol_por_empleado_con_el_formato_de_la_empresa(self):
+    def test_rol_por_empleado_con_toda_la_informacion_y_sin_comision(self):
         self.client.force_login(self.admin)
         respuesta = self.client.get(reverse("nomina:reporte_roles"), {"mes": f"{self.hoy:%Y-%m}", "formato": "individual"})
-        self.assertContains(respuesta, 'class="rol-empresa rol-individual"', count=2)
-        for texto in ("ROL DE PAGOS", "Trabajador", "Sueldo Base", "Anticipos", "TOTAL", "Faltas Justificadas",
-                      "Faltas Injustificadas", "Atrasos", "Días Trabajados", "Firma Empleado", "Firma Contabilidad"):
+        self.assertContains(respuesta, 'class="rol-pago rol-individual pagina-vertical"', count=2)
+        for texto in ("Rol de pagos", "Empleado", "Cédula", "Cargo", "Equipo", "Sueldo base", "Total ingresos", "Total descuentos",
+                      "Neto a recibir", "Faltas justificadas", "Faltas injustificadas", "Atrasos", "Días trabajados",
+                      "Firma Empleado", "Firma Contabilidad"):
             self.assertContains(respuesta, texto)
-        self.assertContains(respuesta, calculo.MESES[self.hoy.month - 1])
+        self.assertContains(respuesta, calculo.nombre_mes(self.hoy.year, self.hoy.month))
         self.assertContains(respuesta, "$460,00")
+        self.assertNotContains(respuesta, "Comprobante de comisión")
 
     def test_imprimir_un_solo_empleado(self):
         lucia = Empleado.objects.get(identificacion="1712345675")
         self.client.force_login(self.admin)
         respuesta = self.client.get(reverse("nomina:reporte_roles"), {"mes": f"{self.hoy:%Y-%m}", "empleado": lucia.pk})
-        self.assertContains(respuesta, 'class="rol-empresa rol-individual"', count=1)
+        self.assertContains(respuesta, 'class="rol-pago rol-individual pagina-vertical"', count=1)
         self.assertContains(respuesta, "Lucía Mora")
         self.assertNotContains(respuesta, "Pedro Paz")
 
@@ -90,7 +92,7 @@ class ReporteRolesTests(BaseReportes):
         respuesta = self.client.get(reverse("nomina:reporte_roles"), {"mes": f"{self.hoy:%Y-%m}", "empleado": lucia.pk})
         self.assertContains(respuesta, "$60,00")
 
-    def test_pdf_con_el_formato_de_la_empresa(self):
+    def test_pdf_del_rol(self):
         lucia = Empleado.objects.get(identificacion="1712345675")
         self.client.force_login(self.admin)
         respuesta = self.client.get(reverse("nomina:rol_pdf", args=[lucia.pk]), {"mes": f"{self.hoy:%Y-%m}"})

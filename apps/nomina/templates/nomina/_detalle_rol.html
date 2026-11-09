@@ -13,18 +13,6 @@
 <table class="table table-sm align-middle mb-0 tabla-pago">
   <tbody>
     <tr><th scope="row">Sueldo base</th><td class="text-end">$ {{ e.sueldo_base|default:"0,00" }}</td></tr>
-    {% if e.es_vendedor %}
-    <tr>
-      <th scope="row">
-        Comisión {% if e.esquema %}· {{ e.esquema }}{% endif %}
-        <div class="small text-body-secondary">
-          {% if e.esquema %}Ventas cerradas del mes: $ {{ e.total_ventas }} → {{ e.porcentaje_comision|floatformat:"-2" }} %
-          {% else %}Sin equipo asignado: no se calculan comisiones.{% endif %}
-        </div>
-      </th>
-      <td class="text-end">$ {{ e.comision }}</td>
-    </tr>
-    {% endif %}
     <tr class="fila-total"><th scope="row">Total ingresos</th><td class="text-end fw-semibold">$ {{ e.total_ingresos }}</td></tr>
     {% for d in e.descuentos %}
     <tr class="text-danger-emphasis">

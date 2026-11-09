@@ -1,0 +1,26 @@
+{% load humanize_cf %}
+{# Comprobante de la comisión del mes, separado del rol de pagos. Recibe `e`. #}
+<section class="rol-pago rol-individual pagina-vertical">
+  {% with titulo="Comprobante de comisión" subtitulo="Periodo: "|add:nombre_mes %}{% include "nomina/_encabezado_reporte.html" %}{% endwith %}
+  {% include "nomina/_datos_empleado_rol.html" %}
+
+  <table class="tabla-rol-pago">
+    <tbody>
+      <tr class="fila-seccion"><th colspan="2" scope="colgroup">Detalle</th></tr>
+      {% if e.esquema %}
+      <tr><td>Ventas cerradas del mes</td><td>${{ e.total_ventas|dinero }}</td></tr>
+      {% if e.esquema.tipo == "MONTO_FIJO" %}
+      <tr><td>Modalidad</td><td>Monto fijo</td></tr>
+      {% else %}
+      <tr><td>Porcentaje aplicado</td><td>{{ e.porcentaje_comision|floatformat:"-2" }} %</td></tr>
+      {% endif %}
+      {% else %}
+      <tr><td colspan="2">Sin equipo asignado: no se calculan comisiones.</td></tr>
+      {% endif %}
+      <tr class="fila-neto"><td>Comisión a recibir</td><td>${{ e.comision|dinero }}</td></tr>
+    </tbody>
+  </table>
+
+  {% include "nomina/_firmas_rol.html" %}
+  <p class="pie-reporte">Generado por CALLFLOW el {{ generado_en|date:"d/m/Y H:i" }}. La comisión se calcula sobre las ventas cerradas del mes.</p>
+</section>

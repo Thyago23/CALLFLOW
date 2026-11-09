@@ -7,7 +7,7 @@ para que la empresa pueda cambiarlos sin tocar el código. Ver nomina/migrations
 
 Reglas:
   - Comisión solo para vendedores, sobre el total de ventas cerradas del mes. El porcentaje del
-    tramo alcanzado se aplica a TODO el total y se suma al sueldo base.
+    tramo alcanzado se aplica a TODO el total. Se paga aparte: no entra en el rol de pagos.
   - Falta no justificada: % del sueldo base. Falta justificada: monto fijo.
   - Atraso: multa según los minutos (cada minuto empezado cuenta); pasado el último tramo de
     multa, es llamado de atención (sin multa). Un atraso justificado no tiene multa ni llamado.
@@ -27,6 +27,11 @@ DIAS_DEL_MES = 30  # mes comercial, como en el rol de pagos de la empresa
 
 def _dinero(valor) -> Decimal:
     return Decimal(valor).quantize(CENTAVO, ROUND_HALF_UP)
+
+
+def _porcentaje(valor) -> str:
+    """10 -> '10' y 12.50 -> '12,5' (normalize() a secas escribiría 10 como '1E+1')."""
+    return format(Decimal(valor).normalize(), "f").replace(".", ",")
 
 
 # --------------------------------------------------------------------------- reglas vigentes
@@ -160,11 +165,18 @@ class Estimacion:
 
     @property
     def total_ingresos(self) -> Decimal:
-        return _dinero((self.sueldo_base or 0) + self.comision)
+        """Ingresos del rol de pagos: la comisión va aparte."""
+        return _dinero(self.sueldo_base or 0)
 
     @property
     def neto(self) -> Decimal:
+        """Lo que se recibe por el rol de pagos, sin la comisión."""
         return _dinero(self.total_ingresos - self.total_descuentos - self.total_anticipos)
+
+    @property
+    def total_a_pagar(self) -> Decimal:
+        """Lo que desembolsa la empresa: el neto del rol más la comisión."""
+        return _dinero(self.neto + self.comision)
 
     @property
     def pendientes(self) -> int:
@@ -230,7 +242,7 @@ def estimar_mes(empleado, anio: int, mes: int) -> Estimacion:
             estimacion.descuentos.append(Linea("Falta justificada", monto_justificada, n.fecha, clase="falta_justificada"))
         elif sueldo:
             estimacion.descuentos.append(Linea(
-                f"Falta no justificada ({pct_falta.normalize()} % del sueldo)", _dinero(sueldo * pct_falta / 100), n.fecha,
+                f"Falta no justificada ({_porcentaje(pct_falta)} % del sueldo)", _dinero(sueldo * pct_falta / 100), n.fecha,
                 pendiente=n.estado == Estado.PENDIENTE, clase="falta_injustificada",
             ))
 
@@ -335,6 +347,10 @@ class ResumenNomina:
         return self._suma("neto")
 
     @property
+    def total_a_pagar(self):
+        return self._suma("total_a_pagar")
+
+    @property
     def pendientes(self):
         return sum(r.pendientes for r in self.roles)
 
@@ -360,125 +376,177 @@ def nombre_mes(anio: int, mes: int) -> str:
     return f"{MESES[mes - 1]} de {anio}"
 
 
-def rol_de_pagos_pdf(e: Estimacion) -> bytes:
-    """Rol de pagos con el formato de la empresa (franja azul y verde, A4 horizontal) y el detalle de CALLFLOW."""
+_TINTA, _GRIS, _SUAVE, _LINEA = (14, 50, 92), (95, 105, 120), (229, 235, 243), (214, 220, 229)
+PIE_ROL = "Mes comercial de 30 días; las faltas y atrasos sin clasificar se cuentan como no justificados."
+
+
+def _documento_pdf(titulo: str, nombre_documento: str, e: Estimacion):
+    """A4 vertical con el encabezado (título, periodo y logo) y los datos del empleado."""
     from django.contrib.staticfiles import finders
     from fpdf import FPDF
 
-    from apps.documentos.contratos import _latin1, dinero
+    from apps.documentos.contratos import _latin1
 
-    azul, verde, gris = (47, 117, 181), (112, 173, 71), (238, 241, 246)
     emp = e.empleado
-    pdf = FPDF(orientation="L", format="A4")
-    pdf.set_title(_latin1(f"Rol de pagos {nombre_mes(e.anio, e.mes)} - {emp.nombres} {emp.apellidos}"))
+    pdf = FPDF(orientation="P", format="A4")
+    pdf.set_title(_latin1(f"{nombre_documento} {nombre_mes(e.anio, e.mes)} - {emp.nombres} {emp.apellidos}"))
     pdf.set_creator("CALLFLOW")
-    pdf.set_margins(15, 15, 15)
-    pdf.set_auto_page_break(False)
+    pdf.set_margins(18, 18, 18)
+    pdf.set_auto_page_break(True, 18)
     pdf.add_page()
     ancho = pdf.w - pdf.l_margin - pdf.r_margin
 
-    # Franja del título
-    pdf.set_fill_color(*azul)
-    pdf.set_text_color(255)
-    pdf.set_font("Helvetica", "B", 16)
-    pdf.cell(ancho, 11, "ROL DE PAGOS", align="C", fill=True, new_x="LMARGIN", new_y="NEXT")
+    pdf.set_text_color(*_TINTA)
+    pdf.set_font("Helvetica", "B", 18)
+    pdf.cell(ancho - 26, 9, _latin1(titulo), new_x="LMARGIN", new_y="NEXT")
+    pdf.set_text_color(*_GRIS)
+    pdf.set_font("Helvetica", size=10.5)
+    pdf.cell(ancho - 26, 6, _latin1(f"Periodo: {nombre_mes(e.anio, e.mes)}"), new_x="LMARGIN", new_y="NEXT")
     logo = finders.find("img/logo-multivisa.png")
     if logo:
-        pdf.image(logo, x=pdf.l_margin + 2, y=pdf.t_margin + 0.5, h=10)
+        pdf.image(logo, x=pdf.w - pdf.r_margin - 18, y=pdf.t_margin - 2, h=18)
+    pdf.set_y(pdf.t_margin + 19)
+    pdf.set_draw_color(*_TINTA)
+    pdf.set_line_width(0.6)
+    pdf.line(pdf.l_margin, pdf.get_y(), pdf.l_margin + ancho, pdf.get_y())
+    pdf.ln(5)
 
-    # Encabezados azul / verde y la fila de datos
-    columnas = [  # (título, ancho relativo, color, valor)
-        ("Año", 7, azul, str(e.anio)),
-        ("Mes", 12, azul, MESES[e.mes - 1].upper()),
-        ("Cédula", 12, verde, emp.identificacion),
-        ("Trabajador", 21, verde, f"{emp.nombres} {emp.apellidos}"),
-        ("Cargo", 16, azul, str(emp.cargo)),
-        ("Sueldo Base", 10, verde, dinero(e.sueldo_base) if e.sueldo_base else "Sin sueldo"),
-        ("Comisión", 9, azul, dinero(e.comision) if e.es_vendedor else "-"),
-        ("Anticipos", 9, verde, dinero(e.total_anticipos)),
-        ("TOTAL", 10, verde, dinero(e.neto)),
-    ]
-    unidad = ancho / sum(c[1] for c in columnas)
-    pdf.set_font("Helvetica", "B", 10)
-    for titulo, w, color, _ in columnas:
-        pdf.set_fill_color(*color)
-        pdf.cell(w * unidad, 8, _latin1(titulo), align="C", fill=True)
-    pdf.ln()
-    pdf.set_text_color(0)
-    for i, (_, w, _, valor) in enumerate(columnas):
-        pdf.set_font("Helvetica", "B" if i == len(columnas) - 1 else "", 10)
-        pdf.cell(w * unidad, 9, _latin1(valor), border="B", align="C")
-    pdf.ln(15)
-
-    # Izquierda: faltas, atrasos y días (como el rol de la empresa). Derecha: detalle del cálculo.
-    y0 = pdf.get_y()
-    x_izq, w_izq = pdf.l_margin, ancho * 0.38
-    x_der, w_der = pdf.l_margin + ancho * 0.44, ancho * 0.56
-    pdf.set_font("Helvetica", "B", 8)
-    pdf.set_text_color(110)
-    pdf.set_x(x_izq)
-    pdf.cell(w_izq * 0.6, 6, "")
-    pdf.cell(w_izq * 0.18, 6, "CANTIDAD", align="C")
-    pdf.cell(w_izq * 0.22, 6, "DESCUENTO", align="C", new_x="LMARGIN", new_y="NEXT")
-    pdf.set_text_color(0)
-    pdf.set_font("Helvetica", size=10.5)
-    for concepto, cantidad, valor in [
-        ("Faltas Justificadas", len(e.faltas_justificadas), dinero(e.valor_faltas_justificadas)),
-        ("Faltas Injustificadas", len(e.faltas_injustificadas), dinero(e.valor_faltas_injustificadas)),
-        ("Atrasos", e.total_atrasos, dinero(e.valor_atrasos)),
-        ("Días Trabajados", e.dias_trabajados, ""),
-    ]:
-        pdf.set_x(x_izq)
-        pdf.cell(w_izq * 0.6, 7, _latin1(concepto), align="R")
-        pdf.cell(w_izq * 0.18, 7, str(cantidad), align="C")
-        pdf.cell(w_izq * 0.22, 7, _latin1(valor), align="C", new_x="LMARGIN", new_y="NEXT")
-    y_izq = pdf.get_y()
-
-    pdf.set_y(y0)
-
-    def fila(concepto, valor, negrita=False, seccion=False):
-        pdf.set_x(x_der)
-        pdf.set_font("Helvetica", "B" if negrita or seccion else "", 8.5 if seccion else 9.5)
-        pdf.set_fill_color(*gris)
-        pdf.cell(w_der - 32, 6, _latin1(concepto), border="B", fill=seccion)
-        pdf.cell(32, 6, _latin1(valor), border="B", align="R", fill=seccion, new_x="LMARGIN", new_y="NEXT")
-
-    fila("INGRESOS", "", seccion=True)
-    fila("Sueldo base", dinero(e.sueldo_base or Decimal("0")))
-    if e.es_vendedor:
-        fila(f"Comisión {e.esquema} ({e.porcentaje_comision.normalize()} % de {dinero(e.total_ventas)} vendidos)"
-             if e.esquema else "Comisión (sin equipo asignado)", dinero(e.comision))
-    fila("Total ingresos", dinero(e.total_ingresos), negrita=True)
-    fila("DESCUENTOS", "", seccion=True)
-    lineas = [(f"{d.concepto} - {d.fecha:%d/%m/%Y}" + (" (sin clasificar)" if d.pendiente else ""), d.valor) for d in e.descuentos]
-    lineas += [("Anticipo" + (f": {a.concepto}" if a.concepto != "Anticipo" else ""), a.valor) for a in e.anticipos]
-    for concepto, valor in lineas[:9]:
-        fila(concepto, f"- {dinero(valor)}")
-    if len(lineas) > 9:  # una sola hoja: el resto se resume
-        fila(f"Otros {len(lineas) - 9} descuentos", f"- {dinero(sum((v for _, v in lineas[9:]), Decimal('0')))}")
-    if not lineas:
-        fila("Sin descuentos", dinero(Decimal("0")))
-    fila("Total descuentos", f"- {dinero(e.total_descuentos_y_anticipos)}", negrita=True)
-    pdf.set_x(x_der)
-    pdf.set_font("Helvetica", "B", 11.5)
-    pdf.cell(w_der - 32, 9, "TOTAL A RECIBIR")
-    pdf.cell(32, 9, _latin1(dinero(e.neto)), align="R", new_x="LMARGIN", new_y="NEXT")
-
-    # Firmas
-    pdf.set_y(max(y_izq, pdf.get_y()) + 22)
-    pdf.set_font("Helvetica", size=10)
+    datos = [("Empleado", f"{emp.nombres} {emp.apellidos}", "Cédula", emp.identificacion),
+             ("Cargo", str(emp.cargo), "Equipo", str(e.esquema) if e.esquema else "-")]
     mitad = ancho / 2
-    for x in (pdf.l_margin + mitad * 0.15, pdf.l_margin + mitad * 1.15):
-        pdf.line(x, pdf.get_y(), x + mitad * 0.7, pdf.get_y())
-    pdf.ln(1.5)
-    pdf.cell(mitad, 6, "Firma Empleado", align="C")
-    pdf.cell(mitad, 6, "Firma Contabilidad", align="C", new_x="LMARGIN", new_y="NEXT")
-    pdf.set_font("Helvetica", size=8.5)
-    pdf.cell(mitad, 5, _latin1(f"{emp.nombres} {emp.apellidos} - {emp.identificacion}"), align="C", new_x="LMARGIN", new_y="NEXT")
+    for fila_datos in datos:
+        for etiqueta, valor in (fila_datos[:2], fila_datos[2:]):
+            pdf.set_font("Helvetica", "B", 10)
+            pdf.set_text_color(*_GRIS)
+            pdf.cell(22, 6.5, _latin1(etiqueta))
+            pdf.set_font("Helvetica", size=10)
+            pdf.set_text_color(30)
+            pdf.cell(mitad - 22, 6.5, _latin1(valor))
+        pdf.ln()
+    pdf.ln(4)
+    pdf.set_line_width(0.2)
+    pdf.set_draw_color(*_LINEA)
+    return pdf, ancho
 
-    pdf.set_y(-16)
+
+def _pdf_seccion(pdf, ancho, texto: str):
+    from apps.documentos.contratos import _latin1
+
+    pdf.set_fill_color(*_SUAVE)
+    pdf.set_text_color(*_TINTA)
+    pdf.set_font("Helvetica", "B", 8.5)
+    pdf.cell(ancho, 6.5, _latin1(f" {texto.upper()}"), fill=True, new_x="LMARGIN", new_y="NEXT")
+
+
+def _pdf_fila(pdf, ancho, concepto: str, valor: str, negrita=False):
+    from apps.documentos.contratos import _latin1
+
+    pdf.set_text_color(30)
+    pdf.set_font("Helvetica", "B" if negrita else "", 10)
+    pdf.cell(ancho - 36, 7, _latin1(f" {concepto}"), border="B")
+    pdf.cell(36, 7, _latin1(f"{valor} "), border="B", align="R", new_x="LMARGIN", new_y="NEXT")
+
+
+def _pdf_total(pdf, ancho, etiqueta: str, valor: str):
+    """El valor final del documento, entre dos líneas gruesas."""
+    from apps.documentos.contratos import _latin1
+
+    pdf.ln(1.5)
+    y = pdf.get_y()
+    pdf.set_draw_color(*_TINTA)
+    pdf.set_line_width(0.6)
+    pdf.line(pdf.l_margin, y, pdf.l_margin + ancho, y)
+    pdf.set_text_color(*_TINTA)
+    pdf.set_font("Helvetica", "B", 13)
+    pdf.cell(ancho - 45, 11, _latin1(f" {etiqueta}"))
+    pdf.cell(45, 11, _latin1(f"{valor} "), align="R", new_x="LMARGIN", new_y="NEXT")
+    pdf.line(pdf.l_margin, pdf.get_y(), pdf.l_margin + ancho, pdf.get_y())
+    pdf.set_line_width(0.2)
+    pdf.set_draw_color(*_LINEA)
+
+
+def _pdf_firmas_y_pie(pdf, ancho, e: Estimacion, nota: str):
+    from apps.documentos.contratos import _latin1
+
+    if pdf.get_y() > pdf.h - 62:  # las firmas no quedan cortadas al final de la hoja
+        pdf.add_page()
+    emp = e.empleado
+    pdf.ln(26)
+    mitad = ancho / 2
+    y = pdf.get_y()
+    pdf.set_draw_color(60)
+    for x in (pdf.l_margin + mitad * 0.1, pdf.l_margin + mitad * 1.1):
+        pdf.line(x, y, x + mitad * 0.8, y)
+    pdf.ln(1.5)
+    pdf.set_text_color(30)
+    pdf.set_font("Helvetica", "B", 10)
+    pdf.cell(mitad, 5.5, "Firma Empleado", align="C")
+    pdf.cell(mitad, 5.5, "Firma Contabilidad", align="C", new_x="LMARGIN", new_y="NEXT")
+    pdf.set_font("Helvetica", size=8.5)
+    pdf.set_text_color(*_GRIS)
+    pdf.cell(mitad, 5, _latin1(f"{emp.nombres} {emp.apellidos} - {emp.identificacion}"), align="C", new_x="LMARGIN", new_y="NEXT")
+    pdf.ln(7)
     pdf.set_font("Helvetica", "I", 7.5)
-    pdf.set_text_color(110)
-    pdf.cell(0, 4, _latin1("Generado por CALLFLOW con las reglas de nómina vigentes. Mes comercial de 30 días; "
-                           "las faltas y atrasos sin clasificar se cuentan como no justificados."))
+    pdf.multi_cell(ancho, 3.8, _latin1(f"Generado por CALLFLOW con las reglas de nómina vigentes. {nota}"), new_x="LMARGIN", new_y="NEXT")
+
+
+def rol_de_pagos_pdf(e: Estimacion) -> bytes:
+    """Rol de pagos: sueldo menos descuentos y anticipos. La comisión va en su propio comprobante."""
+    from apps.documentos.contratos import _latin1, dinero
+
+    pdf, ancho = _documento_pdf("ROL DE PAGOS", "Rol de pagos", e)
+    _pdf_seccion(pdf, ancho, "Ingresos")
+    _pdf_fila(pdf, ancho, "Sueldo base", dinero(e.sueldo_base or Decimal("0")))
+    _pdf_fila(pdf, ancho, "Total ingresos", dinero(e.total_ingresos), negrita=True)
+    _pdf_seccion(pdf, ancho, "Descuentos")
+    for d in e.descuentos:
+        _pdf_fila(pdf, ancho, f"{d.concepto} - {d.fecha:%d/%m/%Y}" + (" (sin clasificar)" if d.pendiente else ""), f"- {dinero(d.valor)}")
+    for a in e.anticipos:
+        _pdf_fila(pdf, ancho, "Anticipo" + (f": {a.concepto}" if a.concepto != "Anticipo" else "") + (f" - {a.fecha:%d/%m/%Y}" if a.fecha else ""),
+                  f"- {dinero(a.valor)}")
+    if not e.descuentos and not e.anticipos:
+        _pdf_fila(pdf, ancho, "Sin descuentos", dinero(Decimal("0")))
+    _pdf_fila(pdf, ancho, "Total descuentos", f"- {dinero(e.total_descuentos_y_anticipos)}", negrita=True)
+    _pdf_total(pdf, ancho, "NETO A RECIBIR", dinero(e.neto))
+
+    pdf.ln(7)
+    _pdf_seccion(pdf, ancho, "Asistencia del mes")
+    pdf.set_text_color(*_GRIS)
+    pdf.set_font("Helvetica", "B", 8)
+    pdf.cell(ancho - 66, 6, "")
+    pdf.cell(30, 6, "CANTIDAD", align="R")
+    pdf.cell(36, 6, "DESCUENTO ", align="R", new_x="LMARGIN", new_y="NEXT")
+    filas = [("Faltas justificadas", len(e.faltas_justificadas), dinero(e.valor_faltas_justificadas)),
+             ("Faltas injustificadas", len(e.faltas_injustificadas), dinero(e.valor_faltas_injustificadas)),
+             ("Atrasos", e.total_atrasos, dinero(e.valor_atrasos))]
+    if e.llamados_mes:
+        filas.append(("Llamados de atención por atraso", len(e.llamados_mes), ""))
+    filas.append(("Días trabajados", e.dias_trabajados, ""))
+    pdf.set_text_color(30)
+    pdf.set_font("Helvetica", size=10)
+    for concepto, cantidad, valor in filas:
+        pdf.cell(ancho - 66, 6.5, _latin1(f" {concepto}"), border="B")
+        pdf.cell(30, 6.5, str(cantidad), border="B", align="R")
+        pdf.cell(36, 6.5, _latin1(f"{valor} "), border="B", align="R", new_x="LMARGIN", new_y="NEXT")
+
+    _pdf_firmas_y_pie(pdf, ancho, e, PIE_ROL)
+    return bytes(pdf.output())
+
+
+def comprobante_comision_pdf(e: Estimacion) -> bytes:
+    """Comprobante de la comisión del mes, separado del rol de pagos."""
+    from apps.documentos.contratos import dinero
+
+    pdf, ancho = _documento_pdf("COMPROBANTE DE COMISIÓN", "Comision", e)
+    _pdf_seccion(pdf, ancho, "Detalle")
+    if e.esquema:
+        _pdf_fila(pdf, ancho, "Ventas cerradas del mes", dinero(e.total_ventas))
+        if e.esquema.tipo == "MONTO_FIJO":
+            _pdf_fila(pdf, ancho, "Modalidad", "Monto fijo")
+        else:
+            _pdf_fila(pdf, ancho, "Porcentaje aplicado", f"{_porcentaje(e.porcentaje_comision)} %")
+    else:
+        _pdf_fila(pdf, ancho, "Sin equipo asignado: no se calculan comisiones", "")
+    _pdf_total(pdf, ancho, "COMISIÓN A RECIBIR", dinero(e.comision))
+    _pdf_firmas_y_pie(pdf, ancho, e, "La comisión se calcula sobre las ventas cerradas del mes.")
     return bytes(pdf.output())

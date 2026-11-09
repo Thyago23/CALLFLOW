@@ -113,13 +113,14 @@ class EstimacionMesTests(TestCase):
     def estimar(self):
         return calculo.estimar_mes(self.vendedor, self.anio, self.mes)
 
-    def test_comision_sobre_ventas_cerradas_se_suma_al_sueldo(self):
+    def test_comision_sobre_ventas_cerradas_va_aparte_del_rol(self):
         self.venta_cerrada("1500.00", 1)
         self.venta_cerrada("2000.00", 2)
         e = self.estimar()
         self.assertEqual(e.total_ventas, D("3500.00"))
         self.assertEqual((e.porcentaje_comision, e.comision), (D("15"), D("525.00")))
-        self.assertEqual(e.total_ingresos, D("925.00"))
+        self.assertEqual((e.total_ingresos, e.neto), (D("400.00"), D("400.00")))  # el rol no lleva la comisión
+        self.assertEqual(e.total_a_pagar, D("925.00"))  # pero la empresa la paga
 
     def test_solo_vendedores_cobran_comision(self):
         HistorialSalario.objects.create(empleado=self.encargado, salario_base=D("500.00"), vigente_desde=date(2026, 1, 1))
@@ -136,6 +137,7 @@ class EstimacionMesTests(TestCase):
         self.novedad(5, "ATRASO", "NO_JUSTIFICADA", minutos=25)  # llamado de atención, sin multa
         e = self.estimar()
         self.assertEqual([d.valor for d in e.descuentos], [D("40.00"), D("13.33"), D("1.00"), D("5.00")])
+        self.assertEqual(e.descuentos[0].concepto, "Falta no justificada (10 % del sueldo)")
         self.assertEqual(e.total_descuentos, D("59.33"))
         self.assertEqual(e.neto, D("340.67"))
         self.assertEqual(e.pendientes, 1)
@@ -199,8 +201,10 @@ class EstimacionMesTests(TestCase):
         self.assertEqual(nomina.total_sueldos, D("900.00"))
         self.assertEqual(nomina.total_comisiones, D("220.00"))
         self.assertEqual(nomina.total_descuentos, D("40.00"))
-        self.assertEqual(nomina.total_neto, D("1080.00"))
+        self.assertEqual(nomina.total_neto, D("860.00"))
+        self.assertEqual(nomina.total_a_pagar, D("1080.00"))
         self.assertContains(respuesta, "Vera Ana")
+        self.assertContains(respuesta, reverse("nomina:comision_pdf", args=[self.vendedor.pk]))
         self.assertContains(respuesta, reverse("nomina:rol_pdf", args=[self.vendedor.pk]))
 
     def test_nomina_filtra_por_equipo_y_busqueda(self):
@@ -225,12 +229,41 @@ class EstimacionMesTests(TestCase):
         mes = f"{self.anio}-{self.mes:02d}"
         rol = self.client.get(reverse("nomina:rol", args=[self.vendedor.pk]), {"mes": mes})
         self.assertContains(rol, "Neto a recibir")
-        self.assertContains(rol, "$ 565,00")  # 400 + 11 % de 1.500
+        self.assertContains(rol, "$ 400,00")
+        self.assertContains(rol, "se paga aparte")
+        self.assertContains(rol, "$ 165,00")  # 11 % de 1.500, fuera del neto
+        self.assertNotContains(rol, "$ 565,00")
         pdf = self.client.get(reverse("nomina:rol_pdf", args=[self.vendedor.pk]), {"mes": mes})
         self.assertEqual(pdf["Content-Type"], "application/pdf")
-        texto = PdfReader(io.BytesIO(pdf.content)).pages[0].extract_text()
-        for esperado in ("ROL DE PAGOS", "Ana Vera", "1710034065", "Visas", "Comisión", "TOTAL A RECIBIR", "$ 565,00", "Firma Contabilidad", "Días Trabajados"):
+        lector = PdfReader(io.BytesIO(pdf.content))
+        self.assertEqual(len(lector.pages), 1)
+        texto = lector.pages[0].extract_text()
+        for esperado in ("ROL DE PAGOS", "Periodo:", "Ana Vera", "1710034065", "Visas", "NETO A RECIBIR", "$ 400,00", "Firma Empleado",
+                         "Firma Contabilidad", "Faltas justificadas", "Días trabajados"):
             self.assertIn(esperado, texto)
+        for ausente in ("Comisión", "165,00", "565,00"):
+            self.assertNotIn(ausente, texto)
+
+    def test_comprobante_de_comision_aparte(self):
+        import io
+        from pypdf import PdfReader
+        self.venta_cerrada("1500.00", 1)
+        self.client.force_login(self.admin)
+        mes = f"{self.anio}-{self.mes:02d}"
+        url = reverse("nomina:comision_pdf", args=[self.vendedor.pk])
+        texto = PdfReader(io.BytesIO(self.client.get(url, {"mes": mes}).content)).pages[0].extract_text()
+        for esperado in ("COMPROBANTE DE COMISIÓN", "Ana Vera", "Visas", "$ 1.500,00", "11 %", "COMISIÓN A RECIBIR", "$ 165,00", "Firma Contabilidad"):
+            self.assertIn(esperado, texto)
+        self.assertEqual(self.client.get(reverse("nomina:comision_pdf", args=[self.encargado.pk])).status_code, 404)
+
+        reporte = reverse("nomina:reporte_roles")
+        comisiones = self.client.get(reporte, {"mes": mes, "formato": "comisiones"})
+        self.assertContains(comisiones, "Comprobante de comisión")
+        self.assertContains(comisiones, "$165,00")
+        self.assertEqual([r.empleado for r in comisiones.context["nomina"].roles], [self.vendedor])  # solo vendedores
+        roles = self.client.get(reporte, {"mes": mes, "formato": "individual"})
+        self.assertNotContains(roles, "165,00")
+        self.assertNotContains(self.client.get(reporte, {"mes": mes}), "165,00")  # tampoco en el cuadro general
 
     def test_nomina_solo_para_autorizados(self):
         self.client.force_login(Usuario.objects.create_user("vend2", None, "clave-segura-123", rol=Rol.VENDEDOR))

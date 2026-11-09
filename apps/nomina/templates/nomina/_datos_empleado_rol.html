@@ -1,0 +1,7 @@
+{# Datos del empleado en el rol de pagos y en el comprobante de comisión. Recibe `e`. #}
+<dl class="datos-rol">
+  <div><dt>Empleado</dt><dd>{{ e.empleado.nombres }} {{ e.empleado.apellidos }}</dd></div>
+  <div><dt>Cédula</dt><dd>{{ e.empleado.identificacion }}</dd></div>
+  <div><dt>Cargo</dt><dd>{{ e.empleado.cargo }}</dd></div>
+  <div><dt>Equipo</dt><dd>{{ e.esquema|default:"—" }}</dd></div>
+</dl>
