@@ -15,4 +15,6 @@ urlpatterns = [
     path("usuarios/<int:pk>/cambiar-estado/", views.usuario_cambiar_estado, name="usuario_cambiar_estado"),
     path("notificaciones/marcar-leidas/", views.marcar_notificaciones_leidas, name="notificaciones_leidas"),
     path("notificaciones/contadores/", views.contadores, name="contadores"),
+    path("notificaciones/panel/", views.panel_notificaciones, name="notificaciones_panel"),
+    path("notificaciones/<int:pk>/abrir/", views.abrir_notificacion, name="notificacion_abrir"),
 ]

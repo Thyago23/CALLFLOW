@@ -7,6 +7,7 @@ from django.db.models import F, Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_POST
 
@@ -15,6 +16,7 @@ from apps.agenda.servicios import eventos_de
 from apps.inventario.models import Material
 from apps.personal.models import Empleado
 
+from . import notificaciones as avisos
 from .codigos import generar_codigo_acceso, generar_usuario
 from .cuentas import CLAVE_SESION_CREDENCIALES, preparar_credenciales
 from .forms import CambioClaveForm, IngresoForm, UsuarioCrearForm
@@ -212,6 +214,8 @@ def _guardar_credenciales(request, usuario, clave, nuevo, volver=None):
 def marcar_notificaciones_leidas(request):
     Notificacion.objects.filter(destinatario=request.user, leida=False).update(leida=True, leida_en=timezone.now())
     if _es_htmx(request):
+        if request.GET.get("panel") == "campana":
+            return _panel_campana(request)
         notificaciones = Notificacion.objects.filter(destinatario=request.user).order_by("-creado_en")[:6]
         return render(request, "core/_notificaciones.html", {"notificaciones": notificaciones})
     return redirect("inicio")
@@ -220,7 +224,39 @@ def marcar_notificaciones_leidas(request):
 @login_required
 @never_cache
 def contadores(request):
-    """HTMX cada 30 s: campana y contadores del menú, sin recargar la página (SCRUM-60)."""
+    """
+    HTMX cada 15 s (y al abrir cada página): campana, contadores del menú y avisos flotantes
+    de las notificaciones nuevas, sin recargar la página (SCRUM-60).
+    """
     from .context_processors import contadores as calcular
 
-    return render(request, "core/_contadores.html", calcular(request.user))
+    avisos.generar_pendientes(request.user)
+    return render(request, "core/_contadores.html", calcular(request.user) | {"avisos_nuevos": avisos.nuevas_para_mostrar(request)})
+
+
+def _panel_campana(request):
+    from .context_processors import contadores as calcular
+
+    return render(request, "core/_campana.html", {
+        "notificaciones": Notificacion.objects.filter(destinatario=request.user).order_by("leida", "-creado_en")[:8],
+    } | calcular(request.user))
+
+
+@login_required
+@never_cache
+def panel_notificaciones(request):
+    """HTMX: lista de la campana (se carga al abrirla)."""
+    return _panel_campana(request)
+
+
+@login_required
+def abrir_notificacion(request, pk):
+    """Marca la notificación como leída y lleva a su página."""
+    notificacion = get_object_or_404(Notificacion, pk=pk, destinatario=request.user)
+    if not notificacion.leida:
+        notificacion.leida, notificacion.leida_en = True, timezone.now()
+        notificacion.save(update_fields=["leida", "leida_en"])
+    destino = notificacion.url
+    if not destino or not url_has_allowed_host_and_scheme(destino, allowed_hosts={request.get_host()}):
+        destino = reverse("inicio") + "#notificaciones"
+    return redirect(destino)

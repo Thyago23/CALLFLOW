@@ -21,10 +21,17 @@
       </a>
     </div>
     <div class="d-flex align-items-center gap-1">
-      <a href="{% url 'inicio' %}#notificaciones" class="btn btn-link text-body position-relative p-2" aria-label="Notificaciones: {{ notificaciones_sin_leer }} sin leer">
-        <i class="bi bi-bell fs-5" aria-hidden="true"></i>
-        <span id="contador-notificaciones" hx-get="{% url 'contadores' %}" hx-trigger="every 30s" hx-swap="innerHTML">{% if notificaciones_sin_leer %}<span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger contador">{{ notificaciones_sin_leer }}</span>{% endif %}</span>
-      </a>
+      <div class="dropdown">
+        <button type="button" class="btn btn-link text-body position-relative p-2" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false"
+                aria-label="Notificaciones" hx-get="{% url 'notificaciones_panel' %}" hx-trigger="show.bs.dropdown" hx-target="#panel-campana">
+          <i class="bi bi-bell fs-5" aria-hidden="true"></i>
+          {# Cada 15 s (y al abrir la página): contador, avisos de agenda y avisos flotantes nuevos. #}
+          <span id="contador-notificaciones" hx-get="{% url 'contadores' %}" hx-trigger="load, every 15s" hx-swap="innerHTML">{% if notificaciones_sin_leer %}<span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger contador">{{ notificaciones_sin_leer }}</span>{% endif %}</span>
+        </button>
+        <div class="dropdown-menu dropdown-menu-end p-0 panel-campana" id="panel-campana">
+          <p class="text-body-secondary small px-3 py-3 mb-0">Cargando…</p>
+        </div>
+      </div>
       <div class="dropdown">
         <button class="btn btn-link text-body text-decoration-none dropdown-toggle d-flex align-items-center gap-2" type="button" data-bs-toggle="dropdown" aria-expanded="false">
           <span class="avatar" aria-hidden="true">{{ user.first_name|first|default:user.username|first|upper }}{{ user.last_name|first|upper }}</span>
@@ -97,5 +104,26 @@
 
   <script src="{% static 'vendor/bootstrap.bundle.min.js' %}"></script>
   <script src="{% static 'vendor/htmx.min.js' %}"></script>
+  {% if user.is_authenticated %}
+  {# Avisos flotantes de notificaciones nuevas (esquina inferior izquierda). #}
+  <div id="avisos-flotantes" class="toast-container position-fixed bottom-0 start-0 p-3"></div>
+  <script>
+    (function () {
+      const caja = document.getElementById("avisos-flotantes");
+      const MAXIMO = 4;
+      function mostrar(el) {
+        if (el.dataset.mostrado) return;
+        el.dataset.mostrado = "1";
+        el.addEventListener("hidden.bs.toast", function () { el.remove(); });
+        bootstrap.Toast.getOrCreateInstance(el).show();
+        // No se acumulan más de MAXIMO: se cierra el más antiguo.
+        const visibles = caja.querySelectorAll(".toast");
+        if (visibles.length > MAXIMO) bootstrap.Toast.getOrCreateInstance(visibles[0]).hide();
+      }
+      new MutationObserver(function () { caja.querySelectorAll(".toast:not([data-mostrado])").forEach(mostrar); })
+        .observe(caja, {childList: true});
+    })();
+  </script>
+  {% endif %}
 </body>
 </html>

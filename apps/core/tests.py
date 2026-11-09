@@ -196,3 +196,82 @@ class DashboardTests(TestCase):
         respuesta = self.client.post(reverse("notificaciones_leidas"), HTTP_HX_REQUEST="true")
         self.assertContains(respuesta, "Hola")
         self.assertFalse(Notificacion.objects.filter(destinatario=self.vendedor, leida=False).exists())
+
+
+class NotificacionesEnPantallaTests(TestCase):
+    """Avisos flotantes (esquina inferior izquierda), campana y avisos de agenda sin cambiar de página."""
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("inicializar_datos", verbosity=0)
+        cls.lucia = Usuario.objects.create_user("lucia.mora", None, "x", first_name="Lucía", last_name="Mora", rol=Rol.VENDEDOR)
+        cls.otro = Usuario.objects.create_user("pedro.paz", None, "x", first_name="Pedro", last_name="Paz", rol=Rol.VENDEDOR)
+
+    def setUp(self):
+        self.client.force_login(self.lucia)
+
+    def notificar(self, titulo, usuario=None, **datos):
+        return Notificacion.objects.create(destinatario=usuario or self.lucia, titulo=titulo, **datos)
+
+    def consultar(self):
+        return self.client.get(reverse("contadores"), HTTP_HX_REQUEST="true")
+
+    def test_la_pagina_tiene_la_zona_de_avisos_y_consulta_al_cargar(self):
+        respuesta = self.client.get(reverse("inicio"))
+        self.assertContains(respuesta, 'id="avisos-flotantes"')
+        self.assertContains(respuesta, "bottom-0 start-0")
+        self.assertContains(respuesta, 'hx-trigger="load, every 15s"')
+
+    def test_cada_notificacion_nueva_aparece_una_sola_vez(self):
+        self.consultar()  # al entrar: nada nuevo
+        self.notificar("Stock bajo de resmas", tipo=Notificacion.Tipo.STOCK_BAJO, url="/inventario/")
+        respuesta = self.consultar()
+        self.assertContains(respuesta, 'hx-swap-oob="beforeend:#avisos-flotantes"')
+        self.assertContains(respuesta, "Stock bajo de resmas")
+        self.assertContains(respuesta, 'data-bs-autohide="true"')
+        self.assertNotContains(self.consultar(), "Stock bajo de resmas")
+
+    def test_no_se_muestran_las_de_otros_ni_las_viejas_al_iniciar_sesion(self):
+        vieja = self.notificar("Aviso antiguo")
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        Notificacion.objects.filter(pk=vieja.pk).update(creado_en=timezone.now() - timedelta(days=1))
+        self.notificar("Para Pedro", usuario=self.otro)
+        self.notificar("Reciente")
+        respuesta = self.consultar()
+        self.assertContains(respuesta, "Reciente")
+        self.assertNotContains(respuesta, "Aviso antiguo")
+        self.assertNotContains(respuesta, "Para Pedro")
+
+    def test_recordatorio_de_agenda_llega_sin_cambiar_de_pagina_y_queda_fijo(self):
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        from apps.agenda.models import Evento
+
+        self.consultar()
+        Evento.objects.create(propietario=self.lucia, titulo="Llamar a Rosa", tipo=Evento.Tipo.RECORDATORIO,
+                              inicio=timezone.now() + timedelta(minutes=10), minutos_aviso=15)
+        respuesta = self.consultar()
+        self.assertContains(respuesta, "Llamar a Rosa")
+        self.assertContains(respuesta, 'data-bs-autohide="false"')
+        self.assertContains(respuesta, "Ver evento")
+
+    def test_campana_y_abrir_marca_como_leida(self):
+        n = self.notificar("Nueva solicitud", url="/ventas/bases/")
+        panel = self.client.get(reverse("notificaciones_panel"), HTTP_HX_REQUEST="true")
+        self.assertContains(panel, reverse("notificacion_abrir", args=[n.pk]))
+        self.assertContains(panel, "Marcar todas como leídas")
+        self.assertRedirects(self.client.get(reverse("notificacion_abrir", args=[n.pk])), "/ventas/bases/", fetch_redirect_response=False)
+        n.refresh_from_db()
+        self.assertTrue(n.leida)
+
+    def test_no_se_abre_la_de_otro_ni_redirige_fuera(self):
+        ajena = self.notificar("Ajena", usuario=self.otro)
+        self.assertEqual(self.client.get(reverse("notificacion_abrir", args=[ajena.pk])).status_code, 404)
+        externa = self.notificar("Externa", url="https://sitio-externo.com/")
+        self.assertRedirects(self.client.get(reverse("notificacion_abrir", args=[externa.pk])),
+                             reverse("inicio") + "#notificaciones", fetch_redirect_response=False)
