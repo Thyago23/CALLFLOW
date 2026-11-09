@@ -41,8 +41,20 @@ def eventos_de(usuario):
     return (
         Evento.objects.filter(Q(propietario=usuario) | Q(participantes__usuario=usuario))
         .distinct()
-        .select_related("propietario")
+        .select_related("propietario", "cliente")
     )
+
+
+def clientes_agendables(usuario):
+    """Clientes a los que la persona puede agendar una llamada: los de los formularios DAMI que puede ver."""
+    from apps.ventas.models import Cliente
+    from apps.ventas.servicios import formularios_visibles
+
+    return Cliente.objects.filter(formularios_dami__in=formularios_visibles(usuario)).distinct()
+
+
+def nombre_cliente(cliente) -> str:
+    return f"{cliente.nombres} {cliente.apellidos}".strip() or str(cliente)
 
 
 def puede_editar(usuario, evento) -> bool:
@@ -188,6 +200,31 @@ def eventos_del_dia(usuario, dia: date) -> Dia:
     return _agrupar(eventos_de(usuario).filter(inicio__date=dia).order_by("inicio"), [Dia(dia)])[0]
 
 
+# --------------------------------------------------------------------------- agregado rápido
+def siguiente_laborable(desde: date) -> date:
+    """El primer día laborable posterior a `desde`."""
+    dia = desde + timedelta(days=1)
+    while not jornada.es_laborable(dia):
+        dia += timedelta(days=1)
+    return dia
+
+
+def horario_sugerido(ahora: datetime | None = None) -> tuple[date, time]:
+    """
+    Fecha y hora que se proponen al agendar rápido: el próximo cuarto de hora dentro de la
+    jornada de hoy o, si ya no queda jornada, el inicio de la jornada del siguiente día laborable.
+    """
+    local = timezone.localtime(ahora or timezone.now())
+    minutos = (local.hour * 60 + local.minute) // 15 * 15 + 15
+    hora = time(minutos // 60, minutos % 60) if minutos < 24 * 60 else None
+    if jornada.es_laborable(local.date()) and hora is not None:
+        if hora < jornada.inicio():
+            return local.date(), jornada.inicio()
+        if hora < jornada.fin():
+            return local.date(), hora
+    return siguiente_laborable(local.date()), jornada.inicio()
+
+
 # --------------------------------------------------------------------------- escritura
 @transaction.atomic
 def guardar_evento(evento: Evento, participantes, *, avisar_de_nuevo: bool) -> Evento:
@@ -207,4 +244,22 @@ def cambiar_estado(evento: Evento, estado: str) -> Evento:
     if estado == Evento.Estado.PENDIENTE:
         preparar_aviso(evento)
     evento.save(update_fields=["estado", "aviso_enviado", "actualizado_en"])
+    return evento
+
+
+@transaction.atomic
+def pasar_a_manana(evento: Evento, hoy: date | None = None) -> Evento:
+    """
+    Reprograma un pendiente al siguiente día laborable (contado desde hoy, porque suele usarse
+    con los vencidos), a la misma hora y con la misma duración, y vuelve a programar su aviso.
+    """
+    zona = timezone.get_current_timezone()
+    nuevo_dia = siguiente_laborable(hoy or timezone.localdate())
+    inicio = timezone.localtime(evento.inicio)
+    duracion = evento.fin - evento.inicio if evento.fin else None
+    evento.inicio = timezone.make_aware(datetime.combine(nuevo_dia, inicio.time()), zona)
+    evento.fin = evento.inicio + duracion if duracion is not None else None
+    evento.estado = Evento.Estado.PENDIENTE
+    preparar_aviso(evento)
+    evento.save(update_fields=["inicio", "fin", "estado", "aviso_enviado", "actualizado_en"])
     return evento

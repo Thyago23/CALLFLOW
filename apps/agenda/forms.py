@@ -1,14 +1,16 @@
 from datetime import datetime, time
 
 from django import forms
+from django.db.models import Q
 from django.utils import timezone
 
 from apps.core import jornada
 from apps.core.forms import FormularioEstilizado, _estilizar
 from apps.core.models import Usuario
+from apps.ventas.models import Cliente
 
 from .models import Evento
-from .servicios import OPCIONES_AVISO
+from .servicios import OPCIONES_AVISO, clientes_agendables
 
 
 class EventoForm(FormularioEstilizado, forms.Form):
@@ -28,10 +30,16 @@ class EventoForm(FormularioEstilizado, forms.Form):
         help_text="Verán el evento en su agenda y recibirán el aviso.",
     )
     descripcion = forms.CharField(label="Notas", required=False, widget=forms.Textarea(attrs={"rows": 3}))
+    cliente = forms.ModelChoiceField(queryset=Cliente.objects.none(), required=False, widget=forms.HiddenInput)
 
-    def __init__(self, *args, usuario=None, **kwargs):
+    def __init__(self, *args, usuario=None, cliente_actual=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.usuario = usuario
+        # Solo clientes que la persona puede ver (más el que ya tenía el evento, al editarlo).
+        permitidos = Q(pk__in=clientes_agendables(usuario).values("pk")) if usuario else Q(pk__in=[])
+        if cliente_actual is not None:
+            permitidos |= Q(pk=cliente_actual.pk)
+        self.fields["cliente"].queryset = Cliente.objects.filter(permitidos)
         qs = Usuario.objects.filter(is_active=True).order_by("first_name", "last_name")
         self.fields["participantes"].queryset = qs.exclude(pk=usuario.pk) if usuario else qs
         self.fields["participantes"].label_from_instance = lambda u: u.get_full_name() or u.username
@@ -55,8 +63,9 @@ class EventoForm(FormularioEstilizado, forms.Form):
             "hora_fin": fin.time() if fin and not evento.todo_el_dia else None,
             "ubicacion": evento.ubicacion, "minutos_aviso": evento.minutos_aviso, "descripcion": evento.descripcion,
             "participantes": list(evento.participantes.values_list("usuario_id", flat=True)),
+            "cliente": evento.cliente_id,
         }
-        return cls(initial=inicial, **kwargs)
+        return cls(initial=inicial, cliente_actual=evento.cliente, **kwargs)
 
     def clean_fecha(self):
         fecha = self.cleaned_data["fecha"]
@@ -88,6 +97,7 @@ class EventoForm(FormularioEstilizado, forms.Form):
         evento.ubicacion = d["ubicacion"].strip()
         evento.descripcion = d["descripcion"].strip()
         evento.minutos_aviso = d["minutos_aviso"]
+        evento.cliente = d.get("cliente")
         if evento.todo_el_dia:
             evento.inicio, evento.fin = timezone.make_aware(datetime.combine(d["fecha"], time.min), zona), None
         else:

@@ -42,7 +42,13 @@
   <div class="col-lg-7">
     <section class="card mb-4">
       <div class="card-body">
-        <h2 class="h6 text-uppercase text-body-secondary mb-3">Cliente</h2>
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+          <h2 class="h6 text-uppercase text-body-secondary mb-0">Cliente</h2>
+          {% if perms.agenda.add_evento %}
+          <a href="{% url 'agenda:crear' %}?cliente={{ f.cliente.pk }}&volver={{ request.get_full_path|urlencode }}" class="btn btn-sm btn-outline-primary">
+            <i class="bi bi-calendar-plus me-1" aria-hidden="true"></i>Agendar llamada</a>
+          {% endif %}
+        </div>
         <dl class="row datos-ficha mb-0">
           <div class="col-12"><dt>Nombre</dt><dd>{{ f.cliente.nombres }} {{ f.cliente.apellidos }}</dd></div>
           <div class="col-sm-6"><dt>Cédula</dt><dd>{{ f.cliente.cedula|default:"—" }}</dd></div>

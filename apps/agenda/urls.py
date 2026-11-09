@@ -10,5 +10,6 @@ urlpatterns = [
     path("<int:pk>/", views.detalle, name="detalle"),
     path("<int:pk>/editar/", views.editar, name="editar"),
     path("<int:pk>/estado/", views.cambiar_estado, name="estado"),
+    path("<int:pk>/manana/", views.pasar_a_manana, name="manana"),
     path("<int:pk>/eliminar/", views.eliminar, name="eliminar"),
 ]

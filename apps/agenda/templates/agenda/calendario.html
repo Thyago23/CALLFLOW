@@ -7,12 +7,13 @@
     <p class="text-body-secondary small mb-0">Actividades, reuniones y recordatorios · Horario laboral {{ jornada_texto }}.</p>
   </div>
   {% if perms.agenda.add_evento %}
-  <a href="{% url 'agenda:crear' %}?fecha={{ fecha|date:'Y-m-d' }}" class="btn btn-primary"><i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Nuevo evento</a>
+  <a href="{% url 'agenda:crear' %}?fecha={{ fecha|date:'Y-m-d' }}&volver={{ request.get_full_path|urlencode }}" class="btn btn-primary"><i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Nuevo evento</a>
   {% endif %}
 </div>
 
 <div class="row g-4">
   <div class="col-xl-9">
+    {% if rapido %}{% include "agenda/_rapido.html" %}{% endif %}
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
       <div class="d-flex align-items-center gap-2">
         <a class="btn btn-outline-secondary btn-sm" href="{{ url_anterior }}" aria-label="Anterior"><i class="bi bi-chevron-left" aria-hidden="true"></i></a>
@@ -51,9 +52,14 @@
       </div>
       <ul class="list-group list-group-flush">
         {% for e in vencidos %}
-        <li class="list-group-item py-2">
-          <a href="{% url 'agenda:detalle' e.pk %}" class="small fw-semibold text-reset d-block text-truncate">{{ e.titulo }}</a>
-          <span class="small text-danger">{{ e.inicio|date:"D d/m" }}{% if not e.todo_el_dia %} · {{ e.inicio|time:"H:i" }}{% endif %}</span>
+        <li class="list-group-item py-2 d-flex align-items-center gap-2">
+          <div class="flex-grow-1 min-w-0">
+            <a href="{% url 'agenda:detalle' e.pk %}" class="small fw-semibold text-reset d-block text-truncate">{{ e.titulo }}</a>
+            <span class="small text-danger">{{ e.inicio|date:"D d/m" }}{% if not e.todo_el_dia %} · {{ e.inicio|time:"H:i" }}{% endif %}</span>
+          </div>
+          {% if e.propietario_id == user.pk and perms.agenda.change_evento %}
+          {% include "agenda/_acciones_rapidas.html" %}
+          {% endif %}
         </li>
         {% empty %}
         <li class="list-group-item small text-body-secondary py-3">Nada pendiente atrasado.</li>

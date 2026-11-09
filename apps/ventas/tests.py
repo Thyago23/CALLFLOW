@@ -457,3 +457,46 @@ class BasesComercialesTests(BaseVentas):
         self.assertFalse(SolicitudBase.objects.exists())  # tampoco se toma como una solicitud
         solicitud = servicios.solicitar_base(self.pedro, "")
         self.assertEqual(self.client.post(reverse("ventas:responder_solicitud", args=[solicitud.pk]), {"accion": "rechazar", "respuesta": "x"}).status_code, 403)
+
+
+class AgendarLlamadaTests(BaseVentas):
+    """Desde el DAMI se agenda la llamada al cliente; el recordatorio queda vinculado a ese cliente."""
+
+    def test_boton_y_formulario_precargado(self):
+        self.crear()
+        f = FormularioDAMI.objects.get()
+        url = reverse("agenda:crear") + f"?cliente={f.cliente.pk}"
+        self.assertContains(self.client.get(reverse("ventas:formulario_detalle", args=[f.pk])), url)
+        respuesta = self.client.get(url)
+        form = respuesta.context["form"]
+        self.assertEqual((form.initial["cliente"], form.initial["tipo"], form.initial["titulo"]),
+                         (f.cliente.pk, "RECORDATORIO", "Llamar a Carla Andrea Vega"))
+        self.assertContains(respuesta, "0991234567")
+
+    def test_guardar_vincula_al_cliente_y_se_ve_en_la_agenda(self):
+        from apps.agenda.models import Evento
+        from apps.agenda.servicios import siguiente_laborable
+
+        self.crear()
+        f = FormularioDAMI.objects.get()
+        dia = siguiente_laborable(timezone.localdate())
+        self.client.post(reverse("agenda:crear"), {
+            "titulo": "Llamar a Carla", "tipo": "RECORDATORIO", "fecha": dia.isoformat(), "hora_inicio": "10:00",
+            "minutos_aviso": "5", "cliente": f.cliente.pk,
+        })
+        evento = Evento.objects.get()
+        self.assertEqual((evento.cliente, evento.propietario), (f.cliente, self.lucia))
+        dia_url = reverse("agenda:calendario") + f"?vista=dia&fecha={dia.isoformat()}"
+        self.assertContains(self.client.get(dia_url), 'href="tel:0991234567"')
+        self.assertContains(self.client.get(reverse("agenda:detalle", args=[evento.pk])), 'href="tel:0991234567"')
+
+    def test_no_se_agenda_un_cliente_ajeno(self):
+        self.crear(usuario=self.pedro)
+        ajeno = FormularioDAMI.objects.get().cliente
+        self.client.force_login(self.lucia)
+        self.assertNotIn("cliente", self.client.get(reverse("agenda:crear") + f"?cliente={ajeno.pk}").context["form"].initial)
+        respuesta = self.client.post(reverse("agenda:crear"), {
+            "titulo": "Llamar", "tipo": "RECORDATORIO", "fecha": timezone.localdate().isoformat(), "hora_inicio": "10:00",
+            "minutos_aviso": "5", "cliente": ajeno.pk,
+        })
+        self.assertIn("cliente", respuesta.context["form"].errors)

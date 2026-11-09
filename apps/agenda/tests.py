@@ -246,3 +246,79 @@ class AccesoTests(BaseAgenda):
 
     def test_requiere_sesion(self):
         self.assertEqual(self.client.get(reverse("agenda:calendario")).status_code, 302)
+
+
+class AgendaRapidaVendedorTests(BaseAgenda):
+    """Agenda ágil para el vendedor: abre en el día, agregado rápido, completar y pasar a mañana con un clic."""
+
+    def test_el_vendedor_abre_en_el_dia_y_los_demas_en_el_mes(self):
+        self.client.force_login(self.lucia)
+        respuesta = self.client.get(reverse("agenda:calendario"))
+        self.assertEqual(respuesta.context["vista"], "dia")
+        self.assertEqual(respuesta.context["rapido"]["tipo"], Evento.Tipo.RECORDATORIO)
+        self.assertContains(respuesta, 'id="agregar-rapido"')
+        self.client.force_login(self.diego)
+        self.assertEqual(self.client.get(reverse("agenda:calendario")).context["vista"], "mes")
+        self.assertEqual(self.client.get(reverse("agenda:calendario") + "?vista=semana").context["vista"], "semana")
+
+    def test_agregado_rapido_vuelve_a_la_pagina_de_origen(self):
+        self.client.force_login(self.lucia)
+        dia = proximo_laborable()
+        origen = reverse("agenda:calendario") + "?vista=semana&fecha=" + dia.isoformat()
+        respuesta = self.client.post(reverse("agenda:crear"), {
+            "titulo": "Volver a llamar a Juan", "tipo": "RECORDATORIO", "fecha": dia.isoformat(),
+            "hora_inicio": "10:30", "minutos_aviso": "15", "volver": origen,
+        })
+        self.assertRedirects(respuesta, origen, fetch_redirect_response=False)
+        evento = Evento.objects.get(titulo="Volver a llamar a Juan")
+        self.assertEqual((evento.propietario, timezone.localtime(evento.inicio)), (self.lucia, a_las(dia, 10, 30)))
+
+    def test_agregado_rapido_con_error_muestra_el_formulario_completo(self):
+        self.client.force_login(self.lucia)
+        respuesta = self.client.post(reverse("agenda:crear"), {
+            "titulo": "Llamar", "tipo": "RECORDATORIO", "fecha": proximo_laborable().isoformat(),
+            "hora_inicio": "20:00", "minutos_aviso": "15", "volver": reverse("agenda:calendario"),
+        })
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertTrue(respuesta.context["form"].errors)
+        self.assertContains(respuesta, 'name="volver"')
+        self.assertFalse(Evento.objects.filter(titulo="Llamar").exists())
+
+    def test_horario_sugerido_respeta_la_jornada(self):
+        zona = timezone.get_current_timezone()
+        lunes = date(2026, 11, 9)
+        cuando = lambda d, h, m=0: timezone.make_aware(datetime.combine(d, time(h, m)), zona)
+        self.assertEqual(servicios.horario_sugerido(cuando(lunes, 7, 10)), (lunes, time(9, 0)))
+        self.assertEqual(servicios.horario_sugerido(cuando(lunes, 10, 7)), (lunes, time(10, 15)))
+        self.assertEqual(servicios.horario_sugerido(cuando(lunes, 17, 50)), (date(2026, 11, 10), time(9, 0)))
+        viernes, sabado = date(2026, 11, 13), date(2026, 11, 14)
+        self.assertEqual(servicios.horario_sugerido(cuando(viernes, 18, 30)), (date(2026, 11, 16), time(9, 0)))
+        self.assertEqual(servicios.horario_sugerido(cuando(sabado, 11, 0)), (date(2026, 11, 16), time(9, 0)))
+
+    def test_pasar_a_manana_conserva_hora_y_duracion_y_reprograma_el_aviso(self):
+        ayer = timezone.localdate() - timedelta(days=1)
+        evento = self.evento(self.lucia, inicio=a_las(ayer, 11), fin=a_las(ayer, 11, 30), titulo="Llamar a Rosa")
+        self.client.force_login(self.lucia)
+        volver = reverse("agenda:calendario")
+        respuesta = self.client.post(reverse("agenda:manana", args=[evento.pk]), {"volver": volver})
+        self.assertRedirects(respuesta, volver, fetch_redirect_response=False)
+        evento.refresh_from_db()
+        nuevo = servicios.siguiente_laborable(timezone.localdate())
+        self.assertEqual(timezone.localtime(evento.inicio), a_las(nuevo, 11))
+        self.assertEqual(evento.fin - evento.inicio, timedelta(minutes=30))
+        self.assertFalse(evento.aviso_enviado)
+        self.assertNotIn(evento, servicios.vencidos(self.lucia))
+
+    def test_solo_el_dueño_pasa_a_manana(self):
+        evento = self.evento(self.diego, invitados=[self.lucia])
+        self.client.force_login(self.lucia)
+        self.assertEqual(self.client.post(reverse("agenda:manana", args=[evento.pk])).status_code, 403)
+        self.assertEqual(self.client.get(reverse("agenda:manana", args=[evento.pk])).status_code, 405)
+
+    def test_vencidos_tienen_acciones_de_un_clic(self):
+        ayer = timezone.localdate() - timedelta(days=1)
+        evento = self.evento(self.lucia, inicio=a_las(ayer, 10), titulo="Seguimiento atrasado")
+        self.client.force_login(self.lucia)
+        respuesta = self.client.get(reverse("agenda:calendario"))
+        self.assertContains(respuesta, reverse("agenda:manana", args=[evento.pk]))
+        self.assertContains(respuesta, reverse("agenda:estado", args=[evento.pk]))

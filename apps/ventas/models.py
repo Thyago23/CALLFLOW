@@ -113,6 +113,11 @@ class Cliente(ModeloBase):
         return nombre or f"{self.get_tipo_identificacion_display()} {self.identificacion}"
 
     @property
+    def telefonos(self) -> list[str]:
+        """Los teléfonos registrados, sin vacíos ni repetidos."""
+        return list(dict.fromkeys(t.strip() for t in (self.telefono, self.telefono_alterno, self.telefono3) if t.strip()))
+
+    @property
     def cedula(self) -> str:
         return self.identificacion if self.tipo_identificacion == self.TipoIdentificacion.CEDULA else ""
 
