@@ -9,7 +9,7 @@
   <a class="btn btn-outline-secondary btn-sm" href="?mes={{ anterior }}" aria-label="Mes anterior"><i class="bi bi-chevron-left" aria-hidden="true"></i></a>
   {% if siguiente %}<a class="btn btn-outline-secondary btn-sm" href="?mes={{ siguiente }}" aria-label="Mes siguiente"><i class="bi bi-chevron-right" aria-hidden="true"></i></a>{% endif %}
   <h2 class="h5 mb-0 ms-1 fecha-hoy">{{ mes_actual|date:"F Y" }}</h2>
-  <span class="small text-body-secondary ms-2">{% if solo_lectura %}Hoja de {{ asesor }}, solo lectura. La aprobación la escribe el vendedor.{% else %}Se llena sola: cada DAMI enviado agrega una fila. Escriba el número de aprobación en su fila; se guarda solo.{% endif %}</span>
+  <span class="small text-body-secondary ms-2">{% if solo_lectura %}Hoja de {{ asesor }}, solo lectura. La aprobación la escribe el vendedor.{% else %}Se llena sola: cada DAMI enviado agrega una fila. Escriba en su fila la hora en que terminó la llamada; al confirmarla queda registrada.{% endif %}</span>
   <button type="button" class="btn btn-outline-secondary btn-sm ms-auto" onclick="window.print()"><i class="bi bi-printer me-1" aria-hidden="true"></i>Imprimir</button>
 </div>
 
@@ -52,7 +52,7 @@
             {% if c.nombres %}{{ c.nombres }} {{ c.apellidos }}{% else %}<span class="text-body-secondary">{{ c.identificacion }}</span>{% endif %}
             <div class="small text-body-secondary d-print-none">{{ r.formulario }}</div>
           </td>
-          <td>{% if solo_lectura %}<span class="font-monospace">{{ r.aprobacion }}</span>{% else %}{% include "ventas/_celda_aprobacion.html" %}{% endif %}</td>
+          <td>{% if solo_lectura %}<span class="font-monospace">{{ r.aprobacion|hora_aprobacion }}</span>{% else %}{% include "ventas/_celda_aprobacion.html" %}{% endif %}</td>
           <td>{{ c.ciudad }}</td>
           <td class="text-end text-nowrap">{% if r.valor_venta %}${{ r.valor_venta|dinero }}{% endif %}</td>
           <td class="d-print-none"><span class="badge estado-dami estado-{{ r.estado|lower }}">{{ r.get_estado_display }}</span></td>
@@ -69,4 +69,5 @@
     </table>
   </div>
 </section>
+{% if not solo_lectura %}{% include "ventas/_modal_aprobacion.html" %}{% endif %}
 {% endblock %}

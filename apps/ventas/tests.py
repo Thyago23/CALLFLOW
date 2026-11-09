@@ -263,21 +263,47 @@ class HojaProduccionTests(BaseVentas):
         self.cerrar(f2, valor=D("99.90"))
         self.assertContains(self.client.get(reverse("ventas:hoja")), "419,90")
 
-    def test_vendedor_escribe_la_aprobacion_solo_con_numeros(self):
+    def test_vendedor_escribe_la_aprobacion_como_hora(self):
         self.crear(enviar=True)
         registro = RegistroProduccion.objects.get()
         url = reverse("ventas:hoja_aprobacion", args=[registro.pk])
-        respuesta = self.client.post(url, {"aprobacion": "00 4512"}, HTTP_HX_REQUEST="true")
-        self.assertContains(respuesta, "is-valid")
+        self.assertContains(self.client.get(reverse("ventas:hoja")), 'type="time"')
+        for invalido, mensaje in [("AB12", "HH:MM"), ("004512", "HH:MM"), ("25:10", "no existe"), ("09:75", "no existe")]:
+            with self.subTest(invalido=invalido):
+                self.assertContains(self.client.post(url, {"aprobacion": invalido}), mensaje)
+                registro.refresh_from_db()
+                self.assertEqual(registro.aprobacion, "")
+        respuesta = self.client.post(url, {"aprobacion": "09:18"}, HTTP_HX_REQUEST="true")
+        self.assertContains(respuesta, "aprobacion-fija")
+        self.assertContains(respuesta, "09:18")
         registro.refresh_from_db()
-        self.assertEqual(registro.aprobacion, "004512")
-        self.assertContains(self.client.post(url, {"aprobacion": "AB12"}), "solo números")
-        registro.refresh_from_db()
-        self.assertEqual(registro.aprobacion, "004512")
-        self.assertContains(self.client.get(reverse("ventas:hoja")), 'value="004512"')
+        self.assertEqual(registro.aprobacion, "0918")
+        self.assertContains(self.client.get(reverse("ventas:hoja")), "09:18")
         # otro vendedor no toca filas ajenas
         self.client.force_login(self.pedro)
         self.assertEqual(self.client.post(url, {"aprobacion": "1"}).status_code, 403)
+
+    def test_la_aprobacion_guardada_queda_fija(self):
+        self.crear(enviar=True)
+        registro = RegistroProduccion.objects.get()
+        url = reverse("ventas:hoja_aprobacion", args=[registro.pk])
+        self.client.post(url, {"aprobacion": "09:18"})
+        for otro in ("09:20", ""):
+            with self.subTest(otro=otro):
+                respuesta = self.client.post(url, {"aprobacion": otro})
+                self.assertContains(respuesta, "no se puede modificar")
+                self.assertNotContains(respuesta, 'name="aprobacion"')
+                registro.refresh_from_db()
+                self.assertEqual(registro.aprobacion, "0918")
+        hoja = self.client.get(reverse("ventas:hoja"))
+        self.assertContains(hoja, "09:18")
+        self.assertNotContains(hoja, f'id="aprobacion-{registro.pk}"')
+        self.assertContains(self.client.post(url, {"aprobacion": "09:18"}), "aprobacion-fija")  # repetir el mismo valor no es error
+
+    def test_formatos_de_hora_aceptados(self):
+        for texto, guardado in [("09:18", "0918"), ("9:18", "0918"), ("0918", "0918"), ("918", "0918"), ("23:59", "2359"), ("", "")]:
+            with self.subTest(texto=texto):
+                self.assertEqual(servicios.hora_aprobacion(texto), guardado)
 
     def test_la_base_rechaza_aprobacion_con_letras(self):
         from django.db import IntegrityError
@@ -355,11 +381,11 @@ class HojasDelAdministradorTests(BaseVentas):
     def test_ve_la_hoja_individual_en_solo_lectura(self):
         self.crear(enviar=True)
         registro = RegistroProduccion.objects.get()
-        self.assertEqual(self.client.post(reverse("ventas:hoja_aprobacion", args=[registro.pk]), {"aprobacion": "004512"}).status_code, 200)
+        self.assertEqual(self.client.post(reverse("ventas:hoja_aprobacion", args=[registro.pk]), {"aprobacion": "14:05"}).status_code, 200)
         self.crear(usuario=self.pedro, enviar=True, cedula="0926687856", nombres="luis", apellidos="paredes")
         self.client.force_login(self.admin)
         respuesta = self.client.get(self.url_de(self.lucia))
-        for texto in ("Lucía Mora", "Carla Andrea Vega", "004512"):
+        for texto in ("Lucía Mora", "Carla Andrea Vega", "14:05"):
             self.assertContains(respuesta, texto)
         self.assertNotContains(respuesta, "Luis Paredes")  # solo la hoja del vendedor pedido
         self.assertNotContains(respuesta, "hx-post")

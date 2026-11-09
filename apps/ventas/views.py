@@ -265,6 +265,8 @@ def hoja_aprobacion(request, pk):
     except ValidationError as error:
         registro = get_object_or_404(RegistroProduccion, pk=pk, hoja__vendedor=servicios.empleado_de(request.user))
         contexto = {"r": registro, "error": " ".join(error.messages), "valor": request.POST.get("aprobacion", "")}
+        if registro.aprobacion:  # ya estaba fija: se muestra bloqueada con el valor guardado
+            contexto = {"r": registro, "error": contexto["error"]}
     return render(request, "ventas/_celda_aprobacion.html", contexto)
 
 

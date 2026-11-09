@@ -214,17 +214,38 @@ def hojas_del_mes(anio: int, mes: int) -> list[dict]:
     return [{"vendedor": v, "totales": totales(por_vendedor[v.pk])} for v in vendedores]
 
 
+def hora_aprobacion(texto: str) -> str:
+    """
+    La aprobación es la hora en que terminó la llamada. Acepta «09:18», «9:18», «0918» o «918»
+    y la guarda como 4 dígitos («0918»). Vacío = sin aprobación.
+    """
+    limpio = re.sub(r"\s+", "", texto or "")
+    if not limpio:
+        return ""
+    coincide = re.fullmatch(r"(\d{1,2}):(\d{2})", limpio) or re.fullmatch(r"(\d{1,2})(\d{2})", limpio)
+    if not coincide:
+        raise ValidationError("Escriba una hora válida en formato HH:MM (ej.: 09:18).")
+    hora, minuto = int(coincide.group(1)), int(coincide.group(2))
+    if hora > 23 or minuto > 59:
+        raise ValidationError("Esa hora no existe: use de 00:00 a 23:59.")
+    return f"{hora:02d}{minuto:02d}"
+
+
+@transaction.atomic
 def guardar_aprobacion(usuario, registro_id: int, texto: str) -> RegistroProduccion:
-    """El vendedor escribe el número de aprobación en una fila de su propia hoja (solo dígitos)."""
-    aprobacion = re.sub(r"\s+", "", texto or "")
-    if not re.fullmatch(r"\d{0,20}", aprobacion):
-        raise ValidationError("La aprobación lleva solo números (máximo 20).")
+    """
+    El vendedor escribe la aprobación (la hora en que terminó la llamada) en una fila de su
+    propia hoja (solo dígitos). Una vez guardada queda fija: ya no se puede cambiar ni borrar.
+    """
+    aprobacion = hora_aprobacion(texto)
     registro = RegistroProduccion.objects.select_for_update().filter(
         pk=registro_id, hoja__vendedor=empleado_de(usuario)).first()
     if registro is None or not es_vendedor(usuario):
         raise PermissionDenied("Esa fila no es de su hoja de producción.")
     if registro.estado == "ANULADO":
         raise ValidationError("El formulario está anulado.")
+    if registro.aprobacion and registro.aprobacion != aprobacion:
+        raise ValidationError("La aprobación ya fue registrada y no se puede modificar.")
     if registro.aprobacion != aprobacion:
         registro.aprobacion = aprobacion
         registro.save(update_fields=["aprobacion", "actualizado_en"])
