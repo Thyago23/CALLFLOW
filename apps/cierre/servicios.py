@@ -60,6 +60,11 @@ def es_encargado(usuario) -> bool:
     return usuario.rol == Rol.ENCARGADO_CIERRE and empleado_de(usuario) is not None
 
 
+def sin_ficha(usuario) -> bool:
+    """Encargado de cierre cuya cuenta no está vinculada a un empleado: no puede tomar ni registrar cierres."""
+    return usuario.rol == Rol.ENCARGADO_CIERRE and empleado_de(usuario) is None
+
+
 def numero_tarjeta_visible(usuario, formulario, tarjeta) -> str | None:
     """Número completo, en bloques de 4: solo para el encargado que tiene tomado el DAMI, mientras lo gestiona."""
     if (tarjeta is None or formulario.estado != Estado.EN_GESTION or not es_encargado(usuario)

@@ -56,8 +56,10 @@ class UsuarioCrearForm(FormularioEstilizado, forms.ModelForm):
     empleado = forms.ModelChoiceField(
         label="Empleado vinculado", required=False, queryset=Empleado.objects.none(),
         empty_label="Sin vincular",
-        help_text="Opcional. Une la cuenta con su ficha en Personal.",
+        help_text="Une la cuenta con su ficha en Personal. Obligatorio para vendedores y encargados de cierre.",
     )
+    # Ventas y cierre registran el trabajo a nombre del empleado: sin ficha no pueden gestionar.
+    ROLES_CON_FICHA = (Rol.VENDEDOR, Rol.ENCARGADO_CIERRE)
 
     class Meta:
         model = Usuario
@@ -89,6 +91,14 @@ class UsuarioCrearForm(FormularioEstilizado, forms.ModelForm):
         if valor and Usuario.objects.filter(email__iexact=valor).exists():
             raise ValidationError("Ya existe un usuario con ese correo electrónico.")
         return valor
+
+    def clean(self):
+        datos = super().clean()
+        if datos.get("rol") in self.ROLES_CON_FICHA and not datos.get("empleado"):
+            self.add_error("empleado", "Vincule la cuenta a su ficha de empleado: sin ella no podrá gestionar ventas ni "
+                                       "cierres. Si aún no está registrado, regístrelo en Personal → Nuevo empleado "
+                                       "(se le crea la cuenta automáticamente).")
+        return datos
 
 
 class CambioClaveForm(FormularioEstilizado, SetPasswordForm):

@@ -108,15 +108,32 @@ class EmpleadoCrearView(LoginRequiredMixin, PermissionRequiredMixin, CreateView)
                         empleado=self.object, codigo_tipo=codigo,
                         archivo=documentos_form.cleaned_data[campo], usuario=self.request.user,
                     )
-                usuario, clave = crear_cuenta_para_empleado(self.object, creado_por=self.request.user)
+                existente = form.cleaned_data.get("cuenta_existente")
+                if existente is not None:
+                    # Cuenta creada antes desde Usuarios: se vincula (conserva su usuario y su código de acceso).
+                    existente.rol = rol_para_cargo(self.object.cargo.nombre)
+                    existente.save(update_fields=["rol"])
+                    self.object.usuario = existente
+                    self.object.save(update_fields=["usuario", "actualizado_en"])
+                    usuario, clave = existente, None
+                else:
+                    usuario, clave = crear_cuenta_para_empleado(self.object, creado_por=self.request.user)
                 configurar_ingreso(self.object, form.cleaned_data, self.request.user)
         except IntegrityError:
             # Otro usuario registró la misma identificación entre la validación y el guardado.
             self.object = None
-            form.add_error("identificacion", "Ya existe un empleado registrado con esta identificación.")
+            cuenta = form.cleaned_data.get("cuenta_existente")
+            if cuenta is not None and Empleado.objects.filter(usuario=cuenta).exists():
+                # La cuenta se vinculó a otro empleado entre la validación y el guardado (usuario es único).
+                form.add_error("cuenta_existente", "Esa cuenta acaba de vincularse a otro empleado. Elija otra.")
+            else:
+                form.add_error("identificacion", "Ya existe un empleado registrado con esta identificación.")
             return self.render_to_response(self.get_context_data(form=form, documentos_form=documentos_form))
 
         messages.success(self.request, f"Empleado {self.object.nombres} {self.object.apellidos} registrado con sus documentos.")
+        if clave is None:
+            messages.info(self.request, f"Se vinculó la cuenta existente {usuario.username}: conserva su código de acceso.")
+            return redirect("personal:empleado_detalle", pk=self.object.pk)
         preparar_credenciales(
             self.request, usuario, clave, nuevo=True,
             volver=reverse("personal:empleado_detalle", args=[self.object.pk]),

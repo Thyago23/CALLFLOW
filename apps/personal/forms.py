@@ -50,10 +50,21 @@ class EmpleadoForm(forms.ModelForm):
         EsquemaComision.objects.none(), label="Equipo", required=False, empty_label="Sin equipo",
         help_text="Define las comisiones del vendedor (Visas o Baymont Travel).",
     )
+    cuenta_existente = forms.ModelChoiceField(
+        queryset=None, label="Cuenta de acceso", required=False, empty_label="Crear una cuenta nueva",
+        help_text="Si la persona ya tiene usuario en CALLFLOW (creado desde Usuarios), elíjalo para vincularlo "
+                  "en lugar de crear otra cuenta.",
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["equipo"].queryset = _esquemas_activos()
+        from apps.core.models import Usuario
+
+        self.fields["cuenta_existente"].queryset = (
+            Usuario.objects.filter(is_active=True, empleado__isnull=True).order_by("first_name", "last_name"))
+        self.fields["cuenta_existente"].label_from_instance = (
+            lambda u: f"{u.get_full_name() or u.username} ({u.username} · {u.get_rol_display()})")
         if not self.is_bound and not self.instance.pk:
             from apps.nomina.calculo import sueldo_base_por_defecto
             self.initial.setdefault("salario_base", sueldo_base_por_defecto())
@@ -254,7 +265,7 @@ class EmpleadoEditarForm(EmpleadoForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # Sueldo y equipo se cambian desde la ficha (pestaña Sueldo y comisiones), con su historial.
-        del self.fields["salario_base"], self.fields["equipo"]
+        del self.fields["salario_base"], self.fields["equipo"], self.fields["cuenta_existente"]
         # El cargo actual se puede conservar aunque ya no esté activo para nuevos registros.
         cargo_actual = self.instance.cargo_id
         self.fields["cargo"].queryset = Cargo.objects.filter(Q(activo=True) | Q(pk=cargo_actual)).order_by("nombre")

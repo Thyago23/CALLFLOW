@@ -36,6 +36,8 @@
   </div>
 </div>
 
+{% include "cierre/_aviso_sin_ficha.html" %}
+
 {% if f.estado == "EN_GESTION" and not propio and not form_resultado %}
 <div class="alert alert-info small"><i class="bi bi-person-lock me-1" aria-hidden="true"></i>
   Este formulario lo está gestionando {{ f.encargado_asignado }}. Solo esa persona puede registrar el resultado.

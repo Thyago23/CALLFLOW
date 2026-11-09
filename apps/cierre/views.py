@@ -89,6 +89,7 @@ def bandeja(request):
         else [(Estado.VENTA_CERRADA, "Venta cerrada"), (Estado.NO_CONCRETADA, "No concretada")],
         "vendedores": Empleado.objects.filter(formularios_dami__isnull=False).distinct().order_by("apellidos", "nombres"),
         "resumen": servicios.resumen_bandeja(), "empleado": empleado,
+        "sin_ficha": servicios.sin_ficha(request.user),
     }
     plantilla = "cierre/_bandeja_tabla.html" if _es_htmx(request) else "cierre/bandeja.html"
     return render(request, plantilla, contexto)
@@ -123,6 +124,7 @@ def _detalle(request, formulario, form_resultado=None, form_correccion=None, sta
         "form_resultado": form_resultado if puede_registrar else None,
         "form_correccion": form_correccion,
         "form_reasignar": ReasignarForm(initial={"version": formulario.version}),
+        "sin_ficha": servicios.sin_ficha(usuario),
     }, status=status)
     if numero_tarjeta:  # el navegador no debe guardar en caché una página con el número completo
         add_never_cache_headers(respuesta)

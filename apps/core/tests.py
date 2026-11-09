@@ -44,7 +44,8 @@ class CreacionUsuarioTests(TestCase):
         cls.vendedor = Usuario.objects.create_user("vera.ventas", None, CLAVE, rol=Rol.VENDEDOR)
 
     def crear(self, **datos):
-        datos = {"first_name": "lucía", "last_name": "mora", "email": "", "rol": Rol.VENDEDOR, "empleado": ""} | datos
+        # Sin ficha de empleado solo se crean administradores (vendedores y encargados deben vincularse).
+        datos = {"first_name": "lucía", "last_name": "mora", "email": "", "rol": Rol.ADMINISTRADOR, "empleado": ""} | datos
         return self.client.post(reverse("usuario_crear"), datos, follow=True)
 
     def test_registro_publico_no_existe(self):
@@ -72,7 +73,7 @@ class CreacionUsuarioTests(TestCase):
         self.client.force_login(self.admin)
         self.crear()
         self.crear()
-        self.crear(first_name="Ángel", last_name="Núñez", rol=Rol.ENCARGADO_CIERRE)
+        self.crear(first_name="Ángel", last_name="Núñez")
         self.assertEqual(
             sorted(Usuario.objects.filter(creado_por=self.admin).values_list("username", flat=True)),
             ["angel.nunez", "lucia.mora", "lucia.mora2"],
@@ -82,9 +83,17 @@ class CreacionUsuarioTests(TestCase):
         empleado = Empleado.objects.create(identificacion="1710034065", nombres="Lucía", apellidos="Mora",
                                            cargo=Cargo.objects.first(), fecha_ingreso=date.today())
         self.client.force_login(self.admin)
-        self.crear(empleado=empleado.pk)
+        self.crear(empleado=empleado.pk, rol=Rol.VENDEDOR)
         empleado.refresh_from_db()
         self.assertEqual(empleado.usuario.username, "lucia.mora")
+
+    def test_vendedor_y_encargado_requieren_ficha_de_empleado(self):
+        self.client.force_login(self.admin)
+        for rol in (Rol.VENDEDOR, Rol.ENCARGADO_CIERRE):
+            with self.subTest(rol=rol):
+                form = self.crear(rol=rol).context["form"]
+                self.assertIn("Vincule la cuenta a su ficha", form.errors["empleado"][0])
+        self.assertFalse(Usuario.objects.filter(first_name="Lucía").exists())
 
     def test_validaciones(self):
         self.client.force_login(self.admin)

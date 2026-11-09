@@ -2,6 +2,7 @@
 {% block titulo %}Bandeja · Cierre de ventas{% endblock %}
 {% block contenido %}
 {% include "cierre/_subnav.html" with seccion="bandeja" %}
+{% include "cierre/_aviso_sin_ficha.html" %}
 
 <div class="row g-3 mb-3">
   <div class="col-6 col-lg-3"><div class="card resumen-dia h-100"><div class="card-body"><div class="valor">{{ resumen.en_cola }}</div><div class="small text-body-secondary">En la cola</div></div></div></div>

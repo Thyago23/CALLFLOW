@@ -4,11 +4,12 @@ from decimal import Decimal as D
 
 from cryptography.fernet import Fernet
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.test import override_settings
+from django.core.management import call_command
+from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
-from apps.core.models import Notificacion, RegistroCambio, Rol
+from apps.core.models import Notificacion, RegistroCambio, Rol, Usuario
 from apps.ventas.models import FormularioDAMI, RegistroProduccion, SolicitudBase
 from apps.ventas.servicios import solicitar_base, atender_solicitud, rechazar_solicitud
 from apps.ventas.models import BaseComercial
@@ -417,3 +418,19 @@ class SolicitudBaseNotificacionTests(BaseCierre):
     def test_vendedor_no_ve_contadores_de_encargado(self):
         self.client.force_login(self.lucia)
         self.assertNotContains(self.client.get(reverse("contadores")), "pendientes-bases")
+
+
+class EncargadoSinFichaTests(TestCase):
+    """Un encargado sin ficha de empleado ve por qué no puede gestionar y cómo se arregla."""
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("inicializar_datos", verbosity=0)
+        cls.marlon = Usuario.objects.create_user("marlon.prue", None, "x", first_name="Marlon", last_name="Prue",
+                                                 rol=Rol.ENCARGADO_CIERRE)
+
+    def test_bandeja_explica_que_falta_la_ficha(self):
+        self.client.force_login(self.marlon)
+        respuesta = self.client.get(reverse("cierre:bandeja"))
+        self.assertContains(respuesta, "no está vinculada a una ficha de empleado")
+        self.assertContains(respuesta, "marlon.prue")

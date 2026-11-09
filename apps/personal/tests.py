@@ -159,6 +159,26 @@ class EmpleadoVistasTests(TestCase):
         self.assertEqual(self.client.post(reverse("personal:empleado_crear"), datos_registro()).status_code, 403)
         self.assertEqual(Empleado.objects.count(), 0)
 
+    def test_vincula_una_cuenta_existente_sin_crear_otra(self):
+        marlon = Usuario.objects.create_user("marlon.prue", None, "clave-segura-123", first_name="Marlon", last_name="Prue",
+                                             rol=Rol.VENDEDOR)
+        self.client.force_login(self.admin)
+        formulario = self.client.get(reverse("personal:empleado_crear"))
+        self.assertContains(formulario, "marlon.prue")
+        datos = datos_registro(nombres="Marlon", apellidos="Prue", cuenta_existente=marlon.pk,
+                               cargo=Cargo.objects.get(nombre="Encargado de cierre").pk)
+        respuesta = self.client.post(reverse("personal:empleado_crear"), datos)
+        empleado = Empleado.objects.get(identificacion=CEDULA_VALIDA)
+        self.assertRedirects(respuesta, reverse("personal:empleado_detalle", args=[empleado.pk]), fetch_redirect_response=False)
+        marlon.refresh_from_db()
+        self.assertEqual((empleado.usuario, marlon.rol), (marlon, Rol.ENCARGADO_CIERRE))  # rol según el cargo
+        self.assertTrue(marlon.check_password("clave-segura-123"))  # conserva su código
+        self.assertFalse(Usuario.objects.filter(username__startswith="marlon.prue").exclude(pk=marlon.pk).exists())
+        # Una cuenta ya vinculada no se ofrece ni se acepta para otro empleado.
+        self.assertNotContains(self.client.get(reverse("personal:empleado_crear")), "marlon.prue")
+        otro = self.client.post(reverse("personal:empleado_crear"), datos_registro(identificacion=OTRA_CEDULA_VALIDA, cuenta_existente=marlon.pk))
+        self.assertIn("cuenta_existente", otro.context["form"].errors)
+
     def test_criterio4_registro_completo_y_aparece_en_listado(self):
         self.client.force_login(self.admin)
         self.assertContains(self.client.get(reverse("personal:empleado_crear")), "Registrar empleado")

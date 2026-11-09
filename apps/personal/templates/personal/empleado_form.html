@@ -105,9 +105,18 @@
   </section>
 
   {% if not editando %}
-  <p class="small text-body-secondary text-end mb-2">
-    <i class="bi bi-person-badge me-1" aria-hidden="true"></i>Al guardar se crea automáticamente su usuario y su código de acceso.
-  </p>
+  <section class="card mb-3">
+    <div class="card-body">
+      <div class="row align-items-end">
+        <div class="col-md-8">{% include "_campo.html" with campo=form.cuenta_existente ayuda=form.cuenta_existente.help_text %}</div>
+        <div class="col-md-4">
+          <p class="small text-body-secondary mb-3">
+            <i class="bi bi-person-badge me-1" aria-hidden="true"></i>Con «Crear una cuenta nueva», al guardar se generan su usuario y su código de acceso.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
   {% endif %}
   <div class="d-flex gap-2 justify-content-end">
     <a href="{% if editando %}{% url 'personal:empleado_detalle' object.pk %}{% else %}{% url 'personal:empleado_lista' %}{% endif %}" class="btn btn-outline-secondary">Cancelar</a>
