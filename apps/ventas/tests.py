@@ -298,6 +298,86 @@ class HojaProduccionTests(BaseVentas):
         self.assertEqual(self.client.get(reverse("ventas:hoja")).status_code, 403)
 
 
+class HojasDelAdministradorTests(BaseVentas):
+    """El administrador consulta la hoja de producción de cada vendedor, sin modificarla."""
+
+    def url_de(self, usuario):
+        return reverse("ventas:hoja_vendedor", args=[usuario.empleado.pk])
+
+    def test_listado_con_todos_los_vendedores_y_sus_totales(self):
+        self.crear(enviar=True)
+        self.cerrar(FormularioDAMI.objects.get(), valor=D("150.50"))
+        self.client.force_login(self.admin)
+        respuesta = self.client.get(reverse("ventas:hojas_vendedores"))
+        self.assertEqual([f["vendedor"] for f in respuesta.context["filas"]], [self.lucia.empleado, self.pedro.empleado])
+        self.assertContains(respuesta, "150,50")
+        self.assertContains(respuesta, self.url_de(self.pedro))
+        self.assertNotContains(respuesta, "Ana Torres")
+
+    def test_ve_la_hoja_individual_en_solo_lectura(self):
+        self.crear(enviar=True)
+        registro = RegistroProduccion.objects.get()
+        self.assertEqual(self.client.post(reverse("ventas:hoja_aprobacion", args=[registro.pk]), {"aprobacion": "004512"}).status_code, 200)
+        self.crear(usuario=self.pedro, enviar=True, cedula="0926687856", nombres="luis", apellidos="paredes")
+        self.client.force_login(self.admin)
+        respuesta = self.client.get(self.url_de(self.lucia))
+        for texto in ("Lucía Mora", "Carla Andrea Vega", "004512"):
+            self.assertContains(respuesta, texto)
+        self.assertNotContains(respuesta, "Luis Paredes")  # solo la hoja del vendedor pedido
+        self.assertNotContains(respuesta, "hx-post")
+        self.assertNotContains(respuesta, 'name="aprobacion"')
+
+    def test_el_administrador_no_escribe_la_aprobacion(self):
+        self.crear(enviar=True)
+        registro = RegistroProduccion.objects.get()
+        self.client.force_login(self.admin)
+        url = reverse("ventas:hoja_aprobacion", args=[registro.pk])
+        self.assertEqual(self.client.post(url, {"aprobacion": "1"}).status_code, 403)
+        registro.refresh_from_db()
+        self.assertEqual(registro.aprobacion, "")
+
+    def test_respeta_el_mes_pedido(self):
+        self.crear(enviar=True)
+        self.client.force_login(self.admin)
+        pasado = self.client.get(self.url_de(self.lucia), {"mes": "2026-01"})
+        self.assertEqual(pasado.context["mes_actual"], date(2026, 1, 1))
+        self.assertEqual(pasado.context["registros"], [])
+        self.assertContains(self.client.get(reverse("ventas:hojas_vendedores"), {"mes": "2026-01"}), "?mes=2026-01")
+
+    def test_mes_invalido_o_futuro_muestra_el_mes_en_curso(self):
+        self.client.force_login(self.admin)
+        hoy = timezone.localdate()
+        for mes in ("abc", "2026-13", "9999-12", "99999999999999999999-01"):
+            respuesta = self.client.get(reverse("ventas:hojas_vendedores"), {"mes": mes})
+            self.assertEqual(respuesta.context["mes_actual"], hoy.replace(day=1), mes)
+
+    def test_vendedor_que_dejo_el_cargo_sigue_consultable_si_tiene_hoja(self):
+        self.crear(enviar=True)
+        Empleado.objects.filter(pk=self.lucia.empleado.pk).update(estado=Empleado.Estado.INACTIVO)
+        Usuario.objects.filter(pk=self.lucia.pk).update(rol=Rol.ENCARGADO_CIERRE)
+        self.client.force_login(self.admin)
+        self.assertEqual(self.client.get(self.url_de(self.lucia)).status_code, 200)
+        self.assertContains(self.client.get(reverse("ventas:hojas_vendedores")), "Lucía Mora")
+
+    def test_solo_el_administrador_entra(self):
+        urls = (reverse("ventas:hojas_vendedores"), self.url_de(self.lucia))
+        for usuario in (self.lucia, self.pedro, self.ana):
+            self.client.force_login(usuario)
+            for url in urls:
+                self.assertEqual(self.client.get(url).status_code, 403, (usuario, url))
+
+    def test_quien_no_es_vendedor_no_tiene_hoja(self):
+        self.client.force_login(self.admin)
+        self.assertEqual(self.client.get(self.url_de(self.ana)).status_code, 404)
+
+    def test_el_menu_lleva_al_listado_solo_al_administrador(self):
+        enlace = reverse("ventas:hojas_vendedores")
+        self.client.force_login(self.admin)
+        self.assertContains(self.client.get(reverse("ventas:formularios")), enlace)
+        self.client.force_login(self.lucia)
+        self.assertNotContains(self.client.get(reverse("ventas:formularios")), enlace)
+
+
 class PanelTests(BaseVentas):
     """SCRUM-45"""
 

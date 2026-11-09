@@ -24,7 +24,7 @@ from django.utils import timezone
 from apps.core.models import Notificacion, Rol
 from apps.personal.models import Empleado
 from apps.ventas.models import FormularioDAMI
-from apps.ventas.servicios import _notificar, empleado_de
+from apps.ventas.servicios import _notificar, empleado_de, es_administrador
 
 from .models import GestionCierre, MetaMensual, MovimientoAsignacion, PreferenciaPanel, ResumenVendedorMes
 
@@ -54,10 +54,6 @@ class Conflicto(ValidationError):
 # --------------------------------------------------------------------------- quién es quién
 def es_encargado(usuario) -> bool:
     return usuario.rol == Rol.ENCARGADO_CIERRE and empleado_de(usuario) is not None
-
-
-def es_administrador(usuario) -> bool:
-    return usuario.rol == Rol.ADMINISTRADOR or usuario.is_superuser
 
 
 def encargados_activos():

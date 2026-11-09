@@ -8,6 +8,7 @@ Reglas que también cuida la base de datos (triggers de la migración 0002):
 Aquí: quién puede ver/editar cada formulario, notificaciones y estadísticas.
 """
 import re
+from collections import defaultdict
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
@@ -19,6 +20,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from apps.core.models import Notificacion, Rol, Usuario
+from apps.personal.models import Empleado
 
 from . import tarjetas
 from .models import (AsignacionBase, BaseComercial, Cliente, FormularioDAMI, HojaProduccion, RegistroProduccion,
@@ -35,6 +37,10 @@ def empleado_de(usuario):
 
 def es_vendedor(usuario) -> bool:
     return usuario.rol == Rol.VENDEDOR and empleado_de(usuario) is not None
+
+
+def es_administrador(usuario) -> bool:
+    return usuario.rol == Rol.ADMINISTRADOR or usuario.is_superuser
 
 
 def formularios_visibles(usuario):
@@ -189,6 +195,23 @@ def hoja_del_mes(empleado, anio: int, mes: int) -> dict:
         "filas_vacias": range(len(registros) + 1, FILAS_HOJA_PAPEL + 1),
         "totales": totales(registros),
     }
+
+
+def vendedores_con_hoja():
+    """Quien hoy es vendedor o quien alguna vez tuvo hoja (aunque ya no trabaje o haya cambiado de rol)."""
+    return Empleado.objects.filter(Q(usuario__rol=Rol.VENDEDOR) | Q(hojas_produccion__isnull=False)).distinct()
+
+
+def hojas_del_mes(anio: int, mes: int) -> list[dict]:
+    """Totales del mes por vendedor para el listado del administrador: vendedores activos y quien tenga hoja ese mes."""
+    vendedores = (Empleado.objects
+                  .filter(Q(usuario__rol=Rol.VENDEDOR, estado=Empleado.Estado.ACTIVO)
+                          | Q(hojas_produccion__anio=anio, hojas_produccion__mes=mes))
+                  .distinct().order_by("apellidos", "nombres"))
+    por_vendedor = defaultdict(list)
+    for registro in RegistroProduccion.objects.filter(hoja__anio=anio, hoja__mes=mes).select_related("hoja"):
+        por_vendedor[registro.hoja.vendedor_id].append(registro)
+    return [{"vendedor": v, "totales": totales(por_vendedor[v.pk])} for v in vendedores]
 
 
 def guardar_aprobacion(usuario, registro_id: int, texto: str) -> RegistroProduccion:

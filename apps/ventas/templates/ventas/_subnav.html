@@ -14,6 +14,8 @@
   <li class="nav-item"><a class="nav-link {% if seccion == 'formularios' %}active{% endif %}" href="{% url 'ventas:formularios' %}"><i class="bi bi-file-earmark-text me-1" aria-hidden="true"></i>{% if user.rol == "VENDEDOR" %}Mis borradores{% else %}Formularios DAMI{% endif %}</a></li>
   {% if user.rol == "VENDEDOR" and user.empleado %}
   <li class="nav-item"><a class="nav-link {% if seccion == 'hoja' %}active{% endif %}" href="{% url 'ventas:hoja' %}"><i class="bi bi-table me-1" aria-hidden="true"></i>Hoja de producción</a></li>
+  {% elif user.rol == "ADMINISTRADOR" or user.is_superuser %}
+  <li class="nav-item"><a class="nav-link {% if seccion == 'hoja' %}active{% endif %}" href="{% url 'ventas:hojas_vendedores' %}"><i class="bi bi-table me-1" aria-hidden="true"></i>Hojas de producción</a></li>
   {% endif %}
   {% if perms.ventas.view_rangobin %}
   <li class="nav-item"><a class="nav-link {% if seccion == 'tarjetas' %}active{% endif %}" href="{% url 'ventas:validar_tarjeta' %}"><i class="bi bi-credit-card-2-front me-1" aria-hidden="true"></i>Validar tarjetas</a></li>

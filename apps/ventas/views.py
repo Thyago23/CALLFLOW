@@ -32,6 +32,11 @@ def _solo_vendedores(request):
     return servicios.empleado_de(request.user)
 
 
+def _solo_administradores(request):
+    if not servicios.es_administrador(request.user):
+        raise PermissionDenied("Esta sección es para administradores.")
+
+
 # --------------------------------------------------------------------------- inicio del módulo / panel (SCRUM-45)
 @login_required
 @permission_required("ventas.view_formulariodami", raise_exception=True)
@@ -202,23 +207,51 @@ def buscar_cliente(request):
 
 
 # --------------------------------------------------------------------------- hoja de producción (SCRUM-43, 44)
+def _mes_pedido(request):
+    """Lee ?mes=AAAA-MM (si no es válido o es futuro, el mes en curso) y arma la navegación entre meses."""
+    hoy = timezone.localdate()
+    try:
+        anio, mes = (int(x) for x in request.GET.get("mes", "").split("-"))
+        pedido = date(anio, mes, 1)
+    except (ValueError, OverflowError):
+        pedido = hoy
+    if pedido > hoy:
+        pedido = hoy
+    anio, mes = pedido.year, pedido.month
+    anterior = (anio - 1, 12) if mes == 1 else (anio, mes - 1)
+    siguiente = (anio + 1, 1) if mes == 12 else (anio, mes + 1)
+    return anio, mes, {
+        "mes_actual": date(anio, mes, 1),
+        "anterior": f"{anterior[0]}-{anterior[1]:02d}",
+        "siguiente": f"{siguiente[0]}-{siguiente[1]:02d}" if date(*siguiente, 1) <= hoy.replace(day=1) else None,
+    }
+
+
 @login_required
 @permission_required("ventas.view_hojaproduccion", raise_exception=True)
 def hoja(request):
     empleado = _solo_vendedores(request)
-    hoy = timezone.localdate()
-    try:
-        anio, mes = (int(x) for x in request.GET.get("mes", "").split("-"))
-        date(anio, mes, 1)
-    except ValueError:
-        anio, mes = hoy.year, hoy.month
-    anterior = (anio - 1, 12) if mes == 1 else (anio, mes - 1)
-    siguiente = (anio + 1, 1) if mes == 12 else (anio, mes + 1)
-    return render(request, "ventas/hoja.html", servicios.hoja_del_mes(empleado, anio, mes) | {
-        "mes_actual": date(anio, mes, 1),
-        "anterior": f"{anterior[0]}-{anterior[1]:02d}",
-        "siguiente": f"{siguiente[0]}-{siguiente[1]:02d}" if date(*siguiente, 1) <= hoy.replace(day=1) else None,
-    })
+    anio, mes, navegacion = _mes_pedido(request)
+    return render(request, "ventas/hoja.html", servicios.hoja_del_mes(empleado, anio, mes) | navegacion)
+
+
+@login_required
+@permission_required("ventas.view_hojaproduccion", raise_exception=True)
+def hojas_vendedores(request):
+    """Administrador: listado de vendedores con sus totales del mes."""
+    _solo_administradores(request)
+    anio, mes, navegacion = _mes_pedido(request)
+    return render(request, "ventas/hojas_vendedores.html", {"filas": servicios.hojas_del_mes(anio, mes)} | navegacion)
+
+
+@login_required
+@permission_required("ventas.view_hojaproduccion", raise_exception=True)
+def hoja_vendedor(request, pk):
+    """Administrador: la hoja de un vendedor, solo lectura (la aprobación la escribe el vendedor)."""
+    _solo_administradores(request)
+    empleado = get_object_or_404(servicios.vendedores_con_hoja(), pk=pk)
+    anio, mes, navegacion = _mes_pedido(request)
+    return render(request, "ventas/hoja.html", servicios.hoja_del_mes(empleado, anio, mes) | navegacion | {"solo_lectura": True})
 
 
 @login_required
