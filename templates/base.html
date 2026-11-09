@@ -105,6 +105,7 @@
   <script src="{% static 'vendor/bootstrap.bundle.min.js' %}"></script>
   <script src="{% static 'vendor/htmx.min.js' %}"></script>
   {% if user.is_authenticated %}
+  {% include "_modal_confirmar.html" %}
   {# Avisos flotantes de notificaciones nuevas (esquina inferior izquierda). #}
   <div id="avisos-flotantes" class="toast-container position-fixed bottom-0 start-0 p-3"></div>
   <script>

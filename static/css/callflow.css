@@ -719,3 +719,8 @@ details.anular-caja > summary::-webkit-details-marker { display: none; }
 .panel-campana { width: 22rem; max-width: calc(100vw - 1rem); }
 .panel-campana .lista-campana { max-height: 22rem; overflow-y: auto; }
 .btn-close-sm { font-size: 0.7rem; }
+
+/* Ventana de confirmación reutilizable: color del icono según el tono */
+.icono-confirmar.tono-danger { background: var(--bs-danger-bg-subtle); color: var(--bs-danger-text-emphasis); }
+.icono-confirmar.tono-warning { background: var(--bs-warning-bg-subtle); color: var(--bs-warning-text-emphasis); }
+.icono-confirmar.tono-success { background: var(--bs-success-bg-subtle); color: var(--bs-success-text-emphasis); }

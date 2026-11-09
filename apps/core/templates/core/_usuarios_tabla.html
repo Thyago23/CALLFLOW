@@ -29,7 +29,9 @@
           {% if perms.core.change_usuario %}
           <td class="text-end text-nowrap">
             <form method="post" action="{% url 'usuario_restablecer_clave' u.pk %}" class="d-inline"
-                  onsubmit="return confirm('¿Generar un código de acceso nuevo para {{ u.username }}? El actual dejará de funcionar.');">
+                  data-confirmar-titulo="¿Generar un código de acceso nuevo?" data-confirmar-icono="key" data-confirmar-tono="warning"
+                  data-confirmar="El código actual de {{ u.get_full_name|default:u.username }} ({{ u.username }}) dejará de funcionar. El nuevo se mostrará una sola vez para entregárselo."
+                  data-confirmar-boton="Generar código nuevo">
               {% csrf_token %}
               <button type="submit" class="btn btn-sm btn-outline-secondary" title="Generar código de acceso nuevo">
                 <i class="bi bi-key" aria-hidden="true"></i><span class="d-none d-xl-inline ms-1">Nuevo código</span>
@@ -37,7 +39,9 @@
             </form>
             {% if u != user %}
             <form method="post" action="{% url 'usuario_cambiar_estado' u.pk %}" class="d-inline"
-                  {% if u.is_active %}onsubmit="return confirm('¿Desactivar la cuenta {{ u.username }}? No podrá ingresar hasta que la active de nuevo.');"{% endif %}>
+                  {% if u.is_active %}data-confirmar-titulo="¿Desactivar la cuenta?" data-confirmar-icono="person-slash" data-confirmar-tono="danger"
+                  data-confirmar="{{ u.get_full_name|default:u.username }} ({{ u.username }}) no podrá ingresar a CALLFLOW hasta que active su cuenta de nuevo. Sus datos y registros se conservan."
+                  data-confirmar-boton="Sí, desactivar"{% endif %}>
               {% csrf_token %}
               {% if u.is_active %}
               <button type="submit" class="btn btn-sm btn-outline-danger" title="Desactivar"><i class="bi bi-person-slash" aria-hidden="true"></i><span class="d-none d-xl-inline ms-1">Desactivar</span></button>
