@@ -13,7 +13,7 @@ from django.utils.safestring import mark_safe
 
 from .formato import compacto, dinero
 
-AZUL, GRIS_META, REJILLA, TEXTO = "#0e325c", "#8a94a3", "#e4e8ee", "#5f6b7a"
+AZUL, GRIS_META, REJILLA, TEXTO = "#0062a8", "#8a94a3", "#e1eaf3", "#5b6b7a"
 ANCHO, ALTO = 760, 280
 M_IZQ, M_DER, M_SUP, M_INF = 58, 24, 22, 34
 
@@ -47,7 +47,7 @@ def _punto(x, y, titulo, hueco=False):
 
 
 def _etiqueta(x, y, texto, ancla="middle"):
-    return f'<text x="{x:.1f}" y="{y - 10:.1f}" text-anchor="{ancla}" font-size="12" font-weight="600" fill="#1d2733">{escape(texto)}</text>'
+    return f'<text x="{x:.1f}" y="{y - 10:.1f}" text-anchor="{ancla}" font-size="12" font-weight="600" fill="#0a2a4a">{escape(texto)}</text>'
 
 
 def _svg(titulo, descripcion, partes):
@@ -135,9 +135,9 @@ def acumulado_mes(dias_mes: int, diario, proyeccion=None, meta=None) -> str:
 
 
 # --------------------------------------------------------------------------- barras por mes (estadísticas del vendedor)
-# Dos series categóricas validadas (daltonismo y contraste sobre fondo blanco): azul y naranja.
-SERIE_1, SERIE_2 = "#2a78d6", "#eb6834"
-TINTA = "#1d2733"
+# Dos series categóricas (daltonismo y contraste sobre fondo blanco): Azul Visa de la marca y naranja.
+SERIE_1, SERIE_2 = "#0062a8", "#eb6834"
+TINTA = "#0a2a4a"
 
 
 def _barra(x, y, ancho, alto, color, radio=4) -> str:
