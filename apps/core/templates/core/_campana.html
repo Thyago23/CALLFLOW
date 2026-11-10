@@ -24,5 +24,7 @@
 {% else %}
 <p class="text-body-secondary small px-3 py-4 mb-0 text-center"><i class="bi bi-bell-slash d-block fs-4 mb-1" aria-hidden="true"></i>No tiene notificaciones.</p>
 {% endif %}
-<div class="border-top px-3 py-2 small bg-body-tertiary" data-estado-push></div>
+<div class="border-top px-3 py-2 small bg-body-tertiary" data-estado-push data-ocultar-si-activo></div>
+{# Al marcar como leídas (o abrir el panel) el número de la campana se actualiza al instante. #}
+<span id="contador-notificaciones" hx-swap-oob="innerHTML">{% include "core/_contador_campana.html" %}</span>
 <div class="border-top px-3 py-2 text-center"><a class="small text-decoration-none" href="{% url 'notificaciones' %}">Ver todas</a></div>

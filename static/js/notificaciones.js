@@ -59,6 +59,8 @@
   function pintar() {
     document.querySelectorAll("[data-estado-push]").forEach((zona) => {
       zona.replaceChildren();
+      // En la campana la opción desaparece una vez activados (se puede desactivar en /notificaciones/).
+      zona.hidden = estado === "activo" && zona.hasAttribute("data-ocultar-si-activo");
       if (!TEXTOS[estado]) return;
       const [icono, mensaje] = TEXTOS[estado];
       const fila = crear("div", "d-flex align-items-center justify-content-between gap-2");
@@ -118,7 +120,9 @@
   // El panel de la campana llega por HTMX: se vuelve a pintar el estado cuando aparece.
   document.body.addEventListener("htmx:afterSwap", pintar);
 
-  // Al cerrar sesión, este navegador deja de recibir los avisos de esa persona.
+  // Al cerrar sesión, este navegador deja de recibir los avisos de esa persona: se borra la suscripción en
+  // el servidor, pero el navegador la conserva para no tener que «Activar» otra vez en cada inicio de sesión
+  // (al volver a entrar, refrescar() la registra a nombre de quien tenga la sesión).
   document.querySelectorAll("form[data-cerrar-sesion]").forEach((form) => {
     form.addEventListener("submit", (evento) => {
       // defaultPrevented: la ventana de confirmación frenó el envío; se espera a que la persona acepte.
@@ -127,10 +131,7 @@
       (async () => {
         try {
           const suscripcion = await suscripcionActual();
-          if (suscripcion) {
-            await enviar(URLS.desuscribir, { endpoint: suscripcion.endpoint }).catch(() => {});
-            await suscripcion.unsubscribe();
-          }
+          if (suscripcion) await enviar(URLS.desuscribir, { endpoint: suscripcion.endpoint }).catch(() => {});
         } catch (e) {
           /* aunque falle, se cierra la sesión */
         } finally {

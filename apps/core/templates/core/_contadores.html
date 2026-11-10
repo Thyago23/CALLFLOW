@@ -1,5 +1,4 @@
-{% if notificaciones_sin_leer %}<span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger contador">{{ notificaciones_sin_leer }}</span>{% endif %}
-{% if avisos_nuevos %}<div hx-swap-oob="beforeend:#avisos-flotantes">{% for n in avisos_nuevos %}{% include "core/_aviso_flotante.html" %}{% endfor %}</div>{% endif %}
+{% include "core/_contador_campana.html" %}{% if avisos_nuevos %}<div hx-swap-oob="beforeend:#avisos-flotantes">{% for n in avisos_nuevos %}{% include "core/_aviso_flotante.html" %}{% endfor %}</div>{% endif %}
 {% if dami_sin_asignar is not None %}<span id="pendientes-cierre" hx-swap-oob="true" class="badge rounded-pill text-bg-danger ms-auto {% if not dami_sin_asignar %}d-none{% endif %}" title="Formularios DAMI sin asignar">{{ dami_sin_asignar }}</span>{% endif %}
 {% if solicitudes_base_pendientes is not None %}<span id="pendientes-bases-menu" hx-swap-oob="true" class="badge rounded-pill text-bg-danger ms-auto {% if not solicitudes_base_pendientes %}d-none{% endif %}" title="Solicitudes de bases pendientes">{{ solicitudes_base_pendientes }}</span>
 <span id="pendientes-bases" hx-swap-oob="true" class="badge rounded-pill text-bg-danger ms-1 {% if not solicitudes_base_pendientes %}d-none{% endif %}">{{ solicitudes_base_pendientes }}</span>{% endif %}

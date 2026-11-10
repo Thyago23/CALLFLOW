@@ -48,8 +48,8 @@
         <button type="button" class="btn btn-link text-body position-relative p-2" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false"
                 aria-label="Notificaciones" hx-get="{% url 'notificaciones_panel' %}" hx-trigger="show.bs.dropdown" hx-target="#panel-campana">
           <i class="bi bi-bell fs-5" aria-hidden="true"></i>
-          {# Cada 15 s (y al abrir la página): contador, avisos de agenda y avisos flotantes nuevos. #}
-          <span id="contador-notificaciones" hx-get="{% url 'contadores' %}" hx-trigger="load, every 15s" hx-swap="innerHTML">{% if notificaciones_sin_leer %}<span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger contador">{{ notificaciones_sin_leer }}</span>{% endif %}</span>
+          {# Cada 5 s (y al abrir la página): contador, avisos de agenda y avisos flotantes nuevos. #}
+          <span id="contador-notificaciones" hx-get="{% url 'contadores' %}" hx-trigger="load, every 5s" hx-swap="innerHTML">{% include "core/_contador_campana.html" %}</span>
         </button>
         <div class="dropdown-menu dropdown-menu-end p-0 panel-campana" id="panel-campana">
           <p class="text-body-secondary small px-3 py-3 mb-0">Cargando…</p>

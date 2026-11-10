@@ -251,7 +251,7 @@ class NotificacionesEnPantallaTests(TestCase):
         respuesta = self.client.get(reverse("inicio"))
         self.assertContains(respuesta, 'id="avisos-flotantes"')
         self.assertContains(respuesta, "bottom-0 start-0")
-        self.assertContains(respuesta, 'hx-trigger="load, every 15s"')
+        self.assertContains(respuesta, 'hx-trigger="load, every 5s"')
 
     def test_cada_notificacion_nueva_aparece_una_sola_vez(self):
         self.consultar()  # al entrar: nada nuevo

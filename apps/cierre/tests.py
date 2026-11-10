@@ -411,7 +411,7 @@ class SolicitudBaseNotificacionTests(BaseCierre):
         self.assertContains(respuesta, 'title="Solicitudes de bases pendientes">1</span>')
         self.assertContains(respuesta, "bg-danger contador")
         pagina = self.client.get(reverse("inicio"))
-        self.assertContains(pagina, 'hx-trigger="load, every 15s"')  # al abrir la página y cada 15 s
+        self.assertContains(pagina, 'hx-trigger="load, every 5s"')  # al abrir la página y cada 5 s
         self.assertContains(pagina, "Solicitudes de bases pendientes")
         self.assertEqual(SolicitudBase.objects.count(), 1)
 
