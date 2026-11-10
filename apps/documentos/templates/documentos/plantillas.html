@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block titulo %}Plantillas de contrato{% endblock %}
+{% block contenido %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+  <div>
+    <h1 class="h3 mb-0">Plantillas de contrato</h1>
+    <p class="text-body-secondary mb-0 small">Textos base que se llenan con los datos de cada empleado. Los contratos se generan desde la ficha del empleado, en la pestaña Contratos.</p>
+  </div>
+  {% if perms.documentos.add_plantillacontrato %}
+  <a href="{% url 'documentos:plantilla_nueva' %}" class="btn btn-primary"><i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Nueva plantilla</a>
+  {% endif %}
+</div>
+
+{% if plantillas %}
+<div class="row g-3">
+  {% for p in plantillas %}
+  <div class="col-md-6 col-xl-4">
+    <div class="card h-100">
+      <div class="card-body d-flex flex-column">
+        <div class="d-flex align-items-start gap-3 mb-2">
+          <span class="icono-modulo" aria-hidden="true"><i class="bi bi-file-earmark-text"></i></span>
+          <div class="min-w-0">
+            <h2 class="h6 mb-1">{{ p.nombre }}</h2>
+            <div class="small text-body-secondary">
+              Versión {{ p.version }} · {% if p.tipo_contrato %}{{ p.tipo_contrato|lower|capfirst }}{% else %}Cualquier contrato{% endif %}
+            </div>
+          </div>
+        </div>
+        {% if "EJEMPLO" in p.nombre %}
+        <div class="alert alert-warning small py-1 px-2 mb-2"><i class="bi bi-exclamation-triangle me-1" aria-hidden="true"></i>Modelo de ejemplo: reemplácelo por el contrato oficial.</div>
+        {% endif %}
+        <p class="small text-body-secondary mb-3">{{ p.campos_variables|length }} datos automáticos · {{ p.usos }} contrato{{ p.usos|pluralize }} generado{{ p.usos|pluralize }}</p>
+        {% if perms.documentos.add_plantillacontrato %}
+        <a href="{% url 'documentos:plantilla_editar' p.pk %}" class="btn btn-sm btn-outline-primary mt-auto align-self-start"><i class="bi bi-pencil me-1" aria-hidden="true"></i>Editar</a>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="card"><p class="card-body text-body-secondary mb-0">Todavía no hay plantillas. Cree la primera con el texto del contrato de la empresa.</p></div>
+{% endif %}
+{% endblock %}

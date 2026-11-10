@@ -1,0 +1,2 @@
+{# Foto de perfil o, si no tiene, las iniciales. Recibe `u` (usuario) y opcional `clase` (p. ej. avatar-grande). #}
+{% if u.url_foto %}<img src="{{ u.url_foto }}" alt="" class="avatar con-foto {{ clase }}" width="34" height="34" loading="lazy">{% else %}<span class="avatar {{ clase }}" aria-hidden="true">{{ u.iniciales }}</span>{% endif %}

@@ -1,0 +1,8 @@
+{# Barra de gestión: DAMI sacado · No quiere · No contestó · pendientes. Recibe `f` (fila de servicios.seguimiento). #}
+<div class="avance-base" role="img"
+     aria-label="{{ f.gestionados }} de {{ f.enviados }} gestionados: {{ f.dami_sacado }} DAMI sacados, {{ f.no_quiere }} no quieren, {{ f.no_contesto }} no contestaron, {{ f.pendientes }} pendientes">
+  {% if f.enviados %}
+  {% widthratio f.dami_sacado f.enviados 100 as a %}{% widthratio f.no_quiere f.enviados 100 as b %}{% widthratio f.no_contesto f.enviados 100 as c %}
+  <span class="seg seg-dami" style="width: {{ a }}%"></span><span class="seg seg-no-quiere" style="width: {{ b }}%"></span><span class="seg seg-no-contesto" style="width: {{ c }}%"></span>
+  {% endif %}
+</div>

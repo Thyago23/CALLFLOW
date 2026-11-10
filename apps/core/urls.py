@@ -1,0 +1,26 @@
+from django.contrib.auth import views as auth_views
+from django.urls import path
+
+from . import views
+
+urlpatterns = [
+    path("", views.dashboard, name="inicio"),
+    path("cuentas/ingresar/", views.IngresoView.as_view(), name="login"),
+    path("cuentas/salir/", auth_views.LogoutView.as_view(), name="logout"),
+    path("cuentas/cambiar-clave/", views.cambiar_clave, name="cambiar_clave"),
+    path("perfil/", views.perfil, name="perfil"),
+    path("perfil/foto/<int:pk>/", views.foto_perfil, name="foto_perfil"),
+    path("usuarios/", views.usuarios, name="usuarios"),
+    path("usuarios/nuevo/", views.usuario_crear, name="usuario_crear"),
+    path("usuarios/credenciales/", views.usuario_credenciales, name="usuario_credenciales"),
+    path("usuarios/<int:pk>/restablecer-clave/", views.usuario_restablecer_clave, name="usuario_restablecer_clave"),
+    path("usuarios/<int:pk>/cambiar-estado/", views.usuario_cambiar_estado, name="usuario_cambiar_estado"),
+    path("notificaciones/", views.notificaciones, name="notificaciones"),
+    path("notificaciones/marcar-leidas/", views.marcar_notificaciones_leidas, name="notificaciones_leidas"),
+    path("notificaciones/contadores/", views.contadores, name="contadores"),
+    path("notificaciones/panel/", views.panel_notificaciones, name="notificaciones_panel"),
+    path("notificaciones/<int:pk>/abrir/", views.abrir_notificacion, name="notificacion_abrir"),
+    path("notificaciones/push/suscribir/", views.push_suscribir, name="push_suscribir"),
+    path("notificaciones/push/desuscribir/", views.push_desuscribir, name="push_desuscribir"),
+    path("sw.js", views.service_worker, name="service_worker"),
+]

@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block titulo %}Mis contactos · Ventas{% endblock %}
+{% block contenido %}
+{% include "ventas/_subnav.html" with seccion="bases" %}
+
+<div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
+  <div>
+    <h2 class="h4 mb-0">Mis contactos</h2>
+    <p class="small text-body-secondary mb-0">Llame a cada cliente y márquelo: <strong>No contestó</strong>, <strong>No quiere</strong> o <strong>DAMI sacado</strong>.</p>
+  </div>
+  <a href="{% url 'ventas:bases' %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-database me-1" aria-hidden="true"></i>Mis bases y solicitudes</a>
+</div>
+
+{% include "ventas/_ayudas_pendientes.html" %}
+{% include "ventas/_resumen_contactos.html" %}
+
+<form method="get" class="row g-2 align-items-end mb-3">
+  <div class="col-sm-6 col-lg-4">
+    <label class="form-label small mb-1" for="buscar-contacto">Buscar</label>
+    <input id="buscar-contacto" type="search" name="q" value="{{ q }}" class="form-control" placeholder="Nombre, cédula, número o ciudad">
+  </div>
+  <div class="col-sm-6 col-lg-3">
+    <label class="form-label small mb-1" for="filtro-base">Base</label>
+    <select id="filtro-base" name="base" class="form-select" onchange="this.form.requestSubmit()">
+      <option value="">Todas mis bases</option>
+      {% for f in resumen %}<option value="{{ f.base.pk }}" {% if base_id == f.base.pk|stringformat:"s" %}selected{% endif %}>{{ f.base.nombre }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="col-12 col-lg">
+    <span class="form-label small mb-1 d-block">Mostrar</span>
+    <div class="btn-group flex-wrap" role="group" aria-label="Filtrar por categoría">
+      <input type="radio" class="btn-check" name="estado" id="estado-todos" value="" {% if not estado %}checked{% endif %} onchange="this.form.requestSubmit()">
+      <label class="btn btn-outline-secondary btn-sm" for="estado-todos">Todos</label>
+      {% for valor, nombre in estados %}
+      <input type="radio" class="btn-check" name="estado" id="estado-{{ valor|lower }}" value="{{ valor }}" {% if estado == valor %}checked{% endif %} onchange="this.form.requestSubmit()">
+      <label class="btn btn-outline-secondary btn-sm" for="estado-{{ valor|lower }}">{% if valor == "PENDIENTE" %}Por gestionar{% else %}{{ nombre }}{% endif %}</label>
+      {% endfor %}
+    </div>
+  </div>
+</form>
+
+<section class="card">
+  {% if pagina.object_list %}
+  <ul class="list-unstyled mb-0 lista-contactos">
+    {% for r in pagina.object_list %}{% include "ventas/_fila_contacto.html" %}{% endfor %}
+  </ul>
+  {% else %}
+  <div class="text-center text-body-secondary py-5">
+    <i class="bi bi-{% if resumen %}check2-all{% else %}inbox{% endif %} fs-2 d-block mb-2" aria-hidden="true"></i>
+    {% if not resumen %}Todavía no le enviaron contactos. Pida una base en <a href="{% url 'ventas:bases' %}">Bases comerciales</a>.
+    {% elif estado == "PENDIENTE" %}No le quedan contactos por gestionar en este filtro.
+    {% else %}No hay contactos con este filtro.{% endif %}
+  </div>
+  {% endif %}
+</section>
+{% if pagina.has_other_pages %}
+<nav class="mt-3" aria-label="Páginas">
+  <ul class="pagination pagination-sm mb-0">
+    {% if pagina.has_previous %}<li class="page-item"><a class="page-link" href="?q={{ q|urlencode }}&base={{ base_id }}&estado={{ estado }}&pagina={{ pagina.previous_page_number }}">Anteriores</a></li>{% endif %}
+    <li class="page-item active" aria-current="page"><span class="page-link">{{ pagina.number }} de {{ pagina.paginator.num_pages }}</span></li>
+    {% if pagina.has_next %}<li class="page-item"><a class="page-link" href="?q={{ q|urlencode }}&base={{ base_id }}&estado={{ estado }}&pagina={{ pagina.next_page_number }}">Siguientes</a></li>{% endif %}
+  </ul>
+</nav>
+{% endif %}
+<script>
+  (function () {
+    // Los contactos que ya no corresponden al filtro dejan un aviso con «Deshacer» que se va solo.
+    // Si la lista queda vacía, se recarga para traer los siguientes contactos.
+    function programar(aviso) {
+      if (aviso.dataset.programado) return;
+      aviso.dataset.programado = "1";
+      setTimeout(function () {
+        if (!aviso.isConnected) return;  // se deshizo: ya es otra fila
+        aviso.classList.add("saliendo");
+        setTimeout(function () {
+          const lista = aviso.parentElement;
+          aviso.remove();
+          if (lista && !lista.querySelector(".contacto-base, .contacto-hecho")) window.location.reload();
+        }, 400);
+      }, 5000);
+    }
+    document.body.addEventListener("htmx:afterSwap", function () {
+      document.querySelectorAll(".contacto-hecho").forEach(programar);
+    });
+  })();
+</script>
+{% endblock %}

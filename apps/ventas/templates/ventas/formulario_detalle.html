@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% load humanize_cf %}
+{% block titulo %}{{ f }} · Ventas{% if editable %}{% include "ventas/_modal_enviar.html" %}{% endif %}
+{% endblock %}
+{% block contenido %}
+<nav aria-label="Ruta" class="mb-2">
+  <ol class="breadcrumb small mb-0">
+    <li class="breadcrumb-item">{% if user.rol == "VENDEDOR" %}<a href="{% url 'ventas:inicio' %}">Ventas</a>{% else %}<a href="{% url 'ventas:formularios' %}">Formularios DAMI</a>{% endif %}</li>
+    <li class="breadcrumb-item active" aria-current="page">{{ f }}</li>
+  </ol>
+</nav>
+
+<div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
+  <div>
+    <h1 class="h3 mb-1">{{ f }}
+      <span class="badge estado-dami estado-{{ f.estado|lower }} align-middle fs-6">{{ f.get_estado_display }}</span>
+    </h1>
+    <div class="text-body-secondary">Fecha: {{ f.creado_en|date:"d/m/Y" }} · Asesor: {{ f.vendedor }}{% if f.ayudado_por %} · lo llenó {{ f.ayudado_por }} como ayuda{% endif %}</div>
+  </div>
+  {% if editable %}
+  <div class="d-flex flex-wrap gap-2">
+    <a href="{% url 'ventas:formulario_editar' f.pk %}" class="btn btn-outline-secondary"><i class="bi bi-pencil me-1" aria-hidden="true"></i>Editar</a>
+    <form method="post" action="{% url 'ventas:formulario_accion' f.pk %}">
+      {% csrf_token %}<input type="hidden" name="accion" value="enviar">
+      <button type="submit" class="btn btn-primary" data-pide-confirmacion><i class="bi bi-send me-1" aria-hidden="true"></i>Enviar a cierre</button>
+    </form>
+    <form method="post" action="{% url 'ventas:formulario_accion' f.pk %}" onsubmit="return confirm('¿Anular este borrador?');">
+      {% csrf_token %}<input type="hidden" name="accion" value="anular">
+      <button type="submit" class="btn btn-outline-danger">Anular</button>
+    </form>
+  </div>
+  {% endif %}
+</div>
+
+{% if otros_en_curso %}
+<div class="alert alert-warning small"><i class="bi bi-exclamation-triangle me-1" aria-hidden="true"></i>
+  Este cliente tiene otro formulario en curso: {% for o in otros_en_curso %}{{ o }} ({{ o.vendedor }}){% if not forloop.last %}, {% endif %}{% endfor %}.
+</div>
+{% endif %}
+
+<div class="row g-4">
+  <div class="col-lg-7">
+    <section class="card mb-4">
+      <div class="card-body">
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+          <h2 class="h6 text-uppercase text-body-secondary mb-0">Cliente</h2>
+          {% if perms.agenda.add_evento %}
+          <a href="{% url 'agenda:crear' %}?cliente={{ f.cliente.pk }}&volver={{ request.get_full_path|urlencode }}" class="btn btn-sm btn-outline-primary">
+            <i class="bi bi-calendar-plus me-1" aria-hidden="true"></i>Agendar llamada</a>
+          {% endif %}
+        </div>
+        <dl class="row datos-ficha mb-0">
+          {% if f.producto %}<div class="col-12"><dt>Producto</dt><dd>{{ f.producto }}</dd></div>{% endif %}
+          <div class="col-12"><dt>Nombre</dt><dd>{{ f.cliente.nombres }} {{ f.cliente.apellidos }}</dd></div>
+          <div class="col-sm-6"><dt>Cédula</dt><dd>{{ f.cliente.cedula|default:"—" }}</dd></div>
+          <div class="col-sm-6"><dt>RUC</dt><dd>{{ f.cliente.ruc_mostrar|default:"—" }}</dd></div>
+          <div class="col-sm-4"><dt>Telf</dt><dd>{{ f.cliente.telefono }}</dd></div>
+          {% if f.cliente.telefono_alterno %}<div class="col-sm-4"><dt>Telf2</dt><dd>{{ f.cliente.telefono_alterno }}</dd></div>{% endif %}
+          {% if f.cliente.telefono3 %}<div class="col-sm-4"><dt>Telf3</dt><dd>{{ f.cliente.telefono3 }}</dd></div>{% endif %}
+          <div class="col-sm-8"><dt>Dirección</dt><dd>{{ f.cliente.direccion|default:"—" }}</dd></div>
+          <div class="col-sm-4"><dt>Sector</dt><dd>{{ f.cliente.sector|default:"—" }}</dd></div>
+          <div class="col-sm-4"><dt>Ciudad</dt><dd>{{ f.cliente.ciudad|default:"—" }}</dd></div>
+          <div class="col-sm-8"><dt>Referencia</dt><dd>{{ f.cliente.referencia|default:"—" }}</dd></div>
+          <div class="col-12"><dt>Email</dt><dd class="mb-0 text-break">{{ f.cliente.email|default:"—" }}</dd></div>
+        </dl>
+      </div>
+    </section>
+    <section class="card">
+      <div class="card-body">
+        <h2 class="h6 text-uppercase text-body-secondary mb-3">Tarjeta para realizar el pago</h2>
+        <dl class="row datos-ficha mb-0">
+          {% if tarjeta %}
+          <div class="col-sm-6"><dt>Tarjeta</dt><dd>{{ tarjeta.get_marca_display }}</dd></div>
+          <div class="col-sm-6"><dt>Banco</dt><dd>{{ tarjeta.banco }}</dd></div>
+          <div class="col-sm-6"><dt>Caducidad</dt><dd>{{ tarjeta.caducidad }}</dd></div>
+          <div class="col-sm-6"><dt>Tarjeta No</dt><dd class="font-monospace">**** **** **** {{ tarjeta.ultimos4 }}</dd></div>
+          {% else %}
+          <div class="col-12"><dd class="text-body-secondary">Sin datos de tarjeta todavía.</dd></div>
+          {% endif %}
+          <div class="col-sm-6"><dt>Enviado a cierre</dt><dd>{% if f.enviado_en %}{{ f.enviado_en|date:"d/m/Y H:i" }}{% else %}Aún no{% endif %}</dd></div>
+          <div class="col-sm-6"><dt>Hoja de producción</dt><dd>{% if registro %}{{ registro.get_estado_display }}{% if registro.valor_venta %} · ${{ registro.valor_venta|dinero }}{% endif %}{% else %}Se agrega al enviar{% endif %}</dd></div>
+          {% if f.observaciones %}<div class="col-12"><dt>Observación</dt><dd class="mb-0" style="white-space: pre-line">{{ f.observaciones }}</dd></div>{% endif %}
+        </dl>
+      </div>
+    </section>
+  </div>
+  <div class="col-lg-5">
+    <section class="card">
+      <div class="card-header bg-body"><h2 class="h6 mb-0">Historial</h2></div>
+      <ol class="list-group list-group-flush historial-dami">
+        {% for h in historial %}
+        <li class="list-group-item small">
+          <span class="badge estado-dami estado-{{ h.estado|lower }}">{{ h.texto }}</span>
+          <span class="text-body-secondary ms-1">{{ h.fecha|date:"d/m/Y H:i" }} · {{ h.usuario }}</span>
+        </li>
+        {% empty %}
+        <li class="list-group-item small text-body-secondary">Sin movimientos.</li>
+        {% endfor %}
+      </ol>
+    </section>
+  </div>
+</div>
+{% endblock %}

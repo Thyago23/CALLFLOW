@@ -1,0 +1,34 @@
+{% load reportes_cf %}
+{# Gestión de contactos por vendedor y base. Recibe `filas` (servicios.seguimiento) y opcionalmente `sin_base`. #}
+{% if filas %}
+<div class="table-responsive">
+  <table class="table align-middle mb-0 tabla-reporte-pantalla">
+    <thead>
+      <tr>
+        <th scope="col">Vendedor</th>{% if not sin_base %}<th scope="col">Base</th>{% endif %}
+        <th scope="col" class="text-end">Enviados</th><th scope="col" style="min-width: 9rem">Gestionados</th>
+        <th scope="col" class="text-end">Faltan</th><th scope="col" class="text-end">No contestó</th>
+        <th scope="col" class="text-end">No quiere</th><th scope="col" class="text-end">DAMI sacado</th>
+        <th scope="col"><span class="visually-hidden">Detalle</span></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for f in filas %}
+      <tr>
+        <td class="fw-semibold">{{ f.vendedor.apellidos }} {{ f.vendedor.nombres }}</td>
+        {% if not sin_base %}<td><a href="{% url 'ventas:base_detalle' f.base.pk %}" class="text-decoration-none">{{ f.base.nombre }}</a></td>{% endif %}
+        <td class="text-end">{{ f.enviados }}</td>
+        <td>{% include "ventas/_avance_base.html" %}<div class="small text-body-secondary mt-1">{{ f.gestionados }} · {{ f.avance }} %</div></td>
+        <td class="text-end">{% if f.pendientes %}<span class="badge text-bg-warning" title="Contactos que aún no gestionó">{{ f.pendientes }}</span>{% else %}<i class="bi bi-check-circle-fill text-success" aria-label="Gestionó todos"></i>{% endif %}</td>
+        <td class="text-end">{{ f.no_contesto }}</td>
+        <td class="text-end">{{ f.no_quiere }}</td>
+        <td class="text-end fw-semibold">{{ f.dami_sacado }}</td>
+        <td class="text-end"><a href="{% url 'ventas:bases_contactos' %}?vendedor={{ f.vendedor.pk }}&base={{ f.base.pk }}" class="btn btn-sm btn-outline-secondary text-nowrap">Ver contactos</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<p class="card-body small text-body-secondary mb-0">Todavía no se enviaron contactos{% if sin_base %} de esta base{% endif %} a ningún vendedor.</p>
+{% endif %}

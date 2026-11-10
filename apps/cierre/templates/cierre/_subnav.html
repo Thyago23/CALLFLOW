@@ -1,0 +1,17 @@
+<div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
+  <div>
+    <h1 class="h3 mb-0">Cierre de ventas</h1>
+    <p class="text-body-secondary small mb-0">Formularios DAMI por gestionar, metas mensuales y panel comercial.</p>
+  </div>
+</div>
+<ul class="nav nav-underline mb-4 subnav-modulo">
+  <li class="nav-item"><a class="nav-link {% if seccion == 'bandeja' %}active{% endif %}" href="{% url 'cierre:bandeja' %}"><i class="bi bi-inbox me-1" aria-hidden="true"></i>Bandeja</a></li>
+  {% if perms.cierre.view_metamensual %}
+  <li class="nav-item"><a class="nav-link {% if seccion == 'panel' %}active{% endif %}" href="{% url 'cierre:panel' %}"><i class="bi bi-bar-chart-line me-1" aria-hidden="true"></i>Panel comercial</a></li>
+  <li class="nav-item"><a class="nav-link {% if seccion == 'metas' %}active{% endif %}" href="{% url 'cierre:metas' %}"><i class="bi bi-bullseye me-1" aria-hidden="true"></i>Metas mensuales</a></li>
+  {% endif %}
+  {% if perms.ventas.change_solicitudbase %}
+  <li class="nav-item"><a class="nav-link" href="{% url 'ventas:bases' %}"><i class="bi bi-database me-1" aria-hidden="true"></i>Solicitudes de bases
+    <span id="pendientes-bases" class="badge rounded-pill text-bg-danger ms-1 {% if not solicitudes_base_pendientes %}d-none{% endif %}">{{ solicitudes_base_pendientes }}</span></a></li>
+  {% endif %}
+</ul>

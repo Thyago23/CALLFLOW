@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block titulo %}{{ r.nombre }} · Reportes{% endblock %}
+{% block contenido %}
+<nav aria-label="Ruta" class="mb-2">
+  <ol class="breadcrumb small mb-0">
+    <li class="breadcrumb-item"><a href="{% url 'reportes:centro' %}">Reportes</a></li>
+    <li class="breadcrumb-item active" aria-current="page">{{ r.nombre }}</li>
+  </ol>
+</nav>
+<div class="mb-3">
+  <h1 class="h3 mb-0">{{ r.nombre }}</h1>
+  <p class="text-body-secondary small mb-0">{{ r.descripcion }}</p>
+</div>
+
+{% url 'reportes:reporte_pdf' r.codigo|lower as accion_pdf %}
+{% include "reportes/_filtros.html" with accion_pdf=accion_pdf %}
+
+{% if faltan %}
+<div class="card"><div class="card-body text-center text-body-secondary py-5">
+  <i class="bi bi-funnel fs-3 d-block mb-2" aria-hidden="true"></i>
+  Elija {{ faltan|join:", "|lower }} y pulse <strong>Ver</strong> para generar el reporte.
+</div></div>
+{% elif tabla %}
+<section class="card" aria-labelledby="titulo-vista-previa">
+  <div class="card-header bg-body d-flex flex-wrap justify-content-between align-items-center gap-2 py-3">
+    <h2 class="h6 mb-0" id="titulo-vista-previa">Vista previa</h2>
+    <span class="small text-body-secondary">{{ tabla.periodo }} · {{ tabla.filas|length }} fila{{ tabla.filas|length|pluralize }}</span>
+  </div>
+  {% include "reportes/_tabla.html" %}
+</section>
+{% else %}
+<div class="alert alert-warning">Revise los filtros: hay valores que no son válidos.</div>
+{% endif %}
+{% endblock %}

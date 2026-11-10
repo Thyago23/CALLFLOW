@@ -1,0 +1,22 @@
+{% load humanize_cf %}
+<div class="celda-aprobacion">
+  {% if r.estado == "ANULADO" %}
+  <span class="font-monospace">{{ r.aprobacion|hora_aprobacion }}</span>
+  {% elif r.aprobacion %}
+  {# Una vez registrada, la aprobación (hora en que terminó la llamada) queda fija. #}
+  <span class="aprobacion-fija font-monospace" title="Registrada: ya no se puede modificar">
+    <i class="bi bi-lock-fill text-body-secondary me-1" aria-hidden="true"></i>{{ r.aprobacion|hora_aprobacion }}
+    {% if guardado %}<i class="bi bi-check-circle-fill text-success ms-1" aria-label="Guardada"></i>{% endif %}
+  </span>
+  {% if error %}<div class="small text-danger">{{ error }}</div>{% endif %}
+  {% else %}
+  <label class="visually-hidden" for="aprobacion-{{ r.pk }}">Hora en que terminó la llamada de {{ r.formulario }}</label>
+  {# Se confirma con Enter o al salir del campo (no en cada cambio), para no confirmar una hora a medio escribir. #}
+  <input type="time" id="aprobacion-{{ r.pk }}" name="aprobacion" value="{% if error %}{{ valor }}{% endif %}" step="60"
+         class="form-control form-control-sm font-monospace{% if error %} is-invalid{% endif %}" title="Hora en que terminó la llamada (HH:MM)"
+         hx-post="{% url 'ventas:hoja_aprobacion' r.pk %}" hx-trigger="keydown[key=='Enter' && this.value !== ''], blur[this.value !== '']"
+         data-confirma-aprobacion data-cliente="{{ r.formulario.cliente.nombres }} {{ r.formulario.cliente.apellidos }} · {{ r.formulario }}"
+         hx-target="closest .celda-aprobacion" hx-swap="outerHTML">
+  {% if error %}<div class="invalid-feedback">{{ error }}</div>{% endif %}
+  {% endif %}
+</div>

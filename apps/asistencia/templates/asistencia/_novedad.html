@@ -1,0 +1,70 @@
+<div class="card novedad-asistencia {% if recien %}recien{% endif %}" id="novedad-{{ n.pk }}">
+  <div class="card-body py-3">
+    <div class="d-flex flex-wrap justify-content-between gap-2">
+      <div>
+        <div class="fw-semibold">{% if perms.personal.view_empleado %}<a class="text-reset" href="{% url 'personal:empleado_detalle' n.empleado.pk %}">{{ n.empleado.apellidos }} {{ n.empleado.nombres }}</a>{% else %}{{ n.empleado.apellidos }} {{ n.empleado.nombres }}{% endif %}</div>
+        <div class="small text-body-secondary">
+          {{ n.fecha|date:"l d/m/Y" }} ·
+          <span class="tipo-novedad tipo-{{ n.tipo|lower }}">{{ n.get_tipo_display }}</span>{% if n.minutos %} · {{ n.minutos }} min{% endif %}
+        </div>
+      </div>
+      <div class="text-end">
+        <span class="badge estado-novedad estado-{{ n.estado|lower }}">{{ n.get_estado_display }}</span>
+        {% if n.revisada_en %}<div class="small text-body-secondary mt-1">por {{ n.revisada_por|default:"—" }} · {{ n.revisada_en|date:"d/m/Y H:i" }}</div>{% endif %}
+      </div>
+    </div>
+
+    {% if n.estado == 'PENDIENTE' %}
+      {% if perms.asistencia.change_novedadasistencia %}
+      <form class="mt-3 formulario-clasificar" method="post" enctype="multipart/form-data" action="{% url 'asistencia:clasificar' n.pk %}"
+            hx-post="{% url 'asistencia:clasificar' n.pk %}" hx-encoding="multipart/form-data" hx-target="#novedad-{{ n.pk }}" hx-swap="outerHTML">
+        {% csrf_token %}
+        {% for error in form.non_field_errors %}<div class="alert alert-danger py-2 small">{{ error }}</div>{% endfor %}
+        <div class="row g-2 align-items-start">
+          <div class="col-md-3">
+            <div class="btn-group w-100" role="group" aria-label="Clasificación">
+              <input type="radio" class="btn-check" name="estado" value="JUSTIFICADA" id="j-{{ n.pk }}" {% if form.estado.value == 'JUSTIFICADA' %}checked{% endif %} required>
+              <label class="btn btn-sm btn-outline-success" for="j-{{ n.pk }}">Justificada</label>
+              <input type="radio" class="btn-check" name="estado" value="NO_JUSTIFICADA" id="nj-{{ n.pk }}" {% if form.estado.value == 'NO_JUSTIFICADA' %}checked{% endif %}>
+              <label class="btn btn-sm btn-outline-danger" for="nj-{{ n.pk }}">No justificada</label>
+            </div>
+            {% for error in form.estado.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+          </div>
+          <div class="col-md-4">
+            <label class="visually-hidden" for="m-{{ n.pk }}">Motivo</label>
+            <input type="text" name="motivo" id="m-{{ n.pk }}" maxlength="500" class="form-control form-control-sm {% if form.motivo.errors %}is-invalid{% endif %}"
+                   placeholder="Motivo (obligatorio si es justificada)" value="{{ form.motivo.value|default:'' }}">
+            {% for error in form.motivo.errors %}<div class="invalid-feedback">{{ error }}</div>{% endfor %}
+          </div>
+          <div class="col-md-3">
+            <label class="visually-hidden" for="s-{{ n.pk }}">Archivo de respaldo</label>
+            <input type="file" name="soporte" id="s-{{ n.pk }}" accept=".pdf,.jpg,.jpeg,.png" class="form-control form-control-sm {% if form.soporte.errors %}is-invalid{% endif %}">
+            {% for error in form.soporte.errors %}<div class="invalid-feedback">{{ error }}</div>{% endfor %}
+            {% if n.soporte %}
+            <div class="form-text">Ya tiene: <a href="{% url 'documentos:ver' n.soporte.pk %}" target="_blank" rel="noopener">{{ n.soporte.nombre_original }}</a>. Suba otro solo si quiere reemplazarlo.</div>
+            {% else %}
+            <div class="form-text"><strong>Obligatorio si es justificada</strong> · PDF, JPG o PNG</div>
+            {% endif %}
+          </div>
+          <div class="col-md-2 d-grid">
+            <button type="submit" class="btn btn-sm btn-primary">Guardar</button>
+          </div>
+        </div>
+      </form>
+      {% endif %}
+    {% else %}
+      <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-2 small">
+        <div>
+          {% if n.motivo %}<span class="text-body-secondary">Motivo:</span> {{ n.motivo }}{% endif %}
+          {% if n.soporte %}<a class="ms-2" href="{% url 'documentos:ver' n.soporte.pk %}" target="_blank" rel="noopener"><i class="bi bi-paperclip" aria-hidden="true"></i> {{ n.soporte.nombre_original }}</a>{% endif %}
+        </div>
+        {% if perms.asistencia.change_novedadasistencia %}
+        <form method="post" action="{% url 'asistencia:reabrir' n.pk %}" hx-post="{% url 'asistencia:reabrir' n.pk %}" hx-target="#novedad-{{ n.pk }}" hx-swap="outerHTML">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-link btn-sm p-0">Corregir clasificación</button>
+        </form>
+        {% endif %}
+      </div>
+    {% endif %}
+  </div>
+</div>

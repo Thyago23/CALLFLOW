@@ -1,0 +1,438 @@
+/* Tablero de ventas para la TV del call, estilo «top performers»: fondo oscuro con brillo cálido,
+   podio con los tres primeros (oro, plata y bronce) y el resto en filas debajo.
+   Todo se mide con vh/vw para que llene la pantalla (1920×1080) sin barras de desplazamiento. */
+:root {
+  --fondo: #0c0a09;
+  --fila: #1a1716;
+  --fila-borde: rgba(255, 255, 255, 0.08);
+  --texto: #ffffff;
+  --texto-suave: rgba(255, 255, 255, 0.62);
+  --naranja: #ff8a3d;
+  --verde: #69db7c;
+  --letra: "Segoe UI Variable Display", "Segoe UI", "Trebuchet MS", system-ui, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+html, body.tv {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse 75% 48% at 50% -6%, #8a3410 0%, #4a1a08 38%, transparent 72%),
+    var(--fondo);
+  color: var(--texto);
+  font-family: var(--letra);
+  font-variant-numeric: tabular-nums;
+}
+
+body.tv:not(.con-controles) { cursor: none; }
+
+#tablero, .tv-pantalla { height: 100%; }
+
+.tv-pantalla {
+  display: flex;
+  flex-direction: column;
+  padding: 2.2vh 2.6vw 2.2vh;
+  gap: 2.2vh;
+}
+
+.visually-hidden {
+  position: absolute !important;
+  width: 1px; height: 1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+}
+
+.tv-rotulo {
+  display: block;
+  font-size: 0.32em;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.8;
+}
+
+/* ---------------------------------------------------------------- cabecera */
+.tv-cabecera {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 2vw;
+}
+
+.tv-titulo {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.tv-titulo-arriba { font-size: 2.6vh; font-weight: 700; letter-spacing: 0.22em; color: #ffb27a; }
+.tv-titulo-grande {
+  font-size: 8.4vh;
+  font-weight: 900;
+  letter-spacing: -0.01em;
+  background: linear-gradient(180deg, #fff6d6 0%, #ffd27a 45%, #ff8a3d 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 0.5vh 1.6vh rgba(255, 120, 40, 0.35));
+}
+.tv-titulo-abajo { font-size: 3.2vh; font-weight: 700; letter-spacing: 0.06em; color: var(--naranja); margin-top: 0.4vh; }
+
+.tv-total { display: flex; flex-direction: column; line-height: 1.1; }
+.tv-total-etiqueta, .tv-total-detalle { font-size: 2vh; color: var(--texto-suave); font-weight: 600; }
+.tv-total-monto { font-size: 5.6vh; font-weight: 900; color: var(--verde); }
+
+.tv-lateral { display: flex; flex-direction: column; align-items: flex-end; gap: 1vh; }
+
+.tv-reloj {
+  padding: 0.4vh 1.2vw;
+  border-radius: 1.4vh;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--fila-borde);
+  font-size: 4.2vh;
+  font-weight: 800;
+}
+
+/* Venta más alta del mes (Destacar → 💎) */
+.tv-venta-alta {
+  display: flex;
+  align-items: center;
+  gap: 0.8vw;
+  padding: 0.8vh 1.2vw;
+  border-radius: 1.6vh;
+  background: linear-gradient(135deg, rgba(116, 192, 252, 0.22), rgba(151, 117, 250, 0.2));
+  border: 1px solid rgba(116, 192, 252, 0.55);
+  animation: brillo-azul 3s ease-in-out infinite;
+  line-height: 1.1;
+}
+.tv-venta-alta > span:last-child { display: flex; flex-direction: column; }
+.tv-venta-icono { font-size: 4.4vh; }
+.tv-venta-titulo { font-size: 1.6vh; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #a5d8ff; }
+.tv-venta-monto { font-size: 3.6vh; font-weight: 900; }
+.tv-venta-monto small { font-size: 0.5em; opacity: 0.75; }
+.tv-venta-detalle { font-size: 1.7vh; color: var(--texto-suave); font-weight: 600; }
+
+/* ---------------------------------------------------------------- podio */
+.tv-podio {
+  flex: 0 0 auto;
+  height: 40vh;
+  display: grid;
+  grid-template-columns: 1fr 1.1fr 1fr;
+  align-items: end;
+  gap: 1.6vw;
+  padding: 0 3vw;
+}
+
+.tv-tarjeta {
+  --fondo-tarjeta: linear-gradient(160deg, #e4e4e8 0%, #a3a3ad 55%, #6c6c76 100%);
+  --trofeo: linear-gradient(170deg, #ffffff 0%, #d4d4da 40%, #7d7d86 100%);
+  position: relative;
+  height: 88%;
+  display: flex;
+  flex-direction: column;
+  padding: 2.2vh 1.6vw;
+  border-radius: 2.6vh;
+  background: var(--fondo-tarjeta);
+  border: 0.25vh solid rgba(255, 255, 255, 0.45);
+  box-shadow: 0 1.6vh 4vh rgba(0, 0, 0, 0.5), inset 0 0.2vh 0 rgba(255, 255, 255, 0.5);
+  overflow: hidden;
+  font-size: 7.6vh;
+  text-shadow: 0 0.2vh 0.8vh rgba(0, 0, 0, 0.25);
+}
+
+.tv-tarjeta.puesto-1 {
+  --fondo-tarjeta: linear-gradient(160deg, #ffb46b 0%, #e0702f 50%, #9a3c17 100%);
+  --trofeo: linear-gradient(170deg, #fff1c1 0%, #ffb547 40%, #b5561a 100%);
+  height: 100%;
+  font-size: 9vh;
+  border-color: rgba(255, 214, 160, 0.75);
+  animation: brillo 3s ease-in-out infinite;
+}
+
+.tv-tarjeta.puesto-3 {
+  --fondo-tarjeta: linear-gradient(160deg, #efc1b4 0%, #c08374 50%, #7f4c43 100%);
+  --trofeo: linear-gradient(170deg, #ffe1d6 0%, #d39a8a 45%, #7f4c43 100%);
+}
+
+.tv-tarjeta-arriba { display: flex; justify-content: space-between; align-items: flex-start; gap: 1vw; }
+.tv-tarjeta-monto { display: block; font-weight: 900; line-height: 1; letter-spacing: -0.02em; }
+.tv-tarjeta-monto small { font-size: 0.45em; opacity: 0.85; }
+
+.tv-tarjeta .tv-avatar { font-size: 2.8vh; width: 7.4vh; height: 7.4vh; border: 0.4vh solid rgba(255, 255, 255, 0.9); }
+.tv-tarjeta.puesto-1 .tv-avatar { width: 8.6vh; height: 8.6vh; font-size: 3.3vh; }
+
+.tv-tarjeta .tv-datos { font-size: 3vh; margin-top: 1.2vh; justify-content: flex-start; gap: 1.8vw; }
+.tv-tarjeta .tv-datos dt { font-size: 0.5em; }
+
+.tv-cabeza {
+  align-self: flex-start;
+  margin-top: 1.2vh;
+  padding: 0.3vh 0.9vw;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.28);
+  font-size: 2vh;
+  font-weight: 800;
+  text-shadow: none;
+}
+
+.tv-tarjeta-nombre {
+  position: relative;
+  z-index: 1;
+  margin: auto 0 0;
+  max-width: 62%;
+  font-size: 4.2vh;
+  font-weight: 900;
+  line-height: 1.02;
+  text-transform: uppercase;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Trofeo dibujado con el ícono y un degradado metálico; encima, el puesto. */
+.tv-trofeo { position: absolute; right: -0.6vw; bottom: -2.4vh; width: 22vh; height: 22vh; display: grid; place-items: center; }
+.tv-trofeo i {
+  font-size: 20vh;
+  line-height: 1;
+  background: var(--trofeo);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 0.8vh 1.4vh rgba(0, 0, 0, 0.35));
+  text-shadow: none;
+}
+.tv-trofeo span {
+  position: absolute;
+  top: 26%;
+  font-size: 4.4vh;
+  font-weight: 900;
+  font-style: italic;
+  color: rgba(70, 35, 15, 0.55);
+  text-shadow: 0 0.15vh 0 rgba(255, 255, 255, 0.45);
+}
+.tv-tarjeta.puesto-1 .tv-trofeo { width: 26vh; height: 26vh; }
+.tv-tarjeta.puesto-1 .tv-trofeo i { font-size: 24vh; }
+.tv-tarjeta.puesto-1 .tv-trofeo span { font-size: 5.2vh; }
+
+.tv-tarjeta.nuevo-lider { animation: entrada 1s ease-out, brillo 3s ease-in-out 1s infinite; }
+
+/* ---------------------------------------------------------------- cifras (podio y filas) */
+.tv-datos { display: flex; margin: 0; gap: 2.4em; }
+.tv-datos div { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.05; }
+.tv-datos dd { margin: 0; font-weight: 800; }
+.tv-datos dd small { font-size: 0.65em; }
+.tv-datos dt { font-size: 0.42em; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; opacity: 0.75; }
+
+/* ---------------------------------------------------------------- resto del ranking */
+.tv-lista-caja { flex: 1; min-height: 0; container-type: size; }
+
+.tv-lista {
+  --filas: 6;
+  --columnas: 1;
+  --alto: min(9.5vh, calc((100cqh - (var(--filas) - 1) * 1.2vh) / var(--filas)));
+  list-style: none;
+  margin: 0;
+  padding: 0 3vw;
+  display: grid;
+  grid-template-columns: repeat(var(--columnas), minmax(0, 1fr));
+  grid-template-rows: repeat(var(--filas), var(--alto));
+  grid-auto-flow: column;
+  gap: 1.2vh 1.4vw;
+  font-size: calc(var(--alto) * 0.36);
+}
+
+.tv-fila {
+  --color: #4dabf7;
+  position: relative;
+  display: grid;
+  grid-template-columns: 2.1em 2.1em minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 0 0.9em;
+  padding: 0 1.2em 0 0.6em;
+  border-radius: 0.6em;
+  background: var(--fila);
+  border: 1px solid var(--fila-borde);
+  transition: transform 0.4s ease;
+}
+
+.tv-fila.en-cero { opacity: 0.7; }
+
+/* Medalla plateada con el puesto. */
+.tv-medalla {
+  display: grid;
+  place-items: center;
+  width: 2em;
+  height: 2em;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #ffffff 0%, #c9c9d0 45%, #7c7c86 100%);
+  border: 0.12em solid #5c5c66;
+  color: #2a2a30;
+  font-size: 0.85em;
+  font-weight: 900;
+  font-style: italic;
+}
+
+.tv-avatar {
+  display: grid;
+  place-items: center;
+  width: 2em;
+  height: 2em;
+  border-radius: 50%;
+  background: var(--color);
+  color: #1b1446;
+  font-weight: 900;
+  font-size: 0.85em;
+  text-shadow: none;
+  box-shadow: 0 0.15em 0.5em rgba(0, 0, 0, 0.3);
+  flex: 0 0 auto;
+}
+
+img.tv-avatar { object-fit: cover; background: #2a2523; }
+
+.tv-persona { display: flex; flex-direction: column; min-width: 0; }
+.tv-nombre { font-weight: 800; font-size: 1.05em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.15; }
+.tv-detalle { font-size: 0.55em; color: var(--texto-suave); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.tv-fila .tv-datos { font-size: 0.8em; gap: 1.8em; margin-right: 1.4em; }
+.tv-fila .tv-datos div { align-items: center; min-width: 3.4em; }
+
+.tv-monto { display: flex; flex-direction: column; align-items: flex-end; line-height: 1; font-size: 1.25em; font-weight: 900; white-space: nowrap; }
+.tv-monto small { font-size: 0.5em; opacity: 0.7; }
+.tv-monto .tv-rotulo { font-size: 0.36em; margin-top: 0.2em; }
+
+/* Con dos o tres columnas no entran las cifras: queda nombre y monto. */
+.tv-lista[style*="--columnas: 2"] .tv-datos,
+.tv-lista[style*="--columnas: 3"] .tv-datos { display: none; }
+.tv-lista[style*="--columnas: 2"] .tv-fila,
+.tv-lista[style*="--columnas: 3"] .tv-fila { grid-template-columns: 2.1em 2.1em minmax(0, 1fr) auto; }
+
+/* ---------------------------------------------------------------- alguien vendió */
+.tv-fila.subio, .tv-tarjeta.subio { animation: subio 1.4s ease-out 2; }
+
+.burbuja {
+  position: absolute;
+  right: 1em;
+  top: 0.3em;
+  z-index: 2;
+  padding: 0.1em 0.5em;
+  border-radius: 999px;
+  background: var(--verde);
+  color: #0b3d1a;
+  font-weight: 900;
+  font-size: max(0.7em, 2.2vh);
+  text-shadow: none;
+  animation: burbuja 4s ease-out forwards;
+  pointer-events: none;
+}
+.tv-tarjeta .burbuja { font-size: 2.8vh; top: auto; bottom: 1.4vh; right: auto; left: 1.6vw; }
+
+.tv-vacio, .tv-animo { text-align: center; font-size: 3.2vh; font-weight: 700; color: var(--texto-suave); margin: 0; }
+
+/* ---------------------------------------------------------------- controles (se esconden solos) */
+.tv-controles {
+  position: fixed;
+  left: 50%;
+  bottom: 1.6vh;
+  transform: translate(-50%, 150%);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  max-width: calc(100vw - 32px);
+  padding: 8px 10px;
+  border-radius: 999px;
+  background: rgba(20, 14, 10, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+  font-size: 15px;
+  opacity: 0;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  z-index: 20;
+}
+
+body.con-controles .tv-controles { opacity: 1; transform: translate(-50%, 0); }
+
+.tv-boton {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--texto);
+  font: inherit;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.tv-boton:hover, .tv-boton:focus-visible { background: rgba(255, 255, 255, 0.14); outline: none; }
+.tv-boton.activo { background: var(--naranja); color: #1a0d05; }
+.tv-mes { font-weight: 700; padding: 0 4px; }
+.tv-etiqueta { color: var(--texto-suave); padding-left: 4px; }
+.tv-separador { width: 1px; height: 22px; background: rgba(255, 255, 255, 0.14); margin: 0 4px; }
+
+/* Confeti */
+#confeti { position: fixed; inset: 0; pointer-events: none; overflow: hidden; z-index: 10; }
+#confeti i { position: absolute; top: -3vh; width: 1.1vh; height: 1.8vh; border-radius: 2px; animation: caer linear forwards; }
+
+/* ---------------------------------------------------------------- animaciones */
+@keyframes brillo {
+  0%, 100% { box-shadow: 0 1.6vh 4vh rgba(0, 0, 0, 0.5), 0 0 3vh rgba(255, 140, 60, 0.25); }
+  50% { box-shadow: 0 1.6vh 4vh rgba(0, 0, 0, 0.5), 0 0 7vh rgba(255, 140, 60, 0.5); }
+}
+@keyframes brillo-azul { 0%, 100% { box-shadow: 0 0 2vh rgba(116, 192, 252, 0.2); } 50% { box-shadow: 0 0 5vh rgba(116, 192, 252, 0.45); } }
+@keyframes entrada { from { transform: scale(0.85); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+@keyframes subio {
+  0% { transform: scale(1); }
+  30% { transform: scale(1.03); box-shadow: 0 0 0 0.3vh var(--verde), 0 0 4vh rgba(105, 219, 124, 0.6); }
+  100% { transform: scale(1); }
+}
+@keyframes burbuja { 0% { opacity: 0; transform: translateY(0.6em); } 15% { opacity: 1; transform: translateY(-0.4em); } 80% { opacity: 1; } 100% { opacity: 0; transform: translateY(-1.4em); } }
+@keyframes caer { to { transform: translateY(108vh) rotate(720deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+
+/* Pantallas angostas (laptop pequeña o celular): todo en una columna, con el primero arriba. */
+@media (max-width: 900px), (max-aspect-ratio: 1/1) {
+  html, body.tv { overflow: auto; }
+  #tablero, .tv-pantalla { height: auto; min-height: 100%; }
+  .tv-pantalla { padding: 16px; gap: 16px; }
+  .tv-cabecera { grid-template-columns: 1fr; justify-items: center; text-align: center; }
+  .tv-total, .tv-lateral { align-items: center; }
+  .tv-titulo { order: -1; }
+  .tv-titulo-arriba { font-size: 13px; }
+  .tv-titulo-grande { font-size: 40px; }
+  .tv-titulo-abajo { font-size: 17px; }
+  .tv-total-monto { font-size: 30px; }
+  .tv-total-etiqueta, .tv-total-detalle { font-size: 14px; }
+  .tv-reloj { display: none; }
+  .tv-venta-titulo, .tv-venta-detalle { font-size: 12px; }
+  .tv-venta-monto { font-size: 24px; }
+  .tv-venta-icono { font-size: 28px; }
+  .tv-podio { height: auto; grid-template-columns: 1fr; padding: 0; gap: 12px; }
+  .tv-tarjeta, .tv-tarjeta.puesto-1 { height: 200px; font-size: 44px; padding: 16px; }
+  .tv-tarjeta.puesto-1 { order: -1; }
+  .tv-tarjeta .tv-avatar, .tv-tarjeta.puesto-1 .tv-avatar { width: 48px; height: 48px; font-size: 18px; }
+  .tv-tarjeta .tv-datos { font-size: 16px; gap: 18px; }
+  .tv-cabeza { font-size: 13px; }
+  .tv-tarjeta-nombre { font-size: 22px; }
+  .tv-trofeo, .tv-tarjeta.puesto-1 .tv-trofeo { width: 130px; height: 130px; bottom: -14px; }
+  .tv-trofeo i, .tv-tarjeta.puesto-1 .tv-trofeo i { font-size: 120px; }
+  .tv-trofeo span, .tv-tarjeta.puesto-1 .tv-trofeo span { font-size: 24px; }
+  .tv-lista-caja { container-type: normal; }
+  .tv-lista, .tv-lista[style] { grid-template-columns: 1fr; grid-template-rows: none; grid-auto-flow: row; grid-auto-rows: 60px; padding: 0; font-size: 18px; }
+  .tv-fila, .tv-lista[style] .tv-fila { grid-template-columns: 2.1em 2.1em minmax(0, 1fr) auto; }
+  .tv-fila .tv-datos { display: none; }
+  .tv-vacio, .tv-animo { font-size: 18px; }
+}

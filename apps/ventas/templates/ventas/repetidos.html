@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block titulo %}Contactos repetidos · Bases comerciales{% endblock %}
+{% block contenido %}
+{% include "ventas/_subnav.html" with seccion="bases" %}
+<nav aria-label="Ruta" class="mb-2">
+  <ol class="breadcrumb small mb-0">
+    <li class="breadcrumb-item"><a href="{% url 'ventas:bases' %}">Bases comerciales</a></li>
+    <li class="breadcrumb-item active" aria-current="page">Repetidos</li>
+  </ol>
+</nav>
+<div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
+  <div>
+    <h2 class="h4 mb-0">Contactos repetidos{% if base %} · {{ base.nombre }}{% endif %}</h2>
+    <p class="small text-body-secondary mb-0">Contactos que no entraron a su base porque la misma cédula o el mismo número ya estaba cargado. No se envían a los vendedores.</p>
+  </div>
+  <div class="d-flex flex-wrap gap-2">
+    {% if perms.ventas.change_contactorepetido %}
+    <form method="post" data-confirmar="Se revisan todas las bases. Los repetidos que aún no se enviaron a un vendedor pasan a esta lista; el contacto cargado primero se queda en su base." data-confirmar-titulo="¿Buscar repetidos en todas las bases?" data-confirmar-boton="Buscar" data-confirmar-icono="search" data-confirmar-tono="primary">
+      {% csrf_token %}<button type="submit" name="buscar" class="btn btn-primary"><i class="bi bi-search me-1" aria-hidden="true"></i>Buscar repetidos en todas las bases</button>
+    </form>
+    {% endif %}
+    <a href="?excel=1&estado={{ estado }}{% if base %}&base={{ base.pk }}{% endif %}" class="btn btn-outline-secondary"><i class="bi bi-file-earmark-spreadsheet me-1" aria-hidden="true"></i>Excel</a>
+  </div>
+</div>
+
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <ul class="nav nav-pills gap-1 mb-0">
+    {% for valor, nombre in estados %}
+    <li class="nav-item"><a class="nav-link {% if estado == valor %}active{% endif %}" href="?estado={{ valor }}{% if base %}&base={{ base.pk }}{% endif %}">{{ nombre }}{% if valor == "POR_REVISAR" and por_revisar %} <span class="badge rounded-pill bg-danger ms-1">{{ por_revisar }}</span>{% endif %}</a></li>
+    {% endfor %}
+    <li class="nav-item"><a class="nav-link {% if not estado %}active{% endif %}" href="?estado=todos{% if base %}&base={{ base.pk }}{% endif %}">Todos</a></li>
+  </ul>
+  {% if bases %}
+  <form method="get" class="d-flex gap-2 align-items-center">
+    <input type="hidden" name="estado" value="{{ estado|default:'todos' }}">
+    <label for="filtro-base" class="small text-body-secondary text-nowrap">Base</label>
+    <select id="filtro-base" name="base" class="form-select form-select-sm" onchange="this.form.submit()">
+      <option value="">Todas</option>
+      {% for b in bases %}<option value="{{ b.pk }}" {% if base.pk == b.pk %}selected{% endif %}>{{ b.nombre }}</option>{% endfor %}
+    </select>
+  </form>
+  {% endif %}
+</div>
+
+<section class="card">
+  <div class="table-responsive">
+    <table class="table table-sm align-middle mb-0 tabla-reporte-pantalla">
+      <thead><tr><th scope="col">Nombre y apellido</th><th scope="col">Cédula</th><th scope="col">Número</th>
+        {% if not base %}<th scope="col">Llegó en</th>{% endif %}<th scope="col">Motivo</th><th scope="col">Coincide con</th><th scope="col" class="text-end">Revisión</th></tr></thead>
+      <tbody>
+        {% for r in pagina.object_list %}
+        <tr>
+          <td>{{ r.nombre|default:"—" }}<div class="small text-body-secondary">{{ r.ciudad }}{% if r.ciudad and r.categoria_tarjeta %} · {% endif %}{{ r.categoria_tarjeta }}</div></td>
+          <td class="font-monospace">{{ r.cedula|default:"—" }}</td>
+          <td class="font-monospace">{{ r.numero }}{% if r.numero_alterno %}<div class="small text-body-secondary">{{ r.numero_alterno }}</div>{% endif %}</td>
+          {% if not base %}<td><a href="{% url 'ventas:base_detalle' r.base.pk %}" class="text-decoration-none">{{ r.base.nombre }}</a><div class="small text-body-secondary">fila {{ r.fila }}</div></td>{% endif %}
+          <td><span class="badge {% if r.motivo == 'OTRA_BASE' %}text-bg-warning{% else %}bg-body-tertiary text-body-secondary border{% endif %} fw-normal">{{ r.get_motivo_display }}</span><div class="small text-body-secondary">{{ r.get_criterio_display }}</div></td>
+          <td class="small">
+            {% if r.original %}
+            {{ r.original.nombre|default:r.original.numero }} · <a href="{% url 'ventas:base_detalle' r.original.base.pk %}" class="text-decoration-none">{{ r.original.base.nombre }}</a>, fila {{ r.original.fila }}
+            <div class="text-body-secondary">{% if r.original.vendedor %}{{ r.original.vendedor.apellidos }} {{ r.original.vendedor.nombres }} · {{ r.original.get_estado_display }}{% else %}Sin enviar a un vendedor{% endif %}</div>
+            {% else %}<span class="text-body-secondary">El contacto original ya no existe</span>{% endif %}
+          </td>
+          <td class="text-end text-nowrap">
+            {% if r.estado == "POR_REVISAR" %}
+              {% if perms.ventas.change_contactorepetido %}
+              <form method="post" action="{% url 'ventas:repetido_revisar' r.pk %}" class="d-inline">
+                {% csrf_token %}<input type="hidden" name="volver" value="{{ request.get_full_path }}">
+                <button type="submit" name="accion" value="descartar" class="btn btn-sm btn-outline-secondary">Descartar</button>
+              </form>
+              <form method="post" action="{% url 'ventas:repetido_revisar' r.pk %}" class="d-inline" data-confirmar="El contacto vuelve a «{{ r.base.nombre }}» como contacto sin enviar. Úselo solo si no es la misma persona." data-confirmar-titulo="¿Recuperar a la base?" data-confirmar-boton="Recuperar" data-confirmar-icono="arrow-counterclockwise" data-confirmar-tono="primary">
+                {% csrf_token %}<input type="hidden" name="volver" value="{{ request.get_full_path }}">
+                <button type="submit" name="accion" value="recuperar" class="btn btn-sm btn-outline-primary">Recuperar</button>
+              </form>
+              {% else %}<span class="badge text-bg-danger">Por revisar</span>{% endif %}
+            {% else %}
+              <span class="badge {% if r.estado == 'RECUPERADO' %}text-bg-success{% else %}text-bg-secondary{% endif %}">{{ r.get_estado_display }}</span>
+              <div class="small text-body-secondary">{{ r.revisado_en|date:"d/m H:i" }}{% if r.revisado_por %} · {{ r.revisado_por.get_full_name|default:r.revisado_por.username }}{% endif %}</div>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="7" class="text-center text-body-secondary py-4">{% if estado == "POR_REVISAR" %}No hay contactos repetidos por revisar.{% else %}No hay contactos repetidos con este filtro.{% endif %}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if estado == "POR_REVISAR" and pagina.paginator.count and perms.ventas.change_contactorepetido %}
+  <div class="card-footer bg-body d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <span class="small text-body-secondary">{{ pagina.paginator.count }} por revisar{% if base %} en esta base{% endif %}.</span>
+    <form method="post" data-confirmar="Se descartan {{ pagina.paginator.count }} contactos repetidos{% if base %} de «{{ base.nombre }}»{% endif %}. Quedan en el historial de esta lista." data-confirmar-titulo="¿Descartar todos?" data-confirmar-boton="Descartar todos" data-confirmar-icono="trash" data-confirmar-tono="danger">
+      {% csrf_token %}{% if base %}<input type="hidden" name="base" value="{{ base.pk }}">{% endif %}<input type="hidden" name="volver" value="{{ request.get_full_path }}">
+      <button type="submit" name="descartar_todos" class="btn btn-sm btn-outline-danger">Descartar todos</button>
+    </form>
+  </div>
+  {% endif %}
+</section>
+{% if pagina.has_other_pages %}
+<nav class="mt-3" aria-label="Páginas">
+  <ul class="pagination pagination-sm mb-0">
+    {% if pagina.has_previous %}<li class="page-item"><a class="page-link" href="?estado={{ estado|default:'todos' }}{% if base %}&base={{ base.pk }}{% endif %}&pagina={{ pagina.previous_page_number }}">Anteriores</a></li>{% endif %}
+    <li class="page-item active" aria-current="page"><span class="page-link">{{ pagina.number }} de {{ pagina.paginator.num_pages }}</span></li>
+    {% if pagina.has_next %}<li class="page-item"><a class="page-link" href="?estado={{ estado|default:'todos' }}{% if base %}&base={{ base.pk }}{% endif %}&pagina={{ pagina.next_page_number }}">Siguientes</a></li>{% endif %}
+  </ul>
+</nav>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% load humanize_cf %}
+{% block titulo %}Metas mensuales · Cierre de ventas{% endblock %}
+{% block contenido %}
+{% include "cierre/_subnav.html" with seccion="metas" %}
+
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <div class="btn-group" role="group" aria-label="Cambiar de mes">
+    <a class="btn btn-outline-secondary" href="?mes={{ anterior }}" aria-label="Mes anterior"><i class="bi bi-chevron-left" aria-hidden="true"></i></a>
+    <span class="btn btn-outline-secondary disabled text-body fecha-hoy">{{ mes_actual|date:"F Y" }}</span>
+    <a class="btn btn-outline-secondary" href="?mes={{ siguiente }}" aria-label="Mes siguiente"><i class="bi bi-chevron-right" aria-hidden="true"></i></a>
+  </div>
+  {% if puede_editar %}
+  <form method="post">
+    {% csrf_token %}<input type="hidden" name="anio" value="{{ anio }}"><input type="hidden" name="mes" value="{{ mes }}">
+    <button type="submit" name="copiar" value="1" class="btn btn-outline-primary"><i class="bi bi-copy me-1" aria-hidden="true"></i>Copiar metas del mes anterior</button>
+  </form>
+  {% endif %}
+</div>
+
+<form method="post">
+  {% csrf_token %}<input type="hidden" name="anio" value="{{ anio }}"><input type="hidden" name="mes" value="{{ mes }}">
+  <div class="card">
+    {% if filas %}
+    <div class="table-responsive">
+      <table class="table align-middle mb-0">
+        <thead><tr><th scope="col">Vendedor</th><th scope="col" style="width: 14rem">Meta del mes ($)</th><th scope="col" class="d-none d-md-table-cell">Definida por</th></tr></thead>
+        <tbody>
+          {% for fila in filas %}
+          <tr>
+            <td>{{ fila.vendedor }}{% if fila.vendedor.estado != "ACTIVO" %} <span class="badge text-bg-light border">{{ fila.vendedor.get_estado_display }}</span>{% endif %}</td>
+            <td>
+              {% if puede_editar %}
+              <label class="visually-hidden" for="meta-{{ fila.vendedor.pk }}">Meta de {{ fila.vendedor }}</label>
+              <input id="meta-{{ fila.vendedor.pk }}" name="meta-{{ fila.vendedor.pk }}" type="number" step="0.01" min="0.01" inputmode="decimal"
+                     class="form-control {% if fila.error %}is-invalid{% endif %}" placeholder="Sin meta"
+                     value="{% if fila.valor is not None %}{{ fila.valor }}{% elif fila.meta %}{{ fila.meta.monto_meta|stringformat:'s' }}{% endif %}">
+              {% if fila.error %}<div class="invalid-feedback">{{ fila.error }}</div>{% endif %}
+              {% elif fila.meta %}${{ fila.meta.monto_meta|dinero }}{% else %}<span class="text-body-secondary">Sin meta</span>{% endif %}
+            </td>
+            <td class="d-none d-md-table-cell small text-body-secondary">{% if fila.meta %}{{ fila.meta.definida_por.get_full_name|default:"—" }} · {{ fila.meta.actualizado_en|date:"d/m/Y" }}{% else %}—{% endif %}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="card-body text-center text-body-secondary py-5">No hay vendedores activos.</div>
+    {% endif %}
+  </div>
+  {% if puede_editar and filas %}
+  <div class="d-flex flex-wrap align-items-center gap-3 mt-3">
+    <button type="submit" class="btn btn-primary">Guardar metas</button>
+    <span class="form-text">Las metas se miden en valor vendido. Cada cambio queda en el registro de cambios.</span>
+  </div>
+  {% endif %}
+</form>
+{% endblock %}

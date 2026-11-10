@@ -193,3 +193,37 @@ class AsignacionComision(ModeloBase):
             ),
             sin_solapamiento("asig_comision_sin_solapamiento", "vigente_desde", "vigente_hasta", "empleado"),
         ]
+
+
+class ObservacionEmpleado(models.Model):
+    """
+    Notas del administrador sobre el empleado (felicitaciones, llamados de atención, seguimiento).
+    Es un historial: las observaciones no se editan ni se borran, y quedan en la auditoría.
+    """
+
+    class Tipo(models.TextChoices):
+        GENERAL = "GENERAL", "General"
+        POSITIVA = "POSITIVA", "Reconocimiento"
+        LLAMADO_ATENCION = "LLAMADO_ATENCION", "Llamado de atención"
+        SEGUIMIENTO = "SEGUIMIENTO", "Seguimiento"
+
+    empleado = models.ForeignKey(Empleado, on_delete=models.PROTECT, related_name="observaciones")
+    tipo = models.CharField(max_length=20, choices=Tipo.choices, default=Tipo.GENERAL)
+    texto = models.TextField()
+    autor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    creado_en = models.DateTimeField("creado en", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "observación del empleado"
+        verbose_name_plural = "observaciones de empleados"
+        ordering = ["-creado_en"]
+        indexes = [models.Index(fields=["empleado", "-creado_en"], name="observacion_empleado_idx")]
+        constraints = [
+            models.CheckConstraint(condition=~Q(texto=""), name="observacion_texto_no_vacio"),
+            models.CheckConstraint(
+                condition=Q(tipo__in=["GENERAL", "POSITIVA", "LLAMADO_ATENCION", "SEGUIMIENTO"]), name="observacion_tipo_valido"
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.empleado} · {self.get_tipo_display()} · {self.creado_en:%d/%m/%Y}"

@@ -1,0 +1,127 @@
+{% load static estaticos %}<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tablero de ventas · CALLFLOW</title>
+  <link rel="icon" type="image/png" href="{% estatico 'img/logo-multivisa.png' %}">
+  <link rel="stylesheet" href="{% static 'vendor/bootstrap-icons/bootstrap-icons.min.css' %}">
+  <link rel="stylesheet" href="{% estatico 'css/tablero.css' %}">
+</head>
+<body class="tv">
+  {# Se actualiza solo cada 30 s; si alguien vendió, su fila se ilumina y salta confeti. #}
+  <div id="tablero" hx-get="{{ request.get_full_path }}" hx-trigger="every 30s" hx-swap="innerHTML">
+    {% include "cierre/_tablero_ventas.html" %}
+  </div>
+
+  {# Controles: aparecen al mover el mouse y se esconden solos para que no salgan en la TV. #}
+  <nav class="tv-controles" aria-label="Opciones del tablero">
+    <a href="{% url 'inicio' %}" class="tv-boton" title="Volver a CALLFLOW"><i class="bi bi-arrow-left" aria-hidden="true"></i><span>Salir</span></a>
+    <span class="tv-separador"></span>
+    <a href="?mes={{ anterior }}&destacar={{ destacar }}" class="tv-boton" title="Mes anterior"><i class="bi bi-chevron-left" aria-hidden="true"></i></a>
+    <span class="tv-mes">{{ mes_actual|date:"F Y"|capfirst }}</span>
+    <a href="?mes={{ siguiente }}&destacar={{ destacar }}" class="tv-boton" title="Mes siguiente"><i class="bi bi-chevron-right" aria-hidden="true"></i></a>
+    {% if not es_mes_actual %}<a href="?destacar={{ destacar }}" class="tv-boton">Este mes</a>{% endif %}
+    <span class="tv-separador"></span>
+    <span class="tv-etiqueta">Destacar:</span>
+    {% for valor, nombre in opciones_destacar.items %}
+    <a href="?mes={{ mes_param }}&destacar={{ valor }}" class="tv-boton {% if destacar == valor %}activo{% endif %}" {% if destacar == valor %}aria-current="true"{% endif %}>
+      {% if valor == "mejor" %}👑{% elif valor == "venta" %}💎{% else %}🚫{% endif %} {{ nombre }}</a>
+    {% endfor %}
+    <span class="tv-separador"></span>
+    <button type="button" class="tv-boton" id="pantalla-completa" title="Pantalla completa (F11)"><i class="bi bi-arrows-fullscreen" aria-hidden="true"></i><span>Pantalla completa</span></button>
+  </nav>
+
+  <div id="confeti" aria-hidden="true"></div>
+
+  <script src="{% static 'vendor/htmx.min.js' %}"></script>
+  <script>
+  (function () {
+    const tablero = document.getElementById("tablero");
+    const confeti = document.getElementById("confeti");
+    const quieto = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    // Reloj grande (hora del equipo que proyecta). Se busca cada vez: la cabecera se reemplaza al actualizar.
+    function hora() {
+      const reloj = document.getElementById("reloj");
+      if (reloj) reloj.textContent = new Date().toLocaleTimeString("es-EC", { hour: "2-digit", minute: "2-digit", hour12: false });
+    }
+    hora();
+    setInterval(hora, 1000 * 15);
+
+    // Controles: visibles al mover el mouse; se esconden (con el cursor) a los 3 s.
+    let espera;
+    function mostrarControles() {
+      document.body.classList.add("con-controles");
+      clearTimeout(espera);
+      espera = setTimeout(function () { document.body.classList.remove("con-controles"); }, 3000);
+    }
+    document.addEventListener("mousemove", mostrarControles);
+    document.addEventListener("keydown", mostrarControles);
+    mostrarControles();
+
+    document.getElementById("pantalla-completa").addEventListener("click", function () {
+      if (document.fullscreenElement) document.exitFullscreen();
+      else document.documentElement.requestFullscreen().catch(function () {});
+    });
+
+    // Confeti hecho con CSS (sin librerías ni internet).
+    const COLORES = ["#ff6b6b", "#ffd43b", "#69db7c", "#4dabf7", "#9775fa", "#f783ac", "#ffa94d"];
+    function lanzarConfeti(cantidad) {
+      if (quieto) return;
+      for (let i = 0; i < cantidad; i++) {
+        const p = document.createElement("i");
+        p.style.left = Math.random() * 100 + "vw";
+        p.style.background = COLORES[i % COLORES.length];
+        p.style.animationDelay = Math.random() * 0.8 + "s";
+        p.style.animationDuration = 2.5 + Math.random() * 2 + "s";
+        p.style.transform = "rotate(" + Math.random() * 360 + "deg)";
+        confeti.appendChild(p);
+        setTimeout(function () { p.remove(); }, 5500);
+      }
+    }
+
+    // Antes de actualizar se guarda lo que llevaba cada uno; después se celebra a quien subió.
+    let antes = {}, liderAntes = null;
+    tablero.addEventListener("htmx:beforeSwap", function (evento) {
+      const xhr = evento.detail.xhr;
+      // Si la sesión venció, la respuesta es la pantalla de acceso: se recarga la página completa.
+      if (!xhr.responseText || xhr.responseText.indexOf("data-tablero") === -1) {
+        evento.detail.shouldSwap = false;
+        window.location.reload();
+        return;
+      }
+      antes = {};
+      tablero.querySelectorAll("[data-vendedor]").forEach(function (fila) {
+        antes[fila.dataset.vendedor] = parseFloat(fila.dataset.total);
+      });
+      const lider = tablero.querySelector("[data-lider]");
+      liderAntes = lider ? lider.dataset.lider : null;
+    });
+    tablero.addEventListener("htmx:afterSwap", function () {
+      hora();
+      let hubo = false;
+      tablero.querySelectorAll("[data-vendedor]").forEach(function (fila) {
+        const previo = antes[fila.dataset.vendedor];
+        const ahora = parseFloat(fila.dataset.total);
+        if (previo !== undefined && ahora > previo) {
+          hubo = true;
+          fila.classList.add("subio");
+          const burbuja = document.createElement("span");
+          burbuja.className = "burbuja";
+          burbuja.textContent = "+$" + (ahora - previo).toLocaleString("es-EC", { maximumFractionDigits: 0 }) + " 🎉";
+          fila.appendChild(burbuja);
+        }
+      });
+      const lider = tablero.querySelector("[data-lider]");
+      if (lider && liderAntes && lider.dataset.lider !== liderAntes) {
+        lider.classList.add("nuevo-lider");
+        lanzarConfeti(140);
+      } else if (hubo) {
+        lanzarConfeti(70);
+      }
+    });
+  })();
+  </script>
+</body>
+</html>

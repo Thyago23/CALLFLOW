@@ -1,0 +1,15 @@
+{% load reportes_cf %}
+{# Barras horizontales de un solo tono. Recibe `filas` [{etiqueta, valor, ancho}] y `tipo` ("dinero" o "entero"). #}
+{% if filas %}
+<ul class="list-unstyled mb-0 barras-h">
+  {% for f in filas %}
+  <li>
+    <span class="etiqueta text-truncate" title="{{ f.etiqueta }}">{{ f.etiqueta }}</span>
+    <span class="pista" aria-hidden="true"><span class="barra" style="width: {{ f.ancho }}%"></span></span>
+    <span class="valor">{% if tipo == "dinero" %}{{ f.valor|usd }}{% else %}{{ f.valor }}{% endif %}</span>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="text-body-secondary small mb-0 py-3 text-center">Sin datos en este mes.</p>
+{% endif %}

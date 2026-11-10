@@ -1,0 +1,36 @@
+{% if movimientos %}
+<div class="table-responsive">
+  <table class="table align-middle mb-0">
+    <thead>
+      <tr>
+        <th scope="col">Fecha</th>
+        {% if mostrar_material %}<th scope="col">Material</th>{% endif %}
+        <th scope="col">Tipo</th>
+        <th scope="col" class="text-end">Cantidad</th>
+        <th scope="col" class="text-end">Stock después</th>
+        <th scope="col" class="d-none d-md-table-cell">Motivo</th>
+        <th scope="col" class="d-none d-lg-table-cell">Responsable</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for mv in movimientos %}
+      <tr>
+        <td class="text-nowrap small">{{ mv.fecha|date:"d/m/Y H:i" }}</td>
+        {% if mostrar_material %}<td><a class="text-reset" href="{% url 'inventario:material_detalle' mv.material_id %}">{{ mv.material.nombre }}</a></td>{% endif %}
+        <td><span class="tipo-movimiento tipo-{{ mv.tipo|lower }}">{{ mv.get_tipo_display }}</span></td>
+        {% if mv.tipo == "ENTRADA" or mv.tipo == "AJUSTE_POSITIVO" %}
+        <td class="text-end fw-semibold text-nowrap text-success">+{{ mv.cantidad|floatformat:"-2" }}</td>
+        {% else %}
+        <td class="text-end fw-semibold text-nowrap text-danger">−{{ mv.cantidad|floatformat:"-2" }}</td>
+        {% endif %}
+        <td class="text-end">{{ mv.stock_resultante|floatformat:"-2" }}</td>
+        <td class="d-none d-md-table-cell small">{{ mv.motivo|default:"—" }}</td>
+        <td class="d-none d-lg-table-cell small">{% if mv.responsable %}{{ mv.responsable.get_full_name|default:mv.responsable.username }}{% else %}—{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<p class="card-body text-body-secondary mb-0">Sin movimientos.</p>
+{% endif %}

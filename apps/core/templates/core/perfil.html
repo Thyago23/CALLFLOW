@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block titulo %}Mi perfil{% endblock %}
+{% block contenido %}
+<div class="mb-3">
+  <h1 class="h3 mb-0">Mi perfil</h1>
+  <p class="text-body-secondary small mb-0">Su foto, cómo lo ven sus compañeros y cómo prefiere ver CALLFLOW. Sus datos personales los actualiza el administrador en Personal.</p>
+</div>
+
+{% if form.errors %}
+<div class="alert alert-danger" role="alert">Revise los campos marcados en rojo.</div>
+{% endif %}
+
+<form method="post" enctype="multipart/form-data" novalidate class="perfil">
+  {% csrf_token %}
+  <div class="row g-4">
+    <div class="col-lg-7">
+      <section class="card mb-4" aria-labelledby="titulo-foto">
+        <div class="card-body">
+          <h2 class="h6 mb-3" id="titulo-foto"><i class="bi bi-person-bounding-box me-1" aria-hidden="true"></i>Foto y apodo</h2>
+          <div class="d-flex flex-wrap align-items-center gap-4 mb-3">
+            <div class="vista-foto" data-vista-foto>
+              {% include "_avatar.html" with u=user clase="avatar-perfil" %}
+            </div>
+            <div class="flex-grow-1 min-w-0">
+              <p class="fs-5 fw-semibold mb-0" data-vista-nombre>{{ user.nombre_visible }}</p>
+              <p class="text-body-secondary small mb-0">{{ user.get_full_name|default:user.username }} · {{ user.get_rol_display }} · <span class="codigo-chip">{{ user.username }}</span></p>
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label" for="{{ form.foto_nueva.id_for_label }}">{% if user.foto %}Cambiar foto{% else %}Subir foto{% endif %}</label>
+            {{ form.foto_nueva }}
+            {% for error in form.foto_nueva.errors %}<div class="invalid-feedback">{{ error }}</div>{% endfor %}
+            <div class="form-text">{{ form.foto_nueva.help_text }}</div>
+          </div>
+          {% if user.foto %}
+          <div class="form-check mb-3">
+            {{ form.quitar_foto }}
+            <label class="form-check-label" for="{{ form.quitar_foto.id_for_label }}">{{ form.quitar_foto.label }} (vuelven a verse las iniciales)</label>
+          </div>
+          {% endif %}
+
+          {% include "_campo.html" with campo=form.apodo ayuda=form.apodo.help_text %}
+        </div>
+      </section>
+    </div>
+
+    <div class="col-lg-5">
+      <section class="card mb-4" aria-labelledby="titulo-tema">
+        <div class="card-body">
+          <h2 class="h6 mb-1" id="titulo-tema"><i class="bi bi-circle-half me-1" aria-hidden="true"></i>Modo de pantalla</h2>
+          <p class="text-body-secondary small">Se aplica en cualquier equipo donde inicie sesión.</p>
+          <div class="row g-3 opciones-tema" role="radiogroup" aria-labelledby="titulo-tema">
+            {% for opcion in form.tema %}
+            <div class="col-6">
+              <input type="radio" class="btn-check" name="{{ opcion.data.name }}" id="{{ opcion.id_for_label }}" value="{{ opcion.data.value }}" {% if opcion.data.selected %}checked{% endif %} data-tema>
+              <label class="opcion-tema w-100" for="{{ opcion.id_for_label }}">
+                <span class="muestra-tema muestra-{{ opcion.data.value|lower }}" aria-hidden="true"><i></i><b></b><b></b></span>
+                <span class="d-flex align-items-center gap-2 fw-semibold mt-2">
+                  <i class="bi bi-{% if opcion.data.value == 'OSCURO' %}moon-stars{% else %}sun{% endif %}" aria-hidden="true"></i>{{ opcion.choice_label }}
+                </span>
+              </label>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <div class="d-flex gap-2">
+    <button type="submit" class="btn btn-primary"><i class="bi bi-check2 me-1" aria-hidden="true"></i>Guardar cambios</button>
+    <a href="{% url 'inicio' %}" class="btn btn-outline-secondary">Cancelar</a>
+  </div>
+</form>
+
+<script>
+  (function () {
+    // Vista previa: la foto elegida y el modo de pantalla se ven antes de guardar.
+    const entrada = document.getElementById("{{ form.foto_nueva.id_for_label }}");
+    const vista = document.querySelector("[data-vista-foto]");
+    entrada.addEventListener("change", function () {
+      const archivo = entrada.files[0];
+      if (!archivo || !archivo.type.startsWith("image/")) return;
+      const img = document.createElement("img");
+      img.className = "avatar con-foto avatar-perfil";
+      img.alt = "";
+      img.src = URL.createObjectURL(archivo);
+      vista.replaceChildren(img);
+    });
+    const apodo = document.getElementById("{{ form.apodo.id_for_label }}");
+    const nombre = document.querySelector("[data-vista-nombre]");
+    const original = "{{ user.get_full_name|default:user.username|escapejs }}";
+    apodo.addEventListener("input", function () { nombre.textContent = apodo.value.trim() || original; });
+    document.querySelectorAll("[data-tema]").forEach(function (radio) {
+      radio.addEventListener("change", function () {
+        document.documentElement.setAttribute("data-bs-theme", radio.value === "OSCURO" ? "dark" : "light");
+      });
+    });
+  })();
+</script>
+{% endblock %}

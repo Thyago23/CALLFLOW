@@ -1,0 +1,30 @@
+{% load interfaz %}
+<div class="d-flex justify-content-between align-items-center px-3 py-2 border-bottom">
+  <strong class="small">Notificaciones</strong>
+  {% if notificaciones_sin_leer %}
+  <button type="button" class="btn btn-sm btn-link p-0 text-decoration-none" hx-post="{% url 'notificaciones_leidas' %}?panel=campana" hx-target="#panel-campana"><i class="bi bi-check2-all me-1" aria-hidden="true"></i>Marcar todas como leídas</button>
+  {% endif %}
+</div>
+{% if notificaciones %}
+<div class="lista-campana">
+  {% for n in notificaciones %}
+  <a href="{% url 'notificacion_abrir' n.pk %}" class="dropdown-item notificacion {% if not n.leida %}no-leida{% endif %} py-2 text-wrap">
+    <span class="icono-notificacion tono-{{ n.tono }}" aria-hidden="true"><i class="bi bi-{{ n.icono }}"></i></span>
+    <span class="min-w-0 flex-grow-1">
+      <span class="d-flex justify-content-between gap-2">
+        <span class="small fw-semibold">{{ n.titulo }}{% if not n.leida %}<span class="visually-hidden"> (sin leer)</span>{% endif %}</span>
+        <span class="small text-body-secondary text-nowrap">{{ n.creado_en|hace }}</span>
+      </span>
+      {% if n.mensaje %}<span class="d-block small text-body-secondary">{{ n.mensaje|truncatechars:110 }}</span>{% endif %}
+    </span>
+    {% if not n.leida %}<span class="punto-notificacion" aria-hidden="true"></span>{% endif %}
+  </a>
+  {% endfor %}
+</div>
+{% else %}
+<p class="text-body-secondary small px-3 py-4 mb-0 text-center"><i class="bi bi-bell-slash d-block fs-4 mb-1" aria-hidden="true"></i>No tiene notificaciones.</p>
+{% endif %}
+<div class="border-top px-3 py-2 small bg-body-tertiary" data-estado-push data-ocultar-si-activo></div>
+{# Al marcar como leídas (o abrir el panel) el número de la campana se actualiza al instante. #}
+<span id="contador-notificaciones" hx-swap-oob="innerHTML">{% include "core/_contador_campana.html" %}</span>
+<div class="border-top px-3 py-2 text-center"><a class="small text-decoration-none" href="{% url 'notificaciones' %}">Ver todas</a></div>

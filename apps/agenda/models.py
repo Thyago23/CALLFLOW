@@ -28,6 +28,10 @@ class Evento(ModeloBase):
     estado = models.CharField(max_length=10, choices=Estado.choices, default=Estado.PENDIENTE)
     minutos_aviso = models.PositiveIntegerField(default=15, help_text="Anticipación de la notificación.")
     aviso_enviado = models.BooleanField(default=False)
+    cliente = models.ForeignKey(
+        "ventas.Cliente", on_delete=models.SET_NULL, null=True, blank=True, related_name="eventos_agenda",
+        help_text="Cliente al que hay que llamar (llamadas agendadas desde Ventas).",
+    )
     google_event_id = models.CharField(
         max_length=255, null=True, blank=True, unique=True,
         help_text="Reservado para la posible integración con Google Calendar (SCRUM-30).",

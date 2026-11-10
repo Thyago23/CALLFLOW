@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block titulo %}Usuarios{% endblock %}
+{% block contenido %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+  <div>
+    <h1 class="h3 mb-0">Usuarios</h1>
+    <p class="text-body-secondary mb-0 small">Cada persona ingresa con su usuario (nombre.apellido) y su código de acceso (iniciales + 8 dígitos aleatorios).</p>
+  </div>
+  {% if perms.core.add_usuario %}
+  <a href="{% url 'usuario_crear' %}" class="btn btn-primary"><i class="bi bi-person-plus me-1" aria-hidden="true"></i>Crear usuario</a>
+  {% endif %}
+</div>
+
+<form class="row g-2 mb-3" role="search"
+      hx-get="{% url 'usuarios' %}" hx-target="#tabla-usuarios"
+      hx-trigger="input changed delay:300ms from:#busqueda, change from:#filtro-rol, submit" hx-push-url="true">
+  <div class="col-sm-8 col-md-6">
+    <label class="visually-hidden" for="busqueda">Buscar</label>
+    <input id="busqueda" name="q" type="search" class="form-control" value="{{ q }}" placeholder="Buscar por usuario, nombre o correo" autocomplete="off">
+  </div>
+  <div class="col-sm-4 col-md-3">
+    <label class="visually-hidden" for="filtro-rol">Rol</label>
+    <select id="filtro-rol" name="rol" class="form-select">
+      <option value="">Todos los roles</option>
+      {% for valor, texto in roles %}
+      <option value="{{ valor }}" {% if valor == rol %}selected{% endif %}>{{ texto }}</option>
+      {% endfor %}
+    </select>
+  </div>
+</form>
+
+<div id="tabla-usuarios">
+  {% include "core/_usuarios_tabla.html" %}
+</div>
+{% endblock %}

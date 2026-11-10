@@ -11,11 +11,13 @@ from django.core.management.base import BaseCommand
 from django.db import transaction
 
 from apps.asistencia.models import Horario
+from apps.core import jornada
 from apps.core.models import Rol
 from apps.documentos.models import TipoDocumento
 from apps.inventario.models import CategoriaMaterial
 from apps.nomina.models import TipoNovedadNomina
 from apps.personal.models import Cargo
+from apps.reportes.catalogo import TIPOS_REPORTE  # tipos de reporte y sus roles (4.5)
 from apps.reportes.models import TipoReporte
 
 CARGOS = ["Administrador", "Vendedor telefónico", "Encargado de cierre"]
@@ -23,6 +25,7 @@ CARGOS = ["Administrador", "Vendedor telefónico", "Encargado de cierre"]
 TIPOS_DOCUMENTO = [
     ("CEDULA", "Copia de cédula", True),
     ("HOJA_VIDA", "Hoja de vida", True),
+    ("TITULO_BACHILLER", "Título de bachiller", True),
     ("CERT_ESTUDIOS", "Certificado de estudios", False),
     ("CERT_LABORAL", "Certificado laboral", False),
     ("CONTRATO", "Contrato de trabajo", False),
@@ -42,34 +45,46 @@ TIPOS_NOVEDAD = [
 
 CATEGORIAS = ["Papelería", "Tecnología y accesorios", "Limpieza", "Cafetería"]
 
-A, V, C = Rol.ADMINISTRADOR, Rol.VENDEDOR, Rol.ENCARGADO_CIERRE
-TIPOS_REPORTE = [
-    ("PERSONAL_LISTADO", "Listado del personal", "ADMINISTRATIVO", ["estado", "cargo"], [A]),
-    ("ASISTENCIA_HISTORIAL", "Historial de asistencia", "ADMINISTRATIVO", ["fecha_desde", "fecha_hasta", "empleado"], [A]),
-    ("INVENTARIO_STOCK", "Existencias de inventario", "ADMINISTRATIVO", ["categoria"], [A]),
-    ("NOMINA_RESUMEN", "Resumen de nómina por periodo", "NOMINA", ["periodo"], [A]),
-    ("NOMINA_ROL_PAGO", "Rol de pagos individual", "NOMINA", ["periodo", "empleado"], [A]),
-    ("VENTAS_PRODUCCION", "Hoja de producción del vendedor", "VENTAS", ["vendedor", "anio", "mes"], [A, V, C]),
-    ("CIERRE_PANEL", "Panel comercial: ventas y metas", "CIERRE", ["anio", "mes", "vendedor"], [A, C]),
-]
 
-# Permisos por rol, como "app_label": ["view", "add", ...]
+# Permisos por rol. Clave "app" = todas las tablas de la app; "app.modelo" = solo esa tabla.
+# Acciones: view, add, change, delete.
+_GESTION_BASES = {
+    "ventas.basecomercial": ["view", "add", "change"],
+    "ventas.asignacionbase": ["view", "add", "change"],
+    "ventas.solicitudbase": ["view", "change"],
+    "ventas.registrobase": ["view", "add", "change"],  # contactos de las bases (carga, reparto y seguimiento)
+    "ventas.contactorepetido": ["view", "add", "change"],  # base de repetidos (revisar, descartar o recuperar)
+}
+# Catálogo de bancos y BIN para la validación de tarjetas (lo mantienen administración y cierre).
+_CATALOGO_TARJETAS = {
+    "ventas.entidademisora": ["view", "add", "change"],
+    "ventas.rangobin": ["view", "add", "change", "delete"],
+}
 PERMISOS_POR_ROL = {
     Rol.ADMINISTRADOR: {
         app: ["view", "add", "change", "delete"]
         for app in ["personal", "documentos", "asistencia", "inventario", "agenda", "nomina", "reportes", "core"]
-    } | {"ventas": ["view"], "cierre": ["view", "add", "change"]},
+    } | {"cierre": ["view", "add", "change"]} | {
+        # En ventas consulta y gestiona las bases comerciales; no entra al catálogo de tarjetas.
+        f"ventas.{modelo}": ["view"]
+        for modelo in ["cliente", "formulariodami", "historialestadoformulario", "tarjetadami", "hojaproduccion", "registroproduccion"]
+    } | _GESTION_BASES,
     Rol.VENDEDOR: {
-        "ventas": ["view", "add", "change"],
+        "ventas": ["view"],
+        "ventas.formulariodami": ["view", "add", "change"],
+        "ventas.cliente": ["view", "add", "change"],
+        "ventas.registroproduccion": ["view", "change"],  # escribe la aprobación en su hoja
+        "ventas.solicitudbase": ["view", "add"],
+        "ventas.registrobase": ["view", "change"],  # categoriza los clientes de sus bases
+        "ventas.solicitudayuda": ["view", "add", "change"],  # pide ayuda a otro asesor con un contacto, o la da
         "agenda": ["view", "add", "change", "delete"],
-        "reportes": ["view"],
     },
     Rol.ENCARGADO_CIERRE: {
         "ventas": ["view", "change"],
         "cierre": ["view", "add", "change"],
         "agenda": ["view", "add", "change", "delete"],
         "reportes": ["view"],
-    },
+    } | _GESTION_BASES | _CATALOGO_TARJETAS,
 }
 
 
@@ -92,22 +107,27 @@ class Command(BaseCommand):
 
         Horario.objects.get_or_create(
             nombre="Jornada estándar",
-            defaults={"hora_entrada": time(8, 0), "hora_salida": time(17, 0), "minutos_tolerancia": 5},
+            # 9:00 a 18:00 (settings.JORNADA_LABORAL) y sin tolerancia: las multas empiezan a las 9:00:01.
+            defaults={"hora_entrada": jornada.inicio(), "hora_salida": jornada.fin(), "minutos_tolerancia": 0,
+                      "dias_laborables": jornada.dias()},
         )
 
-        for codigo, nombre, modulo, filtros, roles in TIPOS_REPORTE:
+        for codigo, nombre, modulo, filtros, roles, descripcion in TIPOS_REPORTE:
             TipoReporte.objects.update_or_create(
                 codigo=codigo,
-                defaults={"nombre": nombre, "modulo": modulo, "filtros_disponibles": filtros, "roles_permitidos": list(roles)},
+                defaults={"nombre": nombre, "modulo": modulo, "filtros_disponibles": filtros, "roles_permitidos": list(roles),
+                          "descripcion": descripcion},
             )
 
         for rol, apps in PERMISOS_POR_ROL.items():
             grupo, _ = Group.objects.get_or_create(name=rol.label)
             permisos = Permission.objects.none()
-            for app, acciones in apps.items():
-                codenames = [p.codename for p in Permission.objects.filter(content_type__app_label=app)
-                             if p.codename.split("_", 1)[0] in acciones]
-                permisos = permisos | Permission.objects.filter(content_type__app_label=app, codename__in=codenames)
+            for clave, acciones in apps.items():
+                app, _, modelo = clave.partition(".")
+                filtro = {"content_type__app_label": app} | ({"content_type__model": modelo} if modelo else {})
+                codenames = [p.codename for p in Permission.objects.filter(**filtro) if p.codename.split("_", 1)[0] in acciones]
+                permisos = permisos | Permission.objects.filter(**filtro, codename__in=codenames)
             grupo.permissions.set(permisos.distinct())
 
-        self.stdout.write(self.style.SUCCESS("Datos iniciales de CALLFLOW cargados."))
+        if options["verbosity"] > 0:
+            self.stdout.write(self.style.SUCCESS("Datos iniciales de CALLFLOW cargados."))

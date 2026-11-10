@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% load humanize_cf %}
+{% block titulo %}Mi panel · Ventas{% endblock %}
+{% block contenido %}
+{% include "ventas/_subnav.html" with seccion="panel" %}
+
+<div class="d-flex flex-wrap justify-content-between align-items-baseline gap-2 mb-3">
+  <h2 class="h5 mb-0 fecha-hoy">{{ hoy|date:"F Y" }}</h2>
+  {% if panel.borradores %}<a href="{% url 'ventas:formularios' %}?estado=BORRADOR" class="small">Tiene {{ panel.borradores }} borrador{{ panel.borradores|pluralize:"es" }} sin enviar</a>{% endif %}
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-md-6 col-xl-4">
+    <div class="card h-100 panel-meta">
+      <div class="card-body">
+        <div class="small text-body-secondary">Total vendido</div>
+        <div class="display-6 fw-semibold mb-1">${{ panel.mes.total_vendido|dinero }}</div>
+        {% if panel.meta %}
+        <div class="progress mb-2" role="progressbar" aria-label="Avance de la meta" aria-valuenow="{{ panel.avance_meta }}" aria-valuemin="0" aria-valuemax="100" style="height: .6rem">
+          <div class="progress-bar {% if panel.avance_meta >= 100 %}bg-success{% endif %}" style="width: {% if panel.avance_meta > 100 %}100{% else %}{{ panel.avance_meta }}{% endif %}%"></div>
+        </div>
+        <div class="small">
+          <strong>{{ panel.avance_meta }}%</strong> de la meta de ${{ panel.meta|dinero }}
+          {% if panel.pendiente_meta %}· faltan <strong>${{ panel.pendiente_meta|dinero }}</strong>{% else %}· <span class="text-success fw-semibold">¡meta cumplida!</span>{% endif %}
+        </div>
+        {% else %}
+        <div class="small text-body-secondary">Todavía no tiene una meta asignada este mes.</div>
+        {% endif %}
+        {% if panel.variacion is not None %}
+        <div class="small mt-2 {% if panel.variacion >= 0 %}text-success{% else %}text-danger{% endif %}">
+          <i class="bi {% if panel.variacion >= 0 %}bi-arrow-up-right{% else %}bi-arrow-down-right{% endif %}" aria-hidden="true"></i>
+          {{ panel.variacion }}% frente al mes anterior (${{ panel.anterior.total_vendido|dinero }})
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="col-md-6 col-xl-8">
+    <div class="row g-3 h-100">
+      <div class="col-6 col-xl-3"><div class="card resumen-dia h-100"><div class="card-body"><div class="valor">{{ panel.mes.enviados }}</div><div class="small text-body-secondary">Formularios enviados</div></div></div></div>
+      <div class="col-6 col-xl-3"><div class="card resumen-dia h-100"><div class="card-body"><div class="valor text-success">{{ panel.mes.cerradas }}</div><div class="small text-body-secondary">Ventas cerradas</div></div></div></div>
+      <div class="col-6 col-xl-3"><div class="card resumen-dia h-100"><div class="card-body"><div class="valor text-danger">{{ panel.mes.no_concretadas }}</div><div class="small text-body-secondary">No concretadas</div></div></div></div>
+      <div class="col-6 col-xl-3"><div class="card resumen-dia h-100"><div class="card-body"><div class="valor text-warning-emphasis">{{ panel.mes.pendientes }}</div><div class="small text-body-secondary">Pendientes de cierre</div></div></div></div>
+      <div class="col-12">
+        <div class="card"><div class="card-body py-2 d-flex flex-wrap gap-3 align-items-center small">
+          <span>Tasa de cierre: <strong>{% if panel.mes.tasa_cierre is not None %}{{ panel.mes.tasa_cierre }}%{% else %}—{% endif %}</strong></span>
+          <span class="text-body-secondary">(ventas cerradas sobre formularios ya gestionados)</span>
+          <span class="ms-auto">Mes anterior: {{ panel.anterior.cerradas }} venta{{ panel.anterior.cerradas|pluralize }} · {% if panel.anterior.tasa_cierre is not None %}{{ panel.anterior.tasa_cierre }}%{% else %}—{% endif %}</span>
+        </div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<section>
+  <h2 class="h6 text-body-secondary text-uppercase mb-2">Accesos rápidos</h2>
+  <div class="row g-3 accesos-ventas">
+    <div class="col-6 col-lg-4">
+      <a class="card h-100 text-reset text-decoration-none acceso" href="{% url 'ventas:formulario_nuevo' %}">
+        <div class="card-body"><i class="bi bi-file-earmark-plus" aria-hidden="true"></i><div class="fw-semibold mt-2">Nuevo DAMI</div><div class="small text-body-secondary">Registrar un cliente</div></div>
+      </a>
+    </div>
+    <div class="col-6 col-lg-4">
+      <a class="card h-100 text-reset text-decoration-none acceso" href="{% url 'ventas:hoja' %}">
+        <div class="card-body"><i class="bi bi-table" aria-hidden="true"></i><div class="fw-semibold mt-2">Mi hoja de producción</div><div class="small text-body-secondary">Ventas del mes</div></div>
+      </a>
+    </div>
+    <div class="col-6 col-lg-4">
+      <a class="card h-100 text-reset text-decoration-none acceso" href="{% url 'ventas:bases' %}">
+        <div class="card-body"><i class="bi bi-database" aria-hidden="true"></i><div class="fw-semibold mt-2">{% if panel.solicitud_pendiente %}Solicitud pendiente{% else %}Solicitar nueva base{% endif %}</div><div class="small text-body-secondary">Bases comerciales</div></div>
+      </a>
+    </div>
+  </div>
+</section>
+{% endblock %}

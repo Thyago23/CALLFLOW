@@ -1,0 +1,50 @@
+{# Desglose del pago de un empleado en un mes. Recibe `e` (calculo.Estimacion). #}
+{% if not e.sueldo_base %}
+<div class="alert alert-warning small py-2">El empleado no tiene sueldo base vigente en este mes. Regístrelo en su ficha (Personal → Sueldo y comisiones).</div>
+{% endif %}
+{% if e.pendientes %}
+<div class="alert alert-warning small py-2">
+  <i class="bi bi-hourglass-split me-1" aria-hidden="true"></i>
+  {{ e.pendientes }} falta{{ e.pendientes|pluralize }} o atraso{{ e.pendientes|pluralize }} sin clasificar: se cuentan como <strong>no justificados</strong>.
+  {% if perms.asistencia.change_novedadasistencia %}<a href="{% url 'asistencia:novedades' %}">Clasificar</a> antes de pagar.{% endif %}
+</div>
+{% endif %}
+
+<table class="table table-sm align-middle mb-0 tabla-pago">
+  <tbody>
+    <tr><th scope="row">Sueldo base</th><td class="text-end">$ {{ e.sueldo_base|default:"0,00" }}</td></tr>
+    <tr class="fila-total"><th scope="row">Total ingresos</th><td class="text-end fw-semibold">$ {{ e.total_ingresos }}</td></tr>
+    {% for d in e.descuentos %}
+    <tr class="text-danger-emphasis">
+      <th scope="row">
+        {{ d.concepto }} <span class="small text-body-secondary">· {{ d.fecha|date:"D d/m" }}</span>
+        {% if d.pendiente %}<span class="badge text-bg-warning ms-1">Sin clasificar</span>{% endif %}
+      </th>
+      <td class="text-end">− $ {{ d.valor }}</td>
+    </tr>
+    {% empty %}
+    <tr><th scope="row" class="text-body-secondary">Sin descuentos por faltas ni atrasos</th><td class="text-end">$ 0,00</td></tr>
+    {% endfor %}
+    {% for a in e.anticipos %}
+    <tr class="text-danger-emphasis"><th scope="row">Anticipo{% if a.concepto != "Anticipo" %}: {{ a.concepto }}{% endif %}{% if a.fecha %} <span class="small text-body-secondary">· {{ a.fecha|date:"D d/m" }}</span>{% endif %}</th><td class="text-end">− $ {{ a.valor }}</td></tr>
+    {% endfor %}
+    {% if e.descuentos or e.anticipos %}
+    <tr class="fila-total"><th scope="row">Total descuentos</th><td class="text-end fw-semibold text-danger-emphasis">− $ {{ e.total_descuentos_y_anticipos }}</td></tr>
+    {% endif %}
+    <tr class="fila-neto"><th scope="row">Neto a recibir</th><td class="text-end">$ {{ e.neto }}</td></tr>
+    <tr><th scope="row" class="small text-body-secondary fw-normal">Días trabajados (mes de 30 días)</th><td class="text-end small">{{ e.dias_trabajados }}</td></tr>
+  </tbody>
+</table>
+
+{% if e.multas_superan_aviso %}
+<div class="alert alert-warning small py-2 mt-3 mb-0">
+  Los descuentos superan el {{ e.aviso_multas_porcentaje|floatformat:"-2" }} % del sueldo base: verifique el límite permitido por el reglamento interno.
+</div>
+{% endif %}
+
+{% if e.llamados_mes %}
+<h3 class="h6 mt-4">Llamados de atención por atraso en el mes</h3>
+<ul class="small mb-0">
+  {% for n in e.llamados_mes %}<li>{{ n.fecha|date:"D d/m/Y" }} · {{ n.minutos }} min de atraso</li>{% endfor %}
+</ul>
+{% endif %}

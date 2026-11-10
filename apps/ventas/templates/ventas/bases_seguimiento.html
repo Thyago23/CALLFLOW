@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block titulo %}Seguimiento de bases · Ventas{% endblock %}
+{% block contenido %}
+{% include "ventas/_subnav.html" with seccion="bases" %}
+<nav aria-label="Ruta" class="mb-2">
+  <ol class="breadcrumb small mb-0">
+    <li class="breadcrumb-item"><a href="{% url 'ventas:bases' %}">Bases comerciales</a></li>
+    <li class="breadcrumb-item active" aria-current="page">Seguimiento por vendedor</li>
+  </ol>
+</nav>
+<div class="mb-3">
+  <h2 class="h4 mb-0">Seguimiento por vendedor</h2>
+  <p class="small text-body-secondary mb-0">Cuántos contactos recibió cada vendedor, cuántos gestionó, cuántos le faltan y cómo los categorizó.</p>
+</div>
+
+<form method="get" class="row g-2 align-items-end mb-3">
+  <div class="col-sm-5 col-lg-4">
+    <label class="form-label small mb-1" for="seg-base">Base</label>
+    <select id="seg-base" name="base" class="form-select" onchange="this.form.requestSubmit()">
+      <option value="">Todas las bases</option>
+      {% for b in bases %}<option value="{{ b.pk }}" {% if base.pk == b.pk %}selected{% endif %}>{{ b.nombre }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="col-sm-5 col-lg-4">
+    <label class="form-label small mb-1" for="seg-vendedor">Vendedor</label>
+    <select id="seg-vendedor" name="vendedor" class="form-select" onchange="this.form.requestSubmit()">
+      <option value="">Todos los vendedores</option>
+      {% for v in vendedores %}<option value="{{ v.pk }}" {% if vendedor.pk == v.pk %}selected{% endif %}>{{ v.apellidos }} {{ v.nombres }}</option>{% endfor %}
+    </select>
+  </div>
+</form>
+
+<div class="row g-3 mb-3">
+  <div class="col-6 col-lg-2"><div class="card h-100 tarjeta-kpi"><div class="card-body py-3"><div class="small text-body-secondary">Enviados</div><div class="valor">{{ totales.enviados }}</div></div></div></div>
+  <div class="col-6 col-lg-2"><div class="card h-100 tarjeta-kpi"><div class="card-body py-3"><div class="small text-body-secondary">Gestionados</div><div class="valor">{{ totales.gestionados }}</div></div></div></div>
+  <div class="col-6 col-lg-2"><div class="card h-100 tarjeta-kpi"><div class="card-body py-3"><div class="small text-body-secondary">Faltan</div><div class="valor {% if totales.pendientes %}text-warning-emphasis{% endif %}">{{ totales.pendientes }}</div></div></div></div>
+  <div class="col-6 col-lg-2"><div class="card h-100 tarjeta-kpi"><div class="card-body py-3"><div class="small text-body-secondary"><i class="clave-estado seg-no-contesto" aria-hidden="true"></i>No contestó</div><div class="valor">{{ totales.no_contesto }}</div></div></div></div>
+  <div class="col-6 col-lg-2"><div class="card h-100 tarjeta-kpi"><div class="card-body py-3"><div class="small text-body-secondary"><i class="clave-estado seg-no-quiere" aria-hidden="true"></i>No quiere</div><div class="valor">{{ totales.no_quiere }}</div></div></div></div>
+  <div class="col-6 col-lg-2"><div class="card h-100 tarjeta-kpi"><div class="card-body py-3"><div class="small text-body-secondary"><i class="clave-estado seg-dami" aria-hidden="true"></i>DAMI sacado</div><div class="valor">{{ totales.dami_sacado }}</div></div></div></div>
+</div>
+
+<section class="card">
+  {% include "ventas/_tabla_seguimiento.html" %}
+</section>
+<p class="small text-body-secondary mt-2 mb-0">Los vendedores con contactos sin gestionar aparecen primero. Para la efectividad de cada base, vea <a href="{% url 'reportes:centro' %}">Reportes</a>.</p>
+{% endblock %}

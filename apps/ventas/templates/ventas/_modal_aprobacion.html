@@ -1,0 +1,68 @@
+<div class="modal fade" id="modal-aprobacion" tabindex="-1" aria-labelledby="modal-aprobacion-titulo" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-body p-4 text-center">
+        <div class="icono-confirmar mb-3" aria-hidden="true"><i class="bi bi-clock-history"></i></div>
+        <h2 class="h5 fw-semibold mb-1" id="modal-aprobacion-titulo">¿Registrar la aprobación?</h2>
+        <p class="text-body-secondary small mb-3" data-aprobacion-cliente></p>
+        <div class="hora-aprobacion-grande font-monospace mb-1" data-aprobacion-hora>--:--</div>
+        <p class="small text-body-secondary mb-3">Hora en que terminó la llamada</p>
+        <div class="d-flex align-items-start gap-2 text-start small bg-warning-subtle text-warning-emphasis rounded p-3 mb-0">
+          <i class="bi bi-lock-fill mt-1" aria-hidden="true"></i>
+          <span>Revise que la hora sea correcta: <strong>una vez guardada no se podrá modificar.</strong></span>
+        </div>
+      </div>
+      <div class="modal-footer border-0 pt-0 px-4 pb-4 justify-content-center gap-2">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal"><i class="bi bi-pencil me-1" aria-hidden="true"></i>Corregir</button>
+        <button type="button" class="btn btn-primary" data-aprobacion-confirmar><i class="bi bi-check2-circle me-1" aria-hidden="true"></i>Sí, guardar</button>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+  // Reemplaza el aviso del navegador por esta ventana al guardar una aprobación (evento htmx:confirm).
+  // Bootstrap se carga al final de la página: la ventana se crea recién al usarla.
+  (function () {
+    const modal = document.getElementById("modal-aprobacion");
+    const confirmar = modal.querySelector("[data-aprobacion-confirmar]");
+    let pendiente = null;   // {campo, enviar} mientras la ventana está abierta
+    let confirmado = false;
+    const ventana = function () { return bootstrap.Modal.getOrCreateInstance(modal); };
+
+    document.body.addEventListener("htmx:confirm", function (evento) {
+      const campo = evento.target;
+      if (!campo.matches || !campo.matches("[data-confirma-aprobacion]")) return;
+      evento.preventDefault();          // sin confirmar no se envía nada
+      if (pendiente) return;            // ya se está preguntando (p. ej. Enter y luego blur)
+      pendiente = {campo: campo, enviar: evento.detail.issueRequest};
+      confirmado = false;
+      modal.querySelector("[data-aprobacion-hora]").textContent = campo.value || "--:--";
+      modal.querySelector("[data-aprobacion-cliente]").textContent = campo.dataset.cliente || "";
+      confirmar.disabled = false;
+      ventana().show();
+    });
+
+    function guardar() {
+      if (!pendiente || confirmado) return;
+      confirmado = true;
+      confirmar.disabled = true;
+      pendiente.enviar(true);
+      ventana().hide();
+    }
+    confirmar.addEventListener("click", guardar);
+    // Enter dentro de la ventana = «Sí, guardar» (salvo si el foco está en «Corregir»).
+    modal.addEventListener("keydown", function (evento) {
+      if (evento.key !== "Enter" || evento.target.matches("[data-bs-dismiss]")) return;
+      evento.preventDefault();
+      guardar();
+    });
+
+    modal.addEventListener("shown.bs.modal", function () { confirmar.focus(); });
+    // «Corregir» (o Esc): vuelve al campo para cambiar la hora; se pregunta otra vez al salir o con Enter.
+    modal.addEventListener("hidden.bs.modal", function () {
+      const campo = pendiente && pendiente.campo;
+      pendiente = null;
+      if (!confirmado && campo && document.body.contains(campo)) campo.focus();
+    });
+  })();
+</script>

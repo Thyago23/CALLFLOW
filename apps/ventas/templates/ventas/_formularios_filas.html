@@ -1,0 +1,38 @@
+{% load humanize_cf %}
+{% if formularios %}
+<div class="table-responsive">
+  <table class="table table-hover align-middle mb-0">
+    <thead>
+      <tr>
+        <th scope="col">Formulario</th>
+        <th scope="col">Cliente</th>
+        {% if not compacto %}<th scope="col" class="d-none d-md-table-cell">Ciudad</th>{% endif %}
+        {% if user.rol != "VENDEDOR" %}<th scope="col" class="d-none d-lg-table-cell">Vendedor</th>{% endif %}
+        <th scope="col" class="d-none d-sm-table-cell">Enviado</th>
+        <th scope="col">Estado</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for f in formularios %}
+      <tr>
+        <td class="text-nowrap">
+          <a class="fw-semibold text-reset" href="{% url 'ventas:formulario_detalle' f.pk %}">{{ f }}</a>
+        </td>
+        <td>{% if f.cliente.nombres %}{{ f.cliente.nombres }} {{ f.cliente.apellidos }}<div class="small text-body-secondary">{{ f.cliente.identificacion }}</div>{% else %}{{ f.cliente.identificacion }}{% endif %}<div class="small text-body-secondary">{{ f.cliente.telefono }}</div></td>
+        {% if not compacto %}<td class="d-none d-md-table-cell">{{ f.cliente.ciudad|default:"—" }}</td>{% endif %}
+        {% if user.rol != "VENDEDOR" %}<td class="d-none d-lg-table-cell small">{{ f.vendedor }}</td>{% endif %}
+        <td class="d-none d-sm-table-cell small text-nowrap">{% if f.enviado_en %}{{ f.enviado_en|date:"d/m/Y H:i" }}{% else %}—{% endif %}</td>
+        <td><span class="badge estado-dami estado-{{ f.estado|lower }}">{{ f.get_estado_display }}</span></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="card-body text-center text-body-secondary py-5">
+  {% if q or estado or desde or hasta %}No hay formularios que coincidan con la búsqueda.
+  {% else %}Todavía no hay formularios DAMI.
+    {% if user.rol == "VENDEDOR" and perms.ventas.add_formulariodami %}<div class="mt-2"><a href="{% url 'ventas:formulario_nuevo' %}">Registrar el primero</a></div>{% endif %}
+  {% endif %}
+</div>
+{% endif %}

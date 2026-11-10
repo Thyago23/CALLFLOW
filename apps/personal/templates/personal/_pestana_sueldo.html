@@ -1,0 +1,102 @@
+{# SCRUM-14 · Sueldo y equipo de comisiones. El rol de pagos completo está en el módulo Nómina. #}
+<section class="tab-pane fade" id="sueldo" role="tabpanel" aria-labelledby="tab-sueldo" tabindex="0">
+  {% with e=estimacion %}
+  {% if e.requiere_visto_bueno %}
+  <div class="alert alert-danger d-flex gap-2" role="alert">
+    <i class="bi bi-exclamation-octagon fs-5" aria-hidden="true"></i>
+    <div><strong>{{ e.llamados_ventana }} llamados de atención</strong> en el último año (atrasos de más de 10 minutos y llamados registrados en Observaciones).
+      Al llegar a {{ e.llamados_para_visto_bueno }} procede el <strong>visto bueno</strong>.</div>
+  </div>
+  {% endif %}
+
+  {% if perms.nomina.view_periodonomina %}
+  <div class="card mb-4 enlace-rol">
+    <div class="card-body d-flex flex-wrap align-items-center justify-content-between gap-3">
+      <div>
+        <div class="small text-body-secondary">Neto estimado del rol de este mes</div>
+        <div class="fs-4 fw-semibold">$ {{ e.neto }}</div>
+        <div class="small text-body-secondary">
+          Sueldo $ {{ e.sueldo_base|default:"0,00" }}{% if e.total_descuentos_y_anticipos %} − descuentos y anticipos $ {{ e.total_descuentos_y_anticipos }}{% endif %}{% if e.es_vendedor %} · Comisión aparte: $ {{ e.comision }}{% endif %}
+        </div>
+      </div>
+      <a href="{% url 'nomina:rol' empleado.pk %}" class="btn btn-outline-primary"><i class="bi bi-receipt me-1" aria-hidden="true"></i>Ver rol de pagos en Nómina</a>
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="row g-4">
+    <div class="col-lg-6">
+      <div class="card h-100">
+        <div class="card-body">
+          <h2 class="h6 text-uppercase text-body-secondary mb-2">Sueldo base</h2>
+          {% with actual=salarios.0 %}
+          <div class="fs-4 fw-semibold mb-3">{% if actual and not actual.vigente_hasta %}$ {{ actual.salario_base }}{% else %}<span class="text-body-secondary fs-6">Sin sueldo vigente</span>{% endif %}</div>
+          {% endwith %}
+          {% if salario_form %}
+          <form method="post" action="{% url 'personal:salario_cambiar' empleado.pk %}" class="row g-2 align-items-end mb-3">
+            {% csrf_token %}
+            <div class="col-sm-6"><label class="form-label small" for="{{ salario_form.salario_base.id_for_label }}">{{ salario_form.salario_base.label }}</label>{{ salario_form.salario_base }}</div>
+            <div class="col-sm-6"><label class="form-label small" for="{{ salario_form.vigente_desde.id_for_label }}">{{ salario_form.vigente_desde.label }}</label>{{ salario_form.vigente_desde }}</div>
+            <div class="col-12"><label class="form-label small" for="{{ salario_form.motivo.id_for_label }}">{{ salario_form.motivo.label }}</label>{{ salario_form.motivo }}</div>
+            <div class="col-12"><button type="submit" class="btn btn-outline-primary btn-sm">Cambiar sueldo</button></div>
+          </form>
+          {% endif %}
+          {% if salarios %}
+          <h3 class="small fw-semibold text-body-secondary mb-1">Historial</h3>
+          <ul class="list-unstyled small mb-0 historial-sueldo">
+            {% for s in salarios %}
+            <li class="d-flex justify-content-between gap-2 py-1 border-bottom">
+              <span>{{ s.vigente_desde|date:"d/m/Y" }} – {% if s.vigente_hasta %}{{ s.vigente_hasta|date:"d/m/Y" }}{% else %}actual{% endif %}{% if s.motivo %} · <span class="text-body-secondary">{{ s.motivo }}</span>{% endif %}</span>
+              <strong>$ {{ s.salario_base }}</strong>
+            </li>
+            {% endfor %}
+          </ul>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    {% if e.es_vendedor or equipos %}
+    <div class="col-lg-6">
+      <div class="card h-100">
+        <div class="card-body">
+          <h2 class="h6 text-uppercase text-body-secondary mb-2">Equipo y comisiones</h2>
+          {% with actual=equipos.0 %}
+          {% if actual and not actual.vigente_hasta %}
+          <div class="fs-5 fw-semibold">{{ actual.esquema }}</div>
+          <ul class="small text-body-secondary list-unstyled mb-3">
+            {% for t in actual.esquema.tramos.all %}
+            <li>
+              {% if not t.desde_monto %}Hasta $ {{ t.hasta_monto|floatformat:"0g" }}
+              {% elif t.hasta_monto %}Más de $ {{ t.desde_monto|floatformat:"0g" }} hasta $ {{ t.hasta_monto|floatformat:"0g" }}
+              {% else %}Más de $ {{ t.desde_monto|floatformat:"0g" }}{% endif %}
+              → <strong>{% if t.porcentaje %}{{ t.porcentaje|floatformat:"-2" }} %{% else %}solo sueldo base{% endif %}</strong>
+            </li>
+            {% endfor %}
+            <li>El porcentaje alcanzado se aplica a todo lo vendido en el mes y se suma al sueldo.</li>
+          </ul>
+          {% else %}
+          <p class="small text-body-secondary">Sin equipo: no se calculan comisiones.</p>
+          {% endif %}
+          {% endwith %}
+          {% if equipo_form %}
+          <form method="post" action="{% url 'personal:equipo_cambiar' empleado.pk %}" class="row g-2 align-items-end">
+            {% csrf_token %}
+            <div class="col-sm-6"><label class="form-label small" for="{{ equipo_form.esquema.id_for_label }}">{{ equipo_form.esquema.label }}</label>{{ equipo_form.esquema }}</div>
+            <div class="col-sm-6"><label class="form-label small" for="{{ equipo_form.vigente_desde.id_for_label }}">{{ equipo_form.vigente_desde.label }}</label>{{ equipo_form.vigente_desde }}</div>
+            <div class="col-12"><button type="submit" class="btn btn-outline-primary btn-sm">{% if equipos %}Cambiar equipo{% else %}Asignar equipo{% endif %}</button></div>
+          </form>
+          {% endif %}
+          {% if equipos|length > 1 %}
+          <h3 class="small fw-semibold text-body-secondary mt-3 mb-1">Historial</h3>
+          <ul class="list-unstyled small mb-0">
+            {% for a in equipos %}<li>{{ a.esquema }} · {{ a.vigente_desde|date:"d/m/Y" }} – {% if a.vigente_hasta %}{{ a.vigente_hasta|date:"d/m/Y" }}{% else %}actual{% endif %}</li>{% endfor %}
+          </ul>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+  {% endwith %}
+</section>

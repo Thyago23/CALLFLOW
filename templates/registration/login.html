@@ -1,0 +1,28 @@
+{% extends "registration/base_acceso.html" %}
+{% block titulo %}Ingresar{% endblock %}
+{% block formulario %}
+<h1 class="h3 mb-1">Ingresar</h1>
+<p class="text-body-secondary mb-4">Use su usuario (nombre.apellido) y el código de acceso que le entregó el administrador.</p>
+
+{% for error in form.non_field_errors %}
+<div class="alert alert-danger" role="alert">{{ error }}</div>
+{% endfor %}
+
+<form method="post" novalidate>
+  {% csrf_token %}
+  <div class="mb-3">
+    <label class="form-label" for="{{ form.username.id_for_label }}">{{ form.username.label }}</label>
+    {{ form.username }}
+  </div>
+  <div class="mb-4">
+    <label class="form-label" for="{{ form.password.id_for_label }}">{{ form.password.label }}</label>
+    {{ form.password }}
+  </div>
+  <input type="hidden" name="next" value="{{ next }}">
+  <button class="btn btn-primary w-100 py-2" type="submit">Ingresar</button>
+</form>
+
+<p class="text-center text-body-secondary small mt-4 mb-0">
+  ¿No tiene cuenta o perdió su código de acceso? Pídale al administrador que cree su cuenta o le genere un código nuevo.
+</p>
+{% endblock %}

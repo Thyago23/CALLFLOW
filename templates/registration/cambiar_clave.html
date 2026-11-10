@@ -1,0 +1,33 @@
+{% extends "registration/base_acceso.html" %}
+{% block titulo %}Cambiar contraseña{% endblock %}
+{% block formulario %}
+<h1 class="h3 mb-1">{% if obligatorio %}Cree su contraseña{% else %}Cambiar contraseña{% endif %}</h1>
+<p class="text-body-secondary mb-4">
+  {% if obligatorio %}
+  Hola, {{ user.first_name }}. Está usando una contraseña temporal; cree una propia para continuar.
+  {% else %}
+  Elija una contraseña nueva para su cuenta.
+  {% endif %}
+</p>
+
+<div class="codigo-recordatorio mb-4">
+  <span class="small text-body-secondary">Su usuario</span>
+  <span class="codigo">{{ user.username }}</span>
+</div>
+
+{% if form.errors %}
+<div class="alert alert-danger" role="alert">Revise los campos marcados en rojo.</div>
+{% endif %}
+
+<form method="post" novalidate>
+  {% csrf_token %}
+  {% include "_campo.html" with campo=form.new_password1 ayuda=form.new_password1.help_text %}
+  {% include "_campo.html" with campo=form.new_password2 %}
+  <button class="btn btn-primary w-100 py-2 mt-2" type="submit">Guardar contraseña</button>
+</form>
+
+<form method="post" action="{% url 'logout' %}" class="text-center mt-3">
+  {% csrf_token %}
+  <button type="submit" class="btn btn-link btn-sm text-body-secondary">Cerrar sesión</button>
+</form>
+{% endblock %}

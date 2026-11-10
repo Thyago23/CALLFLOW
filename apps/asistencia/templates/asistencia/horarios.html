@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block titulo %}Horarios · Asistencia{% endblock %}
+{% block contenido %}
+{% include "asistencia/_subnav.html" with seccion="horarios" %}
+{% include "asistencia/_mensajes.html" %}
+<div class="row g-4">
+  <div class="col-xl-7">
+    <section class="card mb-4">
+      <div class="card-header bg-body"><h2 class="h6 mb-0">Horarios</h2></div>
+      <div class="table-responsive">
+        <table class="table align-middle mb-0">
+          <thead><tr><th scope="col">Nombre</th><th scope="col">Jornada</th><th scope="col">Tolerancia</th><th scope="col">Días</th></tr></thead>
+          <tbody>
+            {% for h in horarios %}
+            <tr class="{% if not h.activo %}text-body-secondary{% endif %}">
+              <td class="fw-semibold">{{ h.nombre }}</td>
+              <td class="text-nowrap">{{ h.hora_entrada|time:"H:i" }} – {{ h.hora_salida|time:"H:i" }}</td>
+              <td>{{ h.minutos_tolerancia }} min</td>
+              <td>{% for d, nombre in dias.items %}<span class="dia-semana {% if d in h.dias_laborables %}activo{% endif %}">{{ nombre|slice:":1" }}</span>{% endfor %}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="4" class="text-body-secondary">Todavía no hay horarios.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-header bg-body"><h2 class="h6 mb-0">Horario vigente de cada empleado (hoy)</h2></div>
+      <div class="table-responsive">
+        <table class="table align-middle mb-0">
+          <thead><tr><th scope="col">Empleado</th><th scope="col">Horario</th><th scope="col">Desde</th></tr></thead>
+          <tbody>
+            {% for e, a in asignaciones %}
+            <tr>
+              <td>{{ e.apellidos }} {{ e.nombres }}</td>
+              <td>{% if a %}{{ a.horario.nombre }}{% else %}<span class="badge text-bg-light border">Sin horario</span>{% endif %}</td>
+              <td class="text-nowrap small">{% if a %}{{ a.vigente_desde|date:"d/m/Y" }}{% else %}—{% endif %}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="3" class="text-body-secondary">No hay empleados registrados.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <div class="col-xl-5">
+    {% if perms.asistencia.add_asignacionhorario %}
+    <section class="card mb-4">
+      <div class="card-header bg-body"><h2 class="h6 mb-0">Asignar horario</h2></div>
+      <form method="post" novalidate class="card-body">
+        {% csrf_token %}
+        {% for error in form_asignar.non_field_errors %}<div class="alert alert-danger py-2 small">{{ error }}</div>{% endfor %}
+        <div class="row">
+          <div class="col-sm-7">{% include "_campo.html" with campo=form_asignar.horario %}</div>
+          <div class="col-sm-5">{% include "_campo.html" with campo=form_asignar.desde %}</div>
+        </div>
+        <fieldset class="mb-3">
+          <legend class="form-label fs-6">Empleados <span class="text-danger" aria-hidden="true">*</span></legend>
+          <div class="lista-checks">
+            {% for opcion in form_asignar.empleados %}<div class="form-check">{{ opcion.tag }}<label class="form-check-label" for="{{ opcion.id_for_label }}">{{ opcion.choice_label }}</label></div>
+            {% empty %}<p class="small text-body-secondary mb-0">No hay empleados.</p>{% endfor %}
+          </div>
+          {% for error in form_asignar.empleados.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+        </fieldset>
+        <p class="small text-body-secondary">Si el empleado ya tenía un horario, ese termina el día anterior a la nueva fecha.</p>
+        <button type="submit" name="asignar" class="btn btn-primary w-100">Asignar</button>
+      </form>
+    </section>
+    {% endif %}
+
+    {% if perms.asistencia.add_horario %}
+    <section class="card">
+      <div class="card-header bg-body"><h2 class="h6 mb-0">Nuevo horario</h2></div>
+      <form method="post" novalidate class="card-body">
+        {% csrf_token %}
+        {% include "_campo.html" with campo=form_horario.nombre %}
+        <div class="row">
+          <div class="col-4">{% include "_campo.html" with campo=form_horario.hora_entrada %}</div>
+          <div class="col-4">{% include "_campo.html" with campo=form_horario.hora_salida %}</div>
+          <div class="col-4">{% include "_campo.html" with campo=form_horario.minutos_tolerancia %}</div>
+        </div>
+        <fieldset class="mb-3">
+          <legend class="form-label fs-6">Días laborables</legend>
+          <div class="d-flex flex-wrap gap-1">
+            {% for opcion in form_horario.dias_laborables %}
+            {{ opcion.tag }}<label class="btn btn-sm btn-outline-primary dia-check" for="{{ opcion.id_for_label }}">{{ opcion.choice_label }}</label>
+            {% endfor %}
+          </div>
+          {% for error in form_horario.dias_laborables.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+        </fieldset>
+        <button type="submit" name="crear_horario" class="btn btn-outline-primary w-100">Crear horario</button>
+      </form>
+    </section>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

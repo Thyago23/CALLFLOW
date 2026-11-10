@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block titulo %}Registrar movimiento · Inventario{% endblock %}
+{% block contenido %}
+<nav aria-label="Ruta" class="mb-2">
+  <ol class="breadcrumb small mb-0">
+    <li class="breadcrumb-item"><a href="{% url 'inventario:materiales' %}">Inventario</a></li>
+    <li class="breadcrumb-item active" aria-current="page">Registrar movimiento</li>
+  </ol>
+</nav>
+<h1 class="h3 mb-3">Registrar movimiento</h1>
+<div class="row">
+  <div class="col-lg-7">
+    {% for error in form.non_field_errors %}<div class="alert alert-danger">{{ error }}</div>{% endfor %}
+    <form method="post" novalidate class="card">
+      <div class="card-body">
+        {% csrf_token %}
+        {% include "_campo.html" with campo=form.material %}
+        <fieldset class="mb-3">
+          <legend class="form-label fs-6">Tipo de movimiento <span class="text-danger" aria-hidden="true">*</span></legend>
+          <div class="row g-2">
+            {% for opcion in form.tipo %}
+            <div class="col-6 col-md-3">
+              {{ opcion.tag }}
+              <label class="btn btn-outline-primary w-100 opcion-movimiento" for="{{ opcion.id_for_label }}">{{ opcion.choice_label }}</label>
+            </div>
+            {% endfor %}
+          </div>
+          {% for error in form.tipo.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+          <div class="form-text">Entrada: compras o devoluciones · Salida: entregas para uso · Ajustes: correcciones por conteo físico, daño o pérdida.</div>
+        </fieldset>
+        <div class="row">
+          <div class="col-sm-4">{% include "_campo.html" with campo=form.cantidad %}</div>
+          <div class="col-sm-8">{% include "_campo.html" with campo=form.motivo ayuda=form.motivo.help_text %}</div>
+        </div>
+      </div>
+      <div class="card-footer bg-body d-flex justify-content-end gap-2">
+        <a href="{% url 'inventario:materiales' %}" class="btn btn-outline-secondary">Cancelar</a>
+        <button type="submit" class="btn btn-primary">Registrar</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

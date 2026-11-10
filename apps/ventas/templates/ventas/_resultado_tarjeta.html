@@ -1,0 +1,27 @@
+<div class="tarjeta-vista tarjeta-{{ r.marca|default:'ninguna'|lower }} mb-3">
+  <div class="d-flex justify-content-between align-items-start">
+    <span class="small opacity-75">{% if r.rango %}{{ r.rango.entidad }}{% else %}Banco emisor{% endif %}</span>
+    <span class="fw-bold">{{ r.marca_nombre|default:"Marca" }}</span>
+  </div>
+  <div class="font-monospace fs-5 my-3 text-break">{{ r.mascara|default:"•••• •••• •••• ••••" }}</div>
+  <div class="small opacity-75">{% if r.rango %}{{ r.rango.get_tipo_tarjeta_display }}{% else %}&nbsp;{% endif %}</div>
+</div>
+
+{% if r.veredicto == "vacio" %}
+<p class="text-body-secondary text-center my-4">Escriba un número de tarjeta para revisarlo.</p>
+{% else %}
+<div class="veredicto-tarjeta veredicto-{{ r.veredicto }} mb-3" role="status">
+  {% if r.veredicto == "valida" %}<i class="bi bi-check-circle-fill" aria-hidden="true"></i> Número válido
+  {% elif r.veredicto == "invalida" %}<i class="bi bi-x-circle-fill" aria-hidden="true"></i> Revise el número
+  {% if r.motivo %}<div class="fw-normal small mt-1">{{ r.motivo }}</div>{% endif %}
+  {% else %}<i class="bi bi-hourglass-split" aria-hidden="true"></i> Siga escribiendo…{% endif %}
+</div>
+<ul class="list-unstyled mb-0 revisiones-tarjeta">
+  {% for rev in r.revisiones %}
+  <li class="d-flex gap-2 py-2 border-top revision-{{ rev.estado }}">
+    <i class="bi {% if rev.estado == 'ok' %}bi-check-circle-fill{% elif rev.estado == 'error' %}bi-x-circle-fill{% elif rev.estado == 'aviso' %}bi-exclamation-triangle-fill{% else %}bi-circle{% endif %} mt-1" aria-hidden="true"></i>
+    <div><div class="fw-semibold">{{ rev.titulo }}</div><div class="small text-body-secondary">{{ rev.detalle }}</div></div>
+  </li>
+  {% endfor %}
+</ul>
+{% endif %}

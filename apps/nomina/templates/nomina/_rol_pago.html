@@ -1,0 +1,40 @@
+{% load humanize_cf %}
+{# Rol de pagos individual: sueldo menos descuentos y anticipos. La comisión va en _comprobante_comision.html. Recibe `e`. #}
+<section class="rol-pago rol-individual pagina-vertical">
+  {% with titulo="Rol de pagos" subtitulo="Periodo: "|add:nombre_mes %}{% include "nomina/_encabezado_reporte.html" %}{% endwith %}
+  {% include "nomina/_datos_empleado_rol.html" %}
+
+  <table class="tabla-rol-pago">
+    <tbody>
+      <tr class="fila-seccion"><th colspan="2" scope="colgroup">Ingresos</th></tr>
+      <tr><td>Sueldo base</td><td>{% if e.sueldo_base %}${{ e.sueldo_base|dinero }}{% else %}<span class="text-danger">Sin sueldo</span>{% endif %}</td></tr>
+      <tr class="fila-subtotal"><td>Total ingresos</td><td>${{ e.total_ingresos|dinero }}</td></tr>
+      <tr class="fila-seccion"><th colspan="2" scope="colgroup">Descuentos</th></tr>
+      {% for d in e.descuentos %}
+      <tr><td>{{ d.concepto }} · {{ d.fecha|date:"d/m/Y" }}{% if d.pendiente %} (sin clasificar){% endif %}</td><td>−${{ d.valor|dinero }}</td></tr>
+      {% endfor %}
+      {% for a in e.anticipos %}
+      <tr><td>Anticipo{% if a.concepto != "Anticipo" %}: {{ a.concepto }}{% endif %}{% if a.fecha %} · {{ a.fecha|date:"d/m/Y" }}{% endif %}</td><td>−${{ a.valor|dinero }}</td></tr>
+      {% endfor %}
+      {% if not e.descuentos and not e.anticipos %}<tr><td>Sin descuentos</td><td>$0,00</td></tr>{% endif %}
+      <tr class="fila-subtotal"><td>Total descuentos</td><td>−${{ e.total_descuentos_y_anticipos|dinero }}</td></tr>
+      <tr class="fila-neto"><td>Neto a recibir</td><td>${{ e.neto|dinero }}</td></tr>
+    </tbody>
+  </table>
+
+  <table class="tabla-rol-pago tabla-rol-asistencia">
+    <thead>
+      <tr class="fila-seccion"><th scope="col">Asistencia del mes</th><th scope="col">Cantidad</th><th scope="col">Descuento</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Faltas justificadas</td><td>{{ e.faltas_justificadas|length }}</td><td>${{ e.valor_faltas_justificadas|dinero }}</td></tr>
+      <tr><td>Faltas injustificadas</td><td>{{ e.faltas_injustificadas|length }}</td><td>${{ e.valor_faltas_injustificadas|dinero }}</td></tr>
+      <tr><td>Atrasos</td><td>{{ e.total_atrasos }}</td><td>${{ e.valor_atrasos|dinero }}</td></tr>
+      {% if e.llamados_mes %}<tr><td>Llamados de atención por atraso</td><td>{{ e.llamados_mes|length }}</td><td></td></tr>{% endif %}
+      <tr><td>Días trabajados</td><td>{{ e.dias_trabajados }}</td><td></td></tr>
+    </tbody>
+  </table>
+
+  {% include "nomina/_firmas_rol.html" %}
+  <p class="pie-reporte">Generado por CALLFLOW el {{ generado_en|date:"d/m/Y H:i" }}. Mes comercial de 30 días; las faltas y atrasos sin clasificar se cuentan como no justificados.</p>
+</section>

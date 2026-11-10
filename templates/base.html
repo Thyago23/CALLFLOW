@@ -1,0 +1,153 @@
+{% load static estaticos %}<!doctype html>
+<html lang="es" data-bs-theme="{% if user.is_authenticated and user.tema == 'OSCURO' %}dark{% else %}light{% endif %}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block titulo %}Inicio{% endblock %} · CALLFLOW</title>
+  <link rel="icon" type="image/png" href="{% estatico 'img/logo-multivisa.png' %}">
+  <link rel="stylesheet" href="{% static 'vendor/bootstrap.min.css' %}">
+  <link rel="stylesheet" href="{% static 'vendor/bootstrap-icons/bootstrap-icons.min.css' %}">
+  <link rel="stylesheet" href="{% estatico 'css/callflow.css' %}">
+</head>
+<body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+{% block cuerpo %}
+  <header class="barra-superior navbar bg-body border-bottom sticky-top px-3">
+    <div class="d-flex align-items-center gap-2">
+      <button class="btn btn-link text-body p-1 d-md-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#menu-lateral" aria-controls="menu-lateral" aria-label="Abrir menú">
+        <i class="bi bi-list fs-4" aria-hidden="true"></i>
+      </button>
+      <a class="navbar-brand d-flex align-items-center gap-2 fw-semibold m-0" href="{% url 'inicio' %}">
+        <img src="{% estatico 'img/logo-multivisa.png' %}" alt="" class="logo-marca" width="640" height="621"> CALLFLOW
+      </a>
+    </div>
+    <div class="d-flex align-items-center gap-1">
+      {% if puede_almorzar %}
+      {# Almuerzo: marca la salida y cierra la sesión; el regreso se registra al volver a iniciar sesión. #}
+      <form method="post" action="{% url 'asistencia:salir_almuerzo' %}" class="me-1" data-cerrar-sesion
+            data-confirmar="Se registrará la hora de salida al almuerzo y se cerrará tu sesión. Al volver, inicia sesión para registrar tu regreso: si te pasas de la hora, se informará al administrador."
+            data-confirmar-titulo="¿Salir a almorzar?" data-confirmar-boton="Salir a almorzar" data-confirmar-icono="cup-hot" data-confirmar-tono="primary">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-sm btn-outline-primary d-flex align-items-center gap-1">
+          <i class="bi bi-cup-hot" aria-hidden="true"></i><span class="d-none d-sm-inline">Salir a almorzar</span>
+        </button>
+      </form>
+      {% endif %}
+      {% if jornada_abierta %}
+      {# Fin de la jornada: registra la salida y cierra la sesión. Si no se pulsa, se crea una incidencia y se avisa al administrador. #}
+      <form method="post" action="{% url 'asistencia:finalizar_dia' %}" class="me-1" data-cerrar-sesion
+            data-confirmar="Se registrará tu hora de salida con la hora actual y se cerrará tu sesión. Si aún no termina tu horario, quedará como salida anticipada."
+            data-confirmar-titulo="¿Finalizar tu día?" data-confirmar-boton="Finalizar día" data-confirmar-icono="door-closed" data-confirmar-tono="danger">
+        {% csrf_token %}
+        <input type="hidden" name="siguiente" value="{{ request.get_full_path }}">
+        <button type="submit" class="btn btn-sm btn-outline-danger d-flex align-items-center gap-1" title="Entrada a las {{ jornada_abierta.entrada|time:'H:i' }}">
+          <i class="bi bi-door-closed" aria-hidden="true"></i><span class="d-none d-sm-inline">Finalizar día</span>
+        </button>
+      </form>
+      {% endif %}
+      <div class="dropdown">
+        <button type="button" class="btn btn-link text-body position-relative p-2" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false"
+                aria-label="Notificaciones" hx-get="{% url 'notificaciones_panel' %}" hx-trigger="show.bs.dropdown" hx-target="#panel-campana">
+          <i class="bi bi-bell fs-5" aria-hidden="true"></i>
+          {# Cada 5 s (y al abrir la página): contador, avisos de agenda y avisos flotantes nuevos. #}
+          <span id="contador-notificaciones" hx-get="{% url 'contadores' %}" hx-trigger="load, every 5s" hx-swap="innerHTML">{% include "core/_contador_campana.html" %}</span>
+        </button>
+        <div class="dropdown-menu dropdown-menu-end p-0 panel-campana" id="panel-campana">
+          <p class="text-body-secondary small px-3 py-3 mb-0">Cargando…</p>
+        </div>
+      </div>
+      <div class="dropdown">
+        <button class="btn btn-link text-body text-decoration-none dropdown-toggle d-flex align-items-center gap-2" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+          {% include "_avatar.html" with u=user %}
+          <span class="d-none d-sm-inline text-start lh-sm">
+            <span class="d-block small fw-semibold" {% if user.apodo %}title="{{ user.get_full_name }}"{% endif %}>{{ user.nombre_visible }}</span>
+            <span class="d-block small text-body-secondary">{{ user.get_rol_display }}</span>
+          </span>
+        </button>
+        <ul class="dropdown-menu dropdown-menu-end">
+          <li><span class="dropdown-item-text small">Usuario: <span class="codigo-chip">{{ user.username }}</span></span></li>
+          <li><hr class="dropdown-divider"></li>
+          <li><a class="dropdown-item" href="{% url 'perfil' %}"><i class="bi bi-person-circle me-2" aria-hidden="true"></i>Mi perfil</a></li>
+          <li>
+            <form method="post" action="{% url 'logout' %}" data-cerrar-sesion
+                  {% if jornada_abierta %}data-confirmar="Aún no finalizaste tu día: si solo cierras sesión no se registra tu hora de salida y se avisará al administrador. Para terminar tu jornada usa «Finalizar día»."
+                  data-confirmar-titulo="¿Cerrar sesión sin finalizar el día?" data-confirmar-boton="Cerrar sesión igualmente" data-confirmar-icono="exclamation-triangle" data-confirmar-tono="warning"{% endif %}>
+              {% csrf_token %}
+              <button type="submit" class="dropdown-item"><i class="bi bi-box-arrow-right me-2" aria-hidden="true"></i>Cerrar sesión</button>
+            </form>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </header>
+
+  <div class="d-flex">
+    <aside class="offcanvas-md offcanvas-start menu-lateral border-end bg-body" tabindex="-1" id="menu-lateral" aria-label="Menú principal">
+      <div class="offcanvas-header d-md-none border-bottom">
+        <span class="fw-semibold">Menú</span>
+        <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#menu-lateral" aria-label="Cerrar menú"></button>
+      </div>
+      <nav class="p-2">
+        <a class="enlace-menu {% if request.resolver_match.url_name == 'inicio' %}activo{% endif %}" href="{% url 'inicio' %}" {% if request.resolver_match.url_name == 'inicio' %}aria-current="page"{% endif %}>
+          <i class="bi bi-grid-1x2" aria-hidden="true"></i> Inicio
+        </a>
+        {% for grupo in menu_secciones %}
+        <div class="titulo-seccion">{{ grupo.nombre }}</div>
+        {% for m in grupo.modulos %}
+          <a class="enlace-menu {% if request.resolver_match.app_name == m.clave %}activo{% endif %}" href="{{ m.href }}" {% if request.resolver_match.app_name == m.clave %}aria-current="page"{% endif %}>
+            <i class="bi bi-{{ m.icono }}" aria-hidden="true"></i> {{ m.nombre }}
+            {% if m.clave == "cierre" and dami_sin_asignar is not None %}<span id="pendientes-cierre" class="badge rounded-pill text-bg-danger ms-auto {% if not dami_sin_asignar %}d-none{% endif %}" title="Formularios DAMI sin asignar">{{ dami_sin_asignar }}</span>{% endif %}
+            {% if m.clave == "ventas" and solicitudes_base_pendientes is not None %}<span id="pendientes-bases-menu" class="badge rounded-pill text-bg-danger ms-auto {% if not solicitudes_base_pendientes %}d-none{% endif %}" title="Solicitudes de bases pendientes">{{ solicitudes_base_pendientes }}</span>{% endif %}
+          </a>
+        {% endfor %}
+        {% endfor %}
+        {% if perms.core.view_usuario %}
+        <div class="titulo-seccion">Sistema</div>
+        <a class="enlace-menu {% if request.resolver_match.url_name|slice:':7' == 'usuario' %}activo{% endif %}" href="{% url 'usuarios' %}">
+          <i class="bi bi-person-badge" aria-hidden="true"></i> Usuarios
+        </a>
+        {% endif %}
+      </nav>
+    </aside>
+
+    <main class="contenido flex-grow-1 p-3 p-lg-4">
+      {% for message in messages %}
+      <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show" role="alert">
+        {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+      </div>
+      {% endfor %}
+      {% block contenido %}{% endblock %}
+    </main>
+  </div>
+{% endblock %}
+
+  <script src="{% static 'vendor/bootstrap.bundle.min.js' %}"></script>
+  <script src="{% static 'vendor/htmx.min.js' %}"></script>
+  {% if user.is_authenticated %}
+  {% include "_modal_confirmar.html" %}
+  {# Avisos flotantes de notificaciones nuevas (esquina inferior izquierda). #}
+  <div id="avisos-flotantes" class="toast-container position-fixed bottom-0 start-0 p-3"></div>
+  <script>
+    (function () {
+      const caja = document.getElementById("avisos-flotantes");
+      const MAXIMO = 4;
+      function mostrar(el) {
+        if (el.dataset.mostrado) return;
+        el.dataset.mostrado = "1";
+        el.addEventListener("hidden.bs.toast", function () { el.remove(); });
+        bootstrap.Toast.getOrCreateInstance(el).show();
+        // No se acumulan más de MAXIMO: se cierra el más antiguo.
+        const visibles = caja.querySelectorAll(".toast");
+        if (visibles.length > MAXIMO) bootstrap.Toast.getOrCreateInstance(visibles[0]).hide();
+      }
+      new MutationObserver(function () { caja.querySelectorAll(".toast:not([data-mostrado])").forEach(mostrar); })
+        .observe(caja, {childList: true});
+    })();
+  </script>
+  {# Push del navegador: el botón para activarlo está en el panel de la campana y en /notificaciones/. #}
+  <div id="config-notificaciones" hidden data-suscribir="{% url 'push_suscribir' %}" data-desuscribir="{% url 'push_desuscribir' %}"
+       data-sw="{% url 'service_worker' %}" data-vapid="{{ vapid_publica }}"></div>
+  <script src="{% estatico 'js/notificaciones.js' %}"></script>
+  {% endif %}
+</body>
+</html>

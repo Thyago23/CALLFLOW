@@ -1,0 +1,75 @@
+{% load panel_cf %}
+<div class="tv-pantalla" data-tablero>
+  <header class="tv-cabecera">
+    <div class="tv-total">
+      <span class="tv-total-etiqueta">Entre todos llevamos</span>
+      <span class="tv-total-monto">{{ totales.total_vendido|monto_entero }}</span>
+      <span class="tv-total-detalle">{{ totales.ventas_cerradas }} venta{{ totales.ventas_cerradas|pluralize }} cerrada{{ totales.ventas_cerradas|pluralize }}{% if totales.pendientes %} · {{ totales.pendientes }} en cierre ⏳{% endif %}</span>
+    </div>
+    <h1 class="tv-titulo">
+      <span class="tv-titulo-arriba">Tablero de ventas</span>
+      <span class="tv-titulo-grande">Top vendedores</span>
+      <span class="tv-titulo-abajo">de {{ mes_actual|date:"F"|lower }}{% if not es_mes_actual %} {{ mes_actual|date:"Y" }}{% endif %}</span>
+    </h1>
+    <div class="tv-lateral">
+      <div class="tv-reloj" id="reloj" aria-hidden="true">{{ actualizado|time:"H:i" }}</div>
+      {% if destacar == "venta" and venta_mas_alta %}
+      <section class="tv-venta-alta" data-lider="v{{ venta_mas_alta.pk }}" aria-label="Venta más alta del mes">
+        <span class="tv-venta-icono" aria-hidden="true">💎</span>
+        <span>
+          <span class="tv-venta-titulo">La venta más alta del mes</span>
+          <span class="tv-venta-monto">{{ venta_mas_alta.valor_venta|monto_entero }}<small>,{{ venta_mas_alta.valor_venta|centavos }}</small></span>
+          <span class="tv-venta-detalle">{{ venta_nombre }} · el {{ venta_mas_alta.fecha|date:"j \d\e F" }}</span>
+        </span>
+      </section>
+      {% endif %}
+    </div>
+  </header>
+
+  {% if podio %}
+  <section class="tv-podio" aria-label="Los tres primeros del mes">
+    {% for f in podio %}
+    <article class="tv-tarjeta puesto-{{ f.puesto }}" data-vendedor="{{ f.vendedor.pk }}" data-total="{{ f.total_vendido|stringformat:'s' }}"
+             {% if destacar == "mejor" and mejor and f.vendedor.pk == mejor.vendedor.pk %}data-lider="{{ f.vendedor.pk }}"{% endif %} style="--color: {{ f.color }}">
+      <div class="tv-tarjeta-arriba">
+        <div>
+          <span class="tv-rotulo">Vendido</span>
+          <span class="tv-tarjeta-monto">{{ f.total_vendido|monto_entero }}<small>,{{ f.total_vendido|centavos }}</small></span>
+        </div>
+        {% if f.url_foto %}<img class="tv-avatar" src="{{ f.url_foto }}" alt="">{% else %}<span class="tv-avatar">{{ f.iniciales }}</span>{% endif %}
+      </div>
+      {% include "cierre/_tablero_datos.html" %}
+      {% if destacar == "mejor" and mejor and f.vendedor.pk == mejor.vendedor.pk %}<span class="tv-cabeza">👑 ¡Va a la cabeza!</span>{% endif %}
+      <p class="tv-tarjeta-nombre">{{ f.nombre }}</p>
+      <div class="tv-trofeo" aria-hidden="true"><i class="bi bi-trophy-fill"></i><span>{{ f.puesto }}°</span></div>
+      <span class="visually-hidden">Puesto {{ f.puesto }}</span>
+    </article>
+    {% endfor %}
+  </section>
+  {% endif %}
+
+  {% if resto %}
+  <div class="tv-lista-caja">
+    <ol class="tv-lista" start="{{ podio|length|add:1 }}" style="--filas: {{ filas_por_columna }}; --columnas: {{ columnas }}">
+      {% for f in resto %}
+      <li class="tv-fila {% if not f.total_vendido %}en-cero{% endif %}" data-vendedor="{{ f.vendedor.pk }}" data-total="{{ f.total_vendido|stringformat:'s' }}" style="--color: {{ f.color }}">
+        <span class="tv-medalla">{{ f.posicion }}°</span>
+        {% if f.url_foto %}<img class="tv-avatar" src="{{ f.url_foto }}" alt="">{% else %}<span class="tv-avatar">{{ f.iniciales }}</span>{% endif %}
+        <span class="tv-persona">
+          <span class="tv-nombre">{{ f.nombre }}</span>
+          {% if not f.ventas_cerradas %}<span class="tv-detalle">¡Vamos por la primera! 💪</span>{% endif %}
+        </span>
+        {% include "cierre/_tablero_datos.html" %}
+        <span class="tv-monto">
+          <span>{{ f.total_vendido|monto_entero }}<small>,{{ f.total_vendido|centavos }}</small></span>
+          <span class="tv-rotulo">Vendido</span>
+        </span>
+      </li>
+      {% endfor %}
+    </ol>
+  </div>
+  {% elif not filas %}
+  <p class="tv-vacio">Todavía no hay vendedores activos. 🙂</p>
+  {% endif %}
+  {% if not totales.total_vendido and filas %}<p class="tv-animo">¡Arranca el mes! ¿Quién se lleva la primera venta? 🚀</p>{% endif %}
+</div>

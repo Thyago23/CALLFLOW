@@ -1,0 +1,52 @@
+{% if empleados %}
+<div class="table-responsive">
+  <table class="table table-hover align-middle mb-2">
+    <thead>
+      <tr>
+        <th scope="col">Identificación</th>
+        <th scope="col">Apellidos y nombres</th>
+        <th scope="col">Cargo</th>
+        <th scope="col" class="d-none d-md-table-cell">Contrato</th>
+        <th scope="col" class="d-none d-md-table-cell">Ingreso</th>
+        <th scope="col">Estado</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for e in empleados %}
+      <tr {% if e.pk|stringformat:"s" == resaltado %}class="fila-nueva"{% endif %}>
+        <td class="text-nowrap"><span class="text-body-secondary small">{{ e.get_tipo_identificacion_display }}</span><br>{{ e.identificacion }}</td>
+        <td><a href="{% url 'personal:empleado_detalle' e.pk %}" class="fw-semibold text-decoration-none">{{ e.apellidos }} {{ e.nombres }}</a>{% if e.telefono %}<br><span class="text-body-secondary small">{{ e.telefono }}</span>{% endif %}</td>
+        <td>{{ e.cargo }}</td>
+        <td class="d-none d-md-table-cell">{{ e.get_tipo_contrato_display }}</td>
+        <td class="d-none d-md-table-cell text-nowrap">{{ e.fecha_ingreso|date:"d/m/Y" }}</td>
+        <td><span class="badge estado-{{ e.estado|lower }}">{{ e.get_estado_display }}</span></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% if is_paginated %}
+<nav aria-label="Páginas" class="d-flex justify-content-between align-items-center">
+  <span class="text-body-secondary small">{{ page_obj.paginator.count }} empleados · página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span>
+  <ul class="pagination pagination-sm mb-0">
+    {% if page_obj.has_previous %}
+    <li class="page-item"><a class="page-link" href="?q={{ q|urlencode }}&estado={{ estado }}&page={{ page_obj.previous_page_number }}">Anterior</a></li>
+    {% endif %}
+    {% if page_obj.has_next %}
+    <li class="page-item"><a class="page-link" href="?q={{ q|urlencode }}&estado={{ estado }}&page={{ page_obj.next_page_number }}">Siguiente</a></li>
+    {% endif %}
+  </ul>
+</nav>
+{% else %}
+<p class="text-body-secondary small">{{ empleados|length }} empleado{{ empleados|length|pluralize }}.</p>
+{% endif %}
+{% elif q or estado %}
+<div class="text-center text-body-secondary py-5">No hay empleados que coincidan con la búsqueda.</div>
+{% else %}
+<div class="text-center py-5">
+  <p class="text-body-secondary mb-3">Todavía no hay empleados registrados.</p>
+  {% if perms.personal.add_empleado %}
+  <a href="{% url 'personal:empleado_crear' %}" class="btn btn-primary">Registrar el primer empleado</a>
+  {% endif %}
+</div>
+{% endif %}

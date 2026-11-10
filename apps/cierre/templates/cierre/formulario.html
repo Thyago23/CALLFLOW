@@ -1,0 +1,187 @@
+{% extends "base.html" %}
+{% load humanize_cf %}
+{% block titulo %}{{ f }} · Cierre de ventas{% endblock %}
+{% block contenido %}
+<nav aria-label="Ruta" class="mb-2">
+  <ol class="breadcrumb small mb-0">
+    <li class="breadcrumb-item"><a href="{% url 'cierre:bandeja' %}">Bandeja de cierre</a></li>
+    <li class="breadcrumb-item active" aria-current="page">{{ f }}</li>
+  </ol>
+</nav>
+
+<div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
+  <div>
+    <h1 class="h3 mb-1">{{ f }}
+      <span class="badge estado-dami estado-{{ f.estado|lower }} align-middle fs-6">{{ f.get_estado_display }}</span>
+      {% if f.prioridad == 1 %}<span class="badge text-bg-danger align-middle fs-6">Prioritario</span>{% endif %}
+    </h1>
+    <div class="text-body-secondary">
+      Enviado {{ f.enviado_en|date:"d/m/Y H:i" }} · Asesor: {{ f.vendedor }}{% if f.ayudado_por %} · lo llenó {{ f.ayudado_por }} como ayuda{% endif %}
+      {% if f.encargado_asignado %} · A cargo de: <strong>{% if propio %}usted{% else %}{{ f.encargado_asignado }}{% endif %}</strong>{% endif %}
+    </div>
+  </div>
+  <div class="d-flex flex-wrap gap-2">
+    {% if puede_tomar %}
+    <form method="post" action="{% url 'cierre:accion' f.pk %}">
+      {% csrf_token %}<input type="hidden" name="accion" value="tomar"><input type="hidden" name="version" value="{{ f.version }}">
+      <button type="submit" class="btn btn-primary"><i class="bi bi-hand-index me-1" aria-hidden="true"></i>Tomar para gestionar</button>
+    </form>
+    {% endif %}
+    {% if puede_liberar %}
+    <form method="post" action="{% url 'cierre:accion' f.pk %}" onsubmit="return confirm('¿Devolver el formulario a la cola para que lo tome otro encargado?');">
+      {% csrf_token %}<input type="hidden" name="accion" value="liberar"><input type="hidden" name="version" value="{{ f.version }}">
+      <button type="submit" class="btn btn-outline-secondary"><i class="bi bi-arrow-return-left me-1" aria-hidden="true"></i>Devolver a la cola</button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+
+{% include "cierre/_aviso_sin_ficha.html" %}
+
+{% if f.estado == "EN_GESTION" and not propio and not form_resultado %}
+<div class="alert alert-info small"><i class="bi bi-person-lock me-1" aria-hidden="true"></i>
+  Este formulario lo está gestionando {{ f.encargado_asignado }}. Solo esa persona puede registrar el resultado.
+</div>
+{% endif %}
+
+<div class="row g-4">
+  <div class="col-lg-7">
+    {% if form_resultado %}
+    <section class="card mb-4 border-primary">
+      <div class="card-header bg-body"><h2 class="h6 mb-0">Registrar el resultado de la gestión</h2></div>
+      <div class="card-body">
+        <form method="post" action="{% url 'cierre:resultado' f.pk %}" novalidate>
+          {% csrf_token %}{{ form_resultado.version }}
+          {% for error in form_resultado.non_field_errors %}<div class="alert alert-danger small">{{ error }}</div>{% endfor %}
+          <fieldset class="mb-3">
+            <legend class="form-label fs-6">Resultado <span class="text-danger" aria-hidden="true">*</span></legend>
+            <div class="d-flex flex-wrap gap-3">
+              {% for opcion in form_resultado.resultado %}
+              <div class="form-check">{{ opcion.tag }}<label class="form-check-label" for="{{ opcion.id_for_label }}">{{ opcion.choice_label }}</label></div>
+              {% endfor %}
+            </div>
+            {% for error in form_resultado.resultado.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+          </fieldset>
+          <div class="row g-3">
+            <div class="col-sm-6">{% include "_campo.html" with campo=form_resultado.valor_venta ayuda="Obligatorio si la venta se cerró." %}</div>
+            <div class="col-sm-6">{% include "_campo.html" with campo=form_resultado.motivo ayuda="Obligatorio si no se concretó." %}</div>
+          </div>
+          {% include "_campo.html" with campo=form_resultado.observaciones %}
+          <button type="submit" class="btn btn-primary"><i class="bi bi-check2-circle me-1" aria-hidden="true"></i>Guardar resultado</button>
+          <p class="form-text mb-0 mt-2">Al guardar se actualiza la hoja de producción del vendedor. Después, solo el administrador puede corregirlo.</p>
+        </form>
+      </div>
+    </section>
+    {% endif %}
+
+    {% if gestion %}
+    <section class="card mb-4">
+      <div class="card-body">
+        <h2 class="h6 text-uppercase text-body-secondary mb-3">Resultado</h2>
+        <dl class="row datos-ficha mb-0">
+          <div class="col-sm-6"><dt>Resultado</dt><dd><span class="badge estado-dami estado-{{ gestion.resultado|lower }}">{{ gestion.get_resultado_display }}</span></dd></div>
+          <div class="col-sm-6"><dt>{% if gestion.valor_venta %}Valor de la venta{% else %}Motivo{% endif %}</dt>
+            <dd>{% if gestion.valor_venta %}<strong>${{ gestion.valor_venta|dinero }}</strong>{% else %}{{ gestion.motivo_no_concretada|default:"—" }}{% endif %}</dd></div>
+          <div class="col-sm-6"><dt>Gestionado por</dt><dd>{{ gestion.encargado }}</dd></div>
+          <div class="col-sm-6"><dt>Fecha</dt><dd>{{ gestion.gestionado_en|date:"d/m/Y H:i" }}</dd></div>
+          {% if gestion.observaciones %}<div class="col-12"><dt>Observaciones</dt><dd class="mb-0" style="white-space: pre-line">{{ gestion.observaciones }}</dd></div>{% endif %}
+        </dl>
+      </div>
+    </section>
+    {% endif %}
+
+    {% if form_correccion %}
+    <details class="card mb-4" {% if form_correccion.errors %}open{% endif %}>
+      <summary class="card-header bg-body h6 mb-0">Corregir el resultado (administrador)</summary>
+      <div class="card-body">
+        <form method="post" action="{% url 'cierre:corregir' f.pk %}" novalidate>
+          {% csrf_token %}
+          {% for error in form_correccion.non_field_errors %}<div class="alert alert-danger small">{{ error }}</div>{% endfor %}
+          <fieldset class="mb-3">
+            <legend class="form-label fs-6">Resultado</legend>
+            <div class="d-flex flex-wrap gap-3">
+              {% for opcion in form_correccion.resultado %}
+              <div class="form-check">{{ opcion.tag }}<label class="form-check-label" for="{{ opcion.id_for_label }}">{{ opcion.choice_label }}</label></div>
+              {% endfor %}
+            </div>
+          </fieldset>
+          <div class="row g-3">
+            <div class="col-sm-6">{% include "_campo.html" with campo=form_correccion.valor_venta %}</div>
+            <div class="col-sm-6">{% include "_campo.html" with campo=form_correccion.motivo %}</div>
+          </div>
+          {% include "_campo.html" with campo=form_correccion.motivo_correccion ayuda="Queda en el registro de cambios junto con el valor anterior." %}
+          <button type="submit" class="btn btn-outline-danger">Guardar corrección</button>
+        </form>
+      </div>
+    </details>
+    {% endif %}
+
+    <section class="card mb-4">
+      <div class="card-body">
+        <h2 class="h6 text-uppercase text-body-secondary mb-3">Cliente</h2>
+        <dl class="row datos-ficha mb-0">
+          {% if f.producto %}<div class="col-12"><dt>Producto</dt><dd>{{ f.producto }}</dd></div>{% endif %}
+          <div class="col-sm-6"><dt>Cédula</dt><dd>{{ f.cliente.cedula|default:"—" }}</dd></div>
+          <div class="col-sm-6"><dt>RUC</dt><dd>{{ f.cliente.ruc_mostrar|default:"—" }}</dd></div>
+          <div class="col-sm-4"><dt>Telf</dt><dd><a href="tel:{{ f.cliente.telefono }}">{{ f.cliente.telefono }}</a></dd></div>
+          {% if f.cliente.telefono_alterno %}<div class="col-sm-4"><dt>Telf2</dt><dd>{{ f.cliente.telefono_alterno }}</dd></div>{% endif %}
+          {% if f.cliente.telefono3 %}<div class="col-sm-4"><dt>Telf3</dt><dd>{{ f.cliente.telefono3 }}</dd></div>{% endif %}
+          <div class="col-sm-8"><dt>Dirección</dt><dd>{{ f.cliente.direccion|default:"—" }}</dd></div>
+          <div class="col-sm-4"><dt>Sector</dt><dd>{{ f.cliente.sector|default:"—" }}</dd></div>
+          <div class="col-sm-4"><dt>Ciudad</dt><dd>{{ f.cliente.ciudad|default:"—" }}</dd></div>
+          <div class="col-sm-8"><dt>Referencia</dt><dd>{{ f.cliente.referencia|default:"—" }}</dd></div>
+          <div class="col-12"><dt>Email</dt><dd class="mb-0 text-break">{{ f.cliente.email|default:"—" }}</dd></div>
+        </dl>
+      </div>
+    </section>
+    <section class="card">
+      <div class="card-body">
+        <h2 class="h6 text-uppercase text-body-secondary mb-3">Tarjeta para realizar el pago</h2>
+        <dl class="row datos-ficha mb-0">
+          {% if tarjeta %}
+          <div class="col-sm-6"><dt>Tarjeta</dt><dd>{{ tarjeta.get_marca_display }}</dd></div>
+          <div class="col-sm-6"><dt>Banco</dt><dd>{{ tarjeta.banco }}</dd></div>
+          <div class="col-sm-6"><dt>Caducidad</dt><dd>{{ tarjeta.caducidad }}</dd></div>
+          <div class="col-sm-6"><dt>Tarjeta No</dt><dd class="font-monospace">{% if numero_tarjeta %}{{ numero_tarjeta }}{% else %}**** **** **** {{ tarjeta.ultimos4 }}{% endif %}</dd></div>
+          {% else %}
+          <div class="col-12"><dd class="text-body-secondary">Sin datos de tarjeta.</dd></div>
+          {% endif %}
+          <div class="col-sm-6"><dt>Hoja de producción</dt><dd>{% if registro %}{{ registro.get_estado_display }}{% if registro.valor_venta %} · ${{ registro.valor_venta|dinero }}{% endif %}{% else %}—{% endif %}</dd></div>
+          {% if f.observaciones %}<div class="col-12"><dt>Observación del vendedor</dt><dd class="mb-0" style="white-space: pre-line">{{ f.observaciones }}</dd></div>{% endif %}
+        </dl>
+      </div>
+    </section>
+  </div>
+  <div class="col-lg-5">
+    {% if puede_reasignar %}
+    <section class="card mb-4">
+      <div class="card-header bg-body"><h2 class="h6 mb-0">Reasignar (administrador)</h2></div>
+      <div class="card-body">
+        <form method="post" action="{% url 'cierre:accion' f.pk %}" class="d-flex gap-2 align-items-end">
+          {% csrf_token %}<input type="hidden" name="accion" value="reasignar">{{ form_reasignar.version }}
+          <div class="flex-grow-1">
+            <label class="form-label small mb-1" for="{{ form_reasignar.encargado.id_for_label }}">Encargado de cierre</label>
+            {{ form_reasignar.encargado }}
+          </div>
+          <button type="submit" class="btn btn-outline-primary">Asignar</button>
+        </form>
+      </div>
+    </section>
+    {% endif %}
+    <section class="card">
+      <div class="card-header bg-body"><h2 class="h6 mb-0">Historial</h2></div>
+      <ol class="list-group list-group-flush historial-dami">
+        {% for h in historial %}
+        <li class="list-group-item small">
+          {% if h.tipo == "estado" %}<span class="badge estado-dami estado-{{ h.estado|lower }}">{{ h.texto }}</span>
+          {% else %}<i class="bi bi-person-gear me-1" aria-hidden="true"></i>{{ h.texto }}{% endif %}
+          <span class="text-body-secondary ms-1">{{ h.fecha|date:"d/m/Y H:i" }} · {{ h.usuario }}</span>
+        </li>
+        {% empty %}
+        <li class="list-group-item small text-body-secondary">Sin movimientos.</li>
+        {% endfor %}
+      </ol>
+    </section>
+  </div>
+</div>
+{% endblock %}

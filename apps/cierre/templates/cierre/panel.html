@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% load panel_cf %}
+{% block titulo %}Panel comercial · Cierre de ventas{% endblock %}
+{% block contenido %}
+{% include "cierre/_subnav.html" with seccion="panel" %}
+{% with oc=panel.ocultar_valores t=panel.totales %}
+
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <div class="btn-group" role="group" aria-label="Cambiar de mes">
+    <a class="btn btn-outline-secondary" href="?mes={{ anterior }}" aria-label="Mes anterior"><i class="bi bi-chevron-left" aria-hidden="true"></i></a>
+    <span class="btn btn-outline-secondary disabled text-body fecha-hoy">{{ mes_actual|date:"F Y" }}</span>
+    <a class="btn btn-outline-secondary" href="?mes={{ siguiente }}" aria-label="Mes siguiente"><i class="bi bi-chevron-right" aria-hidden="true"></i></a>
+  </div>
+  <form method="post" action="{% url 'cierre:ocultar_valores' %}">
+    {% csrf_token %}<input type="hidden" name="mes" value="{{ mes_param }}">
+    <input type="hidden" name="ocultar" value="{% if oc %}0{% else %}1{% endif %}">
+    <button type="submit" class="btn btn-outline-secondary" aria-pressed="{% if oc %}true{% else %}false{% endif %}">
+      <i class="bi {% if oc %}bi-eye{% else %}bi-eye-slash{% endif %} me-1" aria-hidden="true"></i>{% if oc %}Mostrar valores{% else %}Ocultar valores{% endif %}
+    </button>
+  </form>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-md-6 col-xl-4">
+    <div class="card h-100 panel-meta">
+      <div class="card-body">
+        <div class="small text-body-secondary">Total vendido por el equipo</div>
+        <div class="display-6 fw-semibold mb-1">{{ t.total_vendido|monto:oc }}</div>
+        {% if t.monto_meta is not None %}
+        <div class="progress mb-2" role="progressbar" aria-label="Avance de la meta del equipo" aria-valuenow="{{ t.porcentaje_meta }}" aria-valuemin="0" aria-valuemax="100" style="height: .6rem">
+          <div class="progress-bar {% if t.porcentaje_meta >= 100 %}bg-success{% endif %}" style="width: {% if t.porcentaje_meta > 100 %}100{% else %}{{ t.porcentaje_meta }}{% endif %}%"></div>
+        </div>
+        <div class="small"><strong>{{ t.porcentaje_meta }}%</strong> de la meta ({{ t.monto_meta|monto:oc }}) · faltan <strong>{{ t.pendiente_meta|monto:oc }}</strong></div>
+        <div class="small text-body-secondary">{{ t.cumplieron }} vendedor{{ t.cumplieron|pluralize:"es" }} ya cumpli{{ t.cumplieron|pluralize:"ó,eron" }} su meta.</div>
+        {% else %}
+        <div class="small text-body-secondary">No hay metas definidas este mes. <a href="{% url 'cierre:metas' %}?mes={{ mes_param }}">Definir metas</a></div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="col-md-6 col-xl-4">
+    <div class="card h-100 {% if panel.mejor %}border-success{% endif %}">
+      <div class="card-body">
+        <div class="small text-body-secondary"><i class="bi bi-trophy me-1 text-warning" aria-hidden="true"></i>Vendedor con mayor rendimiento</div>
+        {% if panel.mejor %}
+        <div class="h4 fw-semibold mb-1">{{ panel.mejor.vendedor }}</div>
+        <div class="small">{{ panel.mejor.total_vendido|monto:oc }} · {{ panel.mejor.ventas_cerradas }} venta{{ panel.mejor.ventas_cerradas|pluralize }} cerrada{{ panel.mejor.ventas_cerradas|pluralize }}{% if panel.mejor.porcentaje_meta is not None %} · {{ panel.mejor.porcentaje_meta|floatformat:0 }}% de su meta{% endif %}</div>
+        {% else %}
+        <div class="text-body-secondary">Todavía no hay ventas cerradas este mes.</div>
+        {% endif %}
+        <div class="form-text mt-2">Criterio: {{ criterio }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-xl-4">
+    <div class="row g-3 h-100">
+      <div class="col-6"><div class="card resumen-dia h-100"><div class="card-body"><div class="valor">{{ t.total_formularios }}</div><div class="small text-body-secondary">Formularios enviados</div></div></div></div>
+      <div class="col-6"><div class="card resumen-dia h-100"><div class="card-body"><div class="valor text-success">{{ t.ventas_cerradas }}</div><div class="small text-body-secondary">Ventas cerradas</div></div></div></div>
+      <div class="col-6"><div class="card resumen-dia h-100"><div class="card-body"><div class="valor text-danger">{{ t.ventas_no_concretadas }}</div><div class="small text-body-secondary">No concretadas</div></div></div></div>
+      <div class="col-6"><div class="card resumen-dia h-100"><div class="card-body"><div class="valor text-warning-emphasis">{{ t.pendientes }}</div><div class="small text-body-secondary">Pendientes de cierre</div></div></div></div>
+    </div>
+  </div>
+</div>
+
+<section class="card">
+  <div class="card-header bg-body"><h2 class="h6 mb-0">Ranking de vendedores</h2></div>
+  {% if panel.filas %}
+  <div class="table-responsive">
+    <table class="table align-middle mb-0">
+      <thead>
+        <tr>
+          <th scope="col" class="text-center">#</th>
+          <th scope="col">Vendedor</th>
+          <th scope="col" class="text-end">Ventas</th>
+          <th scope="col" class="text-end">Vendido</th>
+          <th scope="col" class="text-end d-none d-md-table-cell">Meta</th>
+          <th scope="col" style="min-width: 10rem">Avance</th>
+          <th scope="col" class="text-end d-none d-md-table-cell">Pendiente</th>
+          <th scope="col" class="text-end d-none d-lg-table-cell">Por cerrar</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for fila in panel.filas %}
+        <tr class="{% if panel.mejor and fila.posicion == 1 %}table-success{% endif %}">
+          <td class="text-center fw-semibold">{% if fila.total_vendido %}{{ fila.posicion }}{% else %}—{% endif %}</td>
+          <td>{{ fila.vendedor }}{% if panel.mejor and fila.posicion == 1 %} <i class="bi bi-trophy-fill text-warning" aria-label="Mayor rendimiento"></i>{% endif %}</td>
+          <td class="text-end">{{ fila.ventas_cerradas }}<span class="text-body-secondary small">/{{ fila.total_formularios }}</span></td>
+          <td class="text-end fw-semibold">{{ fila.total_vendido|monto:oc }}</td>
+          <td class="text-end d-none d-md-table-cell">{% if fila.monto_meta is None %}<span class="text-body-secondary">Sin meta</span>{% else %}{{ fila.monto_meta|monto:oc }}{% endif %}</td>
+          <td>
+            {% if fila.monto_meta is None %}<span class="small text-body-secondary">—</span>
+            {% else %}
+            <div class="d-flex align-items-center gap-2">
+              <div class="progress flex-grow-1" role="progressbar" aria-label="Avance de {{ fila.vendedor }}" aria-valuenow="{{ fila.barra }}" aria-valuemin="0" aria-valuemax="100" style="height: .5rem">
+                <div class="progress-bar {% if fila.cumplio_meta %}bg-success{% endif %}" style="width: {{ fila.barra }}%"></div>
+              </div>
+              <span class="small text-nowrap {% if fila.cumplio_meta %}text-success fw-semibold{% endif %}">{{ fila.porcentaje_meta|floatformat:0 }}%{% if fila.cumplio_meta %} <i class="bi bi-check-circle-fill" aria-label="Meta cumplida"></i>{% endif %}</span>
+            </div>
+            {% endif %}
+          </td>
+          <td class="text-end d-none d-md-table-cell">{% if fila.monto_meta is None %}—{% elif fila.cumplio_meta %}<span class="text-success small">Cumplida</span>{% else %}{{ fila.pendiente_meta|monto:oc }}{% endif %}</td>
+          <td class="text-end d-none d-lg-table-cell">{{ fila.pendientes }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="card-body text-center text-body-secondary py-5">No hay vendedores con actividad este mes.</div>
+  {% endif %}
+</section>
+{% endwith %}
+{% endblock %}

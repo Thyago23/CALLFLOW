@@ -69,8 +69,11 @@ MIDDLEWARE = [
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "apps.core.middleware.UsuarioAuditoriaMiddleware",
+    "apps.core.middleware.CambioClaveObligatorioMiddleware",
+    "apps.agenda.middleware.AvisosAgendaMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "apps.core.push.PushMiddleware",
 ]
 
 ROOT_URLCONF = "callflow.urls"
@@ -85,6 +88,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                "apps.core.context_processors.navegacion",
             ],
         },
     },
@@ -107,12 +111,35 @@ DATABASES = {
 
 AUTH_USER_MODEL = "core.Usuario"
 
+# Clave Fernet para cifrar los números de tarjeta del DAMI (ver apps/ventas/tarjetas.py).
+CLAVE_TARJETAS = env("CLAVE_TARJETAS", "")
+AUTHENTICATION_BACKENDS = ["apps.core.backends.UsuarioNombreBackend"]
+
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
     {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator", "OPTIONS": {"min_length": 10}},
     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
+
+# Jornada laboral de la empresa: única fuente para asistencia (horario estándar),
+# agenda (no se agenda fuera de este horario) y avisos. ISO: 1 = lunes … 7 = domingo.
+JORNADA_LABORAL = {
+    "inicio": "09:00",
+    "fin": "18:00",
+    "dias": [1, 2, 3, 4, 5],
+}
+
+# «Finalizar día»: si pasados estos minutos después de la hora de salida la persona no finalizó
+# su día, se crea una incidencia SIN_SALIDA y se avisa a los administradores.
+ASISTENCIA_MARGEN_SALIDA_MINUTOS = 60
+# Hasta cuántos días atrás se buscan jornadas sin salida (evita alertar por registros antiguos).
+ASISTENCIA_DIAS_REVISION_SALIDA = 7
+
+# Almuerzo: duración permitida y margen. Si al volver (iniciar sesión) se pasó más que la tolerancia,
+# se crea la novedad «Exceso en almuerzo» con todos los minutos de más y se avisa a los administradores.
+ASISTENCIA_ALMUERZO_MINUTOS = 60
+ASISTENCIA_ALMUERZO_TOLERANCIA_MINUTOS = 5
 
 LANGUAGE_CODE = "es-ec"
 TIME_ZONE = "America/Guayaquil"
@@ -121,6 +148,11 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
+STATICFILES_DIRS = [BASE_DIR / "static"]
+
+LOGIN_URL = "login"
+LOGIN_REDIRECT_URL = "inicio"
+LOGOUT_REDIRECT_URL = "login"
 
 MEDIA_URL = "media/"
 MEDIA_ROOT = Path(env("MEDIA_ROOT", str(BASE_DIR / "media")))
@@ -135,3 +167,9 @@ SESSION_COOKIE_HTTPONLY = True
 CSRF_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SECURE = not DEBUG
 CSRF_COOKIE_SECURE = not DEBUG
+
+# Notificaciones push del navegador (Web Push). Generarlas con: python manage.py generar_claves_push --guardar
+# Sin claves no se envían push; los avisos dentro del sistema funcionan igual.
+VAPID_PUBLIC_KEY = env("VAPID_PUBLIC_KEY", "")
+VAPID_PRIVATE_KEY = env("VAPID_PRIVATE_KEY", "")
+VAPID_CONTACTO = env("VAPID_CONTACTO", "mailto:soporte@callflow.local")

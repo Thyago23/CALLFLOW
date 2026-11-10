@@ -1,0 +1,56 @@
+<form method="post" action="{% url 'agenda:crear' %}" class="card agregar-rapido mb-3" id="agregar-rapido" autocomplete="off">
+  {% csrf_token %}
+  <input type="hidden" name="minutos_aviso" value="15">
+  <input type="hidden" name="volver" value="{{ request.get_full_path }}">
+  <div class="card-body p-2">
+    <div class="d-flex flex-wrap gap-2 align-items-center">
+      <label for="rapido-titulo" class="visually-hidden">¿Qué hay que hacer?</label>
+      <input type="text" name="titulo" id="rapido-titulo" class="form-control flex-grow-1" maxlength="150" required
+             placeholder="Agregar rápido: ej. Volver a llamar a Juan Pérez" {% if vista == "dia" %}autofocus{% endif %}>
+      <label for="rapido-tipo" class="visually-hidden">Tipo</label>
+      <select name="tipo" id="rapido-tipo" class="form-select w-auto">
+        {% for valor, texto in rapido.tipos %}<option value="{{ valor }}" {% if valor == rapido.tipo %}selected{% endif %}>{{ texto }}</option>{% endfor %}
+      </select>
+      <label for="rapido-fecha" class="visually-hidden">Fecha</label>
+      <input type="date" name="fecha" id="rapido-fecha" class="form-control w-auto" value="{{ rapido.fecha|date:'Y-m-d' }}" required>
+      <label for="rapido-hora_h" class="visually-hidden">Hora</label>
+      {{ rapido.selector_hora }}
+      <button type="submit" class="btn btn-primary"><i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Agregar</button>
+    </div>
+    <div class="d-flex flex-wrap gap-2 align-items-center mt-2 small">
+      <span class="text-body-secondary">Atajos:</span>
+      {% if rapido.en_una_hora %}
+      <button type="button" class="btn btn-sm btn-light border atajo-hora" data-fecha="{{ rapido.en_una_hora|date:'Y-m-d' }}" data-hora="{{ rapido.en_una_hora|time:'H:i' }}">En 1 hora</button>
+      {% endif %}
+      <button type="button" class="btn btn-sm btn-light border atajo-hora" data-fecha="{{ rapido.manana|date:'Y-m-d' }}" data-hora="{{ rapido.hora_manana|time:'H:i' }}">
+        {{ rapido.manana|date:"l"|capfirst }} {{ rapido.hora_manana|time:"H:i" }}</button>
+      <a class="ms-auto text-body-secondary" href="{% url 'agenda:crear' %}?fecha={{ rapido.fecha|date:'Y-m-d' }}&volver={{ request.get_full_path|urlencode }}">Más opciones (lugar, invitados, notas)</a>
+      <span class="text-body-secondary d-none d-md-inline">· Tecla <kbd>N</kbd> para escribir</span>
+    </div>
+  </div>
+</form>
+<script>
+  (function () {
+    const form = document.getElementById("agregar-rapido");
+    const titulo = document.getElementById("rapido-titulo");
+    form.querySelectorAll(".atajo-hora").forEach(function (b) {
+      b.addEventListener("click", function () {
+        document.getElementById("rapido-fecha").value = b.dataset.fecha;
+        const [h, m] = b.dataset.hora.split(":");
+        const selHora = document.getElementById("rapido-hora_h");
+        selHora.value = h;
+        selHora.dispatchEvent(new Event("change"));
+        document.getElementById("rapido-hora_m").value = m;
+        titulo.focus();
+      });
+    });
+    // "N" lleva al campo de agregado rápido (si no se está escribiendo en otro campo).
+    document.addEventListener("keydown", function (e) {
+      const t = e.target;
+      if (e.key.toLowerCase() !== "n" || e.ctrlKey || e.metaKey || e.altKey) return;
+      if (t.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(t.tagName)) return;
+      e.preventDefault();
+      titulo.focus();
+    });
+  })();
+</script>

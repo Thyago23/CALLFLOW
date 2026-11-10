@@ -1,0 +1,61 @@
+{% comment %}
+  Ventana de confirmación reutilizable. Un <form data-confirmar="Texto"> la abre antes de enviarse.
+  Opcionales: data-confirmar-titulo, data-confirmar-boton, data-confirmar-icono (Bootstrap Icons), data-confirmar-tono (danger|warning|primary|success).
+{% endcomment %}
+<div class="modal fade" id="modal-confirmar" tabindex="-1" aria-labelledby="modal-confirmar-titulo" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-body p-4 text-center">
+        <div class="icono-confirmar mb-3" data-confirmar-icono aria-hidden="true"><i class="bi bi-question-lg"></i></div>
+        <h2 class="h5 fw-semibold mb-2" id="modal-confirmar-titulo" data-confirmar-titulo>¿Confirmar?</h2>
+        <p class="text-body-secondary mb-0" data-confirmar-texto></p>
+      </div>
+      <div class="modal-footer border-0 pt-0 px-4 pb-4 justify-content-center gap-2">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-primary" data-confirmar-aceptar>Aceptar</button>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+  (function () {
+    const modal = document.getElementById("modal-confirmar");
+    const aceptar = modal.querySelector("[data-confirmar-aceptar]");
+    const icono = modal.querySelector("[data-confirmar-icono]");
+    let pendiente = null;
+    const ventana = function () { return bootstrap.Modal.getOrCreateInstance(modal); };
+
+    // Delegado en el documento: sirve también para tablas que se recargan con HTMX.
+    document.addEventListener("submit", function (evento) {
+      const form = evento.target;
+      if (!form.matches || !form.matches("form[data-confirmar]") || form.dataset.confirmado) return;
+      evento.preventDefault();
+      pendiente = {form: form, boton: evento.submitter};
+      const tono = form.dataset.confirmarTono || "primary";
+      modal.querySelector("[data-confirmar-titulo]").textContent = form.dataset.confirmarTitulo || "¿Confirmar?";
+      modal.querySelector("[data-confirmar-texto]").textContent = form.dataset.confirmar;
+      icono.className = "icono-confirmar mb-3 tono-" + tono;
+      icono.innerHTML = '<i class="bi bi-' + (form.dataset.confirmarIcono || "question-lg") + '"></i>';
+      aceptar.className = "btn btn-" + tono;
+      aceptar.textContent = form.dataset.confirmarBoton || "Aceptar";
+      aceptar.disabled = false;
+      ventana().show();
+    }, true);
+
+    function confirmar() {
+      if (!pendiente) return;
+      aceptar.disabled = true;
+      const {form, boton} = pendiente;
+      pendiente = null;
+      form.dataset.confirmado = "1";
+      form.requestSubmit(boton || undefined);
+      ventana().hide();
+    }
+    aceptar.addEventListener("click", confirmar);
+    modal.addEventListener("keydown", function (e) {  // Enter = aceptar (salvo con el foco en «Cancelar»)
+      if (e.key === "Enter" && !e.target.matches("[data-bs-dismiss]")) { e.preventDefault(); confirmar(); }
+    });
+    modal.addEventListener("shown.bs.modal", function () { aceptar.focus(); });
+    modal.addEventListener("hidden.bs.modal", function () { pendiente = null; });
+  })();
+</script>

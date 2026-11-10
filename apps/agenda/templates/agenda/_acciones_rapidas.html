@@ -1,0 +1,10 @@
+<div class="d-flex gap-1 flex-shrink-0">
+  <form method="post" action="{% url 'agenda:estado' e.pk %}">
+    {% csrf_token %}<input type="hidden" name="estado" value="COMPLETADO"><input type="hidden" name="volver" value="{{ request.get_full_path }}">
+    <button type="submit" class="btn btn-sm btn-outline-success py-0 px-1" title="Marcar como completado" aria-label="Completar «{{ e.titulo }}»"><i class="bi bi-check2" aria-hidden="true"></i></button>
+  </form>
+  <form method="post" action="{% url 'agenda:manana' e.pk %}">
+    {% csrf_token %}<input type="hidden" name="volver" value="{{ request.get_full_path }}">
+    <button type="submit" class="btn btn-sm btn-outline-secondary py-0 px-1" title="Pasar al siguiente día laborable" aria-label="Pasar «{{ e.titulo }}» a mañana"><i class="bi bi-arrow-right" aria-hidden="true"></i></button>
+  </form>
+</div>

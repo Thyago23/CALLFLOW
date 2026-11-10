@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block titulo %}{{ evento.titulo }} · Agenda{% endblock %}
+{% block contenido %}
+<nav aria-label="Ruta" class="mb-2">
+  <ol class="breadcrumb small mb-0">
+    <li class="breadcrumb-item"><a href="{% url 'agenda:calendario' %}?vista=dia&fecha={{ evento.inicio|date:'Y-m-d' }}">Agenda</a></li>
+    <li class="breadcrumb-item active" aria-current="page">{{ evento.titulo }}</li>
+  </ol>
+</nav>
+<div class="row">
+  <div class="col-lg-8">
+    <article class="card">
+      <div class="card-body">
+        <div class="d-flex flex-wrap justify-content-between gap-2 mb-2">
+          <span class="badge tipo-evento tipo-{{ evento.tipo|lower }}">{{ evento.get_tipo_display }}</span>
+          <span class="badge estado-evento estado-{{ evento.estado|lower }}">{{ evento.get_estado_display }}</span>
+        </div>
+        <h1 class="h3 {% if evento.estado == 'CANCELADO' %}text-decoration-line-through text-body-secondary{% endif %}">{{ evento.titulo }}</h1>
+        <ul class="list-unstyled mb-3 detalle-evento">
+          <li><i class="bi bi-calendar3" aria-hidden="true"></i><span class="fecha-hoy">{{ evento.inicio|date:"l j \d\e F \d\e Y" }}</span></li>
+          <li><i class="bi bi-clock" aria-hidden="true"></i>{% if evento.todo_el_dia %}Todo el día{% else %}{{ evento.inicio|time:"H:i" }}{% if evento.fin %} – {{ evento.fin|time:"H:i" }}{% endif %}{% endif %}</li>
+          {% if evento.ubicacion %}<li><i class="bi bi-geo-alt" aria-hidden="true"></i>{{ evento.ubicacion }}</li>{% endif %}
+          <li><i class="bi bi-bell" aria-hidden="true"></i>
+            {% if evento.estado != 'PENDIENTE' %}Sin aviso (el evento no está pendiente)
+            {% elif aviso_entregado %}Aviso enviado
+            {% elif evento.aviso_enviado %}Sin aviso (el evento ya había empezado cuando se agendó)
+            {% else %}Aviso el {{ aviso|date:"d/m/Y \a \l\a\s H:i" }}{% endif %}
+          </li>
+          <li><i class="bi bi-person" aria-hidden="true"></i>Creado por {{ evento.propietario.get_full_name|default:evento.propietario.username }}</li>
+        </ul>
+        {% if evento.cliente %}
+        {% with c=evento.cliente %}
+        <div class="border rounded p-3 mb-3 bg-body-tertiary">
+          <h2 class="h6 text-body-secondary mb-2"><i class="bi bi-person-vcard me-1" aria-hidden="true"></i>Cliente</h2>
+          <div class="fw-semibold">{{ c.nombres }} {{ c.apellidos }} <span class="text-body-secondary fw-normal small">· {{ c.identificacion }}</span></div>
+          <div class="d-flex flex-wrap gap-2 mt-2">
+            {% for tel in c.telefonos %}
+            <a class="btn btn-sm btn-outline-primary" href="tel:{{ tel }}"><i class="bi bi-telephone me-1" aria-hidden="true"></i>{{ tel }}</a>
+            {% endfor %}
+          </div>
+        </div>
+        {% endwith %}
+        {% endif %}
+        {% if evento.descripcion %}<p class="mb-3" style="white-space: pre-line">{{ evento.descripcion }}</p>{% endif %}
+        {% if participantes %}
+        <h2 class="h6 text-body-secondary">Invitados</h2>
+        <div class="d-flex flex-wrap gap-2 mb-1">
+          {% for p in participantes %}<span class="badge text-bg-light border fw-normal">{{ p.usuario.get_full_name|default:p.usuario.username }}</span>{% endfor %}
+        </div>
+        {% endif %}
+      </div>
+      {% if puede_editar or puede_eliminar %}
+      <div class="card-footer bg-body d-flex flex-wrap gap-2">
+        {% if puede_editar %}
+          {% if evento.estado == 'PENDIENTE' %}
+          <form method="post" action="{% url 'agenda:estado' evento.pk %}">{% csrf_token %}<input type="hidden" name="estado" value="COMPLETADO">
+            <button type="submit" class="btn btn-success"><i class="bi bi-check2 me-1" aria-hidden="true"></i>Marcar como completado</button></form>
+          <a href="{% url 'agenda:editar' evento.pk %}" class="btn btn-outline-secondary"><i class="bi bi-pencil me-1" aria-hidden="true"></i>Editar</a>
+          <form method="post" action="{% url 'agenda:estado' evento.pk %}">{% csrf_token %}<input type="hidden" name="estado" value="CANCELADO">
+            <button type="submit" class="btn btn-outline-secondary">Cancelar evento</button></form>
+          {% else %}
+          <form method="post" action="{% url 'agenda:estado' evento.pk %}">{% csrf_token %}<input type="hidden" name="estado" value="PENDIENTE">
+            <button type="submit" class="btn btn-outline-primary">Volver a pendiente</button></form>
+          {% endif %}
+        {% endif %}
+        {% if puede_eliminar %}
+        <form method="post" action="{% url 'agenda:eliminar' evento.pk %}" class="ms-auto" onsubmit="return confirm('¿Eliminar este evento? No se puede deshacer.');">{% csrf_token %}
+          <button type="submit" class="btn btn-outline-danger"><i class="bi bi-trash me-1" aria-hidden="true"></i>Eliminar</button></form>
+        {% endif %}
+      </div>
+      {% endif %}
+    </article>
+  </div>
+</div>
+{% endblock %}

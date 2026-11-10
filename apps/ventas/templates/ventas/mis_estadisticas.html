@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% load humanize_cf %}
+{% block titulo %}Mis estadísticas · Ventas{% endblock %}
+{% block contenido %}
+{% include "ventas/_subnav.html" with seccion="estadisticas" %}
+
+<div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
+  <div>
+    <h2 class="h4 mb-0">Mis estadísticas</h2>
+    <p class="small text-body-secondary mb-0">Así va tu crecimiento. {{ hoy|date:"F"|capfirst }} todavía está en curso: lo comparamos con lo que llevabas el mes pasado hasta el día {{ hoy.day }}.</p>
+  </div>
+  <div class="btn-group btn-group-sm" role="group" aria-label="Meses a mostrar">
+    <a href="?meses=6" class="btn {% if meses == 6 %}btn-primary{% else %}btn-outline-primary{% endif %}" {% if meses == 6 %}aria-current="true"{% endif %}>Últimos 6 meses</a>
+    <a href="?meses=12" class="btn {% if meses == 12 %}btn-primary{% else %}btn-outline-primary{% endif %}" {% if meses == 12 %}aria-current="true"{% endif %}>Último año</a>
+  </div>
+</div>
+
+{% if not tiene_datos %}
+<div class="card"><div class="card-body text-center py-5">
+  <div class="display-6 mb-2" aria-hidden="true">📈</div>
+  <p class="fw-semibold mb-1">Todavía no hay datos para graficar.</p>
+  <p class="small text-body-secondary mb-3">Cuando envíes tu primer DAMI aquí vas a ver cuántos sacas, cuántos se vuelven venta y cómo creces mes a mes.</p>
+  <a href="{% url 'ventas:formulario_nuevo' %}" class="btn btn-primary"><i class="bi bi-file-earmark-plus me-1" aria-hidden="true"></i>Nuevo DAMI</a>
+</div></div>
+{% else %}
+
+<div class="row g-3 mb-4">
+  {% for c in comparaciones %}
+  <div class="col-md-4">
+    <div class="card h-100 tarjeta-crecimiento">
+      <div class="card-body">
+        <div class="small text-body-secondary">{{ c.nombre }} en {{ hoy|date:"F" }}</div>
+        <div class="display-6 fw-semibold mb-1">{% if c.moneda %}${{ c.actual|dinero }}{% else %}{{ c.actual|floatformat:0 }}{% endif %}</div>
+        <div class="small {% if c.subio %}text-success{% elif c.bajo %}text-danger{% else %}text-body-secondary{% endif %}">
+          {% if c.subio %}<i class="bi bi-arrow-up-right" aria-hidden="true"></i>{% elif c.bajo %}<i class="bi bi-arrow-down-right" aria-hidden="true"></i>{% else %}<i class="bi bi-dash" aria-hidden="true"></i>{% endif %}
+          {% if c.subio or c.bajo %}{% if c.subio %}+{% else %}−{% endif %}{% if c.moneda %}${% if c.bajo %}{{ c.diferencia|dinero|cut:"-" }}{% else %}{{ c.diferencia|dinero }}{% endif %}{% else %}{% if c.bajo %}{{ c.diferencia|floatformat:0|cut:"-" }}{% else %}{{ c.diferencia|floatformat:0 }}{% endif %}{% endif %}{% if c.variacion is not None %} ({% if c.variacion > 0 %}+{% endif %}{{ c.variacion }}%){% endif %}{% else %}Igual que{% endif %}
+          <span class="text-body-secondary">{% if c.subio or c.bajo %}frente al{% else %}el{% endif %} mes pasado a esta fecha ({% if c.moneda %}${{ c.misma_fecha|dinero }}{% else %}{{ c.misma_fecha|floatformat:0 }}{% endif %})</span>
+        </div>
+        <div class="small text-body-secondary mt-1">Mes pasado completo: {% if c.moneda %}${{ c.anterior_completo|dinero }}{% else %}{{ c.anterior_completo|floatformat:0 }}{% endif %}</div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+{% with monto=comparaciones.2 %}
+<div class="alert {% if monto.subio %}alert-success{% else %}alert-light border{% endif %} d-flex flex-wrap align-items-center gap-2 mb-4" role="status">
+  <span class="fs-4" aria-hidden="true">{% if monto.subio %}🚀{% elif monto.bajo %}💪{% else %}🙌{% endif %}</span>
+  <span>
+    {% if monto.subio %}<strong>¡Vas creciendo!</strong> Llevas más vendido que el mes pasado a esta misma fecha.
+    {% elif monto.bajo %}<strong>¡Todavía estás a tiempo!</strong> Te faltan ${{ monto.diferencia|dinero|cut:"-" }} para igualar lo que llevabas el mes pasado a esta fecha.
+    {% else %}<strong>Vas igual</strong> que el mes pasado a esta fecha.{% endif %}
+    {% if mejor_mes %}Tu mejor mes: <strong>{{ mejor_mes.etiqueta }}</strong> con ${{ mejor_mes.total|dinero }} ({{ mejor_mes.cerradas }} venta{{ mejor_mes.cerradas|pluralize }}){% if mejor_mes == actual %} — ¡es este mes! 🏆{% endif %}.{% endif %}
+  </span>
+</div>
+{% endwith %}
+
+<div class="row g-4 mb-4">
+  <div class="col-12">
+    <section class="card h-100" aria-labelledby="titulo-cantidades">
+      <div class="card-header bg-body py-3">
+        <h3 class="h6 mb-1" id="titulo-cantidades">DAMI sacados y ventas cerradas</h3>
+        <div class="leyenda-grafica small text-body-secondary d-flex flex-wrap gap-3">
+          <span><span class="muestra-color" style="background: {{ color_dami }}" aria-hidden="true"></span>DAMI sacados</span>
+          <span><span class="muestra-color" style="background: {{ color_ventas }}" aria-hidden="true"></span>Ventas cerradas</span>
+        </div>
+      </div>
+      <div class="card-body">{{ grafica_cantidades }}</div>
+    </section>
+  </div>
+  <div class="col-12">
+    <section class="card h-100" aria-labelledby="titulo-monto">
+      <div class="card-header bg-body py-3">
+        <h3 class="h6 mb-1" id="titulo-monto">Monto vendido por mes</h3>
+        <div class="small text-body-secondary">{% if promedio_3 %}La línea punteada es tu promedio de los últimos 3 meses completos (${{ promedio_3|dinero }}).{% else %}Total de tus ventas cerradas de cada mes.{% endif %}</div>
+      </div>
+      <div class="card-body">{{ grafica_monto }}</div>
+    </section>
+  </div>
+</div>
+
+<section class="card" aria-labelledby="titulo-tabla">
+  <div class="card-header bg-body py-3"><h3 class="h6 mb-0" id="titulo-tabla">Mes a mes</h3></div>
+  <div class="table-responsive">
+    <table class="table table-sm align-middle mb-0 tabla-reporte-pantalla">
+      <thead><tr><th scope="col">Mes</th><th scope="col" class="text-end">DAMI sacados</th><th scope="col" class="text-end">Ventas cerradas</th>
+        <th scope="col" class="text-end">No concretadas</th><th scope="col" class="text-end">Tasa de cierre</th><th scope="col" class="text-end">Monto vendido</th>
+        <th scope="col" class="text-end">Frente al mes anterior</th></tr></thead>
+      <tbody>
+        {% for f in filas %}
+        <tr {% if f.en_curso %}class="fw-semibold"{% endif %}>
+          <td>{{ f.mes.etiqueta }}{% if f.en_curso %} <span class="badge bg-body-tertiary text-body-secondary border fw-normal">en curso</span>{% endif %}{% if f.mes == mejor_mes %} <span title="Tu mejor mes" aria-label="Tu mejor mes">🏆</span>{% endif %}</td>
+          <td class="text-end">{{ f.mes.enviados }}</td>
+          <td class="text-end">{{ f.mes.cerradas }}</td>
+          <td class="text-end">{{ f.mes.no_concretadas }}</td>
+          <td class="text-end">{% if f.mes.tasa is not None %}{{ f.mes.tasa|floatformat:0 }}%{% else %}—{% endif %}</td>
+          <td class="text-end">${{ f.mes.total|dinero }}</td>
+          <td class="text-end {% if f.variacion > 0 %}text-success{% elif f.variacion < 0 %}text-danger{% endif %}">{% if f.variacion is not None %}{% if f.variacion > 0 %}▲ +{% elif f.variacion < 0 %}▼ {% endif %}{{ f.variacion }}%{% if f.en_curso %}*{% endif %}{% else %}—{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="card-footer bg-body small text-body-secondary">
+    DAMI sacados = formularios enviados a cierre (sin anulados). Tasa de cierre = ventas cerradas ÷ formularios ya gestionados por cierre.
+    * El mes en curso todavía no termina: se compara con lo que llevabas el mes anterior hasta el día {{ hoy.day }}.
+  </div>
+</section>
+{% endif %}
+{% endblock %}

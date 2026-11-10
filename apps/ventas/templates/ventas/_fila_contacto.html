@@ -1,0 +1,65 @@
+{# Un contacto de la base en «Mis contactos». Recibe `r` y `estado` (el filtro de la lista). #}
+<li class="contacto-base estado-{{ r.estado|lower }}{% if recien %} recien{% endif %}" id="contacto-{{ r.pk }}">
+  <div class="datos min-w-0">
+    <div class="fw-semibold">{{ r.nombre|default:"Sin nombre" }}
+      {% if r.es_ayuda %}<span class="badge badge-ayuda ms-1"><i class="bi bi-person-raised-hand me-1" aria-hidden="true"></i>Cliente de {{ r.vendedor.nombres }} {{ r.vendedor.apellidos }}</span>{% endif %}
+    </div>
+    <div class="small text-body-secondary">
+      {% if r.cedula %}<span class="font-monospace">{{ r.cedula }}</span>{% if not r.cedula_valida %} <span class="badge text-bg-warning" title="La cédula no pasó la validación">revisar</span>{% endif %} · {% endif %}{{ r.ciudad|default:"—" }}{% if r.categoria_tarjeta %} · {{ r.categoria_tarjeta }}{% endif %}
+    </div>
+    {% if r.direccion %}<div class="small text-body-secondary text-truncate">{{ r.direccion }}</div>{% endif %}
+    <div class="small text-body-tertiary">{{ r.base.nombre }}{% if r.intentos > 1 %} · {{ r.intentos }} gestiones{% endif %}</div>
+  </div>
+  <div class="telefonos">
+    <a href="tel:{{ r.numero }}" class="fw-semibold text-decoration-none font-monospace"><i class="bi bi-telephone me-1" aria-hidden="true"></i>{{ r.numero }}</a>
+    {% if r.numero_alterno %}<div class="small text-body-secondary font-monospace">{{ r.numero_alterno }}</div>{% endif %}
+  </div>
+  <form method="post" action="{% url 'ventas:contacto_categorizar' r.pk %}" class="acciones"
+        hx-post="{% url 'ventas:contacto_categorizar' r.pk %}" hx-target="#contacto-{{ r.pk }}" hx-swap="outerHTML">
+    {% csrf_token %}<input type="hidden" name="volver" value="{{ volver|default:request.get_full_path }}"><input type="hidden" name="filtro" value="{{ estado }}">
+    <div class="btn-group btn-group-sm" role="group" aria-label="Categoría de {{ r.nombre|default:r.numero }}">
+      <button type="submit" name="estado" value="NO_CONTESTO" class="btn btn-outline-secondary {% if r.estado == 'NO_CONTESTO' %}active{% endif %}" {% if r.estado == 'NO_CONTESTO' %}aria-pressed="true"{% endif %}><i class="bi bi-telephone-x me-1" aria-hidden="true"></i>No contestó</button>
+      <button type="submit" name="estado" value="NO_QUIERE" class="btn btn-outline-secondary {% if r.estado == 'NO_QUIERE' %}active{% endif %}" {% if r.estado == 'NO_QUIERE' %}aria-pressed="true"{% endif %}><i class="bi bi-hand-thumbs-down me-1" aria-hidden="true"></i>No quiere</button>
+      <button type="submit" name="estado" value="DAMI_SACADO" class="btn btn-outline-secondary {% if r.estado == 'DAMI_SACADO' %}active{% endif %}" {% if r.estado == 'DAMI_SACADO' %}aria-pressed="true"{% endif %}><i class="bi bi-check2-circle me-1" aria-hidden="true"></i>DAMI sacado</button>
+    </div>
+    <div class="small mt-1 d-flex gap-3 justify-content-end">
+      <a href="{% url 'ventas:formulario_nuevo' %}?contacto={{ r.pk }}" class="text-decoration-none"><i class="bi bi-file-earmark-plus me-1" aria-hidden="true"></i>Llenar DAMI</a>
+      {% if r.gestionado %}<button type="submit" name="estado" value="PENDIENTE" class="btn btn-link btn-sm p-0 text-decoration-none text-body-secondary">Deshacer</button>{% endif %}
+    </div>
+  </form>
+  {% if not r.es_ayuda %}
+  <div class="ayuda-contacto">
+    {% if r.ayuda %}
+      {# Ya pidió ayuda con este contacto: se ve a quién y en qué va; la puede retirar. #}
+      <span class="small {% if r.ayuda.estado == 'ACEPTADA' %}text-success-emphasis{% else %}text-body-secondary{% endif %}">
+        <i class="bi bi-person-raised-hand me-1" aria-hidden="true"></i>
+        {% if r.ayuda.estado == "ACEPTADA" %}Lo está gestionando <strong>{{ r.ayuda.ayudante.nombres }} {{ r.ayuda.ayudante.apellidos }}</strong> como ayuda: si saca el DAMI, queda a tu nombre.
+        {% else %}Ayuda pedida a <strong>{{ r.ayuda.ayudante.nombres }} {{ r.ayuda.ayudante.apellidos }}</strong> · esperando respuesta{% endif %}
+      </span>
+      <form method="post" action="{% url 'ventas:cancelar_ayuda' r.ayuda.pk %}" class="d-inline">
+        {% csrf_token %}<input type="hidden" name="volver" value="{{ volver|default:request.get_full_path }}">
+        <button type="submit" class="btn btn-link btn-sm p-0 ms-2 text-body-secondary">Retirar ayuda</button>
+      </form>
+    {% elif r.estado != "DAMI_SACADO" and asesores %}
+      <details class="pedir-ayuda">
+        <summary class="small"><i class="bi bi-person-raised-hand me-1" aria-hidden="true"></i>Pedir ayuda a otro asesor</summary>
+        <form method="post" action="{% url 'ventas:pedir_ayuda' r.pk %}" class="row g-2 align-items-end mt-1">
+          {% csrf_token %}<input type="hidden" name="volver" value="{{ volver|default:request.get_full_path }}">
+          <div class="col-sm-4">
+            <label class="form-label small mb-1" for="ayudante-{{ r.pk }}">Asesor</label>
+            <select id="ayudante-{{ r.pk }}" name="ayudante" class="form-select form-select-sm" required>
+              <option value="">Elija…</option>
+              {% for a in asesores %}<option value="{{ a.pk }}">{{ a.nombres }} {{ a.apellidos }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="col-sm">
+            <label class="form-label small mb-1" for="mensaje-ayuda-{{ r.pk }}">Mensaje (opcional)</label>
+            <input id="mensaje-ayuda-{{ r.pk }}" name="mensaje" maxlength="500" class="form-control form-control-sm" placeholder="Ej.: me pidió que lo llame alguien en la tarde">
+          </div>
+          <div class="col-sm-auto"><button type="submit" class="btn btn-sm btn-primary"><i class="bi bi-send me-1" aria-hidden="true"></i>Pedir ayuda</button></div>
+        </form>
+      </details>
+    {% endif %}
+  </div>
+  {% endif %}
+</li>

@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+{% load reportes_cf %}
+{% block titulo %}Estadísticas de ventas · Reportes{% endblock %}
+{% block contenido %}
+<nav aria-label="Ruta" class="mb-2">
+  <ol class="breadcrumb small mb-0">
+    <li class="breadcrumb-item"><a href="{% url 'reportes:centro' %}">Reportes</a></li>
+    <li class="breadcrumb-item active" aria-current="page">Estadísticas y proyección</li>
+  </ol>
+</nav>
+<div class="mb-3">
+  <h1 class="h3 mb-0">Estadísticas y proyección de ventas</h1>
+  <p class="text-body-secondary small mb-0">{{ nombre_mes|capfirst }}{% if est.en_curso %} · mes en curso, al {{ est.hoy|date:"d/m/Y" }}{% endif %}</p>
+</div>
+
+{% url 'reportes:estadisticas_pdf' as accion_pdf %}
+{% include "reportes/_filtros.html" with accion_pdf=accion_pdf mostrar_errores=True %}
+
+{% if not hay_ventas %}
+<div class="card"><div class="card-body text-center text-body-secondary py-5">
+  <i class="bi bi-bar-chart fs-3 d-block mb-2" aria-hidden="true"></i>
+  No hay formularios DAMI enviados en los últimos 12 meses para estos filtros.
+</div></div>
+{% else %}
+{% with a=est.actual %}
+<div class="row g-3 mb-4">
+  <div class="col-6 col-lg-3"><div class="card h-100 tarjeta-kpi"><div class="card-body">
+    <div class="small text-body-secondary">Total vendido</div>
+    <div class="valor">{{ a.total|usd }}</div>
+    {% if est.variacion is not None %}
+    <div class="small {% if est.variacion >= 0 %}text-success-emphasis{% else %}text-danger-emphasis{% endif %}">
+      <i class="bi bi-arrow-{% if est.variacion >= 0 %}up{% else %}down{% endif %}-right" aria-hidden="true"></i>
+      {{ est.variacion|floatformat:"0" }} % vs. {{ est.anterior.etiqueta }}
+    </div>
+    {% else %}<div class="small text-body-secondary">Sin ventas el mes anterior</div>{% endif %}
+  </div></div></div>
+  <div class="col-6 col-lg-3"><div class="card h-100 tarjeta-kpi"><div class="card-body">
+    <div class="small text-body-secondary">Ventas cerradas</div>
+    <div class="valor">{{ a.cerradas }}</div>
+    <div class="small text-body-secondary">de {{ a.enviados }} DAMI enviados</div>
+  </div></div></div>
+  <div class="col-6 col-lg-3"><div class="card h-100 tarjeta-kpi"><div class="card-body">
+    <div class="small text-body-secondary">Tasa de cierre</div>
+    <div class="valor">{{ a.tasa|pct }}</div>
+    <div class="small text-body-secondary">{{ a.gestionadas }} gestionados por cierre</div>
+  </div></div></div>
+  <div class="col-6 col-lg-3"><div class="card h-100 tarjeta-kpi"><div class="card-body">
+    <div class="small text-body-secondary">Ticket promedio</div>
+    <div class="valor">{{ a.ticket|usd }}</div>
+    <div class="small text-body-secondary">por venta cerrada</div>
+  </div></div></div>
+</div>
+
+{% if est.en_curso %}
+<section class="card mb-4 tarjeta-proyeccion" aria-labelledby="titulo-proyeccion">
+  <div class="card-body">
+    <div class="row g-4 align-items-center">
+      <div class="col-lg-4">
+        <h2 class="h6 text-body-secondary mb-1" id="titulo-proyeccion">Cierre proyectado del mes</h2>
+        <div class="valor-proyeccion">{{ est.proyeccion_mes|usd }}</div>
+        <div class="small text-body-secondary">Al ritmo actual: {{ a.total|usd }} en {{ est.transcurridos }} de {{ est.laborables }} días laborables.</div>
+      </div>
+      <div class="col-lg-8">
+        {% if est.meta %}
+        <div class="d-flex justify-content-between small mb-1">
+          <span>Meta del mes: <strong>{{ est.meta|usd }}</strong></span>
+          <span>Vendido {{ est.avance_meta|pct }} · proyectado {{ est.proyeccion_vs_meta|pct }}</span>
+        </div>
+        <div class="medidor-meta" role="img" aria-label="Vendido {{ est.avance_meta|pct }} de la meta; proyectado {{ est.proyeccion_vs_meta|pct }}">
+          <span class="proyectado" style="width: {{ est.ancho_proyectado }}%"></span>
+          <span class="vendido" style="width: {{ est.ancho_vendido }}%"></span>
+        </div>
+        <p class="small mb-0 mt-2">
+          {% if est.proyeccion_vs_meta >= 100 %}<i class="bi bi-check-circle-fill text-success me-1" aria-hidden="true"></i>A este ritmo <strong>se cumple la meta</strong>.
+          {% else %}<i class="bi bi-exclamation-triangle-fill text-warning me-1" aria-hidden="true"></i>A este ritmo <strong>no se llega a la meta</strong>{% if est.ritmo_necesario %}: hace falta vender {{ est.ritmo_necesario|usd }} por día laborable restante{% endif %}.{% endif %}
+        </p>
+        {% else %}
+        <p class="small text-body-secondary mb-0">No hay metas registradas para este mes. Defínalas en <a href="{% url 'cierre:metas' %}">Cierre de ventas → Metas</a> para comparar la proyección.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</section>
+{% endif %}
+{% endwith %}
+
+<section class="card mb-4" aria-labelledby="titulo-mensual">
+  <div class="card-header bg-body d-flex flex-wrap justify-content-between align-items-center gap-2 py-3">
+    <h2 class="h6 mb-0" id="titulo-mensual">Ventas por mes</h2>
+    <div class="leyenda-grafica small text-body-secondary">
+      <span><i class="clave clave-real" aria-hidden="true"></i>Ventas reales</span>
+      {% if est.en_curso %}<span><i class="clave clave-proyeccion" aria-hidden="true"></i>Proyección</span>{% endif %}
+    </div>
+  </div>
+  <div class="card-body">{{ grafica_mensual }}</div>
+  <details class="card-footer bg-body small">
+    <summary>Ver datos</summary>
+    <table class="table table-sm mb-0 mt-2">
+      <thead><tr><th scope="col">Mes</th><th scope="col" class="text-end">Vendido</th><th scope="col" class="text-end">Proyección</th></tr></thead>
+      <tbody>{% for etiqueta, real, proyectado in serie_tabla %}<tr><td>{{ etiqueta }}</td><td class="text-end">{{ real|usd }}</td><td class="text-end">{{ proyectado|usd }}</td></tr>{% endfor %}</tbody>
+    </table>
+  </details>
+</section>
+
+<div class="row g-4 mb-4">
+  {% if grafica_diaria %}
+  <div class="col-xl-8">
+    <section class="card h-100" aria-labelledby="titulo-diario">
+      <div class="card-header bg-body d-flex flex-wrap justify-content-between align-items-center gap-2 py-3">
+        <h2 class="h6 mb-0" id="titulo-diario">Acumulado del mes</h2>
+        <div class="leyenda-grafica small text-body-secondary">
+          <span><i class="clave clave-real" aria-hidden="true"></i>Vendido</span>
+          {% if est.en_curso %}<span><i class="clave clave-proyeccion" aria-hidden="true"></i>Proyección</span>{% endif %}
+          {% if est.meta %}<span><i class="clave clave-meta" aria-hidden="true"></i>Meta</span>{% endif %}
+        </div>
+      </div>
+      <div class="card-body">{{ grafica_diaria }}</div>
+    </section>
+  </div>
+  {% endif %}
+  <div class="{% if grafica_diaria %}col-xl-4{% else %}col-12{% endif %}">
+    <section class="card h-100" aria-labelledby="titulo-embudo">
+      <div class="card-header bg-body py-3"><h2 class="h6 mb-0" id="titulo-embudo">Embudo del mes</h2></div>
+      <div class="card-body">{% include "reportes/_barras.html" with filas=embudo tipo="entero" %}</div>
+    </section>
+  </div>
+</div>
+
+<div class="row g-4 mb-4">
+  <div class="col-xl-7">
+    <section class="card h-100" aria-labelledby="titulo-ranking">
+      <div class="card-header bg-body py-3"><h2 class="h6 mb-0" id="titulo-ranking">Ranking de vendedores</h2></div>
+      <div class="card-body">{% include "reportes/_barras.html" with filas=ranking tipo="dinero" %}</div>
+    </section>
+  </div>
+  <div class="col-xl-5">
+    <section class="card h-100" aria-labelledby="titulo-equipos">
+      <div class="card-header bg-body py-3"><h2 class="h6 mb-0" id="titulo-equipos">Ventas por equipo</h2></div>
+      <div class="card-body">{% include "reportes/_barras.html" with filas=equipos tipo="dinero" %}</div>
+    </section>
+  </div>
+</div>
+
+{% for subtitulo, tabla in tablas %}
+<section class="card mb-4" aria-label="{{ subtitulo }}">
+  <div class="card-header bg-body py-3"><h2 class="h6 mb-0">{{ subtitulo }}</h2></div>
+  {% include "reportes/_tabla.html" %}
+</section>
+{% endfor %}
+<p class="small text-body-secondary">
+  Las ventas cuentan en el mes en que se envió el DAMI. La proyección del mes sigue el ritmo de ventas por día laborable;
+  la de los próximos meses es una tendencia lineal sobre los meses completos{% if not est.en_curso %} y solo se calcula para el mes en curso{% endif %}.
+</p>
+{% endif %}
+{% endblock %}

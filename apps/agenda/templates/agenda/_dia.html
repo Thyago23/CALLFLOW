@@ -1,0 +1,51 @@
+<div class="card">
+  {% if dia.eventos %}
+  <ul class="list-group list-group-flush">
+    {% for e in dia.eventos %}
+    <li class="list-group-item d-flex gap-3 align-items-start py-3 evento-dia {% if e.estado != 'PENDIENTE' %}text-body-secondary{% endif %}">
+      <div class="hora-dia text-nowrap">
+        {% if e.todo_el_dia %}<span class="small">Todo el día</span>{% else %}<span class="fw-semibold">{{ e.inicio|time:"H:i" }}</span>{% if e.fin %}<br><span class="small text-body-secondary">{{ e.fin|time:"H:i" }}</span>{% endif %}{% endif %}
+      </div>
+      <span class="barra-tipo tipo-{{ e.tipo|lower }}" aria-hidden="true"></span>
+      <div class="flex-grow-1 min-w-0">
+        <a href="{% url 'agenda:detalle' e.pk %}" class="fw-semibold text-reset {% if e.estado == 'CANCELADO' %}text-decoration-line-through{% endif %}">{{ e.titulo }}</a>
+        <div class="small text-body-secondary">
+          {{ e.get_tipo_display }}{% if e.ubicacion %} · {{ e.ubicacion }}{% endif %}{% if e.propietario_id != user.pk %} · invitado por {{ e.propietario.get_full_name|default:e.propietario.username }}{% endif %}
+        </div>
+        {% if e.cliente %}
+        <div class="small mt-1">
+          <i class="bi bi-person-vcard text-body-secondary me-1" aria-hidden="true"></i>{{ e.cliente.nombres }} {{ e.cliente.apellidos }}
+          {% for tel in e.cliente.telefonos %}<a class="ms-2 text-nowrap" href="tel:{{ tel }}"><i class="bi bi-telephone me-1" aria-hidden="true"></i>{{ tel }}</a>{% endfor %}
+        </div>
+        {% endif %}
+      </div>
+      <div class="text-end">
+        {% if e.estado == 'PENDIENTE' and e.propietario_id == user.pk and perms.agenda.change_evento %}
+        <div class="d-flex gap-1 justify-content-end">
+          <form method="post" action="{% url 'agenda:estado' e.pk %}">
+            {% csrf_token %}<input type="hidden" name="estado" value="COMPLETADO"><input type="hidden" name="volver" value="{{ request.get_full_path }}">
+            <button type="submit" class="btn btn-sm btn-outline-success"><i class="bi bi-check2 me-1" aria-hidden="true"></i>Completar</button>
+          </form>
+          <form method="post" action="{% url 'agenda:manana' e.pk %}">
+            {% csrf_token %}<input type="hidden" name="volver" value="{{ request.get_full_path }}">
+            <button type="submit" class="btn btn-sm btn-outline-secondary" title="Pasar al siguiente día laborable, a la misma hora"><i class="bi bi-arrow-right me-1" aria-hidden="true"></i>Mañana</button>
+          </form>
+        </div>
+        {% else %}
+        <span class="badge estado-evento estado-{{ e.estado|lower }}">{{ e.get_estado_display }}</span>
+        {% endif %}
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <div class="card-body text-center text-body-secondary py-5">
+    {% if dia.laborable %}
+    No hay nada agendado este día.
+    {% if rapido %}<div class="mt-2 small">Escríbalo arriba en «Agregar rápido» y pulse Enter.</div>{% endif %}
+    {% else %}
+    <i class="bi bi-moon-stars fs-3 d-block mb-2" aria-hidden="true"></i>Día no laborable: no se agendan actividades.
+    {% endif %}
+  </div>
+  {% endif %}
+</div>

@@ -1,0 +1,33 @@
+{# Peticiones de ayuda que otros asesores le hicieron al vendedor: las acepta o las rechaza. #}
+{% if ayudas_pendientes %}
+<section class="card mb-3 ayudas-pendientes" id="ayudas" aria-labelledby="titulo-ayudas">
+  <div class="card-header bg-body d-flex align-items-center gap-2 py-3">
+    <i class="bi bi-person-raised-hand fs-5" aria-hidden="true"></i>
+    <h3 class="h6 mb-0" id="titulo-ayudas">Te pidieron ayuda</h3>
+    <span class="badge rounded-pill text-bg-danger">{{ ayudas_pendientes|length }}</span>
+  </div>
+  <ul class="list-group list-group-flush">
+    {% for s in ayudas_pendientes %}
+    <li class="list-group-item py-3">
+      <div class="d-flex flex-wrap justify-content-between gap-3">
+        <div class="min-w-0">
+          <div><strong>{{ s.solicitante.nombres }} {{ s.solicitante.apellidos }}</strong> te pide ayuda con un cliente <span class="small text-body-secondary">· {{ s.creado_en|timesince }}</span></div>
+          <div class="mt-1">
+            <span class="fw-semibold">{{ s.contacto.nombre|default:"Sin nombre" }}</span>
+            <span class="font-monospace ms-2">{{ s.contacto.numero }}</span>
+            <span class="small text-body-secondary">· {{ s.contacto.ciudad|default:"—" }}{% if s.contacto.categoria_tarjeta %} · {{ s.contacto.categoria_tarjeta }}{% endif %} · {{ s.contacto.get_estado_display }}</span>
+          </div>
+          {% if s.mensaje %}<div class="small fst-italic mt-1">«{{ s.mensaje }}»</div>{% endif %}
+          <div class="small text-body-secondary mt-1">Si aceptas, lo verás como «cliente de {{ s.solicitante.nombres }}». El DAMI que saques queda a nombre de {{ s.solicitante.nombres }}.</div>
+        </div>
+        <form method="post" action="{% url 'ventas:responder_ayuda' s.pk %}" class="d-flex gap-2 align-items-start">
+          {% csrf_token %}<input type="hidden" name="volver" value="{{ request.get_full_path }}">
+          <button type="submit" name="accion" value="rechazar" class="btn btn-sm btn-outline-secondary">No puedo</button>
+          <button type="submit" name="accion" value="aceptar" class="btn btn-sm btn-primary"><i class="bi bi-check2 me-1" aria-hidden="true"></i>Aceptar</button>
+        </form>
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}

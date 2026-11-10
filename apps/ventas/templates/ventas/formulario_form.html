@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+{% load estaticos %}
+{% block titulo %}{% if nuevo %}Nuevo DAMI{% else %}Editar {{ formulario }}{% endif %} · Ventas{% endblock %}
+{% block contenido %}
+<nav aria-label="Ruta" class="mb-2">
+  <ol class="breadcrumb small mb-0">
+    <li class="breadcrumb-item"><a href="{% url 'ventas:inicio' %}">Ventas</a></li>
+    {% if not nuevo %}<li class="breadcrumb-item"><a href="{% url 'ventas:formulario_detalle' formulario.pk %}">{{ formulario }}</a></li>{% endif %}
+    <li class="breadcrumb-item active" aria-current="page">{% if nuevo %}Nuevo DAMI{% else %}Editar borrador{% endif %}</li>
+  </ol>
+</nav>
+
+{% if form.errors %}
+<div class="alert alert-danger d-flex gap-2 align-items-start papel-alerta" role="alert">
+  <i class="bi bi-exclamation-triangle-fill mt-1" aria-hidden="true"></i>
+  <div>Revisa los campos marcados en rojo.{% for error in form.non_field_errors %}<div>{{ error }}</div>{% endfor %}</div>
+</div>
+{% endif %}
+
+{# Mismo formato que el DAMI en papel («Formulario de ventas»), con los campos que tiene el sistema. #}
+<form method="post" novalidate id="formulario-dami" class="formulario-empleado dami-papel" autocomplete="off">
+  {% csrf_token %}
+  {% if contacto %}<input type="hidden" name="contacto" value="{{ contacto.pk }}">{% endif %}
+  {% if ayuda or ayudante %}
+  <div class="alert alert-primary d-flex gap-2 align-items-start papel-alerta" role="note">
+    <i class="bi bi-person-raised-hand fs-5" aria-hidden="true"></i>
+    <div>Estás llenando este DAMI <strong>como ayuda</strong>: es un cliente de <strong>{{ asesor }}</strong>. El DAMI, la hoja de producción y la venta quedan a su nombre{% if ayudante %} (lo está llenando {{ ayudante.nombres }} {{ ayudante.apellidos }}){% endif %}.</div>
+  </div>
+  {% endif %}
+  <div class="papel-hoja">
+    <header class="papel-cabecera">
+      <img src="{% estatico 'img/logo-multivisa.png' %}" alt="" class="papel-logo" width="640" height="621">
+      <h1 class="papel-titulo">Formulario de ventas</h1>
+    </header>
+
+    <div class="papel-datos-generales">
+      {% include "ventas/_linea_dami.html" with campo=form.producto clase="papel-ancho-2" %}
+      <div class="papel-campo papel-fijo"><span class="papel-etiqueta">Fecha:</span><span class="papel-valor">{% if formulario %}{{ formulario.creado_en|date:"d/m/Y" }}{% else %}{% now "d/m/Y" %}{% endif %}</span></div>
+      <div class="papel-campo papel-fijo papel-ancho-2"><span class="papel-etiqueta">Asesor:</span><span class="papel-valor">{{ asesor|default:user.get_full_name|default:user.username }}</span></div>
+      <div class="papel-campo papel-fijo"><span class="papel-etiqueta">Código:</span><span class="papel-valor">{% if formulario %}{{ formulario }}{% else %}<span class="papel-pendiente">se asigna al guardar</span>{% endif %}</span></div>
+    </div>
+
+    {# Recuadro 1: cliente #}
+    <section class="papel-recuadro" aria-label="Datos del cliente">
+      <div class="papel-campo papel-completo">
+        <label for="{{ form.nombres.id_for_label }}">Nombres y Apellidos del Cliente:<span class="papel-obligatorio" aria-hidden="true">*</span></label>
+        <div class="papel-entrada papel-dos">
+          <div>{{ form.nombres }}{% for error in form.nombres.errors %}<div class="papel-error">{{ error }}</div>{% endfor %}<div class="papel-ayuda">Nombres · si solo tiene RUC, la razón social</div></div>
+          <div><label class="visually-hidden" for="{{ form.apellidos.id_for_label }}">Apellidos</label>{{ form.apellidos }}{% for error in form.apellidos.errors %}<div class="papel-error">{{ error }}</div>{% endfor %}<div class="papel-ayuda">Apellidos</div></div>
+        </div>
+      </div>
+      <div class="papel-fila">
+        {% include "ventas/_linea_dami.html" with campo=form.cedula %}
+        {% include "ventas/_linea_dami.html" with campo=form.ruc %}
+      </div>
+      <div id="estado-cliente" class="estado-identificacion papel-estado-cliente" aria-live="polite"></div>
+      <div class="papel-fila">
+        {% include "ventas/_linea_dami.html" with campo=form.telefono etiqueta="Telf." %}
+      </div>
+    </section>
+
+    {# Recuadro 2: domicilio #}
+    <section class="papel-recuadro" aria-label="Domicilio">
+      {% include "ventas/_linea_dami.html" with campo=form.direccion clase="papel-completo" %}
+      <div class="papel-fila">
+        {% include "ventas/_linea_dami.html" with campo=form.ciudad %}
+        {% include "ventas/_linea_dami.html" with campo=form.sector %}
+      </div>
+      {% include "ventas/_linea_dami.html" with campo=form.referencia clase="papel-completo" %}
+      {% include "ventas/_linea_dami.html" with campo=form.email clase="papel-completo" %}
+    </section>
+
+    {# Recuadro 3: tarjeta #}
+    <section class="papel-recuadro" aria-labelledby="papel-titulo-tarjeta">
+      <h2 class="papel-subtitulo" id="papel-titulo-tarjeta">Tarjeta para realizar el pago</h2>
+      <fieldset class="papel-marcas marcas-tarjeta">
+        <legend class="visually-hidden">Marca de la tarjeta</legend>
+        {% for opcion in form.marca %}
+        <div class="papel-marca-celda marca-{{ opcion.data.value|lower }}">
+          {{ opcion.tag }}
+          <label class="papel-casilla" for="{{ opcion.id_for_label }}">
+            <span class="papel-casilla-texto">{{ opcion.choice_label }}</span>
+            <span class="papel-cuadro" aria-hidden="true"><i class="bi bi-check-lg"></i></span>
+          </label>
+        </div>
+        {% endfor %}
+      </fieldset>
+      {% for error in form.marca.errors %}<div class="papel-error mb-2">{{ error }}</div>{% endfor %}
+
+      <fieldset class="papel-activa tarjeta-activa">
+        <legend class="papel-etiqueta">¿La tarjeta está activa?</legend>
+        <div class="papel-activa-opciones">
+          {% for opcion in form.tarjeta_activa %}
+          {{ opcion.tag }}
+          <label class="papel-casilla" for="{{ opcion.id_for_label }}">
+            <span class="papel-casilla-texto">{% if opcion.data.value == "SI" %}Sí{% else %}No{% endif %}</span>
+            <span class="papel-cuadro" aria-hidden="true"><i class="bi bi-check-lg"></i></span>
+          </label>
+          {% endfor %}
+          <span class="papel-ayuda ms-sm-2"><i class="bi bi-lightning-charge" aria-hidden="true"></i> Con la tarjeta activa, el DAMI pasa primero en cierre.</span>
+        </div>
+        {% for error in form.tarjeta_activa.errors %}<div class="papel-error">{{ error }}</div>{% endfor %}
+      </fieldset>
+
+      <div class="papel-fila">
+        {% include "ventas/_linea_dami.html" with campo=form.banco clase="papel-ancho-2" %}
+        {% include "ventas/_linea_dami.html" with campo=form.caducidad %}
+      </div>
+      <datalist id="entidades-emisoras">{% for nombre in form.entidades %}<option value="{{ nombre }}">{% endfor %}</datalist>
+      {% include "ventas/_linea_dami.html" with campo=form.numero_tarjeta clase="papel-completo" %}
+      <p class="papel-seguridad"><i class="bi bi-shield-lock-fill" aria-hidden="true"></i> El número se guarda cifrado: después solo se ven los últimos 4 dígitos y únicamente el encargado de cierre a cargo lo ve completo. Una vez enviado, el DAMI ya no se puede abrir.</p>
+    </section>
+
+    {# Observación #}
+    <h2 class="papel-subtitulo papel-centrado" id="papel-titulo-observacion">Observación</h2>
+    <section class="papel-recuadro papel-observacion" aria-labelledby="papel-titulo-observacion">
+      <label class="visually-hidden" for="{{ form.observaciones.id_for_label }}">Observación</label>
+      {{ form.observaciones }}
+      {% for error in form.observaciones.errors %}<div class="papel-error">{{ error }}</div>{% endfor %}
+    </section>
+  </div>
+
+  {# Acciones: quedan fijas abajo mientras se llena el formulario #}
+  <div class="dami-acciones papel-acciones">
+    <a href="{% if nuevo %}{% url 'ventas:formularios' %}{% else %}{% url 'ventas:formulario_detalle' formulario.pk %}{% endif %}" class="btn btn-link text-body-secondary text-decoration-none">Cancelar</a>
+    <div class="d-flex flex-wrap gap-2 ms-auto">
+      <button type="submit" name="guardar" class="btn btn-outline-primary"><i class="bi bi-save me-1" aria-hidden="true"></i>Guardar borrador</button>
+      <button type="submit" name="enviar" class="btn btn-primary dami-enviar" data-pide-confirmacion>
+        <i class="bi bi-send-fill me-1" aria-hidden="true"></i>Enviar DAMI
+      </button>
+    </div>
+  </div>
+</form>
+{% include "ventas/_modal_enviar.html" %}
+
+<script>
+  // Caducidad: el slash se pone solo (1031 -> 10/31). Si escribe un solo dígito mayor a 1 (p. ej. 8), queda 08/.
+  (function () {
+    const campo = document.querySelector("[data-caducidad]");
+    if (!campo) return;
+    campo.addEventListener("input", function (evento) {
+      let digitos = campo.value.replace(/\D/g, "");
+      if (digitos.length === 1 && digitos > "1") digitos = "0" + digitos;
+      digitos = digitos.slice(0, 4);
+      const borrando = evento.inputType && evento.inputType.startsWith("delete");
+      if (digitos.length > 2) campo.value = digitos.slice(0, 2) + "/" + digitos.slice(2);
+      else if (digitos.length === 2 && !borrando) campo.value = digitos + "/";
+      else campo.value = digitos;
+    });
+  })();
+
+  // Si el cliente ya existe, se llenan sus datos (solo en los campos vacíos o llenados antes por esta búsqueda).
+  document.body.addEventListener("clienteEncontrado", function (evento) {
+    const form = document.getElementById("formulario-dami");
+    const campos = (evento.detail && evento.detail.campos) || {};
+    Object.entries(campos).forEach(function ([nombre, valor]) {
+      const campo = form.elements[nombre];
+      if (!campo || !valor || !(campo.value === "" || campo.dataset.desdeCliente === "1")) return;
+      campo.value = valor;
+      campo.dataset.desdeCliente = "1";
+      campo.classList.add("desde-cv");
+    });
+  });
+  document.getElementById("formulario-dami").addEventListener("input", function (evento) {
+    if (evento.isTrusted && evento.target.dataset.desdeCliente) {
+      delete evento.target.dataset.desdeCliente;
+      evento.target.classList.remove("desde-cv");
+    }
+  });
+</script>
+{% endblock %}

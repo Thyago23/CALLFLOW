@@ -1,0 +1,430 @@
+{% extends "base.html" %}
+{% block titulo %}{{ empleado.nombres }} {{ empleado.apellidos }}{% endblock %}
+{% block contenido %}
+<nav aria-label="Ruta" class="mb-2">
+  <ol class="breadcrumb small mb-0">
+    <li class="breadcrumb-item"><a href="{% url 'personal:empleado_lista' %}">Personal</a></li>
+    <li class="breadcrumb-item active" aria-current="page">{{ empleado.apellidos }} {{ empleado.nombres }}</li>
+  </ol>
+</nav>
+
+<div class="d-flex flex-wrap align-items-center gap-3 mb-3">
+  {% if empleado.usuario.url_foto %}<img src="{{ empleado.usuario.url_foto }}" alt="" class="avatar con-foto avatar-grande">{% else %}<span class="avatar avatar-grande" aria-hidden="true">{{ empleado.nombres|first|upper }}{{ empleado.apellidos|first|upper }}</span>{% endif %}
+  <div class="min-w-0">
+    <h1 class="h3 mb-0">{{ empleado.nombres }} {{ empleado.apellidos }}</h1>
+    <div class="text-body-secondary">
+      {{ empleado.cargo }} · <span class="badge estado-{{ empleado.estado|lower }}">{{ empleado.get_estado_display }}</span>
+      {% if empleado.usuario %} · <span class="font-monospace small">{{ empleado.usuario.username }}</span>{% endif %}
+    </div>
+  </div>
+  {% if perms.personal.change_empleado %}
+  <a href="{% url 'personal:empleado_editar' empleado.pk %}" class="btn btn-outline-primary ms-md-auto">
+    <i class="bi bi-pencil me-1" aria-hidden="true"></i>Editar datos
+  </a>
+  {% endif %}
+</div>
+
+{# ------------------------------------------------------------------ pestañas #}
+<div class="pestanas-ficha mb-3">
+  <ul class="nav nav-tabs flex-nowrap" id="pestanas-ficha" role="tablist">
+    <li class="nav-item" role="presentation">
+      <button class="nav-link active" id="tab-datos" data-bs-toggle="tab" data-bs-target="#datos" data-pestana="datos" type="button" role="tab" aria-controls="datos" aria-selected="true">
+        <i class="bi bi-person-vcard" aria-hidden="true"></i> Datos
+      </button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link" id="tab-documentos" data-bs-toggle="tab" data-bs-target="#documentos" data-pestana="documentos" type="button" role="tab" aria-controls="documentos" aria-selected="false">
+        <i class="bi bi-folder2-open" aria-hidden="true"></i> Documentos
+        <span class="badge rounded-pill {% if documentos_faltantes %}text-bg-warning{% else %}text-bg-light{% endif %}">{{ documentos|length }}</span>
+      </button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link" id="tab-contratos" data-bs-toggle="tab" data-bs-target="#contratos" data-pestana="contratos" type="button" role="tab" aria-controls="contratos" aria-selected="false">
+        <i class="bi bi-file-earmark-text" aria-hidden="true"></i> Contratos
+        <span class="badge rounded-pill text-bg-light">{{ contratos|length }}</span>
+      </button>
+    </li>
+    {% if estimacion %}
+    <li class="nav-item" role="presentation">
+      <button class="nav-link" id="tab-sueldo" data-bs-toggle="tab" data-bs-target="#sueldo" data-pestana="sueldo" type="button" role="tab" aria-controls="sueldo" aria-selected="false">
+        <i class="bi bi-cash-coin" aria-hidden="true"></i> Sueldo y comisiones
+        {% if estimacion.requiere_visto_bueno %}<span class="badge rounded-pill text-bg-danger" title="Llamados de atención">!</span>{% endif %}
+      </button>
+    </li>
+    {% endif %}
+    {% if asistencia %}
+    <li class="nav-item" role="presentation">
+      <button class="nav-link" id="tab-asistencia" data-bs-toggle="tab" data-bs-target="#asistencia" data-pestana="asistencia" type="button" role="tab" aria-controls="asistencia" aria-selected="false">
+        <i class="bi bi-clock-history" aria-hidden="true"></i> Faltas y atrasos
+        {% if asistencia.faltas.pendientes or asistencia.atrasos.pendientes %}<span class="badge rounded-pill text-bg-danger" title="Por revisar">{{ asistencia.faltas.pendientes|add:asistencia.atrasos.pendientes }}</span>{% endif %}
+      </button>
+    </li>
+    {% endif %}
+    <li class="nav-item" role="presentation">
+      <button class="nav-link" id="tab-observaciones" data-bs-toggle="tab" data-bs-target="#observaciones" data-pestana="observaciones" type="button" role="tab" aria-controls="observaciones" aria-selected="false">
+        <i class="bi bi-chat-left-text" aria-hidden="true"></i> Observaciones
+        <span class="badge rounded-pill text-bg-light">{{ observaciones|length }}</span>
+      </button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link" id="tab-cuenta" data-bs-toggle="tab" data-bs-target="#cuenta" data-pestana="cuenta" type="button" role="tab" aria-controls="cuenta" aria-selected="false">
+        <i class="bi bi-key" aria-hidden="true"></i> Cuenta de acceso
+      </button>
+    </li>
+  </ul>
+</div>
+
+<div class="tab-content">
+
+  {# ---------------------------------------------------------------- Datos #}
+  <section class="tab-pane fade show active" id="datos" role="tabpanel" aria-labelledby="tab-datos" tabindex="0">
+    <div class="row g-4">
+      <div class="col-lg-6">
+        <div class="card h-100">
+          <div class="card-body">
+            <h2 class="h6 text-uppercase text-body-secondary mb-3">Datos personales</h2>
+            <dl class="row datos-ficha mb-0">
+              <div class="col-sm-6"><dt>{{ empleado.get_tipo_identificacion_display }}</dt><dd>{{ empleado.identificacion }}</dd></div>
+              <div class="col-sm-6"><dt>Fecha de nacimiento</dt><dd>{{ empleado.fecha_nacimiento|date:"d/m/Y"|default:"—" }}</dd></div>
+              <div class="col-sm-6"><dt>Teléfono</dt><dd>{{ empleado.telefono|default:"—" }}</dd></div>
+              <div class="col-sm-6"><dt>Correo electrónico</dt><dd class="text-break">{{ empleado.email|default:"—" }}</dd></div>
+              <div class="col-12"><dt>Dirección</dt><dd class="mb-0">{{ empleado.direccion|default:"—" }}</dd></div>
+            </dl>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-6">
+        <div class="card h-100">
+          <div class="card-body">
+            <h2 class="h6 text-uppercase text-body-secondary mb-3">Datos laborales</h2>
+            <dl class="row datos-ficha mb-0">
+              <div class="col-sm-6"><dt>Cargo</dt><dd>{{ empleado.cargo }}</dd></div>
+              <div class="col-sm-6"><dt>Estado</dt><dd><span class="badge estado-{{ empleado.estado|lower }}">{{ empleado.get_estado_display }}</span></dd></div>
+              <div class="col-sm-6"><dt>Contrato</dt><dd>{{ empleado.get_tipo_contrato_display }}</dd></div>
+              <div class="col-sm-6"><dt>Fecha de ingreso</dt><dd>{{ empleado.fecha_ingreso|date:"d/m/Y" }}</dd></div>
+              {% if empleado.fecha_salida %}<div class="col-sm-6"><dt>Fecha de salida</dt><dd>{{ empleado.fecha_salida|date:"d/m/Y" }}</dd></div>{% endif %}
+              {% if asistencia %}
+              <div class="col-12"><dt>Horario</dt><dd class="mb-0">{% if horario_actual %}{{ horario_actual.nombre }} ({{ horario_actual.hora_entrada|time:"H:i" }}–{{ horario_actual.hora_salida|time:"H:i" }}){% else %}Sin horario asignado{% if perms.asistencia.add_asignacionhorario %} · <a href="{% url 'asistencia:horarios' %}">Asignar</a>{% endif %}{% endif %}</dd></div>
+              {% endif %}
+            </dl>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {% if historial_cambios %}
+    <details class="card mt-4 historial-cambios">
+      <summary class="card-header bg-body d-flex justify-content-between align-items-center">
+        <span class="h6 mb-0"><i class="bi bi-clock-history me-1" aria-hidden="true"></i>Historial de cambios</span>
+        <span class="small text-body-secondary">{{ historial_cambios|length }} registro{{ historial_cambios|length|pluralize }}</span>
+      </summary>
+      <ul class="list-group list-group-flush">
+        {% for h in historial_cambios %}
+        <li class="list-group-item">
+          <div class="d-flex flex-wrap justify-content-between gap-2">
+            <span class="fw-semibold">{% if h.es_alta %}Registro del empleado{% else %}{{ h.accion }}{% endif %}</span>
+            <span class="small text-body-secondary">{{ h.fecha|date:"d/m/Y H:i" }} · {{ h.usuario }}</span>
+          </div>
+          {% if h.cambios %}
+          <ul class="list-unstyled small mb-0 mt-1">
+            {% for c in h.cambios %}
+            <li><span class="text-body-secondary">{{ c.campo }}:</span> <del class="text-danger-emphasis">{{ c.antes }}</del> <i class="bi bi-arrow-right" aria-hidden="true"></i> <strong>{{ c.despues }}</strong></li>
+            {% endfor %}
+          </ul>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+    </details>
+    {% endif %}
+  </section>
+
+  {# ---------------------------------------------------------------- Documentos #}
+  <section class="tab-pane fade" id="documentos" role="tabpanel" aria-labelledby="tab-documentos" tabindex="0">
+    <div class="card">
+      <div class="card-body">
+        {% if documentos_faltantes %}
+        <div class="alert alert-warning small py-2">
+          <i class="bi bi-exclamation-triangle me-1" aria-hidden="true"></i>
+          Falta en el expediente: {% for t in documentos_faltantes %}{{ t.nombre }}{% if not forloop.last %}, {% endif %}{% endfor %}.
+        </div>
+        {% endif %}
+        {% if documentos %}
+        <ul class="list-group list-group-flush">
+          {% for d in documentos %}
+          <li class="list-group-item px-0 d-flex align-items-center gap-3">
+            <i class="bi {% if d.tipo_mime == 'application/pdf' %}bi-file-earmark-pdf text-danger{% else %}bi-file-earmark-image text-primary{% endif %} fs-4" aria-hidden="true"></i>
+            <div class="min-w-0 flex-grow-1">
+              <div class="fw-semibold">{{ d.tipo.nombre }}</div>
+              <div class="small text-body-secondary text-truncate">{{ d.nombre_original }} · {{ d.tamano_bytes|filesizeformat }} · {{ d.creado_en|date:"d/m/Y" }}</div>
+            </div>
+            {% if perms.documentos.view_documento %}
+            <a href="{% url 'personal:documento_ver' d.pk %}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary">
+              <i class="bi bi-eye me-1" aria-hidden="true"></i>Ver
+            </a>
+            {% endif %}
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <p class="text-body-secondary small mb-0">Sin documentos registrados.</p>
+        {% endif %}
+      </div>
+    </div>
+  </section>
+
+  {# ---------------------------------------------------------------- Contratos #}
+  <section class="tab-pane fade" id="contratos" role="tabpanel" aria-labelledby="tab-contratos" tabindex="0">
+    <div class="row g-4">
+      {% if contrato_form %}
+      <div class="col-lg-5 order-lg-2">
+        <div class="card">
+          <div class="card-body">
+            <h2 class="h6 text-uppercase text-body-secondary mb-3">Generar contrato</h2>
+            {% if contrato_form.fields.plantilla.queryset.exists %}
+            <form method="post" action="{% url 'documentos:contrato_generar' empleado.pk %}" id="formulario-contrato">
+              {% csrf_token %}
+              {% include "_campo.html" with campo=contrato_form.plantilla %}
+              <div class="row">
+                <div class="col-sm-6">{% include "_campo.html" with campo=contrato_form.fecha_inicio %}</div>
+                <div class="col-sm-6">{% include "_campo.html" with campo=contrato_form.fecha_fin ayuda=contrato_form.fecha_fin.help_text %}</div>
+              </div>
+              {% include "_campo.html" with campo=contrato_form.salario %}
+              <p class="small text-body-secondary">Los datos del empleado (nombres, identificación, dirección, cargo…) se toman de su ficha, que se llenó con el CV.</p>
+              <div class="d-grid gap-2">
+                <button type="button" class="btn btn-outline-primary"
+                        hx-post="{% url 'documentos:contrato_vista_previa' empleado.pk %}" hx-include="#formulario-contrato"
+                        hx-target="#vista-previa-contrato" hx-indicator="#vista-previa-contrato">
+                  <i class="bi bi-eye me-1" aria-hidden="true"></i>Vista previa
+                </button>
+                <button type="submit" class="btn btn-primary"><i class="bi bi-file-earmark-pdf me-1" aria-hidden="true"></i>Generar PDF y guardar</button>
+              </div>
+            </form>
+            {% else %}
+            <p class="small text-body-secondary mb-2">No hay plantillas de contrato activas.</p>
+            {% if perms.documentos.add_plantillacontrato %}<a href="{% url 'documentos:plantilla_nueva' %}" class="btn btn-sm btn-primary">Crear plantilla</a>{% endif %}
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      {% endif %}
+      <div class="{% if contrato_form %}col-lg-7 order-lg-1{% else %}col-12{% endif %}">
+        <div id="vista-previa-contrato" class="mb-3 vista-previa-contrato"></div>
+        <div class="card">
+          <div class="card-header bg-body"><h2 class="h6 mb-0">Contratos generados</h2></div>
+          {% if contratos %}
+          <ul class="list-group list-group-flush">
+            {% for c in contratos %}
+            <li class="list-group-item d-flex align-items-center gap-3">
+              <i class="bi bi-file-earmark-pdf text-danger fs-4" aria-hidden="true"></i>
+              <div class="min-w-0 flex-grow-1">
+                <div class="fw-semibold">{{ c.plantilla.nombre }} <span class="text-body-secondary small">v{{ c.plantilla.version }}</span></div>
+                <div class="small text-body-secondary">
+                  Desde {{ c.fecha_inicio|date:"d/m/Y" }}{% if c.fecha_fin %} hasta {{ c.fecha_fin|date:"d/m/Y" }}{% endif %}
+                  · generado el {{ c.creado_en|date:"d/m/Y H:i" }}{% if c.generado_por %} por {{ c.generado_por.get_full_name|default:c.generado_por }}{% endif %}
+                </div>
+              </div>
+              {% if perms.documentos.view_documento %}
+              <a href="{% url 'documentos:ver' c.documento.pk %}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary"><i class="bi bi-eye me-1" aria-hidden="true"></i>Ver PDF</a>
+              {% endif %}
+            </li>
+            {% endfor %}
+          </ul>
+          {% else %}
+          <p class="card-body text-body-secondary mb-0">Todavía no se han generado contratos para este empleado.</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </section>
+
+  {% if estimacion %}{% include "personal/_pestana_sueldo.html" %}{% endif %}
+
+  {# ---------------------------------------------------------------- Faltas y atrasos #}
+  {% if asistencia %}
+  <section class="tab-pane fade" id="asistencia" role="tabpanel" aria-labelledby="tab-asistencia" tabindex="0">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+      <h2 class="h5 mb-0">Récord de asistencia</h2>
+      <div class="btn-group btn-group-sm" role="group" aria-label="Periodo">
+        {% for valor, texto in periodos %}
+        <a href="?periodo={{ valor }}#asistencia" class="btn {% if valor == periodo %}btn-primary{% else %}btn-outline-primary{% endif %}" {% if valor == periodo %}aria-current="true"{% endif %}>{{ texto }}</a>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="row g-3 mb-3">
+      <div class="col-md-6 col-xl-4">
+        <div class="card record h-100">
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-start">
+              <div>
+                <div class="small text-body-secondary">Faltas</div>
+                <div class="numero text-danger">{{ asistencia.faltas.total }}</div>
+              </div>
+              <span class="icono-record falta" aria-hidden="true"><i class="bi bi-person-x"></i></span>
+            </div>
+            <ul class="list-unstyled small mb-0 mt-2 desglose">
+              <li><span class="punto justificada"></span>Justificadas <strong>{{ asistencia.faltas.justificadas }}</strong></li>
+              <li><span class="punto no-justificada"></span>No justificadas <strong>{{ asistencia.faltas.no_justificadas }}</strong></li>
+              <li><span class="punto pendiente"></span>Por revisar <strong>{{ asistencia.faltas.pendientes }}</strong></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-6 col-xl-4">
+        <div class="card record h-100">
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-start">
+              <div>
+                <div class="small text-body-secondary">Llegadas tarde (atrasos)</div>
+                <div class="numero text-warning-emphasis">{{ asistencia.atrasos.total }}</div>
+              </div>
+              <span class="icono-record atraso" aria-hidden="true"><i class="bi bi-alarm"></i></span>
+            </div>
+            <ul class="list-unstyled small mb-0 mt-2 desglose">
+              <li><span class="punto justificada"></span>Justificados <strong>{{ asistencia.atrasos.justificadas }}</strong></li>
+              <li><span class="punto no-justificada"></span>No justificados <strong>{{ asistencia.atrasos.no_justificadas }}</strong></li>
+              <li><span class="punto pendiente"></span>Por revisar <strong>{{ asistencia.atrasos.pendientes }}</strong></li>
+            </ul>
+            <div class="small text-body-secondary mt-2">Tiempo total de atraso: <strong>{{ asistencia.atrasos.minutos }} min</strong></div>
+          </div>
+        </div>
+      </div>
+      <div class="col-xl-4">
+        <div class="row g-3 h-100">
+          <div class="col-6 col-xl-12"><div class="card record h-100"><div class="card-body"><div class="small text-body-secondary">Días asistidos</div><div class="numero fs-3">{{ asistencia.dias_asistidos }}</div></div></div></div>
+          <div class="col-6 col-xl-12"><div class="card record h-100"><div class="card-body"><div class="small text-body-secondary">Salidas anticipadas</div><div class="numero fs-3">{{ asistencia.salidas.total }}</div></div></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header bg-body d-flex justify-content-between align-items-center">
+        <h3 class="h6 mb-0">Detalle de faltas y atrasos</h3>
+        {% if perms.asistencia.view_registroasistencia %}<a class="small" href="{% url 'asistencia:historial' %}?empleado={{ empleado.pk }}">Ver historial completo</a>{% endif %}
+      </div>
+      {% if asistencia.novedades %}
+      <div class="table-responsive">
+        <table class="table align-middle mb-0">
+          <thead>
+            <tr><th scope="col">Fecha</th><th scope="col">Tipo</th><th scope="col">Estado</th><th scope="col">Motivo y respaldo</th></tr>
+          </thead>
+          <tbody>
+            {% for n in asistencia.novedades %}
+            <tr>
+              <td class="text-nowrap">{{ n.fecha|date:"D d/m/Y" }}</td>
+              <td><span class="tipo-novedad tipo-{{ n.tipo|lower }}">{{ n.get_tipo_display }}</span>{% if n.minutos %}<br><span class="small text-body-secondary">{{ n.minutos }} min</span>{% endif %}</td>
+              <td><span class="badge estado-novedad estado-{{ n.estado|lower }}">{{ n.get_estado_display }}</span></td>
+              <td class="small">
+                {{ n.motivo|default:"" }}
+                {% if n.soporte %}<div><a href="{% url 'documentos:ver' n.soporte.pk %}" target="_blank" rel="noopener"><i class="bi bi-paperclip" aria-hidden="true"></i> {{ n.soporte.nombre_original }}</a></div>{% endif %}
+                {% if n.estado == 'PENDIENTE' and perms.asistencia.change_novedadasistencia %}<a href="{% url 'asistencia:novedades' %}#novedad-{{ n.pk }}">Clasificar</a>{% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <p class="card-body text-body-secondary mb-0">Sin faltas ni atrasos en este periodo.</p>
+      {% endif %}
+    </div>
+  </section>
+  {% endif %}
+
+  {# ---------------------------------------------------------------- Observaciones #}
+  <section class="tab-pane fade" id="observaciones" role="tabpanel" aria-labelledby="tab-observaciones" tabindex="0">
+    <div class="row g-4">
+      {% if perms.personal.add_observacionempleado %}
+      <div class="col-lg-5 order-lg-2">
+        <div class="card">
+          <div class="card-body">
+            <h2 class="h6 text-uppercase text-body-secondary mb-3">Nueva observación</h2>
+            <form method="post" action="{% url 'personal:observacion_crear' empleado.pk %}">
+              {% csrf_token %}
+              {% include "_campo.html" with campo=observacion_form.tipo %}
+              {% include "_campo.html" with campo=observacion_form.texto %}
+              <p class="small text-body-secondary">Queda registrada con su nombre y la fecha. Las observaciones no se editan ni se borran.</p>
+              <button type="submit" class="btn btn-primary w-100"><i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Agregar observación</button>
+            </form>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+      <div class="{% if perms.personal.add_observacionempleado %}col-lg-7 order-lg-1{% else %}col-12{% endif %}">
+        {% if observaciones %}
+        <ol class="list-unstyled linea-observaciones mb-0">
+          {% for o in observaciones %}
+          <li class="card observacion tipo-{{ o.tipo|lower }} mb-3">
+            <div class="card-body">
+              <div class="d-flex flex-wrap justify-content-between gap-2 mb-1">
+                <span class="badge tipo-observacion tipo-{{ o.tipo|lower }}">{{ o.get_tipo_display }}</span>
+                <span class="small text-body-secondary">{{ o.creado_en|date:"d/m/Y H:i" }} · {{ o.autor.get_full_name|default:o.autor|default:"—" }}</span>
+              </div>
+              <p class="mb-0 texto-observacion">{{ o.texto|linebreaksbr }}</p>
+            </div>
+          </li>
+          {% endfor %}
+        </ol>
+        {% else %}
+        <div class="card"><p class="card-body text-body-secondary mb-0">Todavía no hay observaciones sobre este empleado.</p></div>
+        {% endif %}
+      </div>
+    </div>
+  </section>
+
+  {# ---------------------------------------------------------------- Cuenta de acceso #}
+  <section class="tab-pane fade" id="cuenta" role="tabpanel" aria-labelledby="tab-cuenta" tabindex="0">
+    <div class="card" style="max-width: 34rem">
+      <div class="card-body">
+        {% with u=empleado.usuario %}
+        {% if u %}
+        <dl class="datos-ficha mb-3">
+          <dt>Usuario</dt>
+          <dd class="font-monospace fs-5">{{ u.username }}</dd>
+          <dt>Rol</dt>
+          <dd>{{ u.get_rol_display }}</dd>
+          <dt>Estado</dt>
+          <dd class="mb-0">{% if u.is_active %}<span class="text-success">Activa</span>{% else %}<span class="text-danger">Desactivada</span>{% endif %}</dd>
+        </dl>
+        <p class="small text-body-secondary">
+          El código de acceso se mostró al crear la cuenta y no se guarda legible.
+          Si el empleado lo perdió, genere uno nuevo: el anterior deja de funcionar.
+        </p>
+        {% if perms.core.change_usuario %}
+        <form method="post" action="{% url 'usuario_restablecer_clave' u.pk %}">
+          {% csrf_token %}
+          <input type="hidden" name="volver" value="{{ request.path }}#cuenta">
+          <button type="submit" class="btn btn-outline-primary w-100"><i class="bi bi-key me-1" aria-hidden="true"></i>Generar nuevo código de acceso</button>
+        </form>
+        {% endif %}
+        {% else %}
+        <p class="small text-body-secondary">Este empleado todavía no tiene usuario para ingresar a CALLFLOW.</p>
+        {% if perms.core.add_usuario %}
+        <form method="post" action="{% url 'personal:empleado_crear_cuenta' empleado.pk %}">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-primary w-100"><i class="bi bi-person-plus me-1" aria-hidden="true"></i>Crear usuario y código de acceso</button>
+        </form>
+        {% endif %}
+        {% endif %}
+        {% endwith %}
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+  // Abre la pestaña indicada en la dirección (#documentos, #asistencia…) y la recuerda al cambiar,
+  // para que recargar, filtrar el periodo o volver de otra pantalla deje al usuario donde estaba.
+  document.addEventListener("DOMContentLoaded", function () {
+    const pestanas = document.querySelectorAll("#pestanas-ficha [data-pestana]");
+    const inicial = document.querySelector('#pestanas-ficha [data-pestana="' + location.hash.slice(1) + '"]');
+    if (inicial) bootstrap.Tab.getOrCreateInstance(inicial).show();
+    pestanas.forEach(function (boton) {
+      boton.addEventListener("shown.bs.tab", function () {
+        history.replaceState(null, "", location.pathname + location.search + "#" + boton.dataset.pestana);
+      });
+    });
+  });
+</script>
+{% endblock %}

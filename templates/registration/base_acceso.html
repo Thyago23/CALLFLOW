@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% load static estaticos %}
+{% block cuerpo %}
+<div class="pantalla-acceso">
+  <section class="panel-marca d-none d-lg-flex">
+    <div class="insignia-callflow">
+      <span class="marca-logo" aria-hidden="true"><i class="bi bi-headset"></i></span>
+      <span>CALLFLOW</span>
+    </div>
+    <div class="circulo-logo">
+      <img src="{% estatico 'img/logo-multivisa.png' %}" alt="Multivisa · asesoría migratoria" class="logo-acceso" width="640" height="621">
+    </div>
+  </section>
+  <section class="panel-formulario">
+    <div class="formulario-acceso">
+      <div class="d-flex d-lg-none align-items-center gap-2 mb-4">
+        <img src="{% estatico 'img/logo-multivisa.png' %}" alt="" class="logo-marca" width="640" height="621">
+        <span class="fs-4 fw-semibold">CALLFLOW</span>
+      </div>
+      {% for message in messages %}
+      <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %}" role="alert">{{ message }}</div>
+      {% endfor %}
+      {% if almuerzo_en_curso %}
+      {% with a=almuerzo_en_curso %}
+      {# Contador del almuerzo: cuenta atrás hasta la hora de regreso y, si se pasa, cuántos minutos lleva de más. #}
+      <div class="alert alert-info contador-almuerzo" id="contador-almuerzo" role="status" aria-live="polite"
+           data-regreso="{{ a.regreso|date:'c' }}" data-ahora="{% now 'c' %}" data-tolerancia="{{ a.tolerancia }}">
+        <div class="d-flex align-items-center gap-3">
+          <i class="bi bi-cup-hot fs-3" aria-hidden="true" data-icono></i>
+          <div>
+            <div class="fw-semibold">Almuerzo de {{ a.empleado.nombres }} {{ a.empleado.apellidos }}</div>
+            <div class="small">Salió a las {{ a.inicio|time:"H:i" }} · debe volver a las {{ a.regreso|time:"H:i" }} ({{ a.minutos }} min, tolerancia {{ a.tolerancia }} min)</div>
+            <div class="fs-5 fw-semibold mt-1" data-texto>…</div>
+          </div>
+        </div>
+      </div>
+      <script>
+        (function () {
+          const caja = document.getElementById("contador-almuerzo");
+          const regreso = new Date(caja.dataset.regreso).getTime();
+          const desfase = new Date(caja.dataset.ahora).getTime() - Date.now();  // reloj del servidor, no del PC
+          const tolerancia = parseInt(caja.dataset.tolerancia, 10);
+          const texto = caja.querySelector("[data-texto]");
+          const icono = caja.querySelector("[data-icono]");
+          const plural = function (n) { return n + (n === 1 ? " minuto" : " minutos"); };
+          function pintar() {
+            const segundos = (Date.now() + desfase - regreso) / 1000;
+            let tono, mensaje, simbolo;
+            if (segundos <= 0) {
+              tono = "info"; simbolo = "cup-hot";
+              mensaje = "Te " + (Math.ceil(-segundos / 60) === 1 ? "queda " : "quedan ") + plural(Math.ceil(-segundos / 60)) + " de almuerzo.";
+            } else {
+              const pasados = Math.ceil(segundos / 60);  // cada minuto empezado cuenta
+              if (pasados <= tolerancia) {
+                tono = "warning"; simbolo = "alarm";
+                mensaje = "Ya es hora de volver: llevas " + plural(pasados) + " de más (tolerancia " + tolerancia + " min).";
+              } else {
+                tono = "danger"; simbolo = "exclamation-octagon";
+                mensaje = "Te pasaste " + plural(pasados) + " de tu hora de almuerzo. Inicia sesión: se informará al administrador.";
+              }
+            }
+            caja.className = "alert alert-" + tono + " contador-almuerzo";
+            icono.className = "bi bi-" + simbolo + " fs-3";
+            texto.textContent = mensaje;
+          }
+          pintar();
+          setInterval(pintar, 1000);  // el texto cambia minuto a minuto
+        })();
+      </script>
+      {% endwith %}
+      {% endif %}
+      {% block formulario %}{% endblock %}
+    </div>
+  </section>
+</div>
+{% endblock %}
