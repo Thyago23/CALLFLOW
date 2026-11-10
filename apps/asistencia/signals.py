@@ -22,6 +22,26 @@ logger = logging.getLogger(__name__)
 ROLES_QUE_MARCAN = {Rol.VENDEDOR, Rol.ENCARGADO_CIERRE}
 
 
+def _regreso_de_almuerzo(request, empleado, momento):
+    """El primer inicio de sesión después de «Salir a almorzar» registra el regreso (nunca bloquea el ingreso)."""
+    from .servicios import registrar_regreso_almuerzo, tolerancia_almuerzo
+
+    try:
+        resultado = registrar_regreso_almuerzo(empleado, momento)
+    except Exception:
+        logger.exception("No se pudo registrar el regreso del almuerzo de %s", empleado)
+        return
+    if resultado is None or request is None:
+        return
+    _, exceso = resultado
+    hora = timezone.localtime(momento).strftime("%H:%M")
+    if exceso > tolerancia_almuerzo():
+        messages.warning(request, f"Regreso del almuerzo registrado a las {hora}. Se pasó {exceso} min de su hora "
+                                  "de almuerzo; se informó al administrador.", fail_silently=True)
+    else:
+        messages.success(request, f"Regreso del almuerzo registrado a las {hora}.", fail_silently=True)
+
+
 @receiver(user_logged_in, dispatch_uid="asistencia_entrada_al_iniciar_sesion")
 def registrar_entrada_al_iniciar_sesion(sender, request, user, **kwargs):
     if user.rol not in ROLES_QUE_MARCAN:
@@ -31,7 +51,8 @@ def registrar_entrada_al_iniciar_sesion(sender, request, user, **kwargs):
         return
     momento = timezone.now()  # hora exacta del servidor, con segundos: no la puede alterar el usuario
     if RegistroAsistencia.objects.filter(empleado=empleado, fecha=timezone.localtime(momento).date()).exists():
-        return  # ya marcó entrada hoy
+        _regreso_de_almuerzo(request, empleado, momento)  # ya marcó entrada hoy: ¿vuelve del almuerzo?
+        return
 
     from .servicios import registrar_entrada
 

@@ -80,7 +80,8 @@
             {% with e=f.estado %}
             <span class="badge estado-asistencia estado-{{ e|slugify }}">{{ e }}</span>
             {% endwith %}
-            {% for n in f.novedades %}{% if n.tipo == 'SALIDA_ANTICIPADA' %}<span class="badge text-bg-light border ms-1">Salió {{ n.minutos }} min antes</span>{% endif %}{% endfor %}
+            {% for n in f.novedades %}{% if n.tipo == 'SALIDA_ANTICIPADA' %}<span class="badge text-bg-light border ms-1">Salió {{ n.minutos }} min antes</span>{% elif n.tipo == 'SIN_SALIDA' %}<span class="badge text-bg-warning ms-1" title="No pulsó «Finalizar día»">Sin marcar salida</span>{% elif n.tipo == 'EXCESO_ALMUERZO' %}<span class="badge text-bg-warning ms-1" title="Regresó tarde del almuerzo">Almuerzo +{{ n.minutos }} min</span>{% endif %}{% endfor %}
+            {% if f.registro.almuerzo_inicio %}<div class="small text-body-secondary mt-1"><i class="bi bi-cup-hot me-1" aria-hidden="true"></i>Almuerzo {{ f.registro.almuerzo_inicio|time:"H:i" }}–{% if f.registro.almuerzo_fin %}{{ f.registro.almuerzo_fin|time:"H:i" }}{% else %}…{% endif %}</div>{% endif %}
           </td>
           <td class="text-end text-nowrap">
             {% if f.activo %}

@@ -121,7 +121,8 @@
   // Al cerrar sesión, este navegador deja de recibir los avisos de esa persona.
   document.querySelectorAll("form[data-cerrar-sesion]").forEach((form) => {
     form.addEventListener("submit", (evento) => {
-      if (!compatible || form.dataset.listo) return;
+      // defaultPrevented: la ventana de confirmación frenó el envío; se espera a que la persona acepte.
+      if (!compatible || form.dataset.listo || evento.defaultPrevented) return;
       evento.preventDefault();  // hay que frenarlo antes de cualquier await
       (async () => {
         try {

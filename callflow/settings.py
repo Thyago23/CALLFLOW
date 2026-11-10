@@ -130,6 +130,17 @@ JORNADA_LABORAL = {
     "dias": [1, 2, 3, 4, 5],
 }
 
+# «Finalizar día»: si pasados estos minutos después de la hora de salida la persona no finalizó
+# su día, se crea una incidencia SIN_SALIDA y se avisa a los administradores.
+ASISTENCIA_MARGEN_SALIDA_MINUTOS = 60
+# Hasta cuántos días atrás se buscan jornadas sin salida (evita alertar por registros antiguos).
+ASISTENCIA_DIAS_REVISION_SALIDA = 7
+
+# Almuerzo: duración permitida y margen. Si al volver (iniciar sesión) se pasó más que la tolerancia,
+# se crea la novedad «Exceso en almuerzo» con todos los minutos de más y se avisa a los administradores.
+ASISTENCIA_ALMUERZO_MINUTOS = 60
+ASISTENCIA_ALMUERZO_TOLERANCIA_MINUTOS = 5
+
 LANGUAGE_CODE = "es-ec"
 TIME_ZONE = "America/Guayaquil"
 USE_I18N = True

@@ -8,6 +8,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.dateparse import parse_date
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
 from apps.documentos.servicios import guardar_documento
@@ -257,3 +258,61 @@ def horarios(request):
         "form_asignar": form_asignar,
         "dias": dict(DIAS),
     })
+
+
+# --------------------------------------------------------------------------- finalizar día (empleado)
+@login_required
+@require_POST
+def finalizar_dia(request):
+    """
+    Botón «Finalizar día» de la barra superior: registra la salida con la hora exacta del servidor
+    y cierra la sesión. Si alguien no lo pulsa, revisar_salidas crea la incidencia y avisa al administrador.
+    """
+    from django.contrib.auth import logout
+
+    empleado = getattr(request.user, "empleado", None)
+    try:
+        registro = servicios.finalizar_dia(empleado, usuario=request.user)
+    except ValidationError as error:
+        messages.error(request, _mensaje_error(error))
+        siguiente = request.POST.get("siguiente", "")
+        if url_has_allowed_host_and_scheme(siguiente, allowed_hosts={request.get_host()}, require_https=request.is_secure()):
+            return redirect(siguiente)
+        return redirect("inicio")
+    salida = timezone.localtime(registro.salida)
+    anticipada = registro.novedades.filter(tipo=NovedadAsistencia.Tipo.SALIDA_ANTICIPADA).first()
+    logout(request)
+    texto = f"Día finalizado. Salida registrada a las {salida:%H:%M:%S}."
+    if anticipada:
+        texto += f" Quedó como salida anticipada ({anticipada.minutos} min antes de la hora de salida)."
+    messages.success(request, texto)
+    return redirect("login")
+
+
+# --------------------------------------------------------------------------- almuerzo (empleado)
+COOKIE_ALMUERZO = "callflow_almuerzo"
+SAL_COOKIE_ALMUERZO = "asistencia.almuerzo"
+
+
+@login_required
+@require_POST
+def salir_almuerzo(request):
+    """
+    Botón «Salir a almorzar»: marca la hora, cierra la sesión y deja una cookie firmada para que la
+    pantalla de acceso muestre el contador. El regreso se registra en el siguiente inicio de sesión.
+    """
+    from django.contrib.auth import logout
+
+    try:
+        registro = servicios.iniciar_almuerzo(getattr(request.user, "empleado", None), usuario=request.user)
+    except ValidationError as error:
+        messages.error(request, _mensaje_error(error))
+        return redirect("inicio")
+    regreso = timezone.localtime(servicios.regreso_esperado(registro))
+    logout(request)
+    messages.info(request, f"Buen provecho. Salida al almuerzo a las {timezone.localtime(registro.almuerzo_inicio):%H:%M}; "
+                           f"debe volver a las {regreso:%H:%M}. Al regresar, inicie sesión para registrar su vuelta.")
+    respuesta = redirect("login")
+    respuesta.set_signed_cookie(COOKIE_ALMUERZO, str(registro.pk), salt=SAL_COOKIE_ALMUERZO, max_age=12 * 3600,
+                                httponly=True, samesite="Lax", secure=request.is_secure())
+    return respuesta

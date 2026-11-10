@@ -416,6 +416,7 @@ a.tarjeta-modulo:hover {
 .estado-asistencia { font-weight: 600; }
 .estado-asistencia.estado-presente { background: #d1e7dd; color: #0a3622; }
 .estado-asistencia.estado-salio { background: #e2e3e5; color: #2b2f32; }
+.estado-asistencia.estado-en-almuerzo { background: #cfe2ff; color: #052c65; }
 .estado-asistencia.estado-pendiente { background: #fff3cd; color: #664d03; }
 .estado-asistencia.estado-ausente { background: #f8d7da; color: #58151c; }
 .estado-asistencia.estado-no-laborable,
@@ -432,6 +433,8 @@ a.tarjeta-modulo:hover {
 .tipo-novedad.tipo-ausencia { color: #b02a37; }
 .tipo-novedad.tipo-atraso,
 .tipo-novedad.tipo-salida_anticipada,
+.tipo-novedad.tipo-sin_salida,
+.tipo-novedad.tipo-exceso_almuerzo,
 .tipo-novedad.tipo-ausencia_parcial { color: #997404; }
 
 .novedad-asistencia.recien { border-color: #a3cfbb; box-shadow: 0 0 0 3px rgba(25, 135, 84, 0.12); }

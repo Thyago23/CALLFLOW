@@ -15,7 +15,7 @@ from datetime import date, datetime, time, timedelta
 
 from django.core.exceptions import ValidationError
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import Exists, OuterRef, Q
 from django.utils import timezone
 
 from apps.personal.models import Empleado
@@ -87,6 +87,11 @@ def evaluar_registro(registro: RegistroAsistencia) -> None:
                          minutos_atraso(horario, registro.fecha, registro.entrada), registro)
     _sincronizar_novedad(registro.empleado, registro.fecha, Tipo.SALIDA_ANTICIPADA,
                          minutos_salida_anticipada(horario, registro.fecha, registro.salida), registro)
+    if registro.salida is not None:
+        # Si se corrige la salida a mano, la incidencia «sin salida» deja de tener sentido (si sigue pendiente).
+        NovedadAsistencia.objects.filter(
+            empleado=registro.empleado, fecha=registro.fecha, tipo=Tipo.SIN_SALIDA, estado=Estado.PENDIENTE
+        ).delete()
 
 
 def _quitar_ausencia(empleado, fecha):
@@ -183,6 +188,180 @@ def marcar_ausencias_del_dia(fecha: date) -> int:
     return creadas
 
 
+# --------------------------------------------------------------------------- fin del día
+def jornada_abierta(empleado, fecha: date | None = None) -> RegistroAsistencia | None:
+    """Registro de hoy con entrada y sin salida (el día que todavía se puede finalizar)."""
+    if empleado is None:
+        return None
+    fecha = fecha or timezone.localdate()
+    return RegistroAsistencia.objects.filter(empleado=empleado, fecha=fecha, salida__isnull=True).first()
+
+
+def finalizar_dia(empleado, usuario=None) -> RegistroAsistencia:
+    """El empleado pulsa «Finalizar día»: se registra su salida con la hora exacta del servidor."""
+    if empleado is None:
+        raise ValidationError("Su cuenta no está vinculada a una ficha de empleado.")
+    ahora = timezone.now()
+    registrar_regreso_almuerzo(empleado, ahora)  # si seguía «en almuerzo», se cierra antes de salir
+    return registrar_salida(empleado, ahora, usuario=usuario)
+
+
+def hora_de_cierre(registro: RegistroAsistencia) -> datetime:
+    """
+    Momento desde el cual una jornada sin salida se considera no finalizada: la hora de salida
+    del horario (o de la jornada laboral) más el margen ASISTENCIA_MARGEN_SALIDA_MINUTOS.
+    """
+    from django.conf import settings
+
+    from apps.core import jornada
+
+    horario = horario_de(registro.empleado, registro.fecha)
+    salida = horario.hora_salida if horario else jornada.fin()
+    margen = timedelta(minutes=getattr(settings, "ASISTENCIA_MARGEN_SALIDA_MINUTOS", 60))
+    return timezone.make_aware(datetime.combine(registro.fecha, salida), timezone.get_current_timezone()) + margen
+
+
+def _notificar_administradores(novedad: NovedadAsistencia, titulo: str, mensaje: str) -> None:
+    """Aviso de asistencia a todos los administradores activos, con enlace a las novedades de ese tipo."""
+    from django.urls import reverse
+
+    from apps.core.models import Notificacion, Rol, Usuario
+
+    url = f"{reverse('asistencia:novedades')}?estado={Estado.PENDIENTE}&tipo={novedad.tipo}"
+    Notificacion.objects.bulk_create([
+        Notificacion(destinatario=admin, tipo=Notificacion.Tipo.ASISTENCIA, titulo=titulo[:150], mensaje=mensaje, url=url)
+        for admin in Usuario.objects.filter(rol=Rol.ADMINISTRADOR, is_active=True)
+    ])
+
+
+def _notificar_sin_salida(novedad: NovedadAsistencia) -> None:
+    registro = novedad.registro
+    entrada = f" (entrada {timezone.localtime(registro.entrada):%H:%M})" if registro else ""
+    _notificar_administradores(
+        novedad, f"{novedad.empleado} no marcó su hora de salida",
+        f"No finalizó su día el {novedad.fecha:%d/%m/%Y}{entrada}. Se creó una incidencia de asistencia pendiente de revisión.",
+    )
+
+
+def revisar_salidas_pendientes(ahora: datetime | None = None) -> int:
+    """
+    Crea una incidencia SIN_SALIDA (y avisa a los administradores) por cada jornada que quedó abierta
+    después de la hora de cierre. Es idempotente: una incidencia por empleado y día, y un solo aviso.
+    Solo revisa los últimos ASISTENCIA_DIAS_REVISION_SALIDA días, para no alertar por registros antiguos.
+    """
+    from django.conf import settings
+
+    ahora = ahora or timezone.now()
+    hoy = timezone.localtime(ahora).date()
+    desde = hoy - timedelta(days=getattr(settings, "ASISTENCIA_DIAS_REVISION_SALIDA", 7))
+    ya_avisada = NovedadAsistencia.objects.filter(
+        empleado_id=OuterRef("empleado_id"), fecha=OuterRef("fecha"), tipo=Tipo.SIN_SALIDA
+    )
+    abiertos = (RegistroAsistencia.objects.filter(salida__isnull=True, fecha__range=(desde, hoy))
+                .exclude(Exists(ya_avisada)).select_related("empleado"))
+    creadas = 0
+    for registro in abiertos:
+        if ahora < hora_de_cierre(registro):
+            continue  # todavía puede finalizar su día
+        with transaction.atomic():
+            novedad, nueva = NovedadAsistencia.objects.get_or_create(
+                empleado=registro.empleado, fecha=registro.fecha, tipo=Tipo.SIN_SALIDA,
+                defaults={"registro": registro},
+            )
+            if nueva:
+                _notificar_sin_salida(novedad)
+                creadas += 1
+    return creadas
+
+
+# --------------------------------------------------------------------------- almuerzo
+def duracion_almuerzo() -> timedelta:
+    from django.conf import settings
+
+    return timedelta(minutes=getattr(settings, "ASISTENCIA_ALMUERZO_MINUTOS", 60))
+
+
+def tolerancia_almuerzo() -> int:
+    from django.conf import settings
+
+    return getattr(settings, "ASISTENCIA_ALMUERZO_TOLERANCIA_MINUTOS", 5)
+
+
+def regreso_esperado(registro: RegistroAsistencia) -> datetime:
+    return registro.almuerzo_inicio + duracion_almuerzo()
+
+
+def minutos_exceso_almuerzo(registro: RegistroAsistencia, regreso: datetime) -> int:
+    """Minutos después de la hora de regreso, contando cada minuto empezado (como los atrasos)."""
+    segundos = (regreso - regreso_esperado(registro)).total_seconds()
+    return math.ceil(segundos / 60) if segundos > 0 else 0
+
+
+@transaction.atomic
+def iniciar_almuerzo(empleado, usuario=None, momento: datetime | None = None) -> RegistroAsistencia:
+    """Botón «Salir a almorzar»: una vez por día, con la jornada abierta."""
+    if empleado is None:
+        raise ValidationError("Su cuenta no está vinculada a una ficha de empleado.")
+    momento = momento or timezone.now()
+    registro = (RegistroAsistencia.objects.select_for_update()
+                .filter(empleado=empleado, fecha=timezone.localtime(momento).date()).first())
+    if registro is None:
+        raise ValidationError("No tiene entrada registrada hoy.")
+    if registro.salida is not None:
+        raise ValidationError("Ya finalizó su día.")
+    if registro.almuerzo_inicio is not None:
+        raise ValidationError(f"Ya salió a almorzar hoy a las {timezone.localtime(registro.almuerzo_inicio):%H:%M}.")
+    registro.almuerzo_inicio = momento
+    registro.save(update_fields=["almuerzo_inicio", "actualizado_en"])
+    return registro
+
+
+@transaction.atomic
+def registrar_regreso_almuerzo(empleado, momento: datetime | None = None) -> tuple[RegistroAsistencia, int] | None:
+    """
+    Primer inicio de sesión después de «Salir a almorzar»: registra el regreso. Si se pasó de la hora
+    más que la tolerancia, crea la novedad EXCESO_ALMUERZO con todos los minutos de más y avisa a los
+    administradores. Devuelve (registro, minutos de exceso), o None si no estaba en almuerzo.
+    """
+    momento = momento or timezone.now()
+    registro = (RegistroAsistencia.objects.select_for_update()
+                .filter(empleado=empleado, fecha=timezone.localtime(momento).date(),
+                        almuerzo_inicio__isnull=False, almuerzo_fin__isnull=True, salida__isnull=True).first())
+    if registro is None or momento <= registro.almuerzo_inicio:
+        return None
+    registro.almuerzo_fin = momento
+    registro.save(update_fields=["almuerzo_fin", "actualizado_en"])
+    exceso = minutos_exceso_almuerzo(registro, momento)
+    if exceso > tolerancia_almuerzo():
+        novedad, nueva = NovedadAsistencia.objects.get_or_create(
+            empleado=empleado, fecha=registro.fecha, tipo=Tipo.EXCESO_ALMUERZO,
+            defaults={"minutos": exceso, "registro": registro},
+        )
+        if nueva:
+            _notificar_administradores(
+                novedad, f"{empleado} se pasó {exceso} min de su hora de almuerzo",
+                (f"Salió a almorzar a las {timezone.localtime(registro.almuerzo_inicio):%H:%M}, debía volver a las "
+                 f"{timezone.localtime(regreso_esperado(registro)):%H:%M} y registró su regreso a las "
+                 f"{timezone.localtime(momento):%H:%M} ({exceso} min de más)."),
+            )
+    return registro, exceso
+
+
+_CLAVE_CACHE_REVISION = "asistencia:revision_salidas"
+_INTERVALO_REVISION = 300  # segundos
+
+
+def revisar_salidas_si_toca() -> None:
+    """
+    Llamada desde la consulta periódica de la campana: revisa como máximo cada 5 minutos,
+    para que las incidencias aparezcan aunque no esté programado el comando revisar_salidas.
+    """
+    from django.core.cache import cache
+
+    if cache.add(_CLAVE_CACHE_REVISION, True, _INTERVALO_REVISION):
+        revisar_salidas_pendientes()
+
+
 # --------------------------------------------------------------------------- clasificación
 @transaction.atomic
 def clasificar(novedad: NovedadAsistencia, estado: str, motivo: str, usuario, soporte=None) -> NovedadAsistencia:
@@ -240,7 +419,9 @@ class FilaDia:
             return "Ausente"
         if self.registro is None:
             return "Pendiente" if es_laborable(self.horario, self.fecha) else "No laborable"
-        return "Salió" if self.registro.salida else "Presente"
+        if self.registro.salida:
+            return "Salió"
+        return "En almuerzo" if self.registro.en_almuerzo else "Presente"
 
 
 def tablero_del_dia(fecha: date) -> list[FilaDia]:

@@ -16,4 +16,6 @@ urlpatterns = [
     path("novedades/<int:pk>/reabrir/", views.reabrir_novedad, name="reabrir"),
     path("historial/", views.historial, name="historial"),
     path("horarios/", views.horarios, name="horarios"),
+    path("finalizar-dia/", views.finalizar_dia, name="finalizar_dia"),
+    path("salir-almuerzo/", views.salir_almuerzo, name="salir_almuerzo"),
 ]

@@ -64,6 +64,9 @@ class RegistroAsistencia(ModeloBase):
     fecha = models.DateField()
     entrada = models.DateTimeField()
     salida = models.DateTimeField(null=True, blank=True)
+    # Almuerzo: botón «Salir a almorzar» (inicio) y el siguiente inicio de sesión (fin).
+    almuerzo_inicio = models.DateTimeField(null=True, blank=True)
+    almuerzo_fin = models.DateTimeField(null=True, blank=True)
     origen = models.CharField(max_length=12, choices=Origen.choices, default=Origen.SISTEMA)
     observacion = models.CharField(max_length=255, blank=True, default="")
     registrado_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
@@ -78,10 +81,26 @@ class RegistroAsistencia(ModeloBase):
             models.CheckConstraint(
                 condition=Q(salida__isnull=True) | Q(salida__gt=F("entrada")), name="asistencia_salida_posterior"
             ),
+            models.CheckConstraint(
+                condition=Q(almuerzo_inicio__isnull=True) | Q(almuerzo_inicio__gte=F("entrada")),
+                name="asistencia_almuerzo_tras_entrada",
+            ),
+            models.CheckConstraint(
+                condition=Q(almuerzo_fin__isnull=True) | Q(almuerzo_inicio__isnull=False, almuerzo_fin__gt=F("almuerzo_inicio")),
+                name="asistencia_almuerzo_regreso_posterior",
+            ),
         ]
+
+    @property
+    def en_almuerzo(self) -> bool:
+        return self.almuerzo_inicio is not None and self.almuerzo_fin is None
 
     def __str__(self):
         return f"{self.empleado} · {self.fecha}"
+
+
+# Novedades que no miden minutos (el resto exige minutos > 0).
+TIPOS_SIN_MINUTOS = ("AUSENCIA", "SIN_SALIDA")
 
 
 class NovedadAsistencia(ModeloBase):
@@ -90,6 +109,10 @@ class NovedadAsistencia(ModeloBase):
         AUSENCIA = "AUSENCIA", "Ausencia (día completo)"
         AUSENCIA_PARCIAL = "AUSENCIA_PARCIAL", "Ausencia parcial"
         SALIDA_ANTICIPADA = "SALIDA_ANTICIPADA", "Salida anticipada"
+        # El empleado no pulsó «Finalizar día»: la jornada quedó abierta, sin hora de salida.
+        SIN_SALIDA = "SIN_SALIDA", "Sin marcación de salida"
+        # Regresó del almuerzo después de la hora permitida (más la tolerancia).
+        EXCESO_ALMUERZO = "EXCESO_ALMUERZO", "Exceso en almuerzo"
 
     class Estado(models.TextChoices):
         PENDIENTE = "PENDIENTE", "Pendiente de revisión"
@@ -118,7 +141,8 @@ class NovedadAsistencia(ModeloBase):
         constraints = [
             models.UniqueConstraint(fields=["empleado", "fecha", "tipo"], name="nov_asistencia_unica"),
             models.CheckConstraint(
-                condition=Q(tipo="AUSENCIA") | Q(minutos__isnull=False, minutos__gt=0), name="nov_asistencia_minutos_requeridos"
+                condition=Q(tipo__in=TIPOS_SIN_MINUTOS) | Q(minutos__isnull=False, minutos__gt=0),
+                name="nov_asistencia_minutos_requeridos",
             ),
             models.CheckConstraint(
                 condition=Q(estado="PENDIENTE") | Q(revisada_en__isnull=False), name="nov_asistencia_revision_con_fecha"

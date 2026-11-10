@@ -49,6 +49,18 @@ No dependen de que la aplicación "se acuerde": aplican aunque alguien escriba S
 - Toda notificación nace con `push_enviada = false`, también las que crean los triggers (stock bajo). Se envían solas al terminar cualquier petición; para los ratos sin uso, programar cada minuto `python manage.py enviar_push` (el comando `enviar_avisos_agenda` también las envía). Las de más de 15 minutos ya no se envían como push.
 - Al cerrar sesión, el navegador deja de recibir los avisos de esa persona.
 
+## Finalizar día (control de salida)
+
+- Vendedores y encargados de cierre marcan la entrada al iniciar sesión por primera vez en el día. Mientras su jornada está abierta, la barra superior muestra **«Finalizar día»**: registra la salida con la hora del servidor y cierra la sesión (si es antes de la hora de salida, queda como salida anticipada). Cerrar sesión sin finalizar pide confirmación y no registra la salida.
+- Si pasada la hora de salida del horario + `ASISTENCIA_MARGEN_SALIDA_MINUTOS` (60 por defecto) la jornada sigue sin salida, se crea la novedad **«Sin marcación de salida»** (pendiente de revisión, en Asistencia → Novedades) y se notifica a los administradores. Una incidencia y un aviso por persona y día; si el administrador corrige la salida con un registro manual, la incidencia pendiente desaparece.
+- La revisión corre sola cada 5 minutos mientras alguien tenga CALLFLOW abierto; para que no dependa de eso, programar `python manage.py revisar_salidas` (por ejemplo cada 15 minutos). Solo revisa los últimos `ASISTENCIA_DIAS_REVISION_SALIDA` días (7).
+
+## Almuerzo
+
+- Con la jornada abierta, la barra superior muestra **«Salir a almorzar»** (una vez por día): marca la hora y cierra la sesión. La pantalla de acceso muestra un contador (con la hora del servidor) de lo que falta para volver y, si se pasa, cuántos minutos lleva de más, actualizado minuto a minuto.
+- El siguiente inicio de sesión registra el regreso. Si vuelve más de `ASISTENCIA_ALMUERZO_TOLERANCIA_MINUTOS` (5) después de la hora de regreso (`ASISTENCIA_ALMUERZO_MINUTOS`, 60 por defecto), se crea la novedad **«Exceso en almuerzo»** con todos los minutos de más y se avisa a los administradores. Volver antes de hora no genera nada.
+- Las novedades de almuerzo y de «sin salida» no descuentan en nómina; el administrador las revisa y clasifica en Asistencia → Novedades.
+
 ## Reportes y estadísticas (4.5, épica SCRUM-61)
 
 - Catálogo en `apps/reportes/catalogo.py`: cada reporte arma una tabla que se ve en pantalla y se exporta a PDF con el mismo contenido. Quién genera cada uno lo dicen los roles de `reportes_tiporeporte`, que carga `inicializar_datos` (administrador: todos; encargado de cierre: los comerciales; el vendedor no entra al módulo).
