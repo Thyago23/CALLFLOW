@@ -218,11 +218,36 @@ class BaseComercialForm(FormularioEstilizado, forms.ModelForm):
         self.fields["activa"].widget.attrs["class"] = "form-check-input"
 
 
+class CargarBaseForm(FormularioEstilizado, forms.Form):
+    """Base comercial desde Excel (SCRUM-93)."""
+
+    nombre = forms.CharField(label="Nombre de la base", max_length=120,
+                             widget=forms.TextInput(attrs={"placeholder": "Ej.: Quito norte · noviembre"}))
+    descripcion = forms.CharField(label="Descripción (opcional)", required=False, max_length=500,
+                                  widget=forms.Textarea(attrs={"rows": 2}))
+    archivo = forms.FileField(label="Archivo", widget=forms.ClearableFileInput(attrs={"accept": ".xlsx,.xls,.csv"}),
+                              help_text="Excel (.xlsx o .xls) o .csv, con o sin encabezados: las columnas se reconocen solas.")
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        _estilizar(self)
+
+    def clean_archivo(self):
+        archivo = self.cleaned_data["archivo"]
+        if not (archivo.name or "").lower().endswith((".xlsx", ".xlsm", ".xls", ".csv")):
+            raise ValidationError("Suba un Excel (.xlsx o .xls) o un .csv.")
+        if archivo.size > 10 * 1024 * 1024:
+            raise ValidationError("El archivo supera los 10 MB.")
+        return archivo
+
+
 class AsignarBaseForm(FormularioEstilizado, forms.Form):
     base = forms.ModelChoiceField(label="Base", queryset=BaseComercial.objects.filter(activa=True).order_by("nombre"),
                                   empty_label="Seleccione…")
     vendedores = forms.ModelMultipleChoiceField(label="Vendedores", queryset=Empleado.objects.none(),
                                                 widget=forms.CheckboxSelectMultiple)
+    cantidad = forms.IntegerField(label="Contactos por vendedor", required=False, min_value=1,
+                                  help_text="Vacío = repartir todos los contactos libres en partes iguales.")
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

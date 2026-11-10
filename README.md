@@ -34,6 +34,13 @@ No dependen de que la aplicación "se acuerde": aplican aunque alguien escriba S
 - **Documentos**: solo PDF, JPG y PNG de hasta 10 MB; sin duplicados por huella SHA-256; borrado lógico.
 - **Auditoría** (sección 6): los cambios en empleados, salarios, comisiones, nómina, producción, cierres, metas y usuarios quedan en `core_registrocambio` (sin contraseñas). La bitácora no se puede modificar ni borrar.
 
+## Bases comerciales (SCRUM-93 a 97)
+
+- Encargados de cierre y administrador cargan la base desde Excel (.xlsx, .xls) o .csv en **Ventas → Bases comerciales**. `apps/ventas/bases_excel.py` la deja en el formato de la empresa: **Ciudad · Categoría tarjeta · Dirección · Nombre y apellido · Cédula · Número**. Las bases suelen llegar sin encabezados: cada columna se reconoce por su contenido (cédulas válidas, teléfonos, tipos de tarjeta, ciudades del Ecuador, direcciones, nombres) y, si trae encabezados, por sinónimos (Teléfono, Celular, CI, Cliente…). Une Nombres + Apellidos, recupera el 0 que Excel quita a cédulas y teléfonos, convierte 593… a 0… y omite filas vacías, sin teléfono y repetidas. Se puede descargar la base formateada y una plantilla.
+- Al asignar una base, sus contactos libres se reparten entre los vendedores elegidos (en partes iguales o una cantidad por vendedor); atender una solicitud de base también envía contactos.
+- El vendedor categoriza cada cliente en **Mis contactos**: No contestó, No quiere o DAMI sacado (se puede corregir). «Llenar DAMI» prellena el formulario con los datos del contacto.
+- **Seguimiento por vendedor**: enviados, gestionados, faltantes y cada categoría. Reportes: *Efectividad de bases* (DAMI sacados ÷ gestionados, con la media de todas las bases) y *Gestión de bases por vendedor*.
+
 ## Notificaciones
 
 - **En el sistema:** la campana abre un panel con las últimas; «Ver todas» lleva a `/notificaciones/`. Cada 20 s se consultan las nuevas y aparecen como avisos flotantes abajo a la derecha.

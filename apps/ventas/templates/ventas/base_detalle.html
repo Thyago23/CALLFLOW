@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% load reportes_cf %}
+{% block titulo %}{{ base.nombre }} · Bases comerciales{% endblock %}
+{% block contenido %}
+{% include "ventas/_subnav.html" with seccion="bases" %}
+<nav aria-label="Ruta" class="mb-2">
+  <ol class="breadcrumb small mb-0">
+    <li class="breadcrumb-item"><a href="{% url 'ventas:bases' %}">Bases comerciales</a></li>
+    <li class="breadcrumb-item active" aria-current="page">{{ base.nombre }}</li>
+  </ol>
+</nav>
+<div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
+  <div>
+    <h2 class="h4 mb-0">{{ base.nombre }}</h2>
+    <p class="small text-body-secondary mb-0">Cargada el {{ base.creado_en|date:"d/m/Y H:i" }}{% if base.cargada_por %} por {{ base.cargada_por.get_full_name|default:base.cargada_por.username }}{% endif %}{% if base.archivo_origen %} · {{ base.archivo_origen }}{% endif %}</p>
+  </div>
+  <div class="d-flex flex-wrap gap-2">
+    <a href="{% url 'ventas:base_excel' base.pk %}" class="btn btn-outline-primary"><i class="bi bi-file-earmark-spreadsheet me-1" aria-hidden="true"></i>Excel con formato</a>
+    <a href="{% url 'ventas:base_excel' base.pk %}?gestion=1" class="btn btn-outline-secondary"><i class="bi bi-download me-1" aria-hidden="true"></i>Excel con gestión</a>
+  </div>
+</div>
+
+{% if resumen %}
+<section class="card mb-4 resumen-carga" aria-labelledby="titulo-carga">
+  <div class="card-body">
+    <h3 class="h6" id="titulo-carga"><i class="bi bi-magic me-1" aria-hidden="true"></i>Así se formateó el archivo</h3>
+    <div class="row g-3 mb-3">
+      <div class="col-6 col-md"><div class="small text-body-secondary">Filas con datos</div><div class="fs-5 fw-semibold">{{ resumen.leidas }}</div></div>
+      <div class="col-6 col-md"><div class="small text-body-secondary">Contactos cargados</div><div class="fs-5 fw-semibold text-success-emphasis">{{ resumen.importadas }}</div></div>
+      <div class="col-4 col-md"><div class="small text-body-secondary">Sin teléfono válido</div><div class="fs-5 fw-semibold">{{ resumen.sin_telefono }}</div></div>
+      <div class="col-4 col-md"><div class="small text-body-secondary">Repetidos</div><div class="fs-5 fw-semibold">{{ resumen.duplicadas }}</div></div>
+      <div class="col-4 col-md"><div class="small text-body-secondary">Cédulas por revisar</div><div class="fs-5 fw-semibold {% if resumen.cedulas_invalidas %}text-warning-emphasis{% endif %}">{{ resumen.cedulas_invalidas }}</div></div>
+    </div>
+    <div class="small">
+      <span class="text-body-secondary">{% if resumen.fila_encabezado %}Columnas reconocidas (encabezados en la fila {{ resumen.fila_encabezado }}):{% else %}El archivo no traía encabezados; cada columna se reconoció por su contenido:{% endif %}</span>
+      {% for campo, original in resumen.columnas.items %}<span class="badge text-bg-light border fw-normal me-1">{{ original }} → {% if campo == "nombre" %}Nombre y apellido{% elif campo == "apellido" %}Nombre y apellido{% elif campo == "categoria_tarjeta" %}Categoría tarjeta{% elif campo == "numero" %}Número{% elif campo == "cedula" %}Cédula{% elif campo == "direccion" %}Dirección{% else %}Ciudad{% endif %}</span>{% endfor %}
+    </div>
+    <p class="small text-body-secondary mb-0 mt-2">Las filas sin un teléfono válido y los contactos repetidos (misma cédula o número) no se cargaron. Las cédulas «por revisar» se cargaron pero no pasaron la validación.</p>
+  </div>
+</section>
+{% endif %}
+
+<div class="row g-4">
+  <div class="col-xl-8">
+    {% if e %}
+    <div class="row g-3">
+      <div class="col-6 col-md-3"><div class="card h-100 tarjeta-kpi"><div class="card-body py-3"><div class="small text-body-secondary">Contactos</div><div class="valor">{{ e.contactos }}</div><div class="small text-body-secondary">{{ e.sin_asignar }} sin enviar</div></div></div></div>
+      <div class="col-6 col-md-3"><div class="card h-100 tarjeta-kpi"><div class="card-body py-3"><div class="small text-body-secondary">Gestionados</div><div class="valor">{{ e.gestionados }}</div><div class="small text-body-secondary">de {{ e.enviados }} enviados</div></div></div></div>
+      <div class="col-6 col-md-3"><div class="card h-100 tarjeta-kpi"><div class="card-body py-3"><div class="small text-body-secondary">DAMI sacados</div><div class="valor">{{ e.dami_sacado }}</div><div class="small text-body-secondary">{{ e.no_quiere }} no quieren · {{ e.no_contesto }} no contestaron</div></div></div></div>
+      <div class="col-6 col-md-3"><div class="card h-100 tarjeta-kpi"><div class="card-body py-3"><div class="small text-body-secondary">Efectividad</div><div class="valor">{{ e.efectividad|pct }}</div><div class="small text-body-secondary">{{ e.efectividad_total|pct }} del total</div></div></div></div>
+    </div>
+    {% endif %}
+
+  </div>
+  <div class="col-xl-4">
+    {% if perms.ventas.add_asignacionbase %}
+    <section class="card h-100" aria-labelledby="titulo-enviar">
+      <div class="card-header bg-body py-3"><h3 class="h6 mb-0" id="titulo-enviar">Enviar contactos a vendedores</h3></div>
+      {% if e.sin_asignar %}
+      <form method="post" action="{% url 'ventas:bases' %}" novalidate class="card-body">
+        {% csrf_token %}<input type="hidden" name="{{ form_asignar.base.html_name }}" value="{{ base.pk }}"><input type="hidden" name="volver" value="{{ request.path }}">
+        <p class="small">Quedan <strong>{{ e.sin_asignar }}</strong> contactos sin enviar.</p>
+        <fieldset class="mb-3">
+          <legend class="form-label fs-6">Vendedores</legend>
+          <div class="lista-checks">
+            {% for opcion in form_asignar.vendedores %}<div class="form-check">{{ opcion.tag }}<label class="form-check-label" for="{{ opcion.id_for_label }}">{{ opcion.choice_label }}</label></div>{% endfor %}
+          </div>
+        </fieldset>
+        {% include "_campo.html" with campo=form_asignar.cantidad %}
+        <button type="submit" name="asignar" class="btn btn-primary w-100">Enviar contactos</button>
+      </form>
+      {% else %}
+      <div class="card-body small text-body-secondary">Todos los contactos de esta base ya se enviaron.</div>
+      {% endif %}
+    </section>
+    {% endif %}
+  </div>
+  <div class="col-12">
+    <section class="card mb-4" aria-labelledby="titulo-vendedores">
+      <div class="card-header bg-body py-3"><h3 class="h6 mb-0" id="titulo-vendedores">Gestión por vendedor</h3></div>
+      {% include "ventas/_tabla_seguimiento.html" with filas=seguimiento sin_base=True %}
+    </section>
+
+    <section class="card" aria-labelledby="titulo-muestra">
+      <div class="card-header bg-body d-flex justify-content-between align-items-center py-3">
+        <h3 class="h6 mb-0" id="titulo-muestra">Vista previa con el formato de la empresa</h3>
+        <span class="small text-body-secondary">primeros {{ muestra|length }} de {{ e.contactos|default:base.total_registros }}</span>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-sm align-middle mb-0 tabla-reporte-pantalla tabla-base">
+          <thead><tr>{% for h in encabezados %}<th scope="col">{{ h }}</th>{% endfor %}<th scope="col">Vendedor</th><th scope="col">Estado</th></tr></thead>
+          <tbody>
+            {% for r in muestra %}
+            <tr>
+              <td>{{ r.ciudad }}</td><td>{{ r.categoria_tarjeta }}</td><td class="text-truncate" style="max-width: 14rem">{{ r.direccion }}</td>
+              <td>{{ r.nombre }}</td><td class="font-monospace">{{ r.cedula }}{% if r.cedula and not r.cedula_valida %} <i class="bi bi-exclamation-triangle text-warning" title="Cédula por revisar"></i>{% endif %}</td>
+              <td class="font-monospace">{{ r.numero }}</td>
+              <td class="small">{{ r.vendedor.apellidos|default:"—" }}</td>
+              <td><span class="badge estado-contacto estado-{{ r.estado|lower }}">{{ r.get_estado_display }}</span></td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="8" class="text-center text-body-secondary py-4">Esta base se registró sin archivo: no tiene contactos.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+</div>
+{% endblock %}

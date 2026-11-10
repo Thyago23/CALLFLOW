@@ -52,6 +52,7 @@ _GESTION_BASES = {
     "ventas.basecomercial": ["view", "add", "change"],
     "ventas.asignacionbase": ["view", "add", "change"],
     "ventas.solicitudbase": ["view", "change"],
+    "ventas.registrobase": ["view", "add", "change"],  # contactos de las bases (carga, reparto y seguimiento)
 }
 # Catálogo de bancos y BIN para la validación de tarjetas (lo mantienen administración y cierre).
 _CATALOGO_TARJETAS = {
@@ -63,16 +64,17 @@ PERMISOS_POR_ROL = {
         app: ["view", "add", "change", "delete"]
         for app in ["personal", "documentos", "asistencia", "inventario", "agenda", "nomina", "reportes", "core"]
     } | {"cierre": ["view", "add", "change"]} | {
-        # En ventas solo consulta: sin bases comerciales ni catálogo de tarjetas.
+        # En ventas consulta y gestiona las bases comerciales; no entra al catálogo de tarjetas.
         f"ventas.{modelo}": ["view"]
         for modelo in ["cliente", "formulariodami", "historialestadoformulario", "tarjetadami", "hojaproduccion", "registroproduccion"]
-    },
+    } | _GESTION_BASES,
     Rol.VENDEDOR: {
         "ventas": ["view"],
         "ventas.formulariodami": ["view", "add", "change"],
         "ventas.cliente": ["view", "add", "change"],
         "ventas.registroproduccion": ["view", "change"],  # escribe la aprobación en su hoja
         "ventas.solicitudbase": ["view", "add"],
+        "ventas.registrobase": ["view", "change"],  # categoriza los clientes de sus bases
         "agenda": ["view", "add", "change", "delete"],
     },
     Rol.ENCARGADO_CIERRE: {

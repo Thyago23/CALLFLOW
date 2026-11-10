@@ -2,6 +2,19 @@
 {% block titulo %}Bases comerciales · Ventas{% endblock %}
 {% block contenido %}
 {% include "ventas/_subnav.html" with seccion="bases" %}
+<a href="{% url 'ventas:mis_contactos' %}" class="card tarjeta-estadisticas text-decoration-none mb-4">
+  <div class="card-body d-flex flex-wrap align-items-center gap-3">
+    <span class="icono-estadisticas" aria-hidden="true"><i class="bi bi-person-lines-fill"></i></span>
+    <span class="flex-grow-1 min-w-0">
+      <span class="d-block h5 mb-1 text-white">Mis contactos</span>
+      <span class="d-block small texto-suave">
+        {% if contactos.enviados %}{{ contactos.gestionados }} de {{ contactos.enviados }} gestionados{% if contactos.pendientes %} · le faltan {{ contactos.pendientes }}{% else %} · ¡todos gestionados!{% endif %}
+        {% else %}Aquí aparecerán los clientes de las bases que le envíen para llamar y categorizar.{% endif %}
+      </span>
+    </span>
+    <span class="btn btn-light btn-sm">Gestionar <i class="bi bi-arrow-right ms-1" aria-hidden="true"></i></span>
+  </div>
+</a>
 <div class="row g-4">
   <div class="col-lg-5">
     <section class="card mb-4">
@@ -23,7 +36,7 @@
       <div class="card-header bg-body"><h2 class="h6 mb-0">Mis bases asignadas</h2></div>
       <ul class="list-group list-group-flush">
         {% for b in bases %}
-        <li class="list-group-item"><div class="fw-semibold">{{ b.nombre }}</div><div class="small text-body-secondary">{{ b.total_registros }} registros{% if b.descripcion %} · {{ b.descripcion }}{% endif %}</div></li>
+        <li class="list-group-item"><a href="{% url 'ventas:mis_contactos' %}?base={{ b.pk }}&estado=" class="fw-semibold text-decoration-none">{{ b.nombre }}</a><div class="small text-body-secondary">{{ b.total_registros }} registros en la base{% if b.descripcion %} · {{ b.descripcion }}{% endif %}</div></li>
         {% empty %}
         <li class="list-group-item small text-body-secondary py-3">Todavía no tiene bases asignadas.</li>
         {% endfor %}

@@ -375,7 +375,53 @@ def _metas(f, usuario) -> Tabla:
     )
 
 
+# --------------------------------------------------------------------------- bases comerciales (SCRUM-97)
+def _efectividad_bases(f, usuario) -> Tabla:
+    from apps.ventas.servicios import efectividad_bases
+
+    datos = efectividad_bases(f.get("base"))
+    filas = [[x["base"].nombre, x["base"].creado_en, x["contactos"], x["enviados"], x["gestionados"], x["no_contesto"],
+              x["no_quiere"], x["dami_sacado"], x["efectividad"], x["efectividad_total"]] for x in datos]
+    con_gestion = [x["efectividad"] for x in datos if x["efectividad"] is not None]
+    media = sum(con_gestion, Decimal("0")) / len(con_gestion) if con_gestion else None
+    suma = {k: sum(x[k] for x in datos) for k in ("contactos", "enviados", "gestionados", "no_contesto", "no_quiere", "dami_sacado")}
+    from .formato import porcentaje
+
+    return Tabla(
+        columnas=[Columna("Base", peso=2.3), Columna("Cargada", "fecha"), Columna("Contactos", "entero", .9), Columna("Enviados", "entero", .9),
+                  Columna("Gestionados", "entero"), Columna("No contestó", "entero"), Columna("No quiere", "entero", .9),
+                  Columna("DAMI sacado", "entero"), Columna("Efectividad", "porcentaje", .9), Columna("% del total", "porcentaje", .9)],
+        filas=filas, periodo=f"Al {timezone.localdate():%d/%m/%Y}", horizontal=True,
+        totales=["Totales", None, suma["contactos"], suma["enviados"], suma["gestionados"], suma["no_contesto"], suma["no_quiere"],
+                 suma["dami_sacado"], Decimal(suma["dami_sacado"] * 100) / suma["gestionados"] if suma["gestionados"] else None,
+                 Decimal(suma["dami_sacado"] * 100) / suma["contactos"] if suma["contactos"] else None],
+        notas=["Efectividad = DAMI sacados ÷ contactos gestionados; % del total = DAMI sacados ÷ contactos de la base."]
+        + ([f"Media de efectividad de las bases: {porcentaje(media)} ({len(con_gestion)} bases con gestión)."] if media is not None else []),
+        vacio="No hay bases cargadas.",
+    )
+
+
+def _gestion_bases(f, usuario) -> Tabla:
+    from apps.ventas.servicios import seguimiento
+
+    datos = seguimiento(base=f.get("base"), vendedor=f.get("vendedor"))
+    filas = [[_nombre(x["vendedor"]), x["base"].nombre, x["enviados"], x["gestionados"], x["pendientes"], x["no_contesto"],
+              x["no_quiere"], x["dami_sacado"], x["avance"]] for x in datos]
+    suma = {k: sum(x[k] for x in datos) for k in ("enviados", "gestionados", "pendientes", "no_contesto", "no_quiere", "dami_sacado")}
+    return Tabla(
+        columnas=[Columna("Vendedor", peso=2.2), Columna("Base", peso=1.8), Columna("Enviados", "entero", .9), Columna("Gestionados", "entero"),
+                  Columna("Faltan", "entero", .8), Columna("No contestó", "entero"), Columna("No quiere", "entero", .9),
+                  Columna("DAMI sacado", "entero"), Columna("Avance", "porcentaje", .8)],
+        filas=filas, periodo=f"Al {timezone.localdate():%d/%m/%Y}", horizontal=True,
+        totales=["Totales", "", suma["enviados"], suma["gestionados"], suma["pendientes"], suma["no_contesto"], suma["no_quiere"],
+                 suma["dami_sacado"], Decimal(suma["gestionados"] * 100) / suma["enviados"] if suma["enviados"] else None],
+        notas=["«Faltan» son los contactos que el vendedor recibió y todavía no categorizó."],
+        vacio="Todavía no se enviaron contactos a vendedores.",
+    )
+
+
 _CONSTRUCTORES = {
+    "BASES_EFECTIVIDAD": _efectividad_bases, "BASES_GESTION": _gestion_bases,
     "PERSONAL_LISTADO": _personal, "ASISTENCIA_HISTORIAL": _asistencia, "INVENTARIO_STOCK": _inventario,
     "INVENTARIO_MOVIMIENTOS": _movimientos, "NOMINA_RESUMEN": _nomina, "NOMINA_COMISIONES": _comisiones,
     "NOMINA_ROL_PAGO": _rol_pago, "VENTAS_PRODUCCION": _produccion, "VENTAS_POR_VENDEDOR": _ventas,
@@ -417,6 +463,12 @@ REPORTES = {r.codigo: r for r in [
     Reporte("VENTAS_PRODUCCION", "Hoja de producción del vendedor", "VENTAS",
             "La hoja de producción de un vendedor en un mes, con sus totales.", ("mes", "vendedor"), (A, C),
             obligatorios=("vendedor",), icono="table"),
+    Reporte("BASES_EFECTIVIDAD", "Efectividad de bases comerciales", "VENTAS",
+            "Por base: contactos, gestionados, no contestó, no quiere, DAMI sacados y efectividad, con la media de todas.",
+            ("base",), (A, C), icono="database-check"),
+    Reporte("BASES_GESTION", "Gestión de bases por vendedor", "VENTAS",
+            "Contactos enviados a cada vendedor, cuántos gestionó, cuántos le faltan y cómo los categorizó.",
+            ("base", "vendedor"), (A, C), icono="person-lines-fill"),
     Reporte("CIERRE_PANEL", "Cumplimiento de metas", "CIERRE",
             "Meta, vendido, porcentaje de avance y lo que falta de cada vendedor en un mes.", ("mes", "vendedor"), (A, C),
             icono="bullseye"),

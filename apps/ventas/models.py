@@ -24,6 +24,8 @@ class BaseComercial(ModeloBase):
     total_registros = models.PositiveIntegerField(default=0)
     activa = models.BooleanField(default=True)
     cargada_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    archivo_origen = models.CharField("archivo de origen", max_length=255, blank=True, default="")
+    resumen_carga = models.JSONField("resumen de la carga", default=dict, blank=True)
 
     class Meta:
         verbose_name = "base comercial"
@@ -31,6 +33,59 @@ class BaseComercial(ModeloBase):
 
     def __str__(self):
         return self.nombre
+
+
+class RegistroBase(ModeloBase):
+    """
+    Un contacto de una base comercial, con el formato de la empresa: ciudad, categoría de tarjeta,
+    dirección, nombre y apellido, cédula y número. Se envía a un vendedor, que lo categoriza.
+    """
+
+    class Estado(models.TextChoices):
+        PENDIENTE = "PENDIENTE", "Pendiente"
+        NO_CONTESTO = "NO_CONTESTO", "No contestó"
+        NO_QUIERE = "NO_QUIERE", "No quiere"
+        DAMI_SACADO = "DAMI_SACADO", "DAMI sacado"
+
+    base = models.ForeignKey(BaseComercial, on_delete=models.CASCADE, related_name="registros")
+    fila = models.PositiveIntegerField("fila del archivo", default=0)
+    ciudad = models.CharField(max_length=100, blank=True, default="")
+    categoria_tarjeta = models.CharField("categoría de tarjeta", max_length=150, blank=True, default="")
+    direccion = models.CharField("dirección", max_length=255, blank=True, default="")
+    nombre = models.CharField("nombre y apellido", max_length=200, blank=True, default="")
+    cedula = models.CharField("cédula", max_length=13, blank=True, default="")
+    cedula_valida = models.BooleanField(default=True)
+    numero = models.CharField("número", max_length=15)
+    numero_alterno = models.CharField("otros números", max_length=60, blank=True, default="")
+    vendedor = models.ForeignKey("personal.Empleado", on_delete=models.PROTECT, null=True, blank=True, related_name="contactos_base")
+    asignado_en = models.DateTimeField(null=True, blank=True)
+    estado = models.CharField(max_length=12, choices=Estado.choices, default=Estado.PENDIENTE)
+    gestionado_en = models.DateTimeField(null=True, blank=True)
+    intentos = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        verbose_name = "contacto de base"
+        verbose_name_plural = "contactos de base"
+        ordering = ["base", "fila", "pk"]
+        indexes = [
+            models.Index(fields=["vendedor", "estado"], name="registro_base_vendedor_idx"),
+            models.Index(fields=["base", "estado"], name="registro_base_estado_idx"),
+        ]
+        constraints = [
+            models.CheckConstraint(condition=Q(estado__in=["PENDIENTE", "NO_CONTESTO", "NO_QUIERE", "DAMI_SACADO"]),
+                                   name="registro_base_estado_valido"),
+            # Solo un contacto enviado a un vendedor se puede categorizar.
+            models.CheckConstraint(condition=Q(estado="PENDIENTE") | (Q(vendedor__isnull=False) & Q(gestionado_en__isnull=False)),
+                                   name="registro_base_gestion_con_vendedor"),
+            models.CheckConstraint(condition=~Q(numero=""), name="registro_base_con_numero"),
+        ]
+
+    def __str__(self):
+        return f"{self.nombre or self.numero} ({self.base})"
+
+    @property
+    def gestionado(self) -> bool:
+        return self.estado != self.Estado.PENDIENTE
 
 
 class AsignacionBase(models.Model):

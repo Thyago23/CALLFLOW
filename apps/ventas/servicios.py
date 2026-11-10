@@ -23,7 +23,7 @@ from apps.core.models import Notificacion, Rol, Usuario
 from apps.personal.models import Empleado
 
 from . import tarjetas
-from .models import (AsignacionBase, BaseComercial, Cliente, FormularioDAMI, HojaProduccion, RegistroProduccion,
+from .models import (AsignacionBase, BaseComercial, Cliente, FormularioDAMI, HojaProduccion, RegistroBase, RegistroProduccion,
                      SolicitudBase, TarjetaDAMI)
 
 Estado = FormularioDAMI.Estado
@@ -359,15 +359,19 @@ def _usuario_del_vendedor(solicitud):
 
 
 @transaction.atomic
-def atender_solicitud(solicitud: SolicitudBase, base: BaseComercial, usuario, respuesta: str = "") -> SolicitudBase:
+def atender_solicitud(solicitud: SolicitudBase, base: BaseComercial, usuario, respuesta: str = "",
+                      cantidad: int | None = None) -> SolicitudBase:
     solicitud = SolicitudBase.objects.select_for_update().get(pk=solicitud.pk)
     if solicitud.estado != SolicitudBase.Estado.PENDIENTE:
         raise ValidationError("Esta solicitud ya fue respondida.")
     if not base.activa:
         raise ValidationError("La base elegida está inactiva.")
-    if AsignacionBase.objects.filter(base=base, vendedor=solicitud.vendedor).exists():
+    ya_asignada = AsignacionBase.objects.filter(base=base, vendedor=solicitud.vendedor).exists()
+    if ya_asignada and not RegistroBase.objects.filter(base=base, vendedor__isnull=True).exists():
         raise ValidationError(f"{solicitud.vendedor} ya tiene asignada la base «{base.nombre}». Elija otra.")
-    AsignacionBase.objects.create(base=base, vendedor=solicitud.vendedor, asignada_por=usuario)
+    if not ya_asignada:
+        AsignacionBase.objects.create(base=base, vendedor=solicitud.vendedor, asignada_por=usuario)
+    recibidos = repartir(base, [solicitud.vendedor], cantidad).get(solicitud.vendedor.pk, 0)
     solicitud.estado = SolicitudBase.Estado.ATENDIDA
     solicitud.base_asignada = base
     solicitud.respuesta = respuesta.strip()
@@ -375,8 +379,11 @@ def atender_solicitud(solicitud: SolicitudBase, base: BaseComercial, usuario, re
     solicitud.atendida_en = timezone.now()
     solicitud.save()
     _solicitud_resuelta(solicitud)
-    _notificar(_usuario_del_vendedor(solicitud), titulo=f"Se le asignó la base «{base.nombre}»",
-               mensaje=solicitud.respuesta, url=reverse("ventas:bases"), tipo=Notificacion.Tipo.SOLICITUD_BASE)
+    _notificar(_usuario_del_vendedor(solicitud),
+               titulo=f"Se le asignó la base «{base.nombre}»" + (f": {recibidos} contactos" if recibidos else ""),
+               mensaje=solicitud.respuesta,
+               url=reverse("ventas:mis_contactos") + f"?base={base.pk}" if recibidos else reverse("ventas:bases"),
+               tipo=Notificacion.Tipo.SOLICITUD_BASE)
     return solicitud
 
 
@@ -399,11 +406,151 @@ def rechazar_solicitud(solicitud: SolicitudBase, usuario, motivo: str) -> Solici
 
 
 @transaction.atomic
-def asignar_base(base: BaseComercial, vendedores, usuario) -> int:
+def asignar_base(base: BaseComercial, vendedores, usuario, cantidad: int | None = None) -> int:
+    """Asigna la base y reparte sus contactos libres entre los vendedores (SCRUM-94). Devuelve cuántos vendedores son nuevos."""
     nuevos = [v for v in vendedores if not AsignacionBase.objects.filter(base=base, vendedor=v).exists()]
     AsignacionBase.objects.bulk_create([AsignacionBase(base=base, vendedor=v, asignada_por=usuario) for v in nuevos])
-    for v in nuevos:
-        if v.usuario_id:
-            _notificar([v.usuario], titulo=f"Se le asignó la base «{base.nombre}»", url=reverse("ventas:bases"),
-                       tipo=Notificacion.Tipo.SOLICITUD_BASE)
+    repartidos = repartir(base, list(vendedores), cantidad)
+    for v in vendedores:
+        if v.usuario_id and (v in nuevos or repartidos.get(v.pk)):
+            n = repartidos.get(v.pk, 0)
+            _notificar([v.usuario], titulo=f"Se le asignó la base «{base.nombre}»" + (f": {n} contactos" if n else ""),
+                       mensaje="Categorícelos en Bases comerciales → Mis contactos." if n else "",
+                       url=reverse("ventas:mis_contactos") + (f"?base={base.pk}" if n else ""), tipo=Notificacion.Tipo.SOLICITUD_BASE)
     return len(nuevos)
+
+
+# --------------------------------------------------------------------------- contactos de las bases (SCRUM-93 a 97)
+def importar_base(nombre: str, descripcion: str, archivo, usuario) -> BaseComercial:
+    """Lee el Excel, lo deja en el formato de la empresa y guarda la base con sus contactos."""
+    from . import bases_excel
+
+    nombre = " ".join((nombre or "").split())
+    if not nombre:
+        raise ValidationError("Escriba un nombre para la base.")
+    if BaseComercial.objects.filter(nombre__iexact=nombre).exists():
+        raise ValidationError("Ya existe una base con ese nombre.")
+    resultado = bases_excel.formatear(archivo)
+    with transaction.atomic():
+        base = BaseComercial.objects.create(
+            nombre=nombre, descripcion=(descripcion or "").strip(), total_registros=resultado.importadas, cargada_por=usuario,
+            archivo_origen=(getattr(archivo, "name", "") or "")[:255], resumen_carga=resultado.resumen())
+        RegistroBase.objects.bulk_create([RegistroBase(base=base, **fila) for fila in resultado.filas], batch_size=1000)
+    return base
+
+
+def repartir(base: BaseComercial, vendedores: list, cantidad: int | None = None) -> dict:
+    """
+    Envía los contactos aún sin vendedor, en el orden del archivo: `cantidad` a cada uno, o todos
+    en partes iguales. Devuelve {id del vendedor: contactos recibidos}.
+    """
+    if not vendedores:
+        return {}
+    libres = list(RegistroBase.objects.select_for_update(skip_locked=True).filter(base=base, vendedor__isnull=True)
+                  .order_by("fila", "pk").values_list("pk", flat=True))
+    if cantidad:
+        libres = libres[:cantidad * len(vendedores)]
+    por_vendedor, resto = divmod(len(libres), len(vendedores))
+    ahora, inicio, recibidos = timezone.now(), 0, {}
+    for i, vendedor in enumerate(vendedores):
+        tope = min(cantidad, len(libres) - inicio) if cantidad else por_vendedor + (1 if i < resto else 0)
+        ids = libres[inicio:inicio + tope]
+        inicio += tope
+        if ids:
+            RegistroBase.objects.filter(pk__in=ids).update(vendedor=vendedor, asignado_en=ahora)
+            recibidos[vendedor.pk] = len(ids)
+    return recibidos
+
+
+ESTADOS_GESTION = [RegistroBase.Estado.NO_CONTESTO, RegistroBase.Estado.NO_QUIERE, RegistroBase.Estado.DAMI_SACADO]
+
+
+def datos_dami_de_contacto(contacto: RegistroBase) -> dict:
+    """
+    Datos para prellenar un DAMI desde un contacto de la base. «Nombre y apellido» viene en una
+    sola columna: se separa a la mitad (el vendedor puede corregirlo).
+    """
+    palabras = contacto.nombre.split()
+    corte = (len(palabras) + 1) // 2 if len(palabras) != 3 else 1
+    return {"cedula": contacto.cedula if len(contacto.cedula) == 10 else "", "nombres": " ".join(palabras[:corte]),
+            "apellidos": " ".join(palabras[corte:]), "telefono": contacto.numero,
+            "telefono_alterno": contacto.numero_alterno.split(" / ")[0] if contacto.numero_alterno else "",
+            "ciudad": contacto.ciudad, "direccion": contacto.direccion}
+
+
+def contactos_del_vendedor(empleado):
+    return RegistroBase.objects.filter(vendedor=empleado).select_related("base")
+
+
+@transaction.atomic
+def categorizar(usuario, registro_id: int, estado: str) -> RegistroBase:
+    """El vendedor marca a su cliente; puede corregirlo o devolverlo a pendiente."""
+    if estado not in RegistroBase.Estado.values:
+        raise ValidationError("Categoría no válida.")
+    registro = RegistroBase.objects.select_for_update().filter(pk=registro_id, vendedor=empleado_de(usuario)).first()
+    if registro is None or not es_vendedor(usuario):
+        raise PermissionDenied("Ese contacto no es suyo.")
+    registro.estado = estado
+    if estado == RegistroBase.Estado.PENDIENTE:
+        registro.gestionado_en = None
+    else:
+        registro.gestionado_en = timezone.now()
+        registro.intentos += 1
+    registro.save(update_fields=["estado", "gestionado_en", "intentos", "actualizado_en"])
+    return registro
+
+
+def _conteos(prefijo: str = "") -> dict:
+    """Agregados de contactos: enviados, pendientes y cada categoría."""
+    from django.db.models import Count
+
+    E = RegistroBase.Estado
+    filtro = {f"{prefijo}vendedor__isnull": False} if prefijo else {"vendedor__isnull": False}
+    return {
+        "enviados": Count("pk", filter=Q(**filtro)),
+        "pendientes": Count("pk", filter=Q(**{f"{prefijo}estado": E.PENDIENTE}) & Q(**filtro)),
+        "no_contesto": Count("pk", filter=Q(**{f"{prefijo}estado": E.NO_CONTESTO})),
+        "no_quiere": Count("pk", filter=Q(**{f"{prefijo}estado": E.NO_QUIERE})),
+        "dami_sacado": Count("pk", filter=Q(**{f"{prefijo}estado": E.DAMI_SACADO})),
+    }
+
+
+def _completar(fila: dict) -> dict:
+    fila["gestionados"] = fila["no_contesto"] + fila["no_quiere"] + fila["dami_sacado"]
+    fila["avance"] = round(fila["gestionados"] * 100 / fila["enviados"]) if fila["enviados"] else None
+    fila["efectividad"] = Decimal(fila["dami_sacado"] * 100) / fila["gestionados"] if fila["gestionados"] else None
+    return fila
+
+
+def seguimiento(base=None, vendedor=None) -> list[dict]:
+    """Por vendedor y base (SCRUM-96): enviados, gestionados, pendientes («faltan») y cada categoría."""
+    from apps.personal.models import Empleado
+
+    qs = RegistroBase.objects.filter(vendedor__isnull=False)
+    if base:
+        qs = qs.filter(base=base)
+    if vendedor:
+        qs = qs.filter(vendedor=vendedor)
+    filas = [_completar(f) for f in qs.values("vendedor", "base").annotate(**_conteos())]
+    vendedores = {e.pk: e for e in Empleado.objects.filter(pk__in={f["vendedor"] for f in filas})}
+    bases = {b.pk: b for b in BaseComercial.objects.filter(pk__in={f["base"] for f in filas})}
+    for f in filas:
+        f["vendedor"], f["base"] = vendedores[f["vendedor"]], bases[f["base"]]
+    return sorted(filas, key=lambda f: (-f["pendientes"], str(f["vendedor"]), f["base"].nombre))
+
+
+def efectividad_bases(base=None) -> list[dict]:
+    """Por base (SCRUM-97): contactos, asignados, gestionados, categorías y efectividad."""
+    from django.db.models import Count
+
+    qs = BaseComercial.objects.all()
+    if base:
+        qs = qs.filter(pk=base.pk)
+    filas = []
+    for b in qs.annotate(contactos=Count("registros"), **_conteos("registros__")).order_by("-creado_en"):
+        fila = _completar({"base": b, "contactos": b.contactos, "enviados": b.enviados, "pendientes": b.pendientes,
+                           "no_contesto": b.no_contesto, "no_quiere": b.no_quiere, "dami_sacado": b.dami_sacado})
+        fila["sin_asignar"] = b.contactos - b.enviados
+        fila["efectividad_total"] = Decimal(b.dami_sacado * 100) / b.contactos if b.contactos else None
+        filas.append(fila)
+    return filas

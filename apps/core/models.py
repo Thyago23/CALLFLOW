@@ -20,8 +20,8 @@ class Rol(models.TextChoices):
     ENCARGADO_CIERRE = "ENCARGADO_CIERRE", "Encargado de cierre"
 
 
-# Bases comerciales y validación de tarjetas: el administrador no entra, aunque sea superusuario.
-MODELOS_VETADOS_AL_ADMINISTRADOR = {"basecomercial", "asignacionbase", "solicitudbase", "entidademisora", "rangobin"}
+# Validación de tarjetas: el administrador no entra, aunque sea superusuario (sí gestiona las bases comerciales).
+MODELOS_VETADOS_AL_ADMINISTRADOR = {"entidademisora", "rangobin"}
 
 
 class GestorUsuarios(UserManager):

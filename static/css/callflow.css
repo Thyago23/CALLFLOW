@@ -844,3 +844,40 @@ details.anular-caja > summary::-webkit-details-marker { display: none; }
 .barras-h .pista { height: 14px; }
 .barras-h .barra { display: block; height: 100%; min-width: 2px; border-radius: 0 4px 4px 0; background: var(--cf-primario); }
 .barras-h .valor { font-size: .875rem; font-weight: 600; font-variant-numeric: tabular-nums; text-align: right; min-width: 4.5rem; }
+
+/* ------------------------------------------------------------------ bases comerciales: contactos y gestión */
+:root { --cf-dami: #198754; --cf-no-quiere: #c2410c; --cf-no-contesto: #d4a017; --cf-pendiente: #e3e7ee; }
+.avance-base { display: flex; gap: 2px; height: 8px; border-radius: 4px; overflow: hidden; background: var(--cf-pendiente); }
+.avance-base .seg { display: block; height: 100%; }
+.seg-dami { background: var(--cf-dami); }
+.seg-no-quiere { background: var(--cf-no-quiere); }
+.seg-no-contesto { background: var(--cf-no-contesto); }
+.seg-pendiente { background: var(--cf-pendiente); }
+.clave-estado { display: inline-block; width: .65rem; height: .65rem; border-radius: 2px; margin-right: .35rem; vertical-align: baseline; }
+.badge.estado-contacto { font-weight: 600; }
+.badge.estado-contacto.estado-pendiente { background: var(--bs-secondary-bg); color: var(--bs-secondary-color); }
+.badge.estado-contacto.estado-no_contesto { background: #fff4d6; color: #7a5a00; }
+.badge.estado-contacto.estado-no_quiere { background: #fde8de; color: #8a2e07; }
+.badge.estado-contacto.estado-dami_sacado { background: #d1e7dd; color: #0a3622; }
+
+.lista-contactos .contacto-base { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: .5rem 1.25rem; align-items: center;
+  padding: .85rem 1rem; border-bottom: 1px solid var(--bs-border-color-translucent); border-left: 4px solid transparent; }
+.lista-contactos .contacto-base:last-child { border-bottom: 0; }
+.contacto-base.estado-no_contesto { border-left-color: var(--cf-no-contesto); }
+.contacto-base.estado-no_quiere { border-left-color: var(--cf-no-quiere); }
+.contacto-base.estado-dami_sacado { border-left-color: var(--cf-dami); }
+.contacto-base.estado-dami_sacado .datos { opacity: .8; }
+.contacto-base .telefonos { text-align: right; }
+.contacto-base .acciones .btn.active { color: #fff; }
+.contacto-base .acciones .btn[value="NO_CONTESTO"].active { background: #a07800; border-color: #a07800; }
+.contacto-base .acciones .btn[value="NO_QUIERE"].active { background: var(--cf-no-quiere); border-color: var(--cf-no-quiere); }
+.contacto-base .acciones .btn[value="DAMI_SACADO"].active { background: var(--cf-dami); border-color: var(--cf-dami); }
+.contacto-base.recien { animation: contacto-marcado 1.2s ease-out; }
+@keyframes contacto-marcado { from { background: var(--cf-primario-suave); } to { background: transparent; } }
+@media (prefers-reduced-motion: reduce) { .contacto-base.recien { animation: none; } }
+@media (max-width: 991.98px) {
+  .lista-contactos .contacto-base { grid-template-columns: minmax(0, 1fr) auto; }
+  .contacto-base .acciones { grid-column: 1 / -1; }
+  .contacto-base .acciones .btn-group { width: 100%; }
+}
+.tabla-base td { white-space: nowrap; }

@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block titulo %}Contactos de bases · Ventas{% endblock %}
+{% block contenido %}
+{% include "ventas/_subnav.html" with seccion="bases" %}
+<nav aria-label="Ruta" class="mb-2">
+  <ol class="breadcrumb small mb-0">
+    <li class="breadcrumb-item"><a href="{% url 'ventas:bases' %}">Bases comerciales</a></li>
+    <li class="breadcrumb-item"><a href="{% url 'ventas:bases_seguimiento' %}">Seguimiento</a></li>
+    <li class="breadcrumb-item active" aria-current="page">Contactos</li>
+  </ol>
+</nav>
+<h2 class="h4 mb-3">Contactos{% if vendedor %} de {{ vendedor.apellidos }} {{ vendedor.nombres }}{% endif %}{% if base %} · {{ base.nombre }}{% endif %}</h2>
+
+<ul class="nav nav-pills mb-3 gap-1">
+  <li class="nav-item"><a class="nav-link {% if not estado %}active{% endif %}" href="?{% if vendedor %}vendedor={{ vendedor.pk }}&{% endif %}{% if base %}base={{ base.pk }}{% endif %}">Todos</a></li>
+  {% for valor, nombre in estados %}
+  <li class="nav-item"><a class="nav-link {% if estado == valor %}active{% endif %}" href="?{% if vendedor %}vendedor={{ vendedor.pk }}&{% endif %}{% if base %}base={{ base.pk }}&{% endif %}estado={{ valor }}">{% if valor == "PENDIENTE" %}Sin gestionar{% else %}{{ nombre }}{% endif %}</a></li>
+  {% endfor %}
+</ul>
+
+<section class="card">
+  <div class="table-responsive">
+    <table class="table table-sm align-middle mb-0 tabla-reporte-pantalla">
+      <thead><tr><th scope="col">Nombre y apellido</th><th scope="col">Cédula</th><th scope="col">Número</th><th scope="col">Ciudad</th>
+        {% if not vendedor %}<th scope="col">Vendedor</th>{% endif %}{% if not base %}<th scope="col">Base</th>{% endif %}<th scope="col">Estado</th><th scope="col">Gestionado</th></tr></thead>
+      <tbody>
+        {% for r in pagina.object_list %}
+        <tr>
+          <td>{{ r.nombre|default:"—" }}</td><td class="font-monospace">{{ r.cedula|default:"—" }}</td><td class="font-monospace">{{ r.numero }}</td><td>{{ r.ciudad|default:"—" }}</td>
+          {% if not vendedor %}<td>{{ r.vendedor.apellidos }} {{ r.vendedor.nombres }}</td>{% endif %}{% if not base %}<td>{{ r.base.nombre }}</td>{% endif %}
+          <td><span class="badge estado-contacto estado-{{ r.estado|lower }}">{{ r.get_estado_display }}</span></td>
+          <td class="small text-body-secondary">{{ r.gestionado_en|date:"d/m H:i"|default:"—" }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="8" class="text-center text-body-secondary py-4">No hay contactos con este filtro.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% if pagina.has_other_pages %}
+<nav class="mt-3" aria-label="Páginas">
+  <ul class="pagination pagination-sm mb-0">
+    {% if pagina.has_previous %}<li class="page-item"><a class="page-link" href="?{% if vendedor %}vendedor={{ vendedor.pk }}&{% endif %}{% if base %}base={{ base.pk }}&{% endif %}estado={{ estado }}&pagina={{ pagina.previous_page_number }}">Anteriores</a></li>{% endif %}
+    <li class="page-item active" aria-current="page"><span class="page-link">{{ pagina.number }} de {{ pagina.paginator.num_pages }}</span></li>
+    {% if pagina.has_next %}<li class="page-item"><a class="page-link" href="?{% if vendedor %}vendedor={{ vendedor.pk }}&{% endif %}{% if base %}base={{ base.pk }}&{% endif %}estado={{ estado }}&pagina={{ pagina.next_page_number }}">Siguientes</a></li>{% endif %}
+  </ul>
+</nav>
+{% endif %}
+{% endblock %}

@@ -7,7 +7,7 @@ from django.utils import timezone
 from apps.core.models import Rol
 
 ETIQUETAS = {"desde": "Desde", "hasta": "Hasta", "mes": "Mes", "empleado": "Empleado", "vendedor": "Vendedor",
-             "equipo": "Equipo", "estado": "Estado", "cargo": "Cargo", "categoria": "Categoría"}
+             "equipo": "Equipo", "estado": "Estado", "cargo": "Cargo", "categoria": "Categoría", "base": "Base comercial"}
 
 
 def _mes_actual() -> str:
@@ -57,6 +57,11 @@ class FiltrosForm(forms.Form):
         if nombre == "categoria":
             return forms.ModelChoiceField(CategoriaMaterial.objects.order_by("nombre"), required=False,
                                           empty_label="Todas las categorías", widget=forms.Select(attrs=lista))
+        if nombre == "base":
+            from apps.ventas.models import BaseComercial
+
+            return forms.ModelChoiceField(BaseComercial.objects.order_by("-creado_en"), required=False, empty_label="Todas las bases",
+                                          widget=forms.Select(attrs=lista))
         if nombre == "estado":
             return forms.ChoiceField(choices=[("", "Todos")] + list(self.reporte.estados), required=False,
                                      widget=forms.Select(attrs=lista))

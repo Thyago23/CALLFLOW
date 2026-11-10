@@ -1,12 +1,59 @@
 {% extends "base.html" %}
+{% load reportes_cf %}
 {% block titulo %}Bases comerciales · Ventas{% endblock %}
 {% block contenido %}
 {% include "ventas/_subnav.html" with seccion="bases" %}
+
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <h2 class="h4 mb-0">Bases comerciales</h2>
+  <div class="d-flex flex-wrap gap-2">
+    <a href="{% url 'ventas:bases_seguimiento' %}" class="btn btn-primary"><i class="bi bi-person-lines-fill me-1" aria-hidden="true"></i>Seguimiento por vendedor</a>
+    <a href="{% url 'ventas:bases_plantilla' %}" class="btn btn-outline-secondary"><i class="bi bi-download me-1" aria-hidden="true"></i>Plantilla</a>
+  </div>
+</div>
+
 <div class="row g-4">
-  <div class="col-xl-7">
-    <section class="card mb-4">
-      <div class="card-header bg-body d-flex justify-content-between align-items-center">
-        <h2 class="h6 mb-0">Solicitudes pendientes</h2>
+  <div class="col-xl-8">
+    <section class="card mb-4" aria-labelledby="titulo-bases">
+      <div class="card-header bg-body py-3"><h3 class="h6 mb-0" id="titulo-bases">Bases y su efectividad</h3></div>
+      <div class="table-responsive">
+        <table class="table align-middle mb-0 tabla-reporte-pantalla">
+          <thead>
+            <tr><th scope="col">Base</th><th scope="col" class="text-end">Contactos</th><th scope="col" class="text-end">Sin enviar</th>
+              <th scope="col" style="min-width: 9rem">Gestión</th><th scope="col" class="text-end">DAMI</th><th scope="col" class="text-end">Efectividad</th></tr>
+          </thead>
+          <tbody>
+            {% for f in bases %}
+            <tr class="{% if not f.base.activa %}text-body-secondary{% endif %}">
+              <td>
+                <a href="{% url 'ventas:base_detalle' f.base.pk %}" class="fw-semibold text-decoration-none">{{ f.base.nombre }}</a>
+                {% if not f.base.activa %}<span class="badge text-bg-secondary ms-1">Inactiva</span>{% endif %}
+                <div class="small text-body-secondary">{{ f.base.creado_en|date:"d/m/Y" }}{% if f.base.descripcion %} · {{ f.base.descripcion|truncatechars:60 }}{% endif %}</div>
+              </td>
+              <td class="text-end">{% if f.contactos %}{{ f.contactos }}{% else %}{{ f.base.total_registros }}{% endif %}</td>
+              <td class="text-end">{% if f.sin_asignar %}<span class="text-warning-emphasis fw-semibold">{{ f.sin_asignar }}</span>{% else %}0{% endif %}</td>
+              <td>{% if f.enviados %}{% include "ventas/_avance_base.html" %}<div class="small text-body-secondary mt-1">{{ f.gestionados }}/{{ f.enviados }}</div>{% else %}<span class="small text-body-secondary">Sin enviar</span>{% endif %}</td>
+              <td class="text-end">{{ f.dami_sacado }}</td>
+              <td class="text-end">{{ f.efectividad|pct }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="6" class="text-body-secondary small py-4 text-center">Todavía no hay bases. Cargue la primera desde un Excel.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div class="card-footer bg-body small text-body-secondary">
+        <span class="me-3"><i class="clave-estado seg-dami" aria-hidden="true"></i>DAMI sacado</span>
+        <span class="me-3"><i class="clave-estado seg-no-quiere" aria-hidden="true"></i>No quiere</span>
+        <span class="me-3"><i class="clave-estado seg-no-contesto" aria-hidden="true"></i>No contestó</span>
+        <span><i class="clave-estado seg-pendiente" aria-hidden="true"></i>Pendiente</span>
+        · Efectividad = DAMI sacados ÷ contactos gestionados.
+      </div>
+    </section>
+
+    <section class="card mb-4" aria-labelledby="titulo-solicitudes">
+      <div class="card-header bg-body d-flex justify-content-between align-items-center py-3">
+        <h3 class="h6 mb-0" id="titulo-solicitudes">Solicitudes de los vendedores</h3>
         {% if pendientes %}<span class="badge rounded-pill bg-danger">{{ pendientes|length }}</span>{% endif %}
       </div>
       <ul class="list-group list-group-flush">
@@ -25,7 +72,11 @@
                 {% for b in bases_activas %}<option value="{{ b.pk }}">{{ b.nombre }} ({{ b.total_registros }})</option>{% endfor %}
               </select>
             </div>
-            <div class="col-sm-7">
+            <div class="col-sm-2">
+              <label class="form-label small mb-1" for="cantidad-{{ s.pk }}">Contactos</label>
+              <input id="cantidad-{{ s.pk }}" type="number" min="1" name="cantidad" class="form-control form-control-sm" placeholder="Todos">
+            </div>
+            <div class="col-sm-5">
               <label class="form-label small mb-1" for="resp-{{ s.pk }}">Respuesta / motivo</label>
               <input id="resp-{{ s.pk }}" type="text" name="respuesta" maxlength="300" class="form-control form-control-sm" placeholder="Obligatorio si rechaza">
             </div>
@@ -41,45 +92,41 @@
       </ul>
     </section>
 
-    <section class="card mb-4">
-      <div class="card-header bg-body"><h2 class="h6 mb-0">Bases comerciales</h2></div>
-      <div class="table-responsive">
-        <table class="table align-middle mb-0">
-          <thead><tr><th scope="col">Nombre</th><th scope="col" class="text-end">Registros</th><th scope="col">Estado</th></tr></thead>
-          <tbody>
-            {% for b in bases %}
-            <tr class="{% if not b.activa %}text-body-secondary{% endif %}">
-              <td><div class="fw-semibold">{{ b.nombre }}</div>{% if b.descripcion %}<div class="small text-body-secondary">{{ b.descripcion }}</div>{% endif %}</td>
-              <td class="text-end">{{ b.total_registros }}</td>
-              <td>{% if b.activa %}<span class="badge bg-success-subtle text-success-emphasis border border-success-subtle">Activa</span>{% else %}<span class="badge text-bg-secondary">Inactiva</span>{% endif %}</td>
-            </tr>
-            {% empty %}
-            <tr><td colspan="3" class="text-body-secondary small">Todavía no hay bases registradas.</td></tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-    </section>
-
+    {% if respondidas %}
     <section class="card">
-      <div class="card-header bg-body"><h2 class="h6 mb-0">Bases asignadas por vendedor</h2></div>
+      <div class="card-header bg-body py-3"><h3 class="h6 mb-0">Respondidas recientemente</h3></div>
       <ul class="list-group list-group-flush">
-        {% regroup asignaciones by vendedor as por_vendedor %}
-        {% for grupo in por_vendedor %}
-        <li class="list-group-item"><span class="fw-semibold">{{ grupo.grouper }}</span>:
-          {% for a in grupo.list %}<span class="badge text-bg-light border fw-normal">{{ a.base.nombre }}</span> {% endfor %}
+        {% for s in respondidas %}
+        <li class="list-group-item small">
+          <span class="badge estado-solicitud estado-{{ s.estado|lower }}">{{ s.get_estado_display }}</span>
+          {{ s.vendedor }}{% if s.base_asignada %} → {{ s.base_asignada }}{% endif %}
+          <span class="text-body-secondary"> · {{ s.atendida_en|date:"d/m H:i" }} por {{ s.atendida_por.get_full_name|default:s.atendida_por.username }}</span>
         </li>
-        {% empty %}
-        <li class="list-group-item small text-body-secondary py-3">Sin asignaciones.</li>
         {% endfor %}
       </ul>
     </section>
+    {% endif %}
   </div>
 
-  <div class="col-xl-5">
+  <div class="col-xl-4">
+    {% if perms.ventas.add_basecomercial %}
+    <section class="card mb-4 tarjeta-carga" aria-labelledby="titulo-cargar">
+      <div class="card-header bg-body py-3"><h3 class="h6 mb-0" id="titulo-cargar"><i class="bi bi-file-earmark-spreadsheet me-1" aria-hidden="true"></i>Cargar base desde Excel</h3></div>
+      <form method="post" enctype="multipart/form-data" novalidate class="card-body">
+        {% csrf_token %}
+        {% for error in form_cargar.non_field_errors %}<div class="alert alert-danger small py-2">{{ error }}</div>{% endfor %}
+        {% include "_campo.html" with campo=form_cargar.nombre %}
+        {% include "_campo.html" with campo=form_cargar.descripcion %}
+        {% include "_campo.html" with campo=form_cargar.archivo %}
+        <p class="small text-body-secondary">Se deja con el formato <strong>Ciudad · Categoría tarjeta · Dirección · Nombre y apellido · Cédula · Número</strong>, aunque el archivo no traiga encabezados o venga en otro orden: cada columna se reconoce por su contenido.</p>
+        <button type="submit" name="cargar" class="btn btn-primary w-100"><i class="bi bi-upload me-1" aria-hidden="true"></i>Cargar y formatear</button>
+      </form>
+    </section>
+    {% endif %}
+
     {% if perms.ventas.add_asignacionbase %}
-    <section class="card mb-4">
-      <div class="card-header bg-body"><h2 class="h6 mb-0">Asignar una base</h2></div>
+    <section class="card mb-4" aria-labelledby="titulo-asignar">
+      <div class="card-header bg-body py-3"><h3 class="h6 mb-0" id="titulo-asignar">Enviar contactos a vendedores</h3></div>
       <form method="post" novalidate class="card-body">
         {% csrf_token %}
         {% include "_campo.html" with campo=form_asignar.base %}
@@ -91,13 +138,15 @@
           </div>
           {% for error in form_asignar.vendedores.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
         </fieldset>
-        <button type="submit" name="asignar" class="btn btn-primary w-100">Asignar</button>
+        {% include "_campo.html" with campo=form_asignar.cantidad %}
+        <button type="submit" name="asignar" class="btn btn-primary w-100">Enviar contactos</button>
       </form>
     </section>
     {% endif %}
+
     {% if perms.ventas.add_basecomercial %}
-    <section class="card mb-4">
-      <div class="card-header bg-body"><h2 class="h6 mb-0">Registrar una base</h2></div>
+    <details class="card">
+      <summary class="card-header bg-body py-3 small">Registrar una base sin archivo</summary>
       <form method="post" novalidate class="card-body">
         {% csrf_token %}
         {% include "_campo.html" with campo=form_base.nombre %}
@@ -108,21 +157,7 @@
         </div>
         <button type="submit" name="crear_base" class="btn btn-outline-primary w-100">Registrar base</button>
       </form>
-    </section>
-    {% endif %}
-    {% if respondidas %}
-    <section class="card">
-      <div class="card-header bg-body"><h2 class="h6 mb-0">Respondidas recientemente</h2></div>
-      <ul class="list-group list-group-flush">
-        {% for s in respondidas %}
-        <li class="list-group-item small">
-          <span class="badge estado-solicitud estado-{{ s.estado|lower }}">{{ s.get_estado_display }}</span>
-          {{ s.vendedor }}{% if s.base_asignada %} → {{ s.base_asignada }}{% endif %}
-          <span class="text-body-secondary"> · {{ s.atendida_en|date:"d/m H:i" }} por {{ s.atendida_por.get_full_name|default:s.atendida_por.username }}</span>
-        </li>
-        {% endfor %}
-      </ul>
-    </section>
+    </details>
     {% endif %}
   </div>
 </div>

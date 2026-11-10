@@ -1,0 +1,28 @@
+{# Un contacto de la base en «Mis contactos». Recibe `r`. #}
+<li class="contacto-base estado-{{ r.estado|lower }}{% if recien %} recien{% endif %}" id="contacto-{{ r.pk }}">
+  <div class="datos min-w-0">
+    <div class="fw-semibold">{{ r.nombre|default:"Sin nombre" }}</div>
+    <div class="small text-body-secondary">
+      {% if r.cedula %}<span class="font-monospace">{{ r.cedula }}</span>{% if not r.cedula_valida %} <span class="badge text-bg-warning" title="La cédula no pasó la validación">revisar</span>{% endif %} · {% endif %}{{ r.ciudad|default:"—" }}{% if r.categoria_tarjeta %} · {{ r.categoria_tarjeta }}{% endif %}
+    </div>
+    {% if r.direccion %}<div class="small text-body-secondary text-truncate">{{ r.direccion }}</div>{% endif %}
+    <div class="small text-body-tertiary">{{ r.base.nombre }}{% if r.intentos > 1 %} · {{ r.intentos }} gestiones{% endif %}</div>
+  </div>
+  <div class="telefonos">
+    <a href="tel:{{ r.numero }}" class="fw-semibold text-decoration-none font-monospace"><i class="bi bi-telephone me-1" aria-hidden="true"></i>{{ r.numero }}</a>
+    {% if r.numero_alterno %}<div class="small text-body-secondary font-monospace">{{ r.numero_alterno }}</div>{% endif %}
+  </div>
+  <form method="post" action="{% url 'ventas:contacto_categorizar' r.pk %}" class="acciones"
+        hx-post="{% url 'ventas:contacto_categorizar' r.pk %}" hx-target="#contacto-{{ r.pk }}" hx-swap="outerHTML">
+    {% csrf_token %}<input type="hidden" name="volver" value="{{ request.get_full_path }}">
+    <div class="btn-group btn-group-sm" role="group" aria-label="Categoría de {{ r.nombre|default:r.numero }}">
+      <button type="submit" name="estado" value="NO_CONTESTO" class="btn btn-outline-secondary {% if r.estado == 'NO_CONTESTO' %}active{% endif %}" {% if r.estado == 'NO_CONTESTO' %}aria-pressed="true"{% endif %}><i class="bi bi-telephone-x me-1" aria-hidden="true"></i>No contestó</button>
+      <button type="submit" name="estado" value="NO_QUIERE" class="btn btn-outline-secondary {% if r.estado == 'NO_QUIERE' %}active{% endif %}" {% if r.estado == 'NO_QUIERE' %}aria-pressed="true"{% endif %}><i class="bi bi-hand-thumbs-down me-1" aria-hidden="true"></i>No quiere</button>
+      <button type="submit" name="estado" value="DAMI_SACADO" class="btn btn-outline-secondary {% if r.estado == 'DAMI_SACADO' %}active{% endif %}" {% if r.estado == 'DAMI_SACADO' %}aria-pressed="true"{% endif %}><i class="bi bi-check2-circle me-1" aria-hidden="true"></i>DAMI sacado</button>
+    </div>
+    <div class="small mt-1 d-flex gap-3 justify-content-end">
+      <a href="{% url 'ventas:formulario_nuevo' %}?contacto={{ r.pk }}" class="text-decoration-none"><i class="bi bi-file-earmark-plus me-1" aria-hidden="true"></i>Llenar DAMI</a>
+      {% if r.gestionado %}<button type="submit" name="estado" value="PENDIENTE" class="btn btn-link btn-sm p-0 text-decoration-none text-body-secondary">Deshacer</button>{% endif %}
+    </div>
+  </form>
+</li>

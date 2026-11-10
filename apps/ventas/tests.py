@@ -324,36 +324,43 @@ class HojaProduccionTests(BaseVentas):
         self.assertEqual(self.client.get(reverse("ventas:hoja")).status_code, 403)
 
 
-class AdministradorSinBasesNiTarjetasTests(BaseVentas):
-    """El administrador no entra a bases comerciales ni a la validación de tarjetas, aunque sea superusuario."""
+class AdministradorSinTarjetasTests(BaseVentas):
+    """El administrador no entra a la validación de tarjetas, aunque sea superusuario; sí gestiona las bases comerciales."""
 
     def administradores(self):
         return (self.admin, Usuario.objects.create_superuser("root.callflow", password="x"))
 
-    def test_no_entra_a_ninguna_pantalla(self):
-        solicitud = servicios.solicitar_base(self.lucia, "")
+    def test_no_entra_a_las_tarjetas(self):
         for usuario in self.administradores():
             self.assertEqual(usuario.rol, Rol.ADMINISTRADOR)
             self.client.force_login(usuario)
-            for nombre in ("ventas:validar_tarjeta", "ventas:catalogo_bin", "ventas:bases"):
+            for nombre in ("ventas:validar_tarjeta", "ventas:catalogo_bin"):
                 self.assertEqual(self.client.get(reverse(nombre)).status_code, 403, (usuario, nombre))
             self.assertEqual(self.client.post(reverse("ventas:validar_tarjeta"), {"numero": VISA}).status_code, 403)
             self.assertEqual(self.client.post(reverse("ventas:eliminar_bin", args=[1])).status_code, 403)
-            url = reverse("ventas:responder_solicitud", args=[solicitud.pk])
-            self.assertEqual(self.client.post(url, {"accion": "rechazar", "respuesta": "x"}).status_code, 403)
-        solicitud.refresh_from_db()
-        self.assertEqual(solicitud.estado, "PENDIENTE")
 
-    def test_no_ve_los_enlaces_y_conserva_las_hojas(self):
+    def test_gestiona_las_bases_comerciales(self):
+        solicitud = servicios.solicitar_base(self.lucia, "")
+        for usuario in self.administradores():
+            self.client.force_login(usuario)
+            self.assertEqual(self.client.get(reverse("ventas:bases")).status_code, 200)
+            self.assertContains(self.client.get(reverse("ventas:formularios")), reverse("ventas:bases"))
+        url = reverse("ventas:responder_solicitud", args=[solicitud.pk])
+        self.client.post(url, {"accion": "rechazar", "respuesta": "No hay bases nuevas"})
+        solicitud.refresh_from_db()
+        self.assertEqual(solicitud.estado, "RECHAZADA")
+
+    def test_no_ve_el_enlace_de_tarjetas_y_conserva_las_hojas(self):
         for usuario in self.administradores():
             self.client.force_login(usuario)
             respuesta = self.client.get(reverse("ventas:formularios"))
             self.assertNotContains(respuesta, reverse("ventas:validar_tarjeta"))
-            self.assertNotContains(respuesta, reverse("ventas:bases"))
             self.assertEqual(self.client.get(reverse("ventas:hojas_vendedores")).status_code, 200)
 
-    def test_el_grupo_administrador_no_trae_esos_permisos(self):
-        self.assertFalse(self.admin.get_group_permissions() & {"ventas.view_basecomercial", "ventas.view_rangobin", "ventas.change_solicitudbase"})
+    def test_permisos_del_grupo_administrador(self):
+        permisos = self.admin.get_group_permissions()
+        self.assertFalse(permisos & {"ventas.view_rangobin", "ventas.add_rangobin"})
+        self.assertTrue({"ventas.view_basecomercial", "ventas.add_basecomercial", "ventas.change_solicitudbase"} <= permisos)
 
     def test_los_demas_roles_siguen_entrando(self):
         for usuario, nombres in ((self.ana, ("ventas:validar_tarjeta", "ventas:bases")), (self.lucia, ("ventas:validar_tarjeta", "ventas:bases"))):

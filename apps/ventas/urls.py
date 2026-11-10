@@ -20,5 +20,12 @@ urlpatterns = [
     path("validar-tarjeta/catalogo/", views.catalogo_bin, name="catalogo_bin"),
     path("validar-tarjeta/catalogo/<int:pk>/eliminar/", views.eliminar_bin, name="eliminar_bin"),
     path("bases/", views.bases, name="bases"),
+    path("bases/plantilla/", views.bases_plantilla, name="bases_plantilla"),
+    path("bases/seguimiento/", views.bases_seguimiento, name="bases_seguimiento"),
+    path("bases/contactos/", views.bases_contactos, name="bases_contactos"),
+    path("bases/<int:pk>/", views.base_detalle, name="base_detalle"),
+    path("bases/<int:pk>/excel/", views.base_excel, name="base_excel"),
+    path("mis-contactos/", views.mis_contactos, name="mis_contactos"),
+    path("mis-contactos/<int:pk>/categorizar/", views.contacto_categorizar, name="contacto_categorizar"),
     path("bases/solicitudes/<int:pk>/responder/", views.responder_solicitud, name="responder_solicitud"),
 ]
