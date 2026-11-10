@@ -16,7 +16,7 @@
       {% if f.prioridad == 1 %}<span class="badge text-bg-danger align-middle fs-6">Prioritario</span>{% endif %}
     </h1>
     <div class="text-body-secondary">
-      Enviado {{ f.enviado_en|date:"d/m/Y H:i" }} · Asesor: {{ f.vendedor }}
+      Enviado {{ f.enviado_en|date:"d/m/Y H:i" }} · Asesor: {{ f.vendedor }}{% if f.ayudado_por %} · lo llenó {{ f.ayudado_por }} como ayuda{% endif %}
       {% if f.encargado_asignado %} · A cargo de: <strong>{% if propio %}usted{% else %}{{ f.encargado_asignado }}{% endif %}</strong>{% endif %}
     </div>
   </div>

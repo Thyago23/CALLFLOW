@@ -10,8 +10,8 @@ from openpyxl import Workbook, load_workbook
 from apps.core.models import Notificacion
 
 from . import bases_excel, servicios
-from .models import BaseComercial, ContactoRepetido, RegistroBase
-from .tests import BaseVentas
+from .models import BaseComercial, ContactoRepetido, FormularioDAMI, RegistroBase
+from .tests import CLIENTE, BaseVentas
 
 XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
@@ -378,3 +378,86 @@ class RepetidosTests(BaseVentas):
         self.assertEqual(hoja["F2"].value, "0991234500")
         self.client.post(reverse("ventas:repetidos"), {"descartar_todos": "", "base": segunda.pk})
         self.assertEqual(servicios.repetidos_por_revisar(), 0)
+
+
+class AyudaEntreAsesoresTests(BaseVentas):
+    """Un vendedor pide ayuda a otro asesor con un contacto; el DAMI queda a nombre de quien pidió la ayuda."""
+
+    def setUp(self):
+        from .models import SolicitudAyuda
+
+        self.SolicitudAyuda = SolicitudAyuda
+        base = servicios.importar_base("CSV", "", csv_simple(2), self.ana)
+        servicios.asignar_base(base, [self.lucia.empleado], self.ana)
+        self.contacto = RegistroBase.objects.filter(vendedor=self.lucia.empleado).order_by("fila").first()
+        Notificacion.objects.all().delete()
+
+    def pedir(self, ayudante=None, usuario=None):
+        self.client.force_login(usuario or self.lucia)
+        return self.client.post(reverse("ventas:pedir_ayuda", args=[self.contacto.pk]),
+                                {"ayudante": (ayudante or self.pedro).empleado.pk, "mensaje": "Llámalo en la tarde"}, follow=True)
+
+    def responder(self, accion, usuario=None):
+        s = self.SolicitudAyuda.objects.get(contacto=self.contacto, estado__in=self.SolicitudAyuda.ACTIVAS)
+        self.client.force_login(usuario or self.pedro)
+        return self.client.post(reverse("ventas:responder_ayuda", args=[s.pk]), {"accion": accion}, follow=True)
+
+    def test_pedir_aceptar_y_el_dami_queda_a_nombre_de_quien_pidio(self):
+        respuesta = self.pedir()
+        self.assertContains(respuesta, "Ayuda pedida a")
+        aviso = Notificacion.objects.get(destinatario=self.pedro)
+        self.assertIn("Lucía Mora te pide ayuda", aviso.titulo)
+        # Pedro ve la petición y la acepta; Lucía recibe la respuesta.
+        self.client.force_login(self.pedro)
+        self.assertContains(self.client.get(reverse("ventas:mis_contactos")), "Te pidieron ayuda")
+        respuesta = self.responder("aceptar")
+        self.assertContains(respuesta, "Cliente de Lucía Mora")
+        self.assertIn("aceptó ayudarte", Notificacion.objects.get(destinatario=self.lucia).titulo)
+        # Pedro gestiona el contacto (sigue siendo de Lucía: cuenta en su seguimiento).
+        self.client.post(reverse("ventas:contacto_categorizar", args=[self.contacto.pk]), {"estado": "DAMI_SACADO"})
+        self.contacto.refresh_from_db()
+        self.assertEqual((self.contacto.estado, self.contacto.vendedor), ("DAMI_SACADO", self.lucia.empleado))
+        # El DAMI se prellena con el contacto y se envía a nombre de Lucía.
+        nuevo = self.client.get(reverse("ventas:formulario_nuevo"), {"contacto": self.contacto.pk})
+        self.assertEqual(nuevo.context["form"].initial["telefono"], self.contacto.numero)
+        self.assertContains(nuevo, "como ayuda")
+        self.assertContains(nuevo, "Lucía Mora")
+        self.client.post(reverse("ventas:formulario_nuevo"), CLIENTE | {"contacto": self.contacto.pk, "enviar": ""})
+        dami = FormularioDAMI.objects.get()
+        self.assertEqual((dami.vendedor, dami.ayudado_por, dami.estado), (self.lucia.empleado, self.pedro.empleado, "ENVIADO"))
+        self.assertEqual(dami.registro_produccion.hoja.vendedor, self.lucia.empleado)  # cuenta en la hoja de Lucía
+
+    def test_sin_aceptar_no_gestiona_ni_saca_el_dami_a_nombre_del_otro(self):
+        self.pedir()
+        self.client.force_login(self.pedro)
+        self.assertNotContains(self.client.get(reverse("ventas:mis_contactos"), {"estado": ""}), "Cliente de Lucía Mora")
+        marcar = self.client.post(reverse("ventas:contacto_categorizar", args=[self.contacto.pk]), {"estado": "NO_QUIERE"})
+        self.assertEqual(marcar.status_code, 403)
+        self.client.post(reverse("ventas:formulario_nuevo"), CLIENTE | {"contacto": self.contacto.pk, "enviar": ""})
+        self.assertEqual(FormularioDAMI.objects.get().vendedor, self.pedro.empleado)  # sin ayuda aceptada, es un DAMI propio
+
+    def test_rechazar_cancelar_y_reglas(self):
+        self.pedir()
+        self.assertContains(self.pedir(), "ya tiene una ayuda pedida")  # una sola ayuda en curso por contacto
+        self.responder("rechazar")
+        self.assertIn("no puede ayudarte", Notificacion.objects.get(destinatario=self.lucia).titulo)
+        # Puede pedírsela a otro; no a sí mismo ni con un contacto ajeno.
+        self.client.force_login(self.lucia)
+        a_si_mismo = self.client.post(reverse("ventas:pedir_ayuda", args=[self.contacto.pk]), {"ayudante": self.lucia.empleado.pk}, follow=True)
+        self.assertContains(a_si_mismo, "Elija el asesor")
+        self.client.force_login(self.pedro)
+        ajeno = self.client.post(reverse("ventas:pedir_ayuda", args=[self.contacto.pk]), {"ayudante": self.lucia.empleado.pk})
+        self.assertEqual(ajeno.status_code, 403)
+        # Retirar una ayuda ya aceptada: el ayudante deja de ver el contacto.
+        self.pedir()
+        self.responder("aceptar")
+        s = self.SolicitudAyuda.objects.get(estado="ACEPTADA")
+        self.client.force_login(self.lucia)
+        self.client.post(reverse("ventas:cancelar_ayuda", args=[s.pk]))
+        s.refresh_from_db()
+        self.assertEqual(s.estado, "CANCELADA")
+        self.client.force_login(self.pedro)
+        self.assertNotContains(self.client.get(reverse("ventas:mis_contactos"), {"estado": ""}), "Cliente de Lucía Mora")
+        self.assertEqual(self.client.post(reverse("ventas:responder_ayuda", args=[s.pk]), {"accion": "aceptar"}, follow=True).status_code, 200)
+        s.refresh_from_db()
+        self.assertEqual(s.estado, "CANCELADA")  # ya no se puede aceptar

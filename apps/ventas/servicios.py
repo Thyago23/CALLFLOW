@@ -24,7 +24,7 @@ from apps.personal.models import Empleado
 
 from . import tarjetas
 from .models import (AsignacionBase, BaseComercial, Cliente, ContactoRepetido, FormularioDAMI, HojaProduccion, RegistroBase,
-                     RegistroProduccion, SolicitudBase, TarjetaDAMI)
+                     RegistroProduccion, SolicitudAyuda, SolicitudBase, TarjetaDAMI)
 
 Estado = FormularioDAMI.Estado
 EN_CURSO = [Estado.ENVIADO, Estado.EN_GESTION]
@@ -52,13 +52,17 @@ def formularios_visibles(usuario):
     qs = FormularioDAMI.objects.select_related("cliente", "vendedor", "base_comercial", "encargado_asignado")
     if usuario.rol == Rol.VENDEDOR:
         empleado = empleado_de(usuario)
-        return qs.filter(vendedor=empleado, estado=Estado.BORRADOR) if empleado else qs.none()
+        if not empleado:
+            return qs.none()
+        return qs.filter(Q(vendedor=empleado) | Q(ayudado_por=empleado), estado=Estado.BORRADOR)
     return qs
 
 
 def formulario_editable(usuario, formulario) -> bool:
+    """Borrador propio, o uno que el usuario está llenando como ayuda para otro asesor."""
     return (formulario.estado == Estado.BORRADOR and es_vendedor(usuario)
-            and formulario.vendedor_id == empleado_de(usuario).pk and usuario.has_perm("ventas.change_formulariodami"))
+            and empleado_de(usuario).pk in (formulario.vendedor_id, formulario.ayudado_por_id)
+            and usuario.has_perm("ventas.change_formulariodami"))
 
 
 def _notificar(usuarios, *, titulo, mensaje="", url="", tipo=Notificacion.Tipo.FORMULARIO_DAMI):
@@ -113,7 +117,12 @@ def guardar_cliente(datos: dict) -> Cliente:
 
 # --------------------------------------------------------------------------- formulario DAMI (SCRUM-38, 40, 41)
 @transaction.atomic
-def guardar_formulario(usuario, datos: dict, formulario: FormularioDAMI | None = None, *, enviar: bool) -> FormularioDAMI:
+def guardar_formulario(usuario, datos: dict, formulario: FormularioDAMI | None = None, *, enviar: bool,
+                       para=None) -> FormularioDAMI:
+    """
+    `para`: el vendedor dueño del cliente cuando el usuario llena el DAMI como ayuda (ver `ayuda_aceptada`).
+    Entonces el DAMI es de `para` (su hoja de producción y sus ventas) y queda registrado quién lo llenó.
+    """
     empleado = empleado_de(usuario)
     if not es_vendedor(usuario):
         raise PermissionDenied("Solo los vendedores registran formularios DAMI.")
@@ -121,7 +130,9 @@ def guardar_formulario(usuario, datos: dict, formulario: FormularioDAMI | None =
         raise ValidationError("Este formulario ya no se puede modificar.")
 
     cliente = guardar_cliente(datos)
-    formulario = formulario or FormularioDAMI(vendedor=empleado)
+    if formulario is None:
+        ayuda = para is not None and para.pk != empleado.pk
+        formulario = FormularioDAMI(vendedor=para if ayuda else empleado, ayudado_por=empleado if ayuda else None)
     formulario.cliente = cliente
     formulario.base_comercial = datos.get("base_comercial")
     formulario.observaciones = (datos.get("observaciones") or "").strip()
@@ -150,7 +161,8 @@ def enviar_formulario(usuario, formulario: FormularioDAMI) -> FormularioDAMI:
     _notificar(
         usuarios_con_rol(Rol.ENCARGADO_CIERRE),
         titulo=f"Nuevo DAMI para cierre: {formulario} · {formulario.cliente.identificacion}",
-        mensaje=f"{tarjeta.get_marca_display()} · {tarjeta.banco} · asesor {formulario.vendedor}",
+        mensaje=f"{tarjeta.get_marca_display()} · {tarjeta.banco} · asesor {formulario.vendedor}"
+                + (f" (lo llenó {formulario.ayudado_por} como ayuda)" if formulario.ayudado_por_id else ""),
         url=reverse("cierre:formulario", args=[formulario.pk]),
     )
     return formulario
@@ -646,7 +658,9 @@ def datos_dami_de_contacto(contacto: RegistroBase) -> dict:
 
 
 def contactos_del_vendedor(empleado):
-    return RegistroBase.objects.filter(vendedor=empleado).select_related("base")
+    """Sus contactos y los de otros asesores en los que aceptó ayudar (se muestran como «cliente de»)."""
+    ayudando = SolicitudAyuda.objects.filter(ayudante=empleado, estado=SolicitudAyuda.Estado.ACEPTADA).values("contacto_id")
+    return RegistroBase.objects.filter(Q(vendedor=empleado) | Q(pk__in=ayudando)).select_related("base", "vendedor")
 
 
 @transaction.atomic
@@ -654,7 +668,9 @@ def categorizar(usuario, registro_id: int, estado: str) -> RegistroBase:
     """El vendedor marca a su cliente; puede corregirlo o devolverlo a pendiente."""
     if estado not in RegistroBase.Estado.values:
         raise ValidationError("Categoría no válida.")
-    registro = RegistroBase.objects.select_for_update().filter(pk=registro_id, vendedor=empleado_de(usuario)).first()
+    empleado = empleado_de(usuario)
+    visibles = contactos_del_vendedor(empleado).values("pk") if empleado else RegistroBase.objects.none()
+    registro = RegistroBase.objects.select_for_update().filter(pk=registro_id, pk__in=visibles).first()
     if registro is None or not es_vendedor(usuario):
         raise PermissionDenied("Ese contacto no es suyo.")
     registro.estado = estado
@@ -797,3 +813,98 @@ def mis_estadisticas(empleado, meses: int = 6, hoy: date | None = None) -> dict:
         "promedio_3": est.promedio_3, "meses": meses, "hoy": hoy,
         "tiene_datos": any(m.enviados for m in est.serie),
     }
+
+
+# --------------------------------------------------------------------------- ayuda entre asesores con un contacto
+def _nombre(empleado) -> str:
+    return f"{empleado.nombres} {empleado.apellidos}".strip()
+
+
+def asesores_para_ayuda(empleado):
+    """A quién se le puede pedir ayuda: los demás vendedores activos."""
+    from apps.cierre.servicios import vendedores_activos
+
+    return vendedores_activos().exclude(pk=empleado.pk)
+
+
+def ayuda_aceptada(empleado, contacto_id) -> SolicitudAyuda | None:
+    """La ayuda aceptada por `empleado` para ese contacto (le permite gestionarlo y llenar el DAMI a nombre del dueño)."""
+    return (SolicitudAyuda.objects.select_related("solicitante", "contacto")
+            .filter(ayudante=empleado, contacto_id=contacto_id, estado=SolicitudAyuda.Estado.ACEPTADA).first())
+
+
+@transaction.atomic
+def pedir_ayuda(usuario, contacto_id: int, ayudante_id, mensaje: str = "") -> SolicitudAyuda:
+    from .forms import sin_numero_de_tarjeta
+
+    empleado = empleado_de(usuario)
+    if not es_vendedor(usuario):
+        raise PermissionDenied("Solo los vendedores piden ayuda con sus contactos.")
+    contacto = RegistroBase.objects.select_for_update().filter(pk=contacto_id, vendedor=empleado).first()
+    if contacto is None:
+        raise PermissionDenied("Ese contacto no es suyo.")
+    if contacto.estado == RegistroBase.Estado.DAMI_SACADO:
+        raise ValidationError("Ese cliente ya tiene el DAMI sacado.")
+    ayudante = asesores_para_ayuda(empleado).filter(pk=ayudante_id if str(ayudante_id).isdigit() else 0).first()
+    if ayudante is None:
+        raise ValidationError("Elija el asesor al que le pide ayuda.")
+    if SolicitudAyuda.objects.filter(contacto=contacto, estado__in=SolicitudAyuda.ACTIVAS).exists():
+        raise ValidationError("Ese contacto ya tiene una ayuda pedida.")
+    mensaje = sin_numero_de_tarjeta(" ".join((mensaje or "").split()))[:500]
+    solicitud = SolicitudAyuda.objects.create(contacto=contacto, solicitante=empleado, ayudante=ayudante, mensaje=mensaje)
+    if ayudante.usuario_id:
+        _notificar([ayudante.usuario], titulo=f"{_nombre(empleado)} te pide ayuda con un cliente",
+                   mensaje=f"{contacto.nombre or contacto.numero} · {contacto.ciudad or contacto.base.nombre}" + (f" — «{mensaje}»" if mensaje else ""),
+                   url=reverse("ventas:mis_contactos") + "#ayudas", tipo=Notificacion.Tipo.AYUDA_CONTACTO)
+    return solicitud
+
+
+@transaction.atomic
+def responder_ayuda(usuario, solicitud_id: int, aceptar: bool) -> SolicitudAyuda:
+    empleado = empleado_de(usuario)
+    solicitud = (SolicitudAyuda.objects.select_for_update(of=("self",)).select_related("contacto", "solicitante__usuario")
+                 .filter(pk=solicitud_id, ayudante=empleado).first() if empleado else None)
+    if solicitud is None or not es_vendedor(usuario):
+        raise PermissionDenied("Esa petición de ayuda no es para usted.")
+    if solicitud.estado != SolicitudAyuda.Estado.PENDIENTE:
+        raise ValidationError("Esa petición ya no está pendiente.")
+    solicitud.estado = SolicitudAyuda.Estado.ACEPTADA if aceptar else SolicitudAyuda.Estado.RECHAZADA
+    solicitud.respondida_en = timezone.now()
+    solicitud.save(update_fields=["estado", "respondida_en", "actualizado_en"])
+    cliente = solicitud.contacto.nombre or solicitud.contacto.numero
+    if solicitud.solicitante.usuario_id:
+        _notificar([solicitud.solicitante.usuario],
+                   titulo=f"{_nombre(empleado)} {'aceptó ayudarte' if aceptar else 'no puede ayudarte'} con {cliente}",
+                   mensaje="Lo verá como «cliente de» usted; si saca el DAMI, queda a su nombre." if aceptar
+                   else "Puede pedirle ayuda a otro asesor.",
+                   url=reverse("ventas:mis_contactos"), tipo=Notificacion.Tipo.AYUDA_CONTACTO)
+    return solicitud
+
+
+@transaction.atomic
+def cancelar_ayuda(usuario, solicitud_id: int) -> SolicitudAyuda:
+    """Quien pidió la ayuda la retira (pendiente o ya aceptada)."""
+    empleado = empleado_de(usuario)
+    solicitud = (SolicitudAyuda.objects.select_for_update(of=("self",)).select_related("contacto", "ayudante__usuario")
+                 .filter(pk=solicitud_id, solicitante=empleado).first() if empleado else None)
+    if solicitud is None:
+        raise PermissionDenied("Esa petición de ayuda no es suya.")
+    if solicitud.estado not in SolicitudAyuda.ACTIVAS:
+        raise ValidationError("Esa petición ya no está en curso.")
+    solicitud.estado = SolicitudAyuda.Estado.CANCELADA
+    solicitud.save(update_fields=["estado", "actualizado_en"])
+    if solicitud.ayudante.usuario_id:
+        _notificar([solicitud.ayudante.usuario],
+                   titulo=f"{_nombre(empleado)} ya no necesita ayuda con {solicitud.contacto.nombre or solicitud.contacto.numero}",
+                   url=reverse("ventas:mis_contactos"), tipo=Notificacion.Tipo.AYUDA_CONTACTO)
+    return solicitud
+
+
+def ayudas_de(empleado) -> dict:
+    """Para «Mis contactos»: peticiones que le hicieron (pendientes) y la ayuda en curso de cada contacto que ve."""
+    pendientes = (SolicitudAyuda.objects.filter(ayudante=empleado, estado=SolicitudAyuda.Estado.PENDIENTE)
+                  .select_related("contacto__base", "solicitante").order_by("creado_en"))
+    en_curso = {s.contacto_id: s for s in SolicitudAyuda.objects.filter(estado__in=SolicitudAyuda.ACTIVAS)
+                .filter(Q(solicitante=empleado) | Q(ayudante=empleado, estado=SolicitudAyuda.Estado.ACEPTADA))
+                .select_related("ayudante", "solicitante")}
+    return {"pendientes": list(pendientes), "en_curso": en_curso}

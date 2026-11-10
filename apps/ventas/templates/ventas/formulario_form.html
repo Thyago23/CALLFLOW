@@ -20,6 +20,13 @@
 {# Mismo formato que el DAMI en papel («Formulario de ventas»), con los campos que tiene el sistema. #}
 <form method="post" novalidate id="formulario-dami" class="formulario-empleado dami-papel" autocomplete="off">
   {% csrf_token %}
+  {% if contacto %}<input type="hidden" name="contacto" value="{{ contacto.pk }}">{% endif %}
+  {% if ayuda or ayudante %}
+  <div class="alert alert-primary d-flex gap-2 align-items-start papel-alerta" role="note">
+    <i class="bi bi-person-raised-hand fs-5" aria-hidden="true"></i>
+    <div>Estás llenando este DAMI <strong>como ayuda</strong>: es un cliente de <strong>{{ asesor }}</strong>. El DAMI, la hoja de producción y la venta quedan a su nombre{% if ayudante %} (lo está llenando {{ ayudante.nombres }} {{ ayudante.apellidos }}){% endif %}.</div>
+  </div>
+  {% endif %}
   <div class="papel-hoja">
     <header class="papel-cabecera">
       <img src="{% estatico 'img/logo-multivisa.png' %}" alt="" class="papel-logo" width="640" height="621">

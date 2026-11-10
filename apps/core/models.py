@@ -163,6 +163,7 @@ class Notificacion(models.Model):
         NOMINA = "NOMINA", "Nómina"
         ASISTENCIA = "ASISTENCIA", "Asistencia"
         CONTACTOS_REPETIDOS = "CONTACTOS_REPETIDOS", "Contactos repetidos"
+        AYUDA_CONTACTO = "AYUDA_CONTACTO", "Ayuda con un contacto"
 
     destinatario = models.ForeignKey(Usuario, on_delete=models.CASCADE, related_name="notificaciones")
     tipo = models.CharField(max_length=20, choices=Tipo.choices, default=Tipo.GENERAL)
@@ -199,6 +200,7 @@ class Notificacion(models.Model):
         Tipo.NOMINA: ("cash-coin", "marca"),
         Tipo.ASISTENCIA: ("clock-history", "alerta"),
         Tipo.CONTACTOS_REPETIDOS: ("people", "alerta"),
+        Tipo.AYUDA_CONTACTO: ("person-raised-hand", "marca"),
     }
 
     @property

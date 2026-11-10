@@ -1058,3 +1058,12 @@ img.avatar.con-foto { object-fit: cover; padding: 0; background: var(--bs-second
 /* Formulario DAMI en papel: la hoja sigue blanca (como el papel); la barra de acciones se adapta. */
 [data-bs-theme="dark"] .dami-acciones { background: rgba(33, 37, 41, 0.95); border-color: var(--bs-border-color); box-shadow: 0 -.4rem 1.2rem rgba(0, 0, 0, .4); }
 [data-bs-theme="dark"] .papel-hoja { border-color: #3d444b; }
+
+/* Ayuda entre asesores con un contacto */
+.badge-ayuda { background: var(--cf-primario-suave); color: var(--cf-primario); font-weight: 600; vertical-align: middle; }
+.contacto-base .ayuda-contacto { grid-column: 1 / -1; }
+.contacto-base .ayuda-contacto:not(:has(*)) { display: none; }
+.pedir-ayuda > summary { display: inline-block; cursor: pointer; color: var(--cf-primario); list-style: none; }
+.pedir-ayuda > summary::-webkit-details-marker { display: none; }
+.pedir-ayuda[open] { padding: .6rem .75rem; border-radius: .5rem; background: var(--bs-tertiary-bg); }
+.ayudas-pendientes { border-color: #b6c6dc; border-left: 4px solid var(--cf-primario); }

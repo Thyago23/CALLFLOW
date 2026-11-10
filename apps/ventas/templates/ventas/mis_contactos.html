@@ -11,6 +11,7 @@
   <a href="{% url 'ventas:bases' %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-database me-1" aria-hidden="true"></i>Mis bases y solicitudes</a>
 </div>
 
+{% include "ventas/_ayudas_pendientes.html" %}
 {% include "ventas/_resumen_contactos.html" %}
 
 <form method="get" class="row g-2 align-items-end mb-3">

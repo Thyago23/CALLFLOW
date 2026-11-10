@@ -30,5 +30,8 @@ urlpatterns = [
     path("mis-contactos/", views.mis_contactos, name="mis_contactos"),
     path("mis-estadisticas/", views.mis_estadisticas, name="mis_estadisticas"),
     path("mis-contactos/<int:pk>/categorizar/", views.contacto_categorizar, name="contacto_categorizar"),
+    path("mis-contactos/<int:pk>/pedir-ayuda/", views.pedir_ayuda, name="pedir_ayuda"),
+    path("ayudas/<int:pk>/responder/", views.responder_ayuda, name="responder_ayuda"),
+    path("ayudas/<int:pk>/cancelar/", views.cancelar_ayuda, name="cancelar_ayuda"),
     path("bases/solicitudes/<int:pk>/responder/", views.responder_solicitud, name="responder_solicitud"),
 ]

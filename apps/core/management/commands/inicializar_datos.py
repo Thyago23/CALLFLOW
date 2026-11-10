@@ -76,6 +76,7 @@ PERMISOS_POR_ROL = {
         "ventas.registroproduccion": ["view", "change"],  # escribe la aprobación en su hoja
         "ventas.solicitudbase": ["view", "add"],
         "ventas.registrobase": ["view", "change"],  # categoriza los clientes de sus bases
+        "ventas.solicitudayuda": ["view", "add", "change"],  # pide ayuda a otro asesor con un contacto, o la da
         "agenda": ["view", "add", "change", "delete"],
     },
     Rol.ENCARGADO_CIERRE: {

@@ -85,13 +85,20 @@ def _form_dami(request, data=None, formulario=None):
     return FormularioDAMIForm(data, tarjeta_guardada=getattr(formulario, "tarjeta", None) if formulario else None)
 
 
-def _guardar(request, form, formulario=None):
+def _guardar(request, form, formulario=None, para=None):
     enviar = "enviar" in request.POST
     try:
-        f = servicios.guardar_formulario(request.user, form.cleaned_data, formulario, enviar=enviar)
+        f = servicios.guardar_formulario(request.user, form.cleaned_data, formulario, enviar=enviar, para=para)
     except ValidationError as error:
         form.add_error("numero_tarjeta" if "tarjeta" in " ".join(error.messages) else None, error)
         return None
+    if f.ayudado_por_id and f.ayudado_por_id == servicios.empleado_de(request.user).pk:
+        dueno = f"{f.vendedor.nombres} {f.vendedor.apellidos}"
+        if enviar:
+            messages.success(request, f"{f} enviado a cierre a nombre de {dueno}: cuenta en su hoja de producción.")
+            return redirect("ventas:mis_contactos")
+        messages.success(request, f"{f} guardado como borrador a nombre de {dueno}.")
+        return redirect("ventas:formulario_detalle", pk=f.pk)
     if enviar:
         messages.success(request, f"{f} enviado a los encargados de cierre. Quedó registrado en su hoja de producción.")
         return redirect("ventas:hoja")
@@ -104,17 +111,24 @@ def _guardar(request, form, formulario=None):
 def formulario_nuevo(request):
     empleado = _solo_vendedores(request)
     form = _form_dami(request, request.POST or None)
-    contacto_id = request.GET.get("contacto", "")
-    if request.method == "GET" and contacto_id.isdigit():
-        # Desde «Mis contactos»: se prellenan los datos del cliente de la base (solo si el contacto es suyo).
-        contacto = RegistroBase.objects.filter(pk=int(contacto_id), vendedor=empleado).first()
-        if contacto:
-            form.initial.update(servicios.datos_dami_de_contacto(contacto))
+    # Desde «Mis contactos»: se prellenan los datos del cliente (si el contacto es suyo o si aceptó ayudar con él).
+    contacto_id = (request.POST.get("contacto") if request.method == "POST" else request.GET.get("contacto")) or ""
+    contacto = ayuda = None
+    if contacto_id.isdigit():
+        contacto = RegistroBase.objects.select_related("vendedor").filter(pk=int(contacto_id), vendedor=empleado).first()
+        if contacto is None and (ayuda := servicios.ayuda_aceptada(empleado, int(contacto_id))):
+            contacto = ayuda.contacto
+    if request.method == "GET" and contacto:
+        form.initial.update(servicios.datos_dami_de_contacto(contacto))
     if request.method == "POST" and form.is_valid():
-        respuesta = _guardar(request, form)
+        # Si es una ayuda, el DAMI queda a nombre del asesor que pidió la ayuda (dueño del cliente).
+        respuesta = _guardar(request, form, para=ayuda.solicitante if ayuda else None)
         if respuesta:
             return respuesta
-    return render(request, "ventas/formulario_form.html", {"form": form, "nuevo": True})
+    return render(request, "ventas/formulario_form.html", {
+        "form": form, "nuevo": True, "contacto": contacto, "ayuda": ayuda,
+        "asesor": f"{ayuda.solicitante.nombres} {ayuda.solicitante.apellidos}" if ayuda else None,
+    })
 
 
 @login_required
@@ -134,7 +148,12 @@ def formulario_editar(request, pk):
                 return respuesta
     else:
         form = FormularioDAMIForm.desde_formulario(formulario)
-    return render(request, "ventas/formulario_form.html", {"form": form, "nuevo": False, "formulario": formulario})
+    return render(request, "ventas/formulario_form.html", {
+        "form": form, "nuevo": False, "formulario": formulario,
+        "asesor": f"{formulario.vendedor.nombres} {formulario.vendedor.apellidos}",
+        # El aviso «como ayuda» solo lo ve quien lo está llenando para otro (no el dueño del cliente).
+        "ayudante": formulario.ayudado_por if formulario.ayudado_por_id == servicios.empleado_de(request.user).pk else None,
+    })
 
 
 @login_required
@@ -557,10 +576,20 @@ def mis_contactos(request):
     if texto:
         qs = qs.filter(Q(nombre__icontains=texto) | Q(cedula__icontains=texto) | Q(numero__icontains=texto) | Q(ciudad__icontains=texto))
     pagina = Paginator(qs.order_by("base__nombre", "fila"), 30).get_page(request.GET.get("pagina"))
+    ayudas = servicios.ayudas_de(empleado)
+    _anotar_contactos(pagina.object_list, empleado, ayudas["en_curso"])
     return render(request, "ventas/mis_contactos.html", {
         "pagina": pagina, "estado": estado, "base_id": base_id, "q": texto, "estados": RegistroBase.Estado.choices,
+        "ayudas_pendientes": ayudas["pendientes"], "asesores": servicios.asesores_para_ayuda(empleado),
         **_resumen_contactos(empleado),
     })
+
+
+def _anotar_contactos(registros, empleado, en_curso: dict) -> None:
+    """Para cada fila: si es un contacto en el que ayuda («cliente de») y la ayuda en curso, si la hay."""
+    for r in registros:
+        r.es_ayuda = r.vendedor_id != empleado.pk
+        r.ayuda = en_curso.get(r.pk)
 
 
 @login_required
@@ -578,13 +607,16 @@ def contacto_categorizar(request, pk):
     except ValidationError as error:
         return HttpResponse(" ".join(error.messages), status=400)
     if _es_htmx(request):
+        empleado = servicios.empleado_de(request.user)
         filtro = request.POST.get("filtro", "")
         filtro = filtro if filtro in RegistroBase.Estado.values else ""
+        _anotar_contactos([registro], empleado, servicios.ayudas_de(empleado)["en_curso"])
         contexto = {"r": registro, "recien": True, "estado": filtro, "volver": _volver(request, reverse("ventas:mis_contactos")),
-                    "anterior": anterior if anterior != registro.estado else ""}
+                    "anterior": anterior if anterior != registro.estado else "", "asesores": servicios.asesores_para_ayuda(empleado)}
         plantilla = "ventas/_contacto_hecho.html" if filtro and registro.estado != filtro else "ventas/_fila_contacto.html"
         fila = render(request, plantilla, contexto).content.decode()
-        resumen = render(request, "ventas/_resumen_contactos.html", {"oob": True, **_resumen_contactos(registro.vendedor)})
+        # Contadores de quien está viendo la página (no del dueño del contacto, si es una ayuda).
+        resumen = render(request, "ventas/_resumen_contactos.html", {"oob": True, **_resumen_contactos(empleado)})
         return HttpResponse(fila + resumen.content.decode())
     messages.success(request, f"{registro.nombre or registro.numero}: {registro.get_estado_display().lower()}.")
     return redirect(_volver(request, "ventas:mis_contactos"))
@@ -724,3 +756,50 @@ def mis_estadisticas(request):
             resaltar=resaltar, referencia=(promedio, "Tu promedio de 3 meses") if promedio else None),
         "color_dami": graficas.SERIE_1, "color_ventas": graficas.SERIE_2,
     })
+
+
+# --------------------------------------------------------------------------- ayuda entre asesores con un contacto
+@login_required
+@permission_required("ventas.add_solicitudayuda", raise_exception=True)
+@require_POST
+def pedir_ayuda(request, pk):
+    _solo_vendedores(request)
+    try:
+        s = servicios.pedir_ayuda(request.user, pk, request.POST.get("ayudante", ""), request.POST.get("mensaje", ""))
+    except ValidationError as error:
+        messages.error(request, " ".join(error.messages))
+    else:
+        messages.success(request, f"Se le pidió ayuda a {s.ayudante.nombres} {s.ayudante.apellidos} con "
+                                  f"{s.contacto.nombre or s.contacto.numero}. Te avisaremos cuando responda.")
+    return redirect(_volver(request, "ventas:mis_contactos"))
+
+
+@login_required
+@permission_required("ventas.change_solicitudayuda", raise_exception=True)
+@require_POST
+def responder_ayuda(request, pk):
+    _solo_vendedores(request)
+    aceptar = request.POST.get("accion") == "aceptar"
+    try:
+        s = servicios.responder_ayuda(request.user, pk, aceptar)
+    except ValidationError as error:
+        messages.error(request, " ".join(error.messages))
+    else:
+        dueno = f"{s.solicitante.nombres} {s.solicitante.apellidos}"
+        messages.success(request, f"Aceptaste ayudar a {dueno}: el cliente ya está en tu lista como «cliente de {dueno}». "
+                                  "Si sacas el DAMI, queda a su nombre." if aceptar else f"Le avisamos a {dueno} que no puedes ayudar.")
+    return redirect(_volver(request, "ventas:mis_contactos"))
+
+
+@login_required
+@permission_required("ventas.change_solicitudayuda", raise_exception=True)
+@require_POST
+def cancelar_ayuda(request, pk):
+    _solo_vendedores(request)
+    try:
+        servicios.cancelar_ayuda(request.user, pk)
+    except ValidationError as error:
+        messages.error(request, " ".join(error.messages))
+    else:
+        messages.success(request, "Se retiró la petición de ayuda.")
+    return redirect(_volver(request, "ventas:mis_contactos"))

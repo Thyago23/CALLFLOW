@@ -15,7 +15,7 @@
     <h1 class="h3 mb-1">{{ f }}
       <span class="badge estado-dami estado-{{ f.estado|lower }} align-middle fs-6">{{ f.get_estado_display }}</span>
     </h1>
-    <div class="text-body-secondary">Fecha: {{ f.creado_en|date:"d/m/Y" }} · Asesor: {{ f.vendedor }}</div>
+    <div class="text-body-secondary">Fecha: {{ f.creado_en|date:"d/m/Y" }} · Asesor: {{ f.vendedor }}{% if f.ayudado_por %} · lo llenó {{ f.ayudado_por }} como ayuda{% endif %}</div>
   </div>
   {% if editable %}
   <div class="d-flex flex-wrap gap-2">

@@ -152,6 +152,47 @@ class ContactoRepetido(DatosContacto):
         return f"{self.nombre or self.numero} (repetido en {self.base})"
 
 
+class SolicitudAyuda(ModeloBase):
+    """
+    Un vendedor le pide a otro asesor que gestione uno de sus contactos. Si acepta, el ayudante lo ve
+    como «cliente de» quien pidió la ayuda y puede categorizarlo y llenar el DAMI, que queda a nombre
+    de quien pidió la ayuda (su hoja de producción, sus ventas).
+    """
+
+    class Estado(models.TextChoices):
+        PENDIENTE = "PENDIENTE", "Pendiente"
+        ACEPTADA = "ACEPTADA", "Aceptada"
+        RECHAZADA = "RECHAZADA", "Rechazada"
+        CANCELADA = "CANCELADA", "Cancelada"
+
+    ACTIVAS = ("PENDIENTE", "ACEPTADA")
+
+    contacto = models.ForeignKey(RegistroBase, on_delete=models.CASCADE, related_name="ayudas")
+    solicitante = models.ForeignKey("personal.Empleado", on_delete=models.PROTECT, related_name="ayudas_pedidas")
+    ayudante = models.ForeignKey("personal.Empleado", on_delete=models.PROTECT, related_name="ayudas_recibidas")
+    mensaje = models.CharField(max_length=500, blank=True, default="")
+    estado = models.CharField(max_length=10, choices=Estado.choices, default=Estado.PENDIENTE)
+    respondida_en = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = "solicitud de ayuda"
+        verbose_name_plural = "solicitudes de ayuda"
+        ordering = ["-creado_en"]
+        indexes = [models.Index(fields=["ayudante", "estado"], name="ayuda_ayudante_estado_idx")]
+        constraints = [
+            models.CheckConstraint(condition=Q(estado__in=["PENDIENTE", "ACEPTADA", "RECHAZADA", "CANCELADA"]), name="ayuda_estado_valido"),
+            models.CheckConstraint(condition=~Q(solicitante=F("ayudante")), name="ayuda_no_a_si_mismo"),
+            models.CheckConstraint(condition=Q(estado__in=["PENDIENTE", "CANCELADA"]) | Q(respondida_en__isnull=False),
+                                   name="ayuda_respondida_con_fecha"),
+            # Un contacto tiene a lo sumo una ayuda en curso (pendiente o aceptada).
+            models.UniqueConstraint(fields=["contacto"], condition=Q(estado__in=["PENDIENTE", "ACEPTADA"]), name="ayuda_una_activa_por_contacto",
+                                    violation_error_message="Ese contacto ya tiene una ayuda pedida."),
+        ]
+
+    def __str__(self):
+        return f"Ayuda de {self.ayudante} a {self.solicitante} · {self.contacto}"
+
+
 class AsignacionBase(models.Model):
     base = models.ForeignKey(BaseComercial, on_delete=models.PROTECT, related_name="asignaciones")
     vendedor = models.ForeignKey("personal.Empleado", on_delete=models.PROTECT, related_name="bases_asignadas")
@@ -277,6 +318,10 @@ class FormularioDAMI(ModeloBase):
     encargado_asignado = models.ForeignKey(
         "personal.Empleado", on_delete=models.PROTECT, null=True, blank=True, related_name="formularios_asignados"
     )
+    ayudado_por = models.ForeignKey(
+        "personal.Empleado", on_delete=models.PROTECT, null=True, blank=True, related_name="formularios_ayudados",
+        help_text="Asesor que lo llenó como ayuda. El DAMI y la venta son del vendedor que pidió la ayuda.",
+    )
     enviado_en = models.DateTimeField(null=True, blank=True)
     asignado_en = models.DateTimeField(null=True, blank=True)
     observaciones = models.TextField(blank=True, default="")
@@ -307,6 +352,10 @@ class FormularioDAMI(ModeloBase):
             models.CheckConstraint(
                 condition=Q(encargado_asignado__isnull=True) | ~Q(encargado_asignado=F("vendedor")),
                 name="dami_encargado_distinto_vendedor",
+            ),
+            models.CheckConstraint(
+                condition=Q(ayudado_por__isnull=True) | ~Q(ayudado_por=F("vendedor")),
+                name="dami_ayudante_distinto_vendedor",
             ),
         ]
 
