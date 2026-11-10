@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% load humanize_cf %}
+{% block titulo %}Chip {{ chip.numero }}{% endblock %}
+{% block contenido %}
+<nav aria-label="Ruta" class="mb-2">
+  <ol class="breadcrumb small mb-0">
+    <li class="breadcrumb-item"><a href="{% url 'chips:lista' %}">Registro de chips</a></li>
+    <li class="breadcrumb-item active" aria-current="page">{{ chip.numero }}</li>
+  </ol>
+</nav>
+<div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
+  <div>
+    <h1 class="h3 mb-0 font-monospace">{{ chip.numero }}</h1>
+    <p class="text-body-secondary small mb-0">{{ chip.get_operadora_display }} · {% include "chips/_estado.html" %}</p>
+  </div>
+  <div class="d-flex flex-wrap gap-2">
+    {% if chip.estado != "BAJA" %}<a href="{% url 'chips:reposicion' chip.pk %}" class="btn btn-primary"><i class="bi bi-arrow-repeat me-1" aria-hidden="true"></i>Registrar reposición</a>{% endif %}
+    <a href="{% url 'chips:editar' chip.pk %}" class="btn btn-outline-secondary"><i class="bi bi-pencil me-1" aria-hidden="true"></i>Editar</a>
+  </div>
+</div>
+
+<div class="row g-4">
+  <div class="col-lg-4">
+    <section class="card">
+      <div class="card-body">
+        <h2 class="h6 mb-3">Datos del chip</h2>
+        <dl class="row small mb-0">
+          <dt class="col-5 text-body-secondary fw-normal">Serie (ICCID)</dt><dd class="col-7">{{ chip.iccid|default:"—" }}</dd>
+          <dt class="col-5 text-body-secondary fw-normal">Asignado a</dt><dd class="col-7">{{ chip.asignado_a|default:"Sin asignar" }}</dd>
+          <dt class="col-5 text-body-secondary fw-normal">Registrado</dt><dd class="col-7">{{ chip.creado_en|date:"d/m/Y" }}{% if chip.registrado_por %} por {{ chip.registrado_por.get_full_name }}{% endif %}</dd>
+          {% if chip.observacion %}<dt class="col-5 text-body-secondary fw-normal">Observación</dt><dd class="col-7">{{ chip.observacion }}</dd>{% endif %}
+        </dl>
+      </div>
+    </section>
+  </div>
+  <div class="col-lg-8">
+    <section class="card">
+      <div class="card-header bg-body"><h2 class="h6 mb-0">Historial de reposiciones y cambios de número</h2></div>
+      {% if reposiciones %}
+      <div class="table-responsive">
+        <table class="table align-middle mb-0">
+          <thead><tr><th scope="col">Fecha</th><th scope="col">Motivo</th><th scope="col">Número</th><th scope="col" class="text-end">Costo</th></tr></thead>
+          <tbody>
+            {% for r in reposiciones %}
+            <tr>
+              <td class="text-nowrap">{{ r.fecha|date:"d/m/Y" }}</td>
+              <td>{{ r.get_motivo_display }}{% if r.observacion %}<div class="small text-body-secondary">{{ r.observacion|linebreaksbr }}</div>{% endif %}<div class="small text-body-secondary">Registró {{ r.registrado_por.get_full_name|default:"—" }}</div></td>
+              <td class="text-nowrap">
+                {% if r.cambio_numero %}<span class="font-monospace"><del class="text-body-secondary">{{ r.numero_anterior }}</del> <i class="bi bi-arrow-right" aria-hidden="true"></i> <strong>{{ r.numero_nuevo }}</strong></span><div><span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle">Número cambiado</span></div>
+                {% else %}<span class="font-monospace">{{ r.numero_nuevo }}</span> <span class="small text-body-secondary">(mismo número)</span>{% endif %}
+              </td>
+              <td class="text-end text-nowrap">{% if r.costo is not None %}${{ r.costo|dinero }}{% else %}—{% endif %}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="card-body text-center text-body-secondary py-4">Este chip no tiene reposiciones.</div>
+      {% endif %}
+    </section>
+  </div>
+</div>
+{% endblock %}

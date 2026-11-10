@@ -51,6 +51,7 @@ INSTALLED_APPS = [
     "apps.documentos",
     "apps.asistencia",
     "apps.inventario",
+    "apps.chips",
     "apps.agenda",
     # 4.2 Módulo de nómina
     "apps.nomina",
@@ -140,6 +141,15 @@ ASISTENCIA_DIAS_REVISION_SALIDA = 7
 # se crea la novedad «Exceso en almuerzo» con todos los minutos de más y se avisa a los administradores.
 ASISTENCIA_ALMUERZO_MINUTOS = 60
 ASISTENCIA_ALMUERZO_TOLERANCIA_MINUTOS = 5
+# Breaks: minutos de gracia después del fin antes de contar el regreso como tarde (0 = sin gracia).
+ASISTENCIA_BREAK_TOLERANCIA_MINUTOS = 0
+
+# Reporte de reposiciones de chips: quiénes firman (nombre, cargo), en ese orden.
+CHIPS_FIRMAS_REPORTE = [
+    ("Raul Tapia", "Dueño"),
+    ("Diego Mendoza", "Gerente de Talento Humano y Marketing"),
+    ("Marlon Rosero de Mendoza", "Coordinador"),
+]
 
 LANGUAGE_CODE = "es-ec"
 TIME_ZONE = "America/Guayaquil"

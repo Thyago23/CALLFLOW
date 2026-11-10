@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block titulo %}Breaks{% endblock %}
+{% block contenido %}
+<div class="mb-3">
+  <h1 class="h3 mb-0">Breaks</h1>
+  <p class="text-body-secondary small mb-0">Da un break a los vendedores: les llega un aviso, el tiempo corre desde que lo envía y cada uno marca «Volví del break».</p>
+</div>
+
+<div class="row g-4">
+  <div class="col-lg-5">
+    <section class="card" aria-labelledby="titulo-dar-break">
+      <div class="card-body">
+        <h2 class="h6 mb-3" id="titulo-dar-break"><i class="bi bi-send me-1" aria-hidden="true"></i>Dar un break</h2>
+        {% if actual %}
+        <div class="alert alert-warning small mb-3" role="status">Hay un break en curso hasta las <strong>{{ actual.descanso.fin|time:"H:i" }}</strong>. Podrá dar otro cuando termine.</div>
+        {% endif %}
+        <form method="post" data-confirmar="Les llegará un aviso a {{ participantes|length }} vendedor{{ participantes|length|pluralize:'es' }} y el tiempo empieza a correr ahora."
+              data-confirmar-titulo="¿Dar el break?" data-confirmar-boton="Dar break" data-confirmar-icono="cup-straw" data-confirmar-tono="primary">
+          {% csrf_token %}
+          <fieldset {% if actual or not participantes %}disabled{% endif %}>
+            <label class="form-label" for="minutos-break">Duración</label>
+            <div class="d-flex flex-wrap gap-2 mb-2" role="group" aria-label="Duraciones rápidas">
+              {% for m in rapidas %}<button type="button" class="btn btn-outline-primary" data-minutos="{{ m }}">{{ m }} min</button>{% endfor %}
+            </div>
+            <div class="input-group mb-3">
+              <input type="number" class="form-control" id="minutos-break" name="minutos" min="1" max="120" value="15" required>
+              <span class="input-group-text">minutos</span>
+            </div>
+            <label class="form-label" for="mensaje-break">Mensaje <span class="text-body-secondary small">(opcional)</span></label>
+            <input type="text" class="form-control mb-3" id="mensaje-break" name="mensaje" maxlength="150" placeholder="Ej.: ¡Buen trabajo, equipo! Tómense un respiro.">
+            <button type="submit" class="btn btn-primary w-100"><i class="bi bi-cup-straw me-1" aria-hidden="true"></i>Dar break a los vendedores</button>
+          </fieldset>
+        </form>
+        <hr>
+        <p class="small fw-semibold mb-1">Les llegará a {{ participantes|length }} vendedor{{ participantes|length|pluralize:"es" }} con la jornada abierta:</p>
+        {% if participantes %}
+        <p class="small text-body-secondary mb-0">{% for e in participantes %}{{ e.nombres }} {{ e.apellidos }}{% if not forloop.last %}, {% endif %}{% endfor %}</p>
+        {% else %}
+        <p class="small text-body-secondary mb-0">Ninguno en este momento (los que están en almuerzo, ausentes o ya finalizaron su día no reciben el break).</p>
+        {% endif %}
+      </div>
+    </section>
+  </div>
+  <div class="col-lg-7">
+    <div id="panel-breaks" hx-get="{% url 'asistencia:breaks_panel' %}" hx-trigger="every 5s" hx-swap="innerHTML">
+      {% include "asistencia/_breaks_panel.html" %}
+    </div>
+  </div>
+</div>
+<script>
+  document.querySelectorAll("[data-minutos]").forEach(function (b) {
+    b.addEventListener("click", function () { document.getElementById("minutos-break").value = b.dataset.minutos; });
+  });
+</script>
+{% endblock %}

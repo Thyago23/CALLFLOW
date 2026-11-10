@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% load humanize_cf %}
+{% block titulo %}Reporte de reposiciones de chips{% endblock %}
+{% block contenido %}
+<div class="d-print-none">
+  {% include "chips/_subnav.html" with seccion="reporte" %}
+  <form method="get" class="row g-2 align-items-end mb-4">
+    <div class="col-6 col-md-3">
+      <label class="form-label small mb-1" for="rep-desde">Desde</label>
+      <input type="date" id="rep-desde" name="desde" value="{{ desde|date:'Y-m-d' }}" class="form-control">
+    </div>
+    <div class="col-6 col-md-3">
+      <label class="form-label small mb-1" for="rep-hasta">Hasta</label>
+      <input type="date" id="rep-hasta" name="hasta" value="{{ hasta|date:'Y-m-d' }}" class="form-control">
+    </div>
+    <div class="col-md-3">
+      <label class="form-label small mb-1" for="rep-operadora">Operadora</label>
+      <select id="rep-operadora" name="operadora" class="form-select">
+        <option value="">Todas</option>
+        {% for valor, nombre in operadoras %}<option value="{{ valor }}" {% if valor == operadora %}selected{% endif %}>{{ nombre }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="col-md-3 d-flex gap-2 justify-content-md-end">
+      <button type="submit" class="btn btn-outline-secondary">Actualizar</button>
+      <button type="button" class="btn btn-primary" onclick="window.print()"><i class="bi bi-printer me-1" aria-hidden="true"></i>Imprimir</button>
+    </div>
+  </form>
+</div>
+
+<section class="reporte-impreso">
+  {% include "nomina/_encabezado_reporte.html" with titulo="Reporte de reposiciones de chips" subtitulo=rango_texto %}
+  <div class="resumen-caja">
+    <div><span>Reposiciones</span><strong>{{ reporte.total }}</strong></div>
+    <div><span>Con cambio de número</span><strong>{{ reporte.con_cambio_numero }}</strong></div>
+    <div><span>Mismo número</span><strong>{{ reporte.mismo_numero }}</strong></div>
+    <div class="saldo-final"><span>Costo total</span><strong>${{ reporte.costo_total|dinero }}</strong></div>
+  </div>
+  <table class="table table-sm table-bordered align-middle tabla-reporte">
+    <thead>
+      <tr>
+        <th scope="col" class="text-center">N.°</th>
+        <th scope="col">Fecha</th>
+        <th scope="col">Número anterior</th>
+        <th scope="col">Número nuevo</th>
+        <th scope="col" class="text-center">¿Cambió el número?</th>
+        <th scope="col">Operadora</th>
+        <th scope="col">Motivo</th>
+        <th scope="col">Asignado a</th>
+        <th scope="col" class="text-end">Costo</th>
+        <th scope="col">Observación</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in reporte.reposiciones %}
+      <tr>
+        <td class="text-center">{{ forloop.counter }}</td>
+        <td class="text-nowrap">{{ r.fecha|date:"d/m/Y" }}</td>
+        <td class="text-nowrap font-monospace">{{ r.numero_anterior }}</td>
+        <td class="text-nowrap font-monospace">{% if r.cambio_numero %}<strong>{{ r.numero_nuevo }}</strong>{% else %}{{ r.numero_nuevo }}{% endif %}</td>
+        <td class="text-center">{% if r.cambio_numero %}<strong>Sí</strong>{% else %}No{% endif %}</td>
+        <td>{{ r.get_operadora_display }}</td>
+        <td>{{ r.get_motivo_display }}</td>
+        <td>{{ r.chip.asignado_a|default:"—" }}</td>
+        <td class="text-end text-nowrap">{% if r.costo is not None %}${{ r.costo|dinero }}{% else %}—{% endif %}</td>
+        <td>{{ r.observacion|default:"—" }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="10" class="text-center py-3">Sin reposiciones en este periodo.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <div class="firmas-reporte firmas-chips">
+    {% for nombre, cargo in reporte.firmas %}
+    <div><span class="linea-firma"></span><strong>{{ nombre }}</strong><br><small>{{ cargo }}</small></div>
+    {% endfor %}
+  </div>
+  <p class="pie-reporte">Generado por CALLFLOW el {{ generado_en|date:"d/m/Y H:i" }} por {{ user.get_full_name|default:user.username }}.</p>
+</section>
+{% endblock %}

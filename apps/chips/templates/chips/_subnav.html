@@ -1,0 +1,13 @@
+<div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
+  <div>
+    <h1 class="h3 mb-0">Registro de chips</h1>
+    <p class="text-body-secondary small mb-0">Chips del call, reposiciones y cambios de número.</p>
+  </div>
+  <div class="d-flex flex-wrap gap-2">
+    <a href="{% url 'chips:crear' %}" class="btn btn-primary"><i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Nuevo chip</a>
+  </div>
+</div>
+<ul class="nav nav-underline mb-4 subnav-modulo">
+  <li class="nav-item"><a class="nav-link {% if seccion == 'chips' %}active{% endif %}" href="{% url 'chips:lista' %}"><i class="bi bi-sim me-1" aria-hidden="true"></i>Chips</a></li>
+  <li class="nav-item"><a class="nav-link {% if seccion == 'reporte' %}active{% endif %}" href="{% url 'chips:reporte' %}"><i class="bi bi-file-earmark-text me-1" aria-hidden="true"></i>Reporte de reposiciones</a></li>
+</ul>

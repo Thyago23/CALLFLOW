@@ -155,3 +155,54 @@ class NovedadAsistencia(ModeloBase):
 
     def __str__(self):
         return f"{self.get_tipo_display()} · {self.empleado} · {self.fecha}"
+
+
+class Descanso(ModeloBase):
+    """
+    Break que da el coordinador a los vendedores con la jornada abierta. El tiempo corre desde que
+    lo envía (`inicio`) hasta `fin`; cada vendedor marca «Volví del break» y queda su regreso.
+    """
+
+    duracion_minutos = models.PositiveSmallIntegerField("duración (minutos)")
+    mensaje = models.CharField(max_length=150, blank=True, default="")
+    inicio = models.DateTimeField()
+    fin = models.DateTimeField()
+    enviado_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+
+    class Meta:
+        verbose_name = "break"
+        verbose_name_plural = "breaks"
+        ordering = ["-inicio"]
+        permissions = [("gestionar_breaks", "Dar breaks a los vendedores")]
+        constraints = [
+            models.CheckConstraint(condition=Q(duracion_minutos__gte=1, duracion_minutos__lte=120), name="descanso_duracion_valida"),
+            models.CheckConstraint(condition=Q(fin__gt=F("inicio")), name="descanso_fin_posterior"),
+        ]
+
+    def __str__(self):
+        return f"Break de {self.duracion_minutos} min · {self.inicio:%d/%m/%Y %H:%M}"
+
+
+class RegresoDescanso(models.Model):
+    """Un vendedor en un break: cuándo marcó que volvió y con cuántos minutos de retraso."""
+
+    descanso = models.ForeignKey(Descanso, on_delete=models.CASCADE, related_name="regresos")
+    empleado = models.ForeignKey("personal.Empleado", on_delete=models.PROTECT, related_name="regresos_descanso")
+    regreso_en = models.DateTimeField(null=True, blank=True)
+    minutos_tarde = models.PositiveIntegerField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = "regreso de break"
+        verbose_name_plural = "regresos de break"
+        constraints = [
+            models.UniqueConstraint(fields=["descanso", "empleado"], name="regreso_descanso_unico"),
+            models.CheckConstraint(condition=Q(regreso_en__isnull=True, minutos_tarde__isnull=True) | Q(regreso_en__isnull=False, minutos_tarde__isnull=False),
+                                   name="regreso_descanso_minutos_con_regreso"),
+        ]
+
+    def __str__(self):
+        return f"{self.empleado} · {self.descanso}"
+
+    @property
+    def tarde(self) -> bool:
+        return bool(self.minutos_tarde)

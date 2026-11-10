@@ -18,6 +18,7 @@ class Modulo:
     permiso: str
     descripcion: str
     url: str | None = None  # None = todavía no implementado
+    exclusivo: bool = False  # solo con el permiso asignado directamente a la cuenta (ni superusuario ni grupos)
 
     @property
     def disponible(self) -> bool:
@@ -58,6 +59,10 @@ MODULOS = [
            "Gestión de cierres, metas mensuales y panel comercial.", url="cierre:bandeja"),
     Modulo("tablero", "Tablero de ventas", "4.4", "trophy", "cierre.view_metamensual",
            "Lo vendido por cada vendedor en el mes, para proyectar en la TV del call.", url="tablero:ventas"),
+    Modulo("chips", "Registro de chips", "4.1", "sim", "chips.gestionar_chips",
+           "Chips del call, reposiciones y cambios de número, con reporte para firmar.", url="chips:lista", exclusivo=True),
+    Modulo("breaks", "Breaks", "4.1", "cup-straw", "asistencia.gestionar_breaks",
+           "Dar breaks a los vendedores y ver quién volvió tarde.", url="asistencia:breaks", exclusivo=True),
     Modulo("reportes", "Reportes", "4.5", "file-earmark-bar-graph", "reportes.view_tiporeporte",
            "Reportes en PDF, estadísticas y proyección de ventas.", url="reportes:centro"),
 ]
@@ -67,14 +72,16 @@ def modulos_de(usuario) -> list[Modulo]:
     """Módulos que el usuario puede ver según su rol."""
     if not usuario.is_authenticated:
         return []
-    return [m for m in MODULOS if usuario.has_perm(m.permiso)]
+    from .acceso import tiene_permiso_directo
+
+    return [m for m in MODULOS if (tiene_permiso_directo(usuario, m.permiso) if m.exclusivo else usuario.has_perm(m.permiso))]
 
 
 # Cómo se agrupan los módulos en el menú y en el inicio: por lo que hace cada uno, no por la
 # sección de la propuesta (la agenda la usan todos los roles, no solo administración).
 GRUPOS = [
     ("Administración", ("personal", "asistencia", "documentos", "inventario", "nomina")),
-    ("Comercial", ("ventas", "cierre", "tablero")),
+    ("Comercial", ("ventas", "cierre", "tablero", "breaks", "chips")),
     ("Herramientas", ("agenda", "reportes")),
 ]
 

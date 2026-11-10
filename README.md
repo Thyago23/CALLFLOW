@@ -119,3 +119,19 @@ Los campos definitivos del DAMI van por ahora en `formulariodami.datos_adicional
 - La foto (JPG, PNG o WEBP de hasta 5 MB) se recorta en un cuadrado de 320×320 y se vuelve a guardar como JPEG sin metadatos. No queda en una carpeta pública: se entrega desde `/perfil/foto/<id>/` solo con sesión iniciada. Al cambiarla o quitarla se borra la anterior.
 - El apodo reemplaza al nombre en la barra superior y en el tablero de ventas de la TV (el nombre real se ve al pasar el mouse). La foto también sale en la barra superior, la ficha del empleado y el tablero.
 - El modo oscuro usa `data-bs-theme="dark"` de Bootstrap 5.3; los colores propios de CALLFLOW se ajustan al final de `static/css/callflow.css`. Se guarda en la cuenta, así que se aplica en cualquier equipo.
+
+## Registro de chips (exclusivo del coordinador)
+
+- Menú **Comercial → Registro de chips** (`/chips/`). Solo lo ve y lo usa quien tenga el permiso `chips.gestionar_chips` asignado **directamente a su cuenta**: no basta con ser administrador, superusuario ni encargado de cierre. Hoy lo tiene `marlon.rosero`.
+  - Dar o quitar el acceso: `python manage.py acceso_chips <usuario>` / `python manage.py acceso_chips <usuario> --quitar` / `python manage.py acceso_chips --ver`.
+- Cada chip guarda número (10 dígitos, 09…), operadora, serie (ICCID), a quién está asignado y estado (activo, suspendido o dado de baja).
+- **Reposición**: fecha, motivo (pérdida, robo, daño, bloqueo, cambio de número u otro), operadora, costo y observación. Si la operadora entregó otro número se marca «Le cambiaron el número»: queda registrado el número anterior y el nuevo, y el chip pasa a tener el nuevo. El número de un chip no se edita a mano: solo cambia así, para que siempre quede constancia. Las reposiciones no se pueden editar ni borrar (lo impide un trigger en la base).
+- **Reporte de reposiciones** (`/chips/reporte/`): por rango de fechas y operadora, con número anterior y nuevo, si cambió, motivo, costo y totales, listo para imprimir con las firmas de Raul Tapia (Dueño), Diego Mendoza (Gerente de Talento Humano y Marketing) y Marlon Rosero de Mendoza (Coordinador). Las firmas se cambian en `CHIPS_FIRMAS_REPORTE` (`callflow/settings.py`).
+
+## Breaks (los da el coordinador)
+
+- Menú **Comercial → Breaks** (`/asistencia/breaks/`), exclusivo de quien tenga el permiso directo `asistencia.gestionar_breaks` (hoy `marlon.rosero`; ni el administrador lo ve). Se da o se quita con `python manage.py acceso_breaks <usuario>` (`--quitar`, `--ver`).
+- El coordinador elige la duración (10, 15, 20, 30 min u otra, hasta 120) y un mensaje opcional. Le llega una notificación (y push) a cada vendedor con la jornada abierta; no a quien está en almuerzo, ausente o ya finalizó su día. **El tiempo corre desde que lo envía.** Solo puede haber un break en curso a la vez.
+- El vendedor ve arriba de cualquier página un aviso con la cuenta atrás (aparece solo, con el sondeo de la campana) y el botón **«Volví del break»**, que registra la hora de regreso.
+- Si vuelve después del fin (más `ASISTENCIA_BREAK_TOLERANCIA_MINUTOS`, hoy 0), se guarda con cuántos minutos llegó tarde (cada minuto empezado cuenta) y el coordinador recibe la notificación «X volvió N min tarde del break».
+- La pantalla del coordinador se actualiza cada 5 s: quién sigue en break, quién volvió a tiempo, quién volvió tarde y quién no ha marcado su regreso; además, el historial de los últimos 7 días.

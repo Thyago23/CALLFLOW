@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block titulo %}Reposición de {{ chip.numero }} · Chips{% endblock %}
+{% block contenido %}
+<nav aria-label="Ruta" class="mb-2">
+  <ol class="breadcrumb small mb-0">
+    <li class="breadcrumb-item"><a href="{% url 'chips:lista' %}">Registro de chips</a></li>
+    <li class="breadcrumb-item"><a href="{% url 'chips:detalle' chip.pk %}">{{ chip.numero }}</a></li>
+    <li class="breadcrumb-item active" aria-current="page">Reposición</li>
+  </ol>
+</nav>
+<h1 class="h3 mb-1">Registrar reposición</h1>
+<p class="text-body-secondary mb-3">Chip <strong class="font-monospace">{{ chip.numero }}</strong> · {{ chip.get_operadora_display }}{% if chip.asignado_a %} · {{ chip.asignado_a }}{% endif %}. Queda guardada en el historial y en el reporte; no se puede editar después.</p>
+<div class="row">
+  <div class="col-lg-8">
+    {% for error in form.non_field_errors %}<div class="alert alert-danger">{{ error }}</div>{% endfor %}
+    <form method="post" novalidate class="card">
+      <div class="card-body">
+        {% csrf_token %}
+        <div class="row">
+          <div class="col-md-6">{% include "_campo.html" with campo=form.fecha %}</div>
+          <div class="col-md-6">{% include "_campo.html" with campo=form.motivo %}</div>
+        </div>
+        <div class="border rounded p-3 mb-3">
+          <div class="form-check mb-2">
+            {{ form.cambia_numero }}
+            <label class="form-check-label fw-semibold" for="{{ form.cambia_numero.id_for_label }}">{{ form.cambia_numero.label }}</label>
+          </div>
+          <div data-numero-nuevo>
+            <p class="small text-body-secondary mb-2">Número actual: <span class="font-monospace">{{ chip.numero }}</span>. Se registrará como número anterior.</p>
+            {% include "_campo.html" with campo=form.numero_nuevo ayuda=form.numero_nuevo.help_text %}
+          </div>
+        </div>
+        <div class="row">
+          <div class="col-md-6">{% include "_campo.html" with campo=form.iccid_nuevo ayuda=form.iccid_nuevo.help_text %}</div>
+          <div class="col-md-3">{% include "_campo.html" with campo=form.operadora %}</div>
+          <div class="col-md-3">{% include "_campo.html" with campo=form.costo ayuda=form.costo.help_text %}</div>
+          <div class="col-12">{% include "_campo.html" with campo=form.observacion %}</div>
+        </div>
+      </div>
+      <div class="card-footer bg-body d-flex justify-content-end gap-2">
+        <a href="{% url 'chips:detalle' chip.pk %}" class="btn btn-outline-secondary">Cancelar</a>
+        <button type="submit" class="btn btn-primary"><i class="bi bi-check2 me-1" aria-hidden="true"></i>Guardar reposición</button>
+      </div>
+    </form>
+  </div>
+</div>
+<script>
+  (function () {
+    // El número nuevo se pide solo si cambió (o si el motivo es «Cambio de número»).
+    const casilla = document.getElementById("{{ form.cambia_numero.id_for_label }}");
+    const motivo = document.getElementById("{{ form.motivo.id_for_label }}");
+    const zona = document.querySelector("[data-numero-nuevo]");
+    function pintar() {
+      if (motivo.value === "CAMBIO_NUMERO") casilla.checked = true;
+      zona.hidden = !casilla.checked;
+    }
+    casilla.addEventListener("change", pintar);
+    motivo.addEventListener("change", pintar);
+    pintar();
+  })();
+</script>
+{% endblock %}

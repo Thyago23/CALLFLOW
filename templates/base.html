@@ -110,6 +110,7 @@
     </aside>
 
     <main class="contenido flex-grow-1 p-3 p-lg-4">
+      {% if avisa_breaks %}<div id="aviso-break">{% include "asistencia/_aviso_break.html" %}</div>{% endif %}
       {% for message in messages %}
       <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show" role="alert">
         {{ message }}
@@ -121,6 +122,15 @@
   </div>
 {% endblock %}
 
+  <script>
+    // Al imprimir siempre se usa el modo claro (en modo oscuro el texto saldría gris claro sobre el papel).
+    (function () {
+      const raiz = document.documentElement;
+      let tema = null;
+      window.addEventListener("beforeprint", function () { tema = raiz.getAttribute("data-bs-theme"); raiz.setAttribute("data-bs-theme", "light"); });
+      window.addEventListener("afterprint", function () { if (tema) raiz.setAttribute("data-bs-theme", tema); });
+    })();
+  </script>
   <script src="{% static 'vendor/bootstrap.bundle.min.js' %}"></script>
   <script src="{% static 'vendor/htmx.min.js' %}"></script>
   {% if user.is_authenticated %}
@@ -142,6 +152,30 @@
       }
       new MutationObserver(function () { caja.querySelectorAll(".toast:not([data-mostrado])").forEach(mostrar); })
         .observe(caja, {childList: true});
+    })();
+  </script>
+  <script>
+    // Cuentas atrás ([data-cuenta-atras]: breaks). Usan la hora del servidor (data-ahora), no la del equipo.
+    (function () {
+      function pintar() {
+        document.querySelectorAll("[data-cuenta-atras]").forEach(function (el) {
+          if (el.dataset.desfase === undefined) el.dataset.desfase = new Date(el.dataset.ahora).getTime() - Date.now();
+          const resta = (new Date(el.dataset.fin).getTime() - (Date.now() + Number(el.dataset.desfase))) / 1000;
+          const texto = el.querySelector("[data-texto]") || el;
+          if (resta > 0) {
+            const m = Math.floor(resta / 60), s = Math.floor(resta % 60);
+            texto.textContent = (el.dataset.prefijo || "Quedan ") + m + ":" + String(s).padStart(2, "0");
+          } else {
+            const n = Math.ceil(-resta / 60);
+            texto.textContent = (el.dataset.vencido || "Terminó hace ") + n + (n === 1 ? " minuto" : " minutos") + (el.dataset.sufijoVencido || "");
+          }
+          if (el.dataset.claseActivo) el.classList.toggle(el.dataset.claseActivo, resta > 0);
+          if (el.dataset.claseVencido) el.classList.toggle(el.dataset.claseVencido, resta <= 0);
+        });
+      }
+      pintar();
+      setInterval(pintar, 1000);
+      document.body.addEventListener("htmx:afterSettle", pintar);
     })();
   </script>
   {# Push del navegador: el botón para activarlo está en el panel de la campana y en /notificaciones/. #}

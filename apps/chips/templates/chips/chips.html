@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block titulo %}Registro de chips{% endblock %}
+{% block contenido %}
+{% include "chips/_subnav.html" with seccion="chips" %}
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-lg-3"><div class="card h-100"><div class="card-body"><div class="small text-body-secondary">Chips activos</div><div class="fs-3 fw-semibold">{{ resumen.activos }}</div><div class="small text-body-secondary">de {{ resumen.total }} sin dar de baja</div></div></div></div>
+  <div class="col-6 col-lg-3"><div class="card h-100"><div class="card-body"><div class="small text-body-secondary">Reposiciones este mes</div><div class="fs-3 fw-semibold">{{ resumen.reposiciones_mes }}</div></div></div></div>
+  <div class="col-6 col-lg-3"><div class="card h-100"><div class="card-body"><div class="small text-body-secondary">Números cambiados este mes</div><div class="fs-3 fw-semibold">{{ resumen.cambios_mes }}</div></div></div></div>
+  <div class="col-6 col-lg-3"><a href="{% url 'chips:reporte' %}" class="card h-100 text-decoration-none tarjeta-resumen"><div class="card-body"><div class="small text-body-secondary">Reporte para firmar</div><div class="fw-semibold mt-1"><i class="bi bi-printer me-1" aria-hidden="true"></i>Reposiciones del mes</div></div></a></div>
+</div>
+
+<form class="row g-2 mb-3" role="search" method="get" data-filtros-chips>
+  <div class="col-md-5">
+    <label class="visually-hidden" for="busqueda">Buscar</label>
+    <input id="busqueda" type="search" name="q" value="{{ q }}" class="form-control" placeholder="Buscar por número (actual o anterior), serie o persona" autocomplete="off">
+  </div>
+  <div class="col-sm-4 col-md-3">
+    <label class="visually-hidden" for="filtro-operadora">Operadora</label>
+    <select id="filtro-operadora" name="operadora" class="form-select">
+      <option value="">Todas las operadoras</option>
+      {% for valor, nombre in operadoras %}<option value="{{ valor }}" {% if valor == operadora %}selected{% endif %}>{{ nombre }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="col-sm-4 col-md-2">
+    <label class="visually-hidden" for="filtro-estado">Estado</label>
+    <select id="filtro-estado" name="estado" class="form-select">
+      <option value="">Todos</option>
+      {% for valor, nombre in estados %}<option value="{{ valor }}" {% if valor == estado %}selected{% endif %}>{{ nombre }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="col-sm-4 col-md-2 d-grid"><button type="submit" class="btn btn-outline-secondary">Buscar</button></div>
+</form>
+
+{% if chips %}
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead>
+        <tr>
+          <th scope="col">Número</th>
+          <th scope="col">Operadora</th>
+          <th scope="col" class="d-none d-md-table-cell">Asignado a</th>
+          <th scope="col">Estado</th>
+          <th scope="col" class="text-center d-none d-sm-table-cell">Reposiciones</th>
+          <th scope="col" class="text-end">Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for chip in chips %}
+        <tr class="{% if chip.estado == 'BAJA' %}text-body-secondary{% endif %}">
+          <td>
+            <a class="fw-semibold text-reset font-monospace" href="{% url 'chips:detalle' chip.pk %}">{{ chip.numero }}</a>
+            {% if chip.iccid %}<div class="small text-body-secondary">Serie {{ chip.iccid }}</div>{% endif %}
+          </td>
+          <td>{{ chip.get_operadora_display }}</td>
+          <td class="d-none d-md-table-cell">{{ chip.asignado_a|default:"—" }}</td>
+          <td>{% include "chips/_estado.html" %}</td>
+          <td class="text-center d-none d-sm-table-cell">{{ chip.n_reposiciones }}</td>
+          <td class="text-end text-nowrap">
+            {% if chip.estado != "BAJA" %}<a href="{% url 'chips:reposicion' chip.pk %}" class="btn btn-sm btn-outline-primary"><i class="bi bi-arrow-repeat me-1" aria-hidden="true"></i>Reposición</a>{% endif %}
+            <a href="{% url 'chips:detalle' chip.pk %}" class="btn btn-sm btn-outline-secondary" title="Historial" aria-label="Ver historial de {{ chip.numero }}"><i class="bi bi-clock-history" aria-hidden="true"></i></a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% else %}
+<div class="card"><div class="card-body text-center text-body-secondary py-5">
+  <i class="bi bi-sim fs-2 d-block mb-2" aria-hidden="true"></i>
+  {% if q or operadora or estado %}No hay chips con esos filtros.{% else %}Todavía no hay chips registrados. <a href="{% url 'chips:crear' %}">Registre el primero</a>.{% endif %}
+</div></div>
+{% endif %}
+<script>
+  // Al cambiar operadora o estado se filtra sin pulsar «Buscar».
+  document.querySelectorAll("[data-filtros-chips] select").forEach(function (s) { s.addEventListener("change", function () { s.form.submit(); }); });
+</script>
+{% endblock %}

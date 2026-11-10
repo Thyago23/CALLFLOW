@@ -18,4 +18,7 @@ urlpatterns = [
     path("horarios/", views.horarios, name="horarios"),
     path("finalizar-dia/", views.finalizar_dia, name="finalizar_dia"),
     path("salir-almuerzo/", views.salir_almuerzo, name="salir_almuerzo"),
+    path("breaks/", views.breaks, name="breaks"),
+    path("breaks/panel/", views.breaks_panel, name="breaks_panel"),
+    path("breaks/volvi/", views.volvi_del_break, name="volvi_break"),
 ]

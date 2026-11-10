@@ -1,0 +1,20 @@
+{# Cada vendedor de un break y cómo volvió. Recibe `detalle` (breaks.detalle). #}
+{% with c=detalle.cuenta %}
+<div class="d-flex flex-wrap gap-2 small mb-2">
+  {% if c.en_break %}<span class="badge text-bg-primary">{{ c.en_break }} en break</span>{% endif %}
+  <span class="badge bg-success-subtle text-success-emphasis border border-success-subtle">{{ c.a_tiempo }} a tiempo</span>
+  <span class="badge bg-danger-subtle text-danger-emphasis border border-danger-subtle">{{ c.tarde }} tarde</span>
+  {% if c.sin_volver %}<span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle">{{ c.sin_volver }} no ha{{ c.sin_volver|pluralize:"n" }} marcado su regreso</span>{% endif %}
+</div>
+{% endwith %}
+<ul class="list-group list-group-flush">
+  {% for f in detalle.filas %}
+  <li class="list-group-item px-0 d-flex justify-content-between align-items-center gap-2">
+    <span>{{ f.regreso.empleado.nombres }} {{ f.regreso.empleado.apellidos }}</span>
+    {% if f.estado == "a_tiempo" %}<span class="small text-success-emphasis"><i class="bi bi-check-circle me-1" aria-hidden="true"></i>Volvió a las {{ f.regreso.regreso_en|time:"H:i" }}</span>
+    {% elif f.estado == "tarde" %}<span class="small text-danger-emphasis fw-semibold"><i class="bi bi-exclamation-circle me-1" aria-hidden="true"></i>Volvió {{ f.minutos }} min tarde ({{ f.regreso.regreso_en|time:"H:i" }})</span>
+    {% elif f.estado == "en_break" %}<span class="small text-body-secondary"><i class="bi bi-cup-straw me-1" aria-hidden="true"></i>En break</span>
+    {% else %}<span class="small text-warning-emphasis fw-semibold"><i class="bi bi-hourglass-split me-1" aria-hidden="true"></i>No ha marcado su regreso (+{{ f.minutos }} min)</span>{% endif %}
+  </li>
+  {% endfor %}
+</ul>

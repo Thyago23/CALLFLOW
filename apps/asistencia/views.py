@@ -11,12 +11,14 @@ from django.utils.dateparse import parse_date
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
+from apps.core.acceso import requiere_permiso_directo
 from apps.documentos.servicios import guardar_documento
 from apps.personal.models import Empleado
 
+from . import breaks as breaks_servicio
 from . import servicios
 from .forms import DIAS, AsignarHorarioForm, ClasificarNovedadForm, HistorialFiltroForm, HorarioForm, RegistroManualForm
-from .models import Horario, NovedadAsistencia
+from .models import Descanso, Horario, NovedadAsistencia
 
 
 def _es_htmx(request) -> bool:
@@ -316,3 +318,68 @@ def salir_almuerzo(request):
     respuesta.set_signed_cookie(COOKIE_ALMUERZO, str(registro.pk), salt=SAL_COOKIE_ALMUERZO, max_age=12 * 3600,
                                 httponly=True, samesite="Lax", secure=request.is_secure())
     return respuesta
+
+# --------------------------------------------------------------------------- breaks
+requiere_breaks = requiere_permiso_directo(breaks_servicio.PERMISO, "Dar breaks es exclusivo del coordinador.")
+DURACIONES_RAPIDAS = (10, 15, 20, 30)
+
+
+def _panel_breaks(request) -> dict:
+    ahora = timezone.now()
+    actual = breaks_servicio.en_curso(ahora)
+    hace_una_semana = ahora - timedelta(days=7)
+    recientes = [breaks_servicio.detalle(d, ahora) for d in
+                 Descanso.objects.filter(inicio__gte=hace_una_semana).exclude(pk=getattr(actual, "pk", None))
+                 .select_related("enviado_por").order_by("-inicio")[:15]]
+    return {"actual": breaks_servicio.detalle(actual, ahora) if actual else None, "recientes": recientes,
+            "ahora": ahora, "tolerancia": breaks_servicio.tolerancia()}
+
+
+@requiere_breaks
+def breaks(request):
+    """El coordinador da un break: el tiempo corre desde que lo envía y les llega a los vendedores."""
+    if request.method == "POST":
+        try:
+            minutos = int(request.POST.get("minutos", ""))
+        except ValueError:
+            messages.error(request, "Indique cuántos minutos dura el break.")
+        else:
+            try:
+                descanso = breaks_servicio.dar_break(request.user, minutos, request.POST.get("mensaje", ""))
+            except ValidationError as error:
+                messages.error(request, _mensaje_error(error))
+            else:
+                n = descanso.regresos.count()
+                messages.success(request, f"Break de {minutos} min enviado a {n} vendedor{'es' if n != 1 else ''}: "
+                                          f"vuelven a las {timezone.localtime(descanso.fin):%H:%M}.")
+        return redirect("asistencia:breaks")
+    contexto = _panel_breaks(request) | {"participantes": breaks_servicio.participantes(), "rapidas": DURACIONES_RAPIDAS}
+    return render(request, "asistencia/breaks.html", contexto)
+
+
+@requiere_breaks
+def breaks_panel(request):
+    """HTMX cada 5 s: cómo va el break en curso y los recientes."""
+    return render(request, "asistencia/_breaks_panel.html", _panel_breaks(request))
+
+
+@login_required
+@require_POST
+def volvi_del_break(request):
+    """El vendedor marca que volvió del break."""
+    empleado = getattr(request.user, "empleado", None)
+    try:
+        regreso = breaks_servicio.volver_de_break(empleado)
+    except ValidationError as error:
+        messages.error(request, _mensaje_error(error))
+    else:
+        if regreso.minutos_tarde:
+            messages.warning(request, f"Regreso registrado: volviste {regreso.minutos_tarde} min tarde del break; "
+                                      "se informó al coordinador.")
+        else:
+            messages.success(request, "Regreso del break registrado a tiempo. ¡Buen trabajo!")
+    # Vuelve a la página donde estaba (el aviso aparece en cualquier página).
+    anterior = request.headers.get("Referer", "")
+    if anterior and url_has_allowed_host_and_scheme(anterior, allowed_hosts={request.get_host()}, require_https=request.is_secure()):
+        return redirect(anterior)
+    return redirect("inicio")

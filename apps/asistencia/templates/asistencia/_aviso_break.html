@@ -1,0 +1,21 @@
+{% comment %}
+  Aviso del break para el vendedor (arriba del contenido). Aparece solo (lo trae el sondeo de la campana)
+  y se va cuando marca «Volví del break». La cuenta atrás la pinta el script de base.html ([data-cuenta-atras]).
+{% endcomment %}
+{% if break_pendiente %}{% with d=break_pendiente.descanso %}
+<div class="alert alert-info aviso-break d-flex flex-wrap align-items-center gap-3" role="status" aria-live="polite"
+     data-cuenta-atras data-fin="{{ d.fin|date:'c' }}" data-ahora="{% now 'c' %}"
+     data-prefijo="Te quedan " data-vencido="Se acabó el break: llevas " data-sufijo-vencido=" de más."
+     data-clase-activo="alert-info" data-clase-vencido="alert-danger">
+  <i class="bi bi-cup-straw fs-2" aria-hidden="true"></i>
+  <div class="flex-grow-1 min-w-0">
+    <div class="fw-semibold">Estás en break de {{ d.duracion_minutos }} min{% if d.mensaje %} · {{ d.mensaje }}{% endif %}</div>
+    <div class="small">Empezó a las {{ d.inicio|time:"H:i" }} · vuelve a las {{ d.fin|time:"H:i" }} y marca tu regreso.</div>
+    <div class="fs-5 fw-semibold" data-texto>Te quedan {{ d.duracion_minutos }}:00</div>
+  </div>
+  <form method="post" action="{% url 'asistencia:volvi_break' %}">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-success btn-lg"><i class="bi bi-check2-circle me-1" aria-hidden="true"></i>Volví del break</button>
+  </form>
+</div>
+{% endwith %}{% endif %}

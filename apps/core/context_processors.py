@@ -1,5 +1,5 @@
 from .modulos import menu_de
-from .models import Notificacion
+from .models import Notificacion, Rol
 
 
 def contadores(usuario) -> dict:
@@ -13,6 +13,12 @@ def contadores(usuario) -> dict:
         from apps.ventas.servicios import solicitudes_pendientes
 
         datos["solicitudes_base_pendientes"] = solicitudes_pendientes()
+    if usuario.rol == Rol.VENDEDOR:
+        # Aviso del break en curso (con «Volví del break»): llega con el sondeo de la campana.
+        from apps.asistencia.breaks import pendiente_de
+
+        datos["avisa_breaks"] = True
+        datos["break_pendiente"] = pendiente_de(getattr(usuario, "empleado", None))
     return datos
 
 
