@@ -986,3 +986,75 @@ details.anular-caja > summary::-webkit-details-marker { display: none; }
   .dami-acciones .btn { flex: 1; }
 }
 @media (prefers-reduced-motion: reduce) { .papel-cuadro, .papel-cuadro .bi, .papel-casilla { transition: none; } }
+/* ---------------------------------------------------------------- Mi perfil */
+img.avatar.con-foto { object-fit: cover; padding: 0; background: var(--bs-secondary-bg); }
+.avatar.avatar-perfil { width: 96px; height: 96px; font-size: 2rem; box-shadow: 0 0 0 4px var(--bs-body-bg), 0 0 0 6px var(--bs-border-color); }
+
+.opcion-tema {
+  display: block;
+  padding: 0.75rem;
+  border: 2px solid var(--bs-border-color);
+  border-radius: 0.75rem;
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.opcion-tema:hover { border-color: var(--cf-borde-foco); }
+.btn-check:checked + .opcion-tema { border-color: var(--cf-primario); box-shadow: 0 0 0 0.2rem var(--cf-foco); }
+.btn-check:focus-visible + .opcion-tema { outline: 2px solid var(--cf-borde-foco); outline-offset: 2px; }
+
+/* Miniatura de la pantalla: barra superior, menú y dos tarjetas. */
+.muestra-tema {
+  position: relative;
+  display: block;
+  height: 72px;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+}
+.muestra-tema i { position: absolute; inset: 0 0 auto 0; height: 14px; }
+.muestra-tema b { position: absolute; top: 24px; height: 38px; width: 34%; border-radius: 4px; }
+.muestra-tema b:first-of-type { left: 10%; }
+.muestra-tema b:last-of-type { left: 52%; }
+.muestra-claro { background: #f4f6f9; }
+.muestra-claro i { background: #fff; border-bottom: 3px solid #0e325c; }
+.muestra-claro b { background: #fff; border: 1px solid #dee2e6; }
+.muestra-oscuro { background: #1a1d21; }
+.muestra-oscuro i { background: #212529; border-bottom: 3px solid #4d8fd8; }
+.muestra-oscuro b { background: #2b3035; border: 1px solid #3d444b; }
+
+/* ---------------------------------------------------------------- modo oscuro
+   Bootstrap 5.3 cambia sus propios colores con data-bs-theme="dark"; aquí se ajustan los de CALLFLOW
+   (el azul de la marca es muy oscuro sobre fondo oscuro, y algunos fondos estaban fijos en claro). */
+[data-bs-theme="dark"] {
+  --cf-primario: #3a78c2;
+  --cf-primario-suave: rgba(58, 120, 194, 0.2);
+  --cf-resaltado: rgba(255, 193, 7, 0.16);
+  --cf-foco: rgba(110, 160, 220, 0.35);
+  --cf-borde-foco: #6f9bd1;
+  --bs-primary-rgb: 58, 120, 194;
+  --bs-link-color: #8db8ec;
+  --bs-link-color-rgb: 141, 184, 236;
+  --bs-link-hover-color: #b9d3f4;
+  --bs-link-hover-color-rgb: 185, 211, 244;
+  --bs-primary-text-emphasis: #8db8ec;
+  --bs-primary-border-subtle: #2c4a6e;
+  --cf-pendiente: #3a3f45;
+  color-scheme: dark;
+}
+[data-bs-theme="dark"] ::selection { background: rgba(141, 184, 236, 0.3); }
+[data-bs-theme="dark"] .btn-primary { --bs-btn-hover-bg: #4a88d2; --bs-btn-hover-border-color: #4a88d2; --bs-btn-active-bg: #2f68ad; --bs-btn-active-border-color: #2f68ad; }
+[data-bs-theme="dark"] .btn-outline-primary { --bs-btn-color: #8db8ec; --bs-btn-border-color: #3a78c2; --bs-btn-hover-color: #fff; --bs-btn-active-color: #fff; --bs-btn-active-bg: #2f68ad; --bs-btn-disabled-color: #8db8ec; }
+[data-bs-theme="dark"] .lista-notificaciones .notificacion.no-leida,
+[data-bs-theme="dark"] .lista-campana .notificacion.no-leida { background: rgba(141, 184, 236, 0.08); }
+[data-bs-theme="dark"] .panel-campana { box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5); }
+[data-bs-theme="dark"] .form-select.desde-cv { background-color: rgba(255, 193, 7, 0.12); border-color: #8a6d1f; }
+/* La hoja del contrato es una vista previa de papel: sigue blanca, con letra oscura. */
+[data-bs-theme="dark"] .hoja-contrato { color: #212529; }
+[data-bs-theme="dark"] .logo-marca { filter: drop-shadow(0 0 1px rgba(255, 255, 255, 0.6)); }
+/* Botones pensados para fondo claro (oscuros o blancos): en modo oscuro se adaptan. */
+[data-bs-theme="dark"] .btn-outline-dark { --bs-btn-color: #dee2e6; --bs-btn-border-color: #6c757d; --bs-btn-hover-bg: #dee2e6; --bs-btn-hover-color: #212529; --bs-btn-hover-border-color: #dee2e6; --bs-btn-active-bg: #f8f9fa; --bs-btn-active-color: #212529; }
+[data-bs-theme="dark"] .btn-light { --bs-btn-bg: var(--bs-tertiary-bg); --bs-btn-color: var(--bs-body-color); --bs-btn-border-color: var(--bs-border-color); --bs-btn-hover-bg: var(--bs-secondary-bg); --bs-btn-hover-color: var(--bs-body-color); --bs-btn-hover-border-color: var(--bs-border-color); }
+[data-bs-theme="dark"] { --cf-actividad: #5b9be0; }
+/* Formulario DAMI en papel: la hoja sigue blanca (como el papel); la barra de acciones se adapta. */
+[data-bs-theme="dark"] .dami-acciones { background: rgba(33, 37, 41, 0.95); border-color: var(--bs-border-color); box-shadow: 0 -.4rem 1.2rem rgba(0, 0, 0, .4); }
+[data-bs-theme="dark"] .papel-hoja { border-color: #3d444b; }

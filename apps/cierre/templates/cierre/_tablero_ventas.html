@@ -36,7 +36,7 @@
           <span class="tv-rotulo">Vendido</span>
           <span class="tv-tarjeta-monto">{{ f.total_vendido|monto_entero }}<small>,{{ f.total_vendido|centavos }}</small></span>
         </div>
-        <span class="tv-avatar">{{ f.iniciales }}</span>
+        {% if f.url_foto %}<img class="tv-avatar" src="{{ f.url_foto }}" alt="">{% else %}<span class="tv-avatar">{{ f.iniciales }}</span>{% endif %}
       </div>
       {% include "cierre/_tablero_datos.html" %}
       {% if destacar == "mejor" and mejor and f.vendedor.pk == mejor.vendedor.pk %}<span class="tv-cabeza">👑 ¡Va a la cabeza!</span>{% endif %}
@@ -54,7 +54,7 @@
       {% for f in resto %}
       <li class="tv-fila {% if not f.total_vendido %}en-cero{% endif %}" data-vendedor="{{ f.vendedor.pk }}" data-total="{{ f.total_vendido|stringformat:'s' }}" style="--color: {{ f.color }}">
         <span class="tv-medalla">{{ f.posicion }}°</span>
-        <span class="tv-avatar">{{ f.iniciales }}</span>
+        {% if f.url_foto %}<img class="tv-avatar" src="{{ f.url_foto }}" alt="">{% else %}<span class="tv-avatar">{{ f.iniciales }}</span>{% endif %}
         <span class="tv-persona">
           <span class="tv-nombre">{{ f.nombre }}</span>
           {% if not f.ventas_cerradas %}<span class="tv-detalle">¡Vamos por la primera! 💪</span>{% endif %}

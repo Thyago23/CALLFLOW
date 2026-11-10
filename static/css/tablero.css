@@ -293,6 +293,8 @@ body.tv:not(.con-controles) { cursor: none; }
   flex: 0 0 auto;
 }
 
+img.tv-avatar { object-fit: cover; background: #2a2523; }
+
 .tv-persona { display: flex; flex-direction: column; min-width: 0; }
 .tv-nombre { font-weight: 800; font-size: 1.05em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.15; }
 .tv-detalle { font-size: 0.55em; color: var(--texto-suave); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

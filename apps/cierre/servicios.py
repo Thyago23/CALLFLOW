@@ -434,6 +434,7 @@ class FilaTablero:
     color: str
     ancho: int = 0  # largo de la barra: lo vendido respecto del primero (100)
     puesto: int = 0  # 1, 2 o 3 si está en el podio
+    url_foto: str = ""
 
     def __getattr__(self, nombre):
         return getattr(self.fila, nombre)
@@ -461,8 +462,11 @@ def tablero_ventas(anio: int, mes: int, usuario) -> dict:
     filas = []
     for f in panel.filas:
         nombre, iniciales = _nombre_corto(f.vendedor)
+        usuario = f.vendedor.usuario  # Mi perfil: el apodo y la foto también salen en la TV
+        if usuario and usuario.apodo:
+            nombre, iniciales = usuario.apodo, usuario.iniciales
         filas.append(FilaTablero(fila=f, nombre=nombre, iniciales=iniciales, color=COLORES_TABLERO[f.vendedor.pk % len(COLORES_TABLERO)],
-                                 ancho=round(f.total_vendido * 100 / maximo) if maximo else 0))
+                                 ancho=round(f.total_vendido * 100 / maximo) if maximo else 0, url_foto=usuario.url_foto if usuario else ""))
     mejor = next((f for f in filas if panel.mejor and f.fila is panel.mejor), None)
     venta = venta_mas_alta(anio, mes)
     venta_nombre = _nombre_corto(venta.hoja.vendedor)[0] if venta else ""

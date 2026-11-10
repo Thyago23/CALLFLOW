@@ -24,6 +24,18 @@ class Rol(models.TextChoices):
 MODELOS_VETADOS_AL_ADMINISTRADOR = {"entidademisora", "rangobin"}
 
 
+def ruta_foto_perfil(instancia, nombre):
+    """Nombre aleatorio: cada foto nueva tiene otra dirección (el navegador no muestra la vieja de caché)."""
+    import uuid
+
+    return f"perfiles/{uuid.uuid4().hex}.jpg"
+
+
+class Tema(models.TextChoices):
+    CLARO = "CLARO", "Claro"
+    OSCURO = "OSCURO", "Oscuro"
+
+
 class GestorUsuarios(UserManager):
     @classmethod
     def normalize_email(cls, email):
@@ -49,6 +61,10 @@ class Usuario(AbstractUser):
         help_text="La contraseña es temporal: se exigirá cambiarla en el próximo ingreso.",
     )
     creado_por = models.ForeignKey("self", on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    # Mi perfil: lo edita cada persona (foto, apodo interno y modo claro/oscuro).
+    foto = models.ImageField("foto de perfil", upload_to=ruta_foto_perfil, blank=True, default="")
+    apodo = models.CharField("apodo interno", max_length=30, blank=True, default="")
+    tema = models.CharField("modo de pantalla", max_length=10, choices=Tema.choices, default=Tema.CLARO)
 
     objects = GestorUsuarios()
 
@@ -58,11 +74,33 @@ class Usuario(AbstractUser):
         constraints = [
             models.CheckConstraint(condition=Q(rol__in=Rol.values), name="usuario_rol_valido"),
             models.CheckConstraint(condition=~Q(email=""), name="usuario_email_vacio_es_nulo"),
+            models.CheckConstraint(condition=Q(tema__in=Tema.values), name="usuario_tema_valido"),
         ]
 
     @property
     def codigo(self) -> str:
         return self.username
+
+    @property
+    def nombre_visible(self) -> str:
+        """El apodo si lo tiene; si no, el nombre completo (o el usuario)."""
+        return self.apodo or self.get_full_name() or self.username
+
+    @property
+    def iniciales(self) -> str:
+        if self.apodo:
+            partes = self.apodo.split()
+            return "".join(p[0] for p in partes[:2]).upper()
+        return f"{self.first_name[:1] or self.username[:1]}{self.last_name[:1]}".upper()
+
+    @property
+    def url_foto(self) -> str:
+        if not self.foto:
+            return ""
+        from django.urls import reverse
+
+        # El nombre del archivo va en la dirección: al cambiar la foto cambia la dirección y no se usa la de caché.
+        return f"{reverse('foto_perfil', args=[self.pk])}?v={self.foto.name.rsplit('/', 1)[-1][:12]}"
 
     def has_perm(self, perm, obj=None):
         # Va aquí y no en los grupos porque a un superusuario Django le concede todo sin consultarlos.

@@ -112,3 +112,10 @@ superusuario de la empresa (`DB_USER` y `DB_PASSWORD` de `DB_ADMIN_USER` como va
 ## Pendientes de la propuesta (sección 10)
 
 Los campos definitivos del DAMI van por ahora en `formulariodami.datos_adicionales` (JSONB); las fórmulas de nómina se registran en `nomina_reglacalculo.parametros`. Cuando la empresa los defina, se agregan como columnas con una migración.
+
+## Mi perfil
+
+- Menú del usuario (arriba a la derecha) → **Mi perfil** (`/perfil/`). Cada persona edita solo lo suyo: **foto**, **apodo interno** y **modo claro u oscuro**. Los datos personales siguen en Personal.
+- La foto (JPG, PNG o WEBP de hasta 5 MB) se recorta en un cuadrado de 320×320 y se vuelve a guardar como JPEG sin metadatos. No queda en una carpeta pública: se entrega desde `/perfil/foto/<id>/` solo con sesión iniciada. Al cambiarla o quitarla se borra la anterior.
+- El apodo reemplaza al nombre en la barra superior y en el tablero de ventas de la TV (el nombre real se ve al pasar el mouse). La foto también sale en la barra superior, la ficha del empleado y el tablero.
+- El modo oscuro usa `data-bs-theme="dark"` de Bootstrap 5.3; los colores propios de CALLFLOW se ajustan al final de `static/css/callflow.css`. Se guarda en la cuenta, así que se aplica en cualquier equipo.

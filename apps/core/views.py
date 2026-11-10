@@ -9,7 +9,7 @@ from django.contrib.staticfiles import finders
 from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models import F, Q
-from django.http import HttpResponse, JsonResponse
+from django.http import FileResponse, Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -25,7 +25,7 @@ from apps.personal.models import Empleado
 from . import notificaciones as avisos
 from .codigos import generar_codigo_acceso, generar_usuario
 from .cuentas import CLAVE_SESION_CREDENCIALES, preparar_credenciales
-from .forms import CambioClaveForm, IngresoForm, UsuarioCrearForm
+from .forms import CambioClaveForm, IngresoForm, PerfilForm, UsuarioCrearForm
 from .modulos import grupos_de
 from .models import Notificacion, Rol, SuscripcionPush, Usuario
 
@@ -54,6 +54,34 @@ def cambiar_clave(request):
         messages.success(request, "Contraseña actualizada.")
         return redirect("inicio")
     return render(request, "registration/cambiar_clave.html", {"form": form, "obligatorio": obligatorio})
+
+
+# --------------------------------------------------------------------------- mi perfil
+@login_required
+def perfil(request):
+    """Cada persona edita lo suyo: foto, apodo interno y modo claro/oscuro. Nada más (los datos los lleva Personal)."""
+    form = PerfilForm(request.POST or None, request.FILES or None, instance=request.user)
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        messages.success(request, "Perfil actualizado.")
+        return redirect("perfil")
+    return render(request, "core/perfil.html", {"form": form})
+
+
+@login_required
+def foto_perfil(request, pk):
+    """Las fotos no están en una carpeta pública: solo las ven usuarios con sesión."""
+    usuario = get_object_or_404(Usuario, pk=pk)
+    if not usuario.foto:
+        raise Http404("Sin foto.")
+    try:
+        archivo = usuario.foto.open("rb")
+    except FileNotFoundError as error:
+        raise Http404("La foto ya no está disponible.") from error
+    respuesta = FileResponse(archivo, content_type="image/jpeg")
+    respuesta["X-Content-Type-Options"] = "nosniff"
+    respuesta["Cache-Control"] = "private, max-age=604800"  # la dirección cambia con cada foto nueva
+    return respuesta
 
 
 # --------------------------------------------------------------------------- dashboard

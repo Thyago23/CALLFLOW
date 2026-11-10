@@ -9,7 +9,7 @@
 </nav>
 
 <div class="d-flex flex-wrap align-items-center gap-3 mb-3">
-  <span class="avatar avatar-grande" aria-hidden="true">{{ empleado.nombres|first|upper }}{{ empleado.apellidos|first|upper }}</span>
+  {% if empleado.usuario.url_foto %}<img src="{{ empleado.usuario.url_foto }}" alt="" class="avatar con-foto avatar-grande">{% else %}<span class="avatar avatar-grande" aria-hidden="true">{{ empleado.nombres|first|upper }}{{ empleado.apellidos|first|upper }}</span>{% endif %}
   <div class="min-w-0">
     <h1 class="h3 mb-0">{{ empleado.nombres }} {{ empleado.apellidos }}</h1>
     <div class="text-body-secondary">
