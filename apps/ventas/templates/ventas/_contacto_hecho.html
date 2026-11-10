@@ -1,0 +1,12 @@
+{# El contacto ya no corresponde al filtro de la lista: aviso breve con «Deshacer» que desaparece solo. #}
+<li class="contacto-hecho estado-{{ r.estado|lower }}" id="contacto-{{ r.pk }}" role="status">
+  <span><i class="bi bi-check2-circle me-1" aria-hidden="true"></i><strong>{{ r.nombre|default:r.numero }}</strong> ·
+    {% if r.estado == "PENDIENTE" %}volvió a «Por gestionar»{% else %}<span class="badge estado-contacto estado-{{ r.estado|lower }}">{{ r.get_estado_display }}</span>{% endif %}</span>
+  {% if anterior %}
+  <form method="post" action="{% url 'ventas:contacto_categorizar' r.pk %}" class="d-inline"
+        hx-post="{% url 'ventas:contacto_categorizar' r.pk %}" hx-target="#contacto-{{ r.pk }}" hx-swap="outerHTML">
+    {% csrf_token %}<input type="hidden" name="volver" value="{{ volver }}"><input type="hidden" name="filtro" value="{{ estado }}">
+    <button type="submit" name="estado" value="{{ anterior }}" class="btn btn-link btn-sm p-0">Deshacer</button>
+  </form>
+  {% endif %}
+</li>

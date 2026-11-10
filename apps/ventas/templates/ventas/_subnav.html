@@ -16,6 +16,7 @@
   {% endif %}
   {% if user.rol == "VENDEDOR" and user.empleado %}
   <li class="nav-item"><a class="nav-link {% if seccion == 'hoja' %}active{% endif %}" href="{% url 'ventas:hoja' %}"><i class="bi bi-table me-1" aria-hidden="true"></i>Hoja de producción</a></li>
+  <li class="nav-item"><a class="nav-link {% if seccion == 'estadisticas' %}active{% endif %}" href="{% url 'ventas:mis_estadisticas' %}"><i class="bi bi-graph-up-arrow me-1" aria-hidden="true"></i>Mis estadísticas</a></li>
   {% elif user.rol == "ADMINISTRADOR" or user.is_superuser %}
   <li class="nav-item"><a class="nav-link {% if seccion == 'hoja' %}active{% endif %}" href="{% url 'ventas:hojas_vendedores' %}"><i class="bi bi-table me-1" aria-hidden="true"></i>Hojas de producción</a></li>
   {% endif %}

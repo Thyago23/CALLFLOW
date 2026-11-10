@@ -1,0 +1,26 @@
+{# Contadores y avance por base de «Mis contactos». Se actualiza solo (hx-swap-oob) al marcar un contacto. #}
+<div id="resumen-contactos"{% if oob %} hx-swap-oob="true"{% endif %}>
+{% if resumen %}
+<div class="row g-3 mb-3">
+  <div class="col-6 col-lg"><div class="card h-100 tarjeta-kpi"><div class="card-body py-3"><div class="small text-body-secondary">Recibidos</div><div class="valor">{{ totales.enviados }}</div></div></div></div>
+  <div class="col-6 col-lg"><div class="card h-100 tarjeta-kpi"><div class="card-body py-3"><div class="small text-body-secondary">Por gestionar</div><div class="valor {% if totales.pendientes %}text-warning-emphasis{% endif %}">{{ totales.pendientes }}</div></div></div></div>
+  <div class="col-4 col-lg"><div class="card h-100 tarjeta-kpi"><div class="card-body py-3"><div class="small text-body-secondary"><i class="clave-estado seg-no-contesto" aria-hidden="true"></i>No contestó</div><div class="valor">{{ totales.no_contesto }}</div></div></div></div>
+  <div class="col-4 col-lg"><div class="card h-100 tarjeta-kpi"><div class="card-body py-3"><div class="small text-body-secondary"><i class="clave-estado seg-no-quiere" aria-hidden="true"></i>No quiere</div><div class="valor">{{ totales.no_quiere }}</div></div></div></div>
+  <div class="col-4 col-lg"><div class="card h-100 tarjeta-kpi"><div class="card-body py-3"><div class="small text-body-secondary"><i class="clave-estado seg-dami" aria-hidden="true"></i>DAMI sacado</div><div class="valor">{{ totales.dami_sacado }}</div></div></div></div>
+</div>
+
+<div class="card mb-3">
+  <ul class="list-group list-group-flush">
+    {% for f in resumen %}
+    <li class="list-group-item">
+      <div class="d-flex flex-wrap justify-content-between gap-2 small mb-1">
+        <a href="?base={{ f.base.pk }}&estado=" class="fw-semibold text-decoration-none">{{ f.base.nombre }}</a>
+        <span class="text-body-secondary">{{ f.gestionados }} de {{ f.enviados }} gestionados{% if f.pendientes %} · <strong class="text-warning-emphasis">faltan {{ f.pendientes }}</strong>{% else %} · <span class="text-success-emphasis">completa</span>{% endif %}</span>
+      </div>
+      {% include "ventas/_avance_base.html" %}
+    </li>
+    {% endfor %}
+  </ul>
+</div>
+{% endif %}
+</div>

@@ -841,6 +841,7 @@ details.anular-caja > summary::-webkit-details-marker { display: none; }
 .leyenda-grafica .clave { display: inline-block; width: 22px; height: 0; margin-right: .4rem; vertical-align: middle; border-top: 2px solid var(--cf-primario); }
 .leyenda-grafica .clave-proyeccion { border-top-style: dashed; }
 .leyenda-grafica .clave-meta { border-top: 2px dashed #8a94a3; }
+.leyenda-grafica .muestra-color { display: inline-block; width: 12px; height: 12px; margin-right: .4rem; border-radius: 3px; vertical-align: -1px; }
 
 .barras-h li { display: grid; grid-template-columns: minmax(7rem, 38%) 1fr auto; align-items: center; gap: .75rem; padding: .35rem 0; }
 .barras-h .etiqueta { font-size: .875rem; }
@@ -878,6 +879,14 @@ details.anular-caja > summary::-webkit-details-marker { display: none; }
 .contacto-base.recien { animation: contacto-marcado 1.2s ease-out; }
 @keyframes contacto-marcado { from { background: var(--cf-primario-suave); } to { background: transparent; } }
 @media (prefers-reduced-motion: reduce) { .contacto-base.recien { animation: none; } }
+/* Contacto que salió del filtro: aviso breve con «Deshacer» que se desvanece. */
+.lista-contactos .contacto-hecho { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem 1rem; padding: .55rem 1rem;
+  border-bottom: 1px solid var(--bs-border-color-translucent); border-left: 4px solid var(--bs-border-color); background: var(--bs-tertiary-bg);
+  font-size: .875rem; max-height: 6rem; overflow: hidden; transition: opacity .4s ease, max-height .4s ease, padding .4s ease; }
+.contacto-hecho.estado-no_contesto { border-left-color: var(--cf-no-contesto); }
+.contacto-hecho.estado-no_quiere { border-left-color: var(--cf-no-quiere); }
+.contacto-hecho.estado-dami_sacado { border-left-color: var(--cf-dami); }
+.contacto-hecho.saliendo { opacity: 0; max-height: 0; padding-top: 0; padding-bottom: 0; }
 @media (max-width: 991.98px) {
   .lista-contactos .contacto-base { grid-template-columns: minmax(0, 1fr) auto; }
   .contacto-base .acciones { grid-column: 1 / -1; }

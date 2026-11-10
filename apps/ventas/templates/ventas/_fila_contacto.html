@@ -1,4 +1,4 @@
-{# Un contacto de la base en «Mis contactos». Recibe `r`. #}
+{# Un contacto de la base en «Mis contactos». Recibe `r` y `estado` (el filtro de la lista). #}
 <li class="contacto-base estado-{{ r.estado|lower }}{% if recien %} recien{% endif %}" id="contacto-{{ r.pk }}">
   <div class="datos min-w-0">
     <div class="fw-semibold">{{ r.nombre|default:"Sin nombre" }}</div>
@@ -14,7 +14,7 @@
   </div>
   <form method="post" action="{% url 'ventas:contacto_categorizar' r.pk %}" class="acciones"
         hx-post="{% url 'ventas:contacto_categorizar' r.pk %}" hx-target="#contacto-{{ r.pk }}" hx-swap="outerHTML">
-    {% csrf_token %}<input type="hidden" name="volver" value="{{ request.get_full_path }}">
+    {% csrf_token %}<input type="hidden" name="volver" value="{{ volver|default:request.get_full_path }}"><input type="hidden" name="filtro" value="{{ estado }}">
     <div class="btn-group btn-group-sm" role="group" aria-label="Categoría de {{ r.nombre|default:r.numero }}">
       <button type="submit" name="estado" value="NO_CONTESTO" class="btn btn-outline-secondary {% if r.estado == 'NO_CONTESTO' %}active{% endif %}" {% if r.estado == 'NO_CONTESTO' %}aria-pressed="true"{% endif %}><i class="bi bi-telephone-x me-1" aria-hidden="true"></i>No contestó</button>
       <button type="submit" name="estado" value="NO_QUIERE" class="btn btn-outline-secondary {% if r.estado == 'NO_QUIERE' %}active{% endif %}" {% if r.estado == 'NO_QUIERE' %}aria-pressed="true"{% endif %}><i class="bi bi-hand-thumbs-down me-1" aria-hidden="true"></i>No quiere</button>

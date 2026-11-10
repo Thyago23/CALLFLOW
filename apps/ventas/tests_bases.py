@@ -205,6 +205,25 @@ class GestionDelVendedorTests(BaseVentas):
         self.marcar(self.de_lucia[0], "PENDIENTE")  # deshacer
         self.assertEqual(RegistroBase.objects.get(pk=self.de_lucia[0].pk).estado, "PENDIENTE")
 
+    def test_en_por_gestionar_el_contacto_marcado_sale_de_la_lista_y_se_actualizan_los_contadores(self):
+        """Antes se quedaba en «Por gestionar» hasta refrescar la página."""
+        self.client.force_login(self.lucia)
+        url = reverse("ventas:contacto_categorizar", args=[self.de_lucia[0].pk])
+        lista = self.client.get(reverse("ventas:mis_contactos"))  # por defecto: «Por gestionar»
+        self.assertContains(lista, 'name="filtro" value="PENDIENTE"')
+        respuesta = self.client.post(url, {"estado": "NO_CONTESTO", "filtro": "PENDIENTE"}, HTTP_HX_REQUEST="true")
+        self.assertContains(respuesta, "contacto-hecho")  # aviso breve en lugar de la fila
+        self.assertContains(respuesta, 'value="PENDIENTE" class="btn btn-link btn-sm p-0">Deshacer')
+        self.assertContains(respuesta, 'id="resumen-contactos" hx-swap-oob="true"')  # contadores al día
+        self.assertEqual(respuesta.context[-1]["totales"]["no_contesto"], 1)
+        # «Deshacer» lo devuelve a la lista como fila completa.
+        deshacer = self.client.post(url, {"estado": "PENDIENTE", "filtro": "PENDIENTE"}, HTTP_HX_REQUEST="true")
+        self.assertContains(deshacer, 'class="contacto-base estado-pendiente')
+        # Con «Todos» la fila se queda, actualizada.
+        todos = self.client.post(url, {"estado": "NO_QUIERE", "filtro": ""}, HTTP_HX_REQUEST="true")
+        self.assertContains(todos, 'class="contacto-base estado-no_quiere')
+        self.assertNotContains(todos, "contacto-hecho")
+
     def test_no_toca_contactos_ajenos(self):
         self.assertEqual(self.marcar(self.de_pedro, "NO_QUIERE").status_code, 403)
         self.assertEqual(RegistroBase.objects.get(pk=self.de_pedro.pk).estado, "PENDIENTE")

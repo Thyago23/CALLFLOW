@@ -21,10 +21,10 @@ CLAVE_PRUEBA = Fernet.generate_key().decode()
 VISA = "4111 1111 1111 1111"
 
 # Mismos campos que el DAMI en papel.
-CLIENTE = {"cedula": "1710034065", "ruc": "", "nombres": "carla  andrea", "apellidos": "VEGA", "telefono": "0991234567", "telefono_alterno": "", "telefono3": "",
+CLIENTE = {"cedula": "1710034065", "ruc": "", "nombres": "carla  andrea", "apellidos": "VEGA", "telefono": "0991234567",
            "direccion": "Av. Amazonas N34-12", "sector": "La Carolina", "ciudad": "quito", "referencia": "Junto al parque",
            "email": "Carla@Correo.com", "marca": "VISA", "banco": "Banco Pichincha", "caducidad": "08/35",
-           "numero_tarjeta": VISA, "observaciones": ""}
+           "numero_tarjeta": VISA, "tarjeta_activa": "SI", "observaciones": ""}
 
 
 @override_settings(CLAVE_TARJETAS=CLAVE_PRUEBA)
@@ -59,6 +59,21 @@ class BaseVentas(TestCase):
 class FormularioDAMITests(BaseVentas):
     """SCRUM-38 y SCRUM-41: DAMI con el formato en papel."""
 
+    def test_el_vendedor_indica_si_la_tarjeta_esta_activa(self):
+        """La tarjeta activa da prioridad 1 en cierre; antes se marcaba activa sola al guardar cualquier tarjeta."""
+        self.crear(enviar=True)
+        activa = FormularioDAMI.objects.get()
+        self.assertEqual((activa.tiene_tarjeta_activa, activa.prioridad), (True, 1))
+        self.crear(enviar=True, cedula="0926687856", tarjeta_activa="NO")
+        inactiva = FormularioDAMI.objects.exclude(pk=activa.pk).get()
+        self.assertEqual((inactiva.tiene_tarjeta_activa, inactiva.prioridad), (False, 2))
+        # Con datos de tarjeta, la pregunta es obligatoria.
+        sin_marcar = self.crear(cedula="1710000009", tarjeta_activa="")
+        self.assertIn("tarjeta_activa", sin_marcar.context["form"].errors)
+        self.assertContains(sin_marcar, "¿La tarjeta está activa?")
+        self.assertNotContains(sin_marcar, 'name="telefono_alterno"')
+        self.assertNotContains(sin_marcar, 'name="telefono3"')
+
     def test_guardar_borrador(self):
         respuesta = self.crear()
         f = FormularioDAMI.objects.get()
@@ -70,8 +85,8 @@ class FormularioDAMITests(BaseVentas):
         self.assertFalse(RegistroProduccion.objects.exists())  # el borrador no va a la hoja
 
     def test_validaciones(self):
-        form = self.crear(cedula="1710034066", telefono="abc", telefono3="12").context["form"]
-        self.assertEqual({"cedula", "telefono", "telefono3"}, set(form.errors))
+        form = self.crear(cedula="1710034066", telefono="abc").context["form"]
+        self.assertEqual({"cedula", "telefono"}, set(form.errors))
         form = self.crear(cedula="", ruc="").context["form"]
         self.assertIn("Ingrese la cédula o el RUC", form.errors["cedula"][0])
         form = self.crear(ruc="17123").context["form"]
@@ -571,3 +586,48 @@ class AgendarLlamadaTests(BaseVentas):
             "minutos_aviso": "5", "cliente": ajeno.pk,
         })
         self.assertIn("cliente", respuesta.context["form"].errors)
+
+
+class MisEstadisticasTests(BaseVentas):
+    """El vendedor ve su crecimiento: DAMI sacados, ventas y monto por mes frente a meses anteriores."""
+
+    def setUp(self):
+        from apps.reportes.estadisticas import sumar_meses
+
+        self.hoy = timezone.localdate()
+        a, m = sumar_meses(self.hoy.year, self.hoy.month, -1)
+        self.mes_pasado = date(a, m, 1)  # el día 1: siempre cuenta como «a la misma fecha»
+
+    def venta(self, cedula, valor=None, mes_pasado=False, usuario=None):
+        self.crear(usuario or self.lucia, enviar=True, cedula=cedula)
+        f = FormularioDAMI.objects.order_by("-pk").first()
+        if valor:
+            self.cerrar(f, valor=D(valor))
+        if mes_pasado:
+            RegistroProduccion.objects.filter(formulario=f).update(fecha=self.mes_pasado)
+        return f
+
+    def test_compara_con_el_mes_pasado_y_grafica(self):
+        self.venta("1710034065", "300")
+        self.venta("0926687856")  # DAMI sacado, aún sin cerrar
+        self.venta("1710000009", "100", mes_pasado=True)
+        self.venta("1714616123", "200", usuario=self.pedro)  # de otro vendedor: no cuenta
+        self.client.force_login(self.lucia)
+        respuesta = self.client.get(reverse("ventas:mis_estadisticas"))
+        self.assertEqual(respuesta.status_code, 200)
+        dami, ventas, monto = respuesta.context["comparaciones"]
+        self.assertEqual((dami.actual, dami.misma_fecha, ventas.actual, ventas.misma_fecha), (2, 1, 1, 1))
+        self.assertEqual((monto.actual, monto.misma_fecha, monto.variacion), (D("300"), D("100"), 200))
+        self.assertTrue(monto.subio)
+        self.assertEqual(len(respuesta.context["filas"]), 6)
+        for texto in ("¡Vas creciendo!", "DAMI sacados", "Ventas cerradas", "<svg", "+200%"):
+            self.assertContains(respuesta, texto)
+        self.assertEqual(respuesta.context["mejor_mes"].total, D("300"))
+        anual = self.client.get(reverse("ventas:mis_estadisticas"), {"meses": "12"})
+        self.assertEqual(len(anual.context["filas"]), 12)
+
+    def test_sin_datos_y_solo_para_vendedores(self):
+        self.client.force_login(self.lucia)
+        self.assertContains(self.client.get(reverse("ventas:mis_estadisticas")), "Todavía no hay datos para graficar")
+        self.client.force_login(self.ana)
+        self.assertEqual(self.client.get(reverse("ventas:mis_estadisticas")).status_code, 403)

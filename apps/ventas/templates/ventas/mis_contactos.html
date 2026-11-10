@@ -11,29 +11,7 @@
   <a href="{% url 'ventas:bases' %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-database me-1" aria-hidden="true"></i>Mis bases y solicitudes</a>
 </div>
 
-{% if resumen %}
-<div class="row g-3 mb-3">
-  <div class="col-6 col-lg"><div class="card h-100 tarjeta-kpi"><div class="card-body py-3"><div class="small text-body-secondary">Recibidos</div><div class="valor">{{ totales.enviados }}</div></div></div></div>
-  <div class="col-6 col-lg"><div class="card h-100 tarjeta-kpi"><div class="card-body py-3"><div class="small text-body-secondary">Por gestionar</div><div class="valor {% if totales.pendientes %}text-warning-emphasis{% endif %}">{{ totales.pendientes }}</div></div></div></div>
-  <div class="col-4 col-lg"><div class="card h-100 tarjeta-kpi"><div class="card-body py-3"><div class="small text-body-secondary"><i class="clave-estado seg-no-contesto" aria-hidden="true"></i>No contestó</div><div class="valor">{{ totales.no_contesto }}</div></div></div></div>
-  <div class="col-4 col-lg"><div class="card h-100 tarjeta-kpi"><div class="card-body py-3"><div class="small text-body-secondary"><i class="clave-estado seg-no-quiere" aria-hidden="true"></i>No quiere</div><div class="valor">{{ totales.no_quiere }}</div></div></div></div>
-  <div class="col-4 col-lg"><div class="card h-100 tarjeta-kpi"><div class="card-body py-3"><div class="small text-body-secondary"><i class="clave-estado seg-dami" aria-hidden="true"></i>DAMI sacado</div><div class="valor">{{ totales.dami_sacado }}</div></div></div></div>
-</div>
-
-<div class="card mb-3">
-  <ul class="list-group list-group-flush">
-    {% for f in resumen %}
-    <li class="list-group-item">
-      <div class="d-flex flex-wrap justify-content-between gap-2 small mb-1">
-        <a href="?base={{ f.base.pk }}&estado=" class="fw-semibold text-decoration-none">{{ f.base.nombre }}</a>
-        <span class="text-body-secondary">{{ f.gestionados }} de {{ f.enviados }} gestionados{% if f.pendientes %} · <strong class="text-warning-emphasis">faltan {{ f.pendientes }}</strong>{% else %} · <span class="text-success-emphasis">completa</span>{% endif %}</span>
-      </div>
-      {% include "ventas/_avance_base.html" %}
-    </li>
-    {% endfor %}
-  </ul>
-</div>
-{% endif %}
+{% include "ventas/_resumen_contactos.html" %}
 
 <form method="get" class="row g-2 align-items-end mb-3">
   <div class="col-sm-6 col-lg-4">
@@ -83,4 +61,26 @@
   </ul>
 </nav>
 {% endif %}
+<script>
+  (function () {
+    // Los contactos que ya no corresponden al filtro dejan un aviso con «Deshacer» que se va solo.
+    // Si la lista queda vacía, se recarga para traer los siguientes contactos.
+    function programar(aviso) {
+      if (aviso.dataset.programado) return;
+      aviso.dataset.programado = "1";
+      setTimeout(function () {
+        if (!aviso.isConnected) return;  // se deshizo: ya es otra fila
+        aviso.classList.add("saliendo");
+        setTimeout(function () {
+          const lista = aviso.parentElement;
+          aviso.remove();
+          if (lista && !lista.querySelector(".contacto-base, .contacto-hecho")) window.location.reload();
+        }, 400);
+      }, 5000);
+    }
+    document.body.addEventListener("htmx:afterSwap", function () {
+      document.querySelectorAll(".contacto-hecho").forEach(programar);
+    });
+  })();
+</script>
 {% endblock %}

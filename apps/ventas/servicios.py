@@ -164,8 +164,9 @@ def guardar_tarjeta(formulario: FormularioDAMI, datos: dict) -> TarjetaDAMI:
         tarjeta.ultimos4 = datos["numero"][-4:]
         tarjeta.numero_cifrado = tarjetas.cifrar(datos["numero"])
     tarjeta.save()
-    if not formulario.tiene_tarjeta_activa:
-        formulario.tiene_tarjeta_activa = True  # la columna "prioridad" la recalcula la base de datos
+    activa = bool(datos.get("activa"))  # lo indica el vendedor en el formulario
+    if formulario.tiene_tarjeta_activa != activa:
+        formulario.tiene_tarjeta_activa = activa  # la columna "prioridad" la recalcula la base de datos
         formulario.save(update_fields=["tiene_tarjeta_activa", "actualizado_en"])
     return tarjeta
 
@@ -719,3 +720,79 @@ def efectividad_bases(base=None) -> list[dict]:
         fila["efectividad_total"] = Decimal(b.dami_sacado * 100) / b.contactos if b.contactos else None
         filas.append(fila)
     return filas
+
+
+# --------------------------------------------------------------------------- mis estadísticas (vendedor)
+@dataclass
+class Comparacion:
+    """Un indicador del mes en curso frente al mes anterior a la misma fecha y al mes anterior completo."""
+    nombre: str
+    actual: Decimal
+    misma_fecha: Decimal
+    anterior_completo: Decimal
+    moneda: bool = False
+
+    @property
+    def diferencia(self):
+        return self.actual - self.misma_fecha
+
+    @property
+    def variacion(self):
+        """% de cambio frente al mes anterior a la misma fecha (None si entonces no había nada)."""
+        return round(self.diferencia * 100 / self.misma_fecha) if self.misma_fecha else None
+
+    @property
+    def subio(self) -> bool:
+        return self.diferencia > 0
+
+    @property
+    def bajo(self) -> bool:
+        return self.diferencia < 0
+
+
+def _produccion_hasta(empleado, anio: int, mes: int, dia: int) -> dict:
+    """DAMI enviados, ventas cerradas y monto del vendedor desde el día 1 hasta `dia` (como la hoja de producción)."""
+    from django.db.models import Count, Sum
+
+    from apps.reportes.estadisticas import ultimo_dia
+
+    fin = date(anio, mes, min(dia, ultimo_dia(anio, mes).day))
+    cerrada = Q(estado="VENTA_CERRADA")
+    d = RegistroProduccion.objects.filter(hoja__vendedor=empleado, fecha__range=(date(anio, mes, 1), fin)).aggregate(
+        enviados=Count("pk", filter=~Q(estado="ANULADO")), cerradas=Count("pk", filter=cerrada),
+        total=Sum("valor_venta", filter=cerrada))
+    return {"enviados": d["enviados"], "cerradas": d["cerradas"], "total": d["total"] or Decimal("0")}
+
+
+def mis_estadisticas(empleado, meses: int = 6, hoy: date | None = None) -> dict:
+    """
+    Crecimiento del vendedor: sus DAMI sacados (enviados a cierre), ventas cerradas y monto por mes,
+    con la misma regla de fechas que la hoja de producción y las estadísticas de reportes.
+    """
+    from apps.reportes import estadisticas
+
+    hoy = hoy or timezone.localdate()
+    est = estadisticas.calcular(hoy.year, hoy.month, vendedor=empleado, hoy=hoy)
+    serie = est.serie[-meses:]
+    actual, anterior = est.serie[-1], est.serie[-2]
+    previo = _produccion_hasta(empleado, anterior.anio, anterior.mes, hoy.day)
+    comparaciones = [
+        Comparacion("DAMI sacados", Decimal(actual.enviados), Decimal(previo["enviados"]), Decimal(anterior.enviados)),
+        Comparacion("Ventas cerradas", Decimal(actual.cerradas), Decimal(previo["cerradas"]), Decimal(anterior.cerradas)),
+        Comparacion("Monto vendido", actual.total, previo["total"], anterior.total, moneda=True),
+    ]
+    con_ventas = [m for m in est.serie if m.total > 0]
+    filas = []
+    for i, m in enumerate(serie):
+        previo_mes = est.serie[len(est.serie) - len(serie) + i - 1] if len(est.serie) - len(serie) + i > 0 else None
+        if m is actual:  # el mes en curso, a la misma fecha (no contra un mes completo)
+            variacion = comparaciones[2].variacion
+        else:
+            variacion = round((m.total - previo_mes.total) * 100 / previo_mes.total) if previo_mes and previo_mes.total else None
+        filas.append({"mes": m, "en_curso": m is actual, "variacion": variacion})
+    return {
+        "serie": serie, "filas": list(reversed(filas)), "actual": actual, "anterior": anterior, "comparaciones": comparaciones,
+        "mejor_mes": max(con_ventas, key=lambda m: (m.total, m.cerradas)) if con_ventas else None,
+        "promedio_3": est.promedio_3, "meses": meses, "hoy": hoy,
+        "tiene_datos": any(m.enviados for m in est.serie),
+    }

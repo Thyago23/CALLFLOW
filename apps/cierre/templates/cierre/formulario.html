@@ -123,8 +123,8 @@
           <div class="col-sm-6"><dt>Cédula</dt><dd>{{ f.cliente.cedula|default:"—" }}</dd></div>
           <div class="col-sm-6"><dt>RUC</dt><dd>{{ f.cliente.ruc_mostrar|default:"—" }}</dd></div>
           <div class="col-sm-4"><dt>Telf</dt><dd><a href="tel:{{ f.cliente.telefono }}">{{ f.cliente.telefono }}</a></dd></div>
-          <div class="col-sm-4"><dt>Telf2</dt><dd>{{ f.cliente.telefono_alterno|default:"—" }}</dd></div>
-          <div class="col-sm-4"><dt>Telf3</dt><dd>{{ f.cliente.telefono3|default:"—" }}</dd></div>
+          {% if f.cliente.telefono_alterno %}<div class="col-sm-4"><dt>Telf2</dt><dd>{{ f.cliente.telefono_alterno }}</dd></div>{% endif %}
+          {% if f.cliente.telefono3 %}<div class="col-sm-4"><dt>Telf3</dt><dd>{{ f.cliente.telefono3 }}</dd></div>{% endif %}
           <div class="col-sm-8"><dt>Dirección</dt><dd>{{ f.cliente.direccion|default:"—" }}</dd></div>
           <div class="col-sm-4"><dt>Sector</dt><dd>{{ f.cliente.sector|default:"—" }}</dd></div>
           <div class="col-sm-4"><dt>Ciudad</dt><dd>{{ f.cliente.ciudad|default:"—" }}</dd></div>

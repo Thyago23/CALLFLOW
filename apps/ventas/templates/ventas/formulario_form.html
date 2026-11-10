@@ -32,9 +32,7 @@
         <div class="col-12"><div id="estado-cliente" class="estado-identificacion mb-2" aria-live="polite"></div></div>
         <div class="col-md-6">{% include "_campo.html" with campo=form.nombres ayuda=form.nombres.help_text %}</div>
         <div class="col-md-6">{% include "_campo.html" with campo=form.apellidos %}</div>
-        <div class="col-md-4">{% include "_campo.html" with campo=form.telefono %}</div>
-        <div class="col-md-4">{% include "_campo.html" with campo=form.telefono_alterno %}</div>
-        <div class="col-md-4">{% include "_campo.html" with campo=form.telefono3 %}</div>
+        <div class="col-md-6">{% include "_campo.html" with campo=form.telefono %}</div>
       </div>
       <hr class="my-3">
       <div class="row">
@@ -63,6 +61,19 @@
           {% endfor %}
         </div>
         {% for error in form.marca.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+      </fieldset>
+      <fieldset class="mb-3 tarjeta-activa">
+        <legend class="form-label fs-6 fw-semibold mb-2">{{ form.tarjeta_activa.label }}</legend>
+        <div class="d-flex flex-wrap gap-2">
+          {% for opcion in form.tarjeta_activa %}
+          {{ opcion.tag }}
+          <label class="btn {% if opcion.data.value == 'SI' %}btn-outline-success{% else %}btn-outline-secondary{% endif %}" for="{{ opcion.id_for_label }}">
+            <i class="bi {% if opcion.data.value == 'SI' %}bi-check-circle{% else %}bi-x-circle{% endif %} me-1" aria-hidden="true"></i>{{ opcion.choice_label }}
+          </label>
+          {% endfor %}
+        </div>
+        <div class="form-text">Con la tarjeta activa, el DAMI pasa primero en la bandeja de cierre.</div>
+        {% for error in form.tarjeta_activa.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
       </fieldset>
       <div class="row">
         <div class="col-md-6">{% include "_campo.html" with campo=form.banco %}

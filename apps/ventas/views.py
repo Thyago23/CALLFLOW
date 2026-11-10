@@ -8,6 +8,7 @@ from django.core.paginator import Paginator
 from django.db.models import Q
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 from django.utils.dateparse import parse_date
 from django.utils.http import url_has_allowed_host_and_scheme
@@ -535,12 +536,17 @@ def bases_contactos(request):
 
 
 # --------------------------------------------------------------------------- contactos del vendedor (SCRUM-95)
+def _resumen_contactos(empleado) -> dict:
+    resumen = servicios.seguimiento(vendedor=empleado)
+    return {"resumen": resumen,
+            "totales": {k: sum(f[k] for f in resumen) for k in ("enviados", "gestionados", "pendientes", "no_contesto", "no_quiere", "dami_sacado")}}
+
+
 @login_required
 @permission_required("ventas.view_registrobase", raise_exception=True)
 def mis_contactos(request):
     empleado = _solo_vendedores(request)
     qs = servicios.contactos_del_vendedor(empleado)
-    resumen = servicios.seguimiento(vendedor=empleado)
     base_id = request.GET.get("base", "")
     if base_id.isdigit():
         qs = qs.filter(base_id=int(base_id))
@@ -552,9 +558,8 @@ def mis_contactos(request):
         qs = qs.filter(Q(nombre__icontains=texto) | Q(cedula__icontains=texto) | Q(numero__icontains=texto) | Q(ciudad__icontains=texto))
     pagina = Paginator(qs.order_by("base__nombre", "fila"), 30).get_page(request.GET.get("pagina"))
     return render(request, "ventas/mis_contactos.html", {
-        "pagina": pagina, "resumen": resumen, "estado": estado, "base_id": base_id, "q": texto,
-        "estados": RegistroBase.Estado.choices,
-        "totales": {k: sum(f[k] for f in resumen) for k in ("enviados", "gestionados", "pendientes", "no_contesto", "no_quiere", "dami_sacado")},
+        "pagina": pagina, "estado": estado, "base_id": base_id, "q": texto, "estados": RegistroBase.Estado.choices,
+        **_resumen_contactos(empleado),
     })
 
 
@@ -562,13 +567,25 @@ def mis_contactos(request):
 @permission_required("ventas.change_registrobase", raise_exception=True)
 @require_POST
 def contacto_categorizar(request, pk):
-    """HTMX: el vendedor marca al cliente y se devuelve la fila actualizada."""
+    """
+    HTMX: el vendedor marca al cliente. Si con la nueva categoría el contacto ya no corresponde al
+    filtro de la lista (p. ej. «Por gestionar»), se devuelve un aviso con «Deshacer» que se va solo;
+    si corresponde, la fila actualizada. En ambos casos se actualizan los contadores de arriba.
+    """
+    anterior = RegistroBase.objects.filter(pk=pk).values_list("estado", flat=True).first()
     try:
         registro = servicios.categorizar(request.user, pk, request.POST.get("estado", ""))
     except ValidationError as error:
         return HttpResponse(" ".join(error.messages), status=400)
     if _es_htmx(request):
-        return render(request, "ventas/_fila_contacto.html", {"r": registro, "recien": True})
+        filtro = request.POST.get("filtro", "")
+        filtro = filtro if filtro in RegistroBase.Estado.values else ""
+        contexto = {"r": registro, "recien": True, "estado": filtro, "volver": _volver(request, reverse("ventas:mis_contactos")),
+                    "anterior": anterior if anterior != registro.estado else ""}
+        plantilla = "ventas/_contacto_hecho.html" if filtro and registro.estado != filtro else "ventas/_fila_contacto.html"
+        fila = render(request, plantilla, contexto).content.decode()
+        resumen = render(request, "ventas/_resumen_contactos.html", {"oob": True, **_resumen_contactos(registro.vendedor)})
+        return HttpResponse(fila + resumen.content.decode())
     messages.success(request, f"{registro.nombre or registro.numero}: {registro.get_estado_display().lower()}.")
     return redirect(_volver(request, "ventas:mis_contactos"))
 
@@ -680,3 +697,30 @@ def repetido_revisar(request, pk):
         else:
             messages.success(request, f"{r.nombre or r.numero}: descartado.")
     return redirect(_volver(request, "ventas:repetidos"))
+
+
+# --------------------------------------------------------------------------- mis estadísticas (vendedor)
+@login_required
+@permission_required("ventas.view_formulariodami", raise_exception=True)
+def mis_estadisticas(request):
+    """El vendedor ve su propio crecimiento: DAMI sacados, ventas y monto por mes, frente a meses anteriores."""
+    from apps.reportes import graficas
+
+    empleado = _solo_vendedores(request)
+    meses = 12 if request.GET.get("meses") == "12" else 6
+    datos = servicios.mis_estadisticas(empleado, meses)
+    etiquetas = [m.etiqueta for m in datos["serie"]]
+    resaltar = len(etiquetas) - 1
+    promedio = datos["promedio_3"]
+    return render(request, "ventas/mis_estadisticas.html", datos | {
+        "grafica_cantidades": graficas.barras_mensuales(
+            etiquetas, [("DAMI sacados", graficas.SERIE_1, [m.enviados for m in datos["serie"]]),
+                        ("Ventas cerradas", graficas.SERIE_2, [m.cerradas for m in datos["serie"]])],
+            titulo="DAMI sacados y ventas cerradas por mes",
+            descripcion="Por cada mes, cuántos DAMI envió a cierre y cuántos terminaron en venta cerrada.", resaltar=resaltar),
+        "grafica_monto": graficas.barras_mensuales(
+            etiquetas, [("Monto vendido", graficas.SERIE_1, [m.total for m in datos["serie"]])],
+            titulo="Monto vendido por mes", descripcion="Total de las ventas cerradas de cada mes.", moneda=True,
+            resaltar=resaltar, referencia=(promedio, "Tu promedio de 3 meses") if promedio else None),
+        "color_dami": graficas.SERIE_1, "color_ventas": graficas.SERIE_2,
+    })

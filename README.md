@@ -43,6 +43,12 @@ No dependen de que la aplicación "se acuerde": aplican aunque alguien escriba S
 - El vendedor categoriza cada cliente en **Mis contactos**: No contestó, No quiere o DAMI sacado (se puede corregir). «Llenar DAMI» prellena el formulario con los datos del contacto.
 - **Seguimiento por vendedor**: enviados, gestionados, faltantes y cada categoría. Reportes: *Efectividad de bases* (DAMI sacados ÷ gestionados, con la media de todas las bases) y *Gestión de bases por vendedor*.
 
+## Mis estadísticas (vendedor)
+
+- **Ventas → Mis estadísticas** (`/ventas/mis-estadisticas/`), solo para vendedores y con sus propios datos: DAMI sacados (enviados a cierre, sin anulados), ventas cerradas y monto vendido de los últimos 6 o 12 meses, con la misma regla de fechas que la hoja de producción (`reportes/estadisticas.calcular` filtrado por el vendedor).
+- El mes en curso se compara con lo que llevaba el mes anterior **hasta el mismo día** (no contra un mes completo), además del mes anterior completo, su mejor mes y su promedio de los últimos 3 meses.
+- Gráficas SVG del servidor (`graficas.barras_mensuales`): DAMI frente a ventas (azul `#2a78d6` / naranja `#eb6834`, validados para daltonismo y contraste) y monto por mes con la línea del promedio. Cada mes tiene tooltip y la tabla «Mes a mes» repite los datos.
+
 ## Tablero de ventas (TV del call)
 
 - Menú **Comercial → Tablero de ventas** (`/tablero/`), para administrador y encargados de cierre. Reemplaza al tablero escrito a mano: todos los vendedores con lo vendido en el mes, del primero al último, el total del call y el avance de la meta si la tiene. Los montos salen de la misma vista que el panel comercial y la hoja de producción.

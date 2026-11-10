@@ -132,3 +132,78 @@ def acumulado_mes(dias_mes: int, diario, proyeccion=None, meta=None) -> str:
         partes.append(_punto(x(ultimo_dia), y(ultimo), f"Día {ultimo_dia}: {dinero(ultimo)} acumulado"))
         partes.append(_etiqueta(x(ultimo_dia), y(ultimo), compacto(ultimo)))
     return _svg("Ventas acumuladas del mes", "Total vendido acumulado por día, proyección al fin de mes y meta.", partes)
+
+
+# --------------------------------------------------------------------------- barras por mes (estadísticas del vendedor)
+# Dos series categóricas validadas (daltonismo y contraste sobre fondo blanco): azul y naranja.
+SERIE_1, SERIE_2 = "#2a78d6", "#eb6834"
+TINTA = "#1d2733"
+
+
+def _barra(x, y, ancho, alto, color, radio=4) -> str:
+    """Barra anclada a la base con la punta redondeada."""
+    if alto <= 0.5:
+        return ""
+    r = min(radio, ancho / 2, alto)
+    base = y + alto
+    return (f'<path d="M{x:.1f},{base:.1f} V{y + r:.1f} Q{x:.1f},{y:.1f} {x + r:.1f},{y:.1f} H{x + ancho - r:.1f} '
+            f'Q{x + ancho:.1f},{y:.1f} {x + ancho:.1f},{y + r:.1f} V{base:.1f} Z" fill="{color}"/>')
+
+
+def _tope_entero(valor) -> int:
+    """Eje de cantidades: múltiplo de 4 para que las 5 líneas de la rejilla caigan en enteros."""
+    valor = int(valor or 0)
+    return max(4, -(-valor // 4) * 4) if valor <= 20 else int(tope(valor) + 3) // 4 * 4
+
+
+def barras_mensuales(etiquetas, series, *, titulo: str, descripcion: str, moneda: bool = False, resaltar: int | None = None,
+                     referencia=None) -> str:
+    """
+    `series`: [(nombre, color, valores)], un valor por etiqueta. `resaltar`: posición cuyo valor se
+    escribe sobre la barra (el mes en curso). `referencia`: (valor, texto) dibujado como línea punteada.
+    Cada mes lleva un tooltip con todos sus valores; la tabla de la página repite los datos.
+    """
+    formato = (lambda v: compacto(v)) if moneda else (lambda v: f"{int(v)}")
+    detalle = (lambda v: dinero(v)) if moneda else (lambda v: f"{int(v)}")
+    valores = [v for _, _, vs in series for v in vs] + ([referencia[0]] if referencia else [])
+    maximo = tope(max(valores, default=0)) if moneda else _tope_entero(max(valores, default=0))
+    n, k = len(etiquetas), len(series)
+    ancho_plot, alto_plot = ANCHO - M_IZQ - M_DER, ALTO - M_SUP - M_INF
+    banda = ancho_plot / max(n, 1)
+    grupo = min(banda * 0.62, 26 * k + 2 * (k - 1))
+    ancho_barra = (grupo - 2 * (k - 1)) / k
+    base = M_SUP + alto_plot
+
+    def y(v):
+        return M_SUP + alto_plot * (1 - float(v) / maximo)
+
+    partes = []
+    for i in range(5):
+        v = maximo * i / 4
+        yy = M_SUP + alto_plot * (1 - i / 4)
+        partes.append(f'<line x1="{M_IZQ}" x2="{ANCHO - M_DER}" y1="{yy:.1f}" y2="{yy:.1f}" stroke="{REJILLA}" stroke-width="1"/>')
+        partes.append(f'<text x="{M_IZQ - 8}" y="{yy + 4:.1f}" text-anchor="end" font-size="11" fill="{TEXTO}">{escape(formato(v))}</text>')
+    if referencia:
+        valor, texto = referencia
+        partes.append(f'<line x1="{M_IZQ}" x2="{ANCHO - M_DER}" y1="{y(valor):.1f}" y2="{y(valor):.1f}" stroke="{GRIS_META}" '
+                      f'stroke-width="1.5" stroke-dasharray="3 4"/>')
+        partes.append(f'<text x="{M_IZQ + 4}" y="{y(valor) - 6:.1f}" font-size="11" fill="{TEXTO}">{escape(texto)}</text>')
+    for i, etiqueta in enumerate(etiquetas):
+        centro = M_IZQ + banda * (i + 0.5)
+        inicio = centro - grupo / 2
+        textos = " · ".join(f"{nombre}: {detalle(vs[i])}" for nombre, _, vs in series)
+        barras = "".join(_barra(inicio + j * (ancho_barra + 2), y(vs[i]), ancho_barra, base - y(vs[i]), color)
+                         for j, (_, color, vs) in enumerate(series))
+        # Zona de la columna completa: el tooltip aparece aunque la barra sea muy baja o cero.
+        partes.append(f'<g><title>{escape(etiqueta)} — {escape(textos)}</title>'
+                      f'<rect x="{centro - banda / 2:.1f}" y="{M_SUP}" width="{banda:.1f}" height="{alto_plot}" fill="transparent"/>{barras}</g>')
+        peso = ' font-weight="700"' if i == resaltar else ""
+        partes.append(f'<text x="{centro:.1f}" y="{ALTO - 10}" text-anchor="middle" font-size="11" fill="{TINTA if i == resaltar else TEXTO}"'
+                      f'{peso}>{escape(etiqueta)}</text>')
+        if i == resaltar:
+            for j, (_, _, vs) in enumerate(series):
+                x = inicio + j * (ancho_barra + 2) + ancho_barra / 2
+                partes.append(f'<text x="{x:.1f}" y="{y(vs[i]) - 6:.1f}" text-anchor="middle" font-size="12" font-weight="600" '
+                              f'fill="{TINTA}">{escape(formato(vs[i]))}</text>')
+    partes.append(f'<line x1="{M_IZQ}" x2="{ANCHO - M_DER}" y1="{base:.1f}" y2="{base:.1f}" stroke="{TEXTO}" stroke-width="1"/>')
+    return _svg(titulo, descripcion, partes)

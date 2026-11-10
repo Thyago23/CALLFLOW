@@ -38,9 +38,7 @@ class FormularioDAMIForm(FormularioEstilizado, forms.Form):
     nombres = forms.CharField(label="Nombres del cliente", max_length=100,
                               help_text="Si solo tiene RUC, la razón social.")
     apellidos = forms.CharField(label="Apellidos", max_length=100, required=False)
-    telefono = forms.CharField(label="Telf", max_length=20)
-    telefono_alterno = forms.CharField(label="Telf2", max_length=20, required=False)
-    telefono3 = forms.CharField(label="Telf3", max_length=20, required=False)
+    telefono = forms.CharField(label="Teléfono", max_length=20)
     direccion = forms.CharField(label="Dirección", max_length=255, required=False)
     sector = forms.CharField(label="Sector", max_length=120, required=False)
     ciudad = forms.CharField(label="Ciudad", max_length=80, required=False)
@@ -49,6 +47,9 @@ class FormularioDAMIForm(FormularioEstilizado, forms.Form):
 
     # Tarjetas para realizar el pago
     marca = forms.ChoiceField(label="Tarjeta", required=False, choices=_MARCAS_COMO_EN_PAPEL, widget=forms.RadioSelect)
+    # Lo marca el vendedor: con la tarjeta activa el DAMI pasa primero en la bandeja de cierre (prioridad 1).
+    tarjeta_activa = forms.ChoiceField(label="¿La tarjeta está activa?", required=False, choices=[("SI", "Sí, está activa"),
+                                       ("NO", "No está activa")], widget=forms.RadioSelect)
     banco = forms.CharField(label="Banco", max_length=80, required=False)
     caducidad = forms.CharField(label="Caducidad", max_length=7, required=False,
                                 widget=forms.TextInput(attrs={"placeholder": "MM/AA", "inputmode": "numeric",
@@ -66,6 +67,7 @@ class FormularioDAMIForm(FormularioEstilizado, forms.Form):
         self.tarjeta_guardada = tarjeta_guardada
         _estilizar(self)
         self.fields["marca"].widget.attrs["class"] = "btn-check"
+        self.fields["tarjeta_activa"].widget.attrs["class"] = "btn-check"
         if tarjeta_guardada:
             self.fields["numero_tarjeta"].widget.attrs["placeholder"] = (
                 f"**** {tarjeta_guardada.ultimos4} · escriba el número solo si cambia la tarjeta")
@@ -77,8 +79,7 @@ class FormularioDAMIForm(FormularioEstilizado, forms.Form):
         }
         for campo in ("cedula", "ruc"):
             self.fields[campo].widget.attrs.update(buscar | {"autocomplete": "off", "inputmode": "numeric"})
-        for campo in ("telefono", "telefono_alterno", "telefono3"):
-            self.fields[campo].widget.attrs["inputmode"] = "tel"
+        self.fields["telefono"].widget.attrs["inputmode"] = "tel"
         self.fields["telefono"].widget.attrs["placeholder"] = "0991234567"
         self.fields["banco"].widget.attrs["list"] = "entidades-emisoras"
         self.entidades = EntidadEmisora.objects.filter(activa=True).values_list("nombre", flat=True).order_by("nombre")
@@ -88,12 +89,13 @@ class FormularioDAMIForm(FormularioEstilizado, forms.Form):
         c = f.cliente
         tarjeta = getattr(f, "tarjeta", None)
         inicial = {
-            "cedula": c.cedula, "ruc": c.ruc_mostrar, "nombres": c.nombres, "apellidos": c.apellidos, "telefono": c.telefono, "telefono_alterno": c.telefono_alterno,
-            "telefono3": c.telefono3, "direccion": c.direccion, "sector": c.sector, "ciudad": c.ciudad,
+            "cedula": c.cedula, "ruc": c.ruc_mostrar, "nombres": c.nombres, "apellidos": c.apellidos, "telefono": c.telefono,
+            "direccion": c.direccion, "sector": c.sector, "ciudad": c.ciudad,
             "referencia": c.referencia, "email": c.email, "observaciones": f.observaciones,
         }
         if tarjeta:
-            inicial |= {"marca": tarjeta.marca, "banco": tarjeta.banco, "caducidad": tarjeta.caducidad}
+            inicial |= {"marca": tarjeta.marca, "banco": tarjeta.banco, "caducidad": tarjeta.caducidad,
+                        "tarjeta_activa": "SI" if f.tiene_tarjeta_activa else "NO"}
         return cls(initial=inicial, tarjeta_guardada=tarjeta, **kwargs)
 
     # ------------------------------------------------------------- identificación
@@ -123,12 +125,6 @@ class FormularioDAMIForm(FormularioEstilizado, forms.Form):
 
     def clean_telefono(self):
         return self._telefono("telefono", True)
-
-    def clean_telefono_alterno(self):
-        return self._telefono("telefono_alterno", False)
-
-    def clean_telefono3(self):
-        return self._telefono("telefono3", False)
 
     def clean_email(self):
         return (self.cleaned_data.get("email") or "").strip().lower()
@@ -172,6 +168,9 @@ class FormularioDAMIForm(FormularioEstilizado, forms.Form):
         if not hay_tarjeta:
             return datos
 
+        if not datos.get("tarjeta_activa"):
+            self.add_error("tarjeta_activa", "Indique si la tarjeta está activa.")
+
         if not marca:
             self.add_error("marca", "Marque la tarjeta con la que se realizará el pago.")
         if not datos.get("banco"):
@@ -192,7 +191,8 @@ class FormularioDAMIForm(FormularioEstilizado, forms.Form):
             self.add_error("numero_tarjeta", "Ingrese el número de la tarjeta.")
         elif marca and marca != self.tarjeta_guardada.marca:
             self.add_error("numero_tarjeta", "Si cambia la marca, vuelva a escribir el número de la tarjeta.")
-        datos["tarjeta"] = {"marca": marca, "banco": datos.get("banco"), "mes": mes, "anio": anio, "numero": numero_valido}
+        datos["tarjeta"] = {"marca": marca, "banco": datos.get("banco"), "mes": mes, "anio": anio, "numero": numero_valido,
+                            "activa": datos.get("tarjeta_activa") == "SI"}
         return datos
 
 
