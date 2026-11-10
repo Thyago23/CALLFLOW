@@ -52,7 +52,7 @@ No dependen de que la aplicación "se acuerde": aplican aunque alguien escriba S
 ## Tablero de ventas (TV del call)
 
 - Menú **Comercial → Tablero de ventas** (`/tablero/`), para administrador y encargados de cierre. Reemplaza al tablero escrito a mano: todos los vendedores con lo vendido en el mes, del primero al último, el total del call y el avance de la meta si la tiene. Los montos salen de la misma vista que el panel comercial y la hoja de producción.
-- Pantalla pensada para proyectar por HDMI (1920×1080): sin menú ni avisos flotantes, letra grande y se actualiza sola cada 30 s. Cuando alguien vende, su fila se ilumina con «+$…» y cae confeti; si cambia el primero, el confeti es mayor. Con más de 10 vendedores pasa a dos columnas.
+- Pantalla pensada para proyectar por HDMI (1920×1080): sin menú ni avisos flotantes, letra grande y se actualiza sola cada 30 s. Cuando alguien vende, su fila se ilumina con «+$…» y cae confeti; si cambia el primero, el confeti es mayor. Arriba, un podio con los tres primeros que ya vendieron (oro, plata y bronce, con trofeo); debajo, el resto en filas con ventas, % de la meta, en cierre y lo vendido. Con más de 5 en la lista pasa a dos columnas (y a tres con más de 12).
 - Al mover el mouse aparecen los controles (se esconden solos a los 3 s): mes, **Destacar** (👑 mejor vendedor, 💎 venta más alta del mes o nada) y pantalla completa. La opción elegida queda en la dirección (`?destacar=mejor|venta|nada`), así que se puede dejar como favorito en el navegador de la TV.
 
 ## Notificaciones

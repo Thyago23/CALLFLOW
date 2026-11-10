@@ -433,6 +433,7 @@ class FilaTablero:
     iniciales: str
     color: str
     ancho: int = 0  # largo de la barra: lo vendido respecto del primero (100)
+    puesto: int = 0  # 1, 2 o 3 si está en el podio
 
     def __getattr__(self, nombre):
         return getattr(self.fila, nombre)
@@ -465,5 +466,12 @@ def tablero_ventas(anio: int, mes: int, usuario) -> dict:
     mejor = next((f for f in filas if panel.mejor and f.fila is panel.mejor), None)
     venta = venta_mas_alta(anio, mes)
     venta_nombre = _nombre_corto(venta.hoja.vendedor)[0] if venta else ""
+    # Podio: los tres primeros que ya vendieron, en el orden en que se dibujan (2.º, 1.º, 3.º).
+    con_ventas = [f for f in filas[:3] if f.total_vendido]
+    for puesto, f in enumerate(con_ventas, start=1):
+        f.puesto = puesto
+    podio = sorted(con_ventas, key=lambda f: {2: 0, 1: 1, 3: 2}[f.puesto])
+    resto = filas[len(con_ventas):]
+    columnas = 1 if len(resto) <= 5 else 2 if len(resto) <= 12 else 3
     return {"filas": filas, "totales": panel.totales, "mejor": mejor, "venta_mas_alta": venta, "venta_nombre": venta_nombre,
-            "filas_por_columna": (len(filas) + 1) // 2 if len(filas) > 10 else len(filas)}
+            "podio": podio, "resto": resto, "columnas": columnas, "filas_por_columna": -(-len(resto) // columnas) or 1}
