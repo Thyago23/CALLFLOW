@@ -53,6 +53,7 @@ _GESTION_BASES = {
     "ventas.asignacionbase": ["view", "add", "change"],
     "ventas.solicitudbase": ["view", "change"],
     "ventas.registrobase": ["view", "add", "change"],  # contactos de las bases (carga, reparto y seguimiento)
+    "ventas.contactorepetido": ["view", "add", "change"],  # base de repetidos (revisar, descartar o recuperar)
 }
 # Catálogo de bancos y BIN para la validación de tarjetas (lo mantienen administración y cierre).
 _CATALOGO_TARJETAS = {

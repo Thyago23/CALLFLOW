@@ -124,6 +124,7 @@ class Notificacion(models.Model):
         FORMULARIO_DAMI = "FORMULARIO_DAMI", "Formulario DAMI"
         NOMINA = "NOMINA", "Nómina"
         ASISTENCIA = "ASISTENCIA", "Asistencia"
+        CONTACTOS_REPETIDOS = "CONTACTOS_REPETIDOS", "Contactos repetidos"
 
     destinatario = models.ForeignKey(Usuario, on_delete=models.CASCADE, related_name="notificaciones")
     tipo = models.CharField(max_length=20, choices=Tipo.choices, default=Tipo.GENERAL)
@@ -159,6 +160,7 @@ class Notificacion(models.Model):
         Tipo.FORMULARIO_DAMI: ("file-earmark-text", "marca"),
         Tipo.NOMINA: ("cash-coin", "marca"),
         Tipo.ASISTENCIA: ("clock-history", "alerta"),
+        Tipo.CONTACTOS_REPETIDOS: ("people", "alerta"),
     }
 
     @property

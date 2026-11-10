@@ -12,7 +12,9 @@ Las bases llegan de distintos proveedores, normalmente SIN encabezados ni títul
 - «Nombres» y «Apellidos» separados se unen y si hay dos columnas de categoría se juntan;
 - se limpian los valores: espacios, Mayúsculas Iniciales, cédulas a las que Excel les quitó
   el 0 inicial, teléfonos con 593 o sin el 0;
-- se omiten filas vacías, contactos sin un teléfono válido y repetidos dentro del archivo.
+- se omiten filas vacías y contactos sin un teléfono válido;
+- los repetidos dentro del archivo (misma cédula válida o algún teléfono igual) se separan en
+  `Resultado.repetidas` para enviarlos a la base de repetidos (servicios.importar_base).
 """
 import csv
 import io
@@ -177,13 +179,17 @@ class Resultado:
     leidas: int = 0
     vacias: int = 0
     sin_telefono: int = 0
-    duplicadas: int = 0
+    repetidas: list = field(default_factory=list)  # como `filas` + repite_fila y criterio (CEDULA / NUMERO)
     cedulas_invalidas: int = 0
     fila_encabezado: int = 0
 
     @property
     def importadas(self) -> int:
         return len(self.filas)
+
+    @property
+    def duplicadas(self) -> int:
+        return len(self.repetidas)
 
     def resumen(self) -> dict:
         return {"leidas": self.leidas, "importadas": self.importadas, "vacias": self.vacias,
@@ -196,10 +202,12 @@ def _encabezado(filas) -> tuple[int, dict]:
     mejor, columnas_mejor = -1, {}
     for i, fila in enumerate(filas[:FILAS_PARA_ENCABEZADO]):
         if any(telefonos(celda) for celda in fila):
-            continue  # una fila con teléfonos es de datos, no de encabezados
+            break  # empezaron los datos: los encabezados siempre van antes (una celda «sin número» no es encabezado)
+        llenas = [celda for celda in fila if texto(celda)]
         columnas = {j: c for j, celda in enumerate(fila) if (c := campo_de(celda))}
         reconocidos = set(columnas.values())
-        if "numero" in reconocidos and len(reconocidos) >= 2 and len(reconocidos) > len(set(columnas_mejor.values())):
+        if ("numero" in reconocidos and len(reconocidos) >= 2 and len(columnas) * 2 >= len(llenas)
+                and len(reconocidos) > len(set(columnas_mejor.values()))):
             mejor, columnas_mejor = i, columnas
     return mejor, columnas_mejor
 
@@ -317,7 +325,7 @@ def formatear(archivo) -> Resultado:
         r.columnas.setdefault(campo, []).append(nombres[j])
     r.columnas = {c: " + ".join(v) for c, v in r.columnas.items()}
 
-    vistos = set()
+    por_cedula, por_numero = {}, {}  # cédula / teléfono -> fila del archivo donde apareció primero
     for numero_fila, fila in enumerate(filas[indice + 1:], start=indice + 2):
         valores = {}
         for j, campo in columnas.items():
@@ -333,18 +341,11 @@ def formatear(archivo) -> Resultado:
             r.sin_telefono += 1
             continue
         documento, valida = cedula(valores["cedula"][0]) if valores.get("cedula") else ("", True)
-        clave = documento if documento and valida else numeros[0]
-        if clave in vistos:
-            r.duplicadas += 1
-            continue
-        vistos.add(clave)
-        if documento and not valida:
-            r.cedulas_invalidas += 1
         categorias = []
         for c in valores.get("categoria_tarjeta", []):
             if titulo(c) not in categorias:
                 categorias.append(titulo(c))
-        r.filas.append({
+        contacto = {
             "fila": numero_fila,
             "ciudad": titulo(" ".join(valores.get("ciudad", [])))[:100],
             "categoria_tarjeta": " / ".join(categorias)[:150],
@@ -352,23 +353,41 @@ def formatear(archivo) -> Resultado:
             "nombre": titulo(" ".join(valores.get("nombre", []) + valores.get("apellido", [])))[:200],
             "cedula": documento, "cedula_valida": valida,
             "numero": numeros[0], "numero_alterno": " / ".join(numeros[1:])[:60],
-        })
+        }
+        # Repetido: la misma persona (cédula válida) o cualquiera de sus teléfonos ya apareció más arriba.
+        if documento and valida and documento in por_cedula:
+            r.repetidas.append(contacto | {"repite_fila": por_cedula[documento], "criterio": "CEDULA"})
+            continue
+        if repite := next((por_numero[n] for n in numeros if n in por_numero), None):
+            r.repetidas.append(contacto | {"repite_fila": repite, "criterio": "NUMERO"})
+            continue
+        if documento and valida:
+            por_cedula[documento] = numero_fila
+        for n in numeros:
+            por_numero.setdefault(n, numero_fila)
+        if documento and not valida:
+            r.cedulas_invalidas += 1
+        r.filas.append(contacto)
     if not r.filas:
         raise ValidationError("El archivo no tiene contactos con un número de teléfono válido.")
     return r
 
 
 # --------------------------------------------------------------------------- Excel con el formato
-def excel(registros, con_gestion: bool = False) -> bytes:
-    """La base en el formato de la empresa. Cédula y número como texto, para que Excel no borre el 0."""
+def excel(registros, con_gestion: bool = False, extra: list | None = None, titulo_hoja: str = "Base") -> bytes:
+    """
+    La base en el formato de la empresa. Cédula y número como texto, para que Excel no borre el 0.
+    `extra`: columnas adicionales al final, como [(encabezado, ancho, función que recibe el registro)].
+    """
     from openpyxl import Workbook
     from openpyxl.styles import Alignment, Font, PatternFill
     from openpyxl.utils import get_column_letter
 
     libro = Workbook()
     hoja = libro.active
-    hoja.title = "Base"
-    encabezados = ENCABEZADOS + (["OTROS NUMEROS", "VENDEDOR", "ESTADO"] if con_gestion else [])
+    hoja.title = titulo_hoja
+    extra = extra or []
+    encabezados = ENCABEZADOS + (["OTROS NUMEROS", "VENDEDOR", "ESTADO"] if con_gestion else []) + [e[0] for e in extra]
     hoja.append(encabezados)
     for celda in hoja[1]:
         celda.font = Font(bold=True, color="FFFFFF")
@@ -378,12 +397,12 @@ def excel(registros, con_gestion: bool = False) -> bytes:
         fila = [r.ciudad, r.categoria_tarjeta, r.direccion, r.nombre, r.cedula, r.numero]
         if con_gestion:
             fila += [r.numero_alterno, f"{r.vendedor.apellidos} {r.vendedor.nombres}" if r.vendedor_id else "", r.get_estado_display()]
-        hoja.append(fila)
+        hoja.append(fila + [obtener(r) for _, _, obtener in extra])
     for columna in ("E", "F", "G") if con_gestion else ("E", "F"):  # cédula, número y otros números como texto
         for celda in hoja[columna][1:]:
             celda.number_format = "@"
-    anchos = [16, 20, 38, 32, 14, 13, 22, 28, 14]
-    for i, ancho in enumerate(anchos[:len(encabezados)], start=1):
+    anchos = [16, 20, 38, 32, 14, 13] + ([22, 28, 14] if con_gestion else []) + [e[1] for e in extra]
+    for i, ancho in enumerate(anchos, start=1):
         hoja.column_dimensions[get_column_letter(i)].width = ancho
     hoja.freeze_panes = "A2"
     salida = io.BytesIO()

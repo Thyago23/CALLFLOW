@@ -15,7 +15,7 @@ from decimal import Decimal
 
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import F, Q
 from django.urls import reverse
 from django.utils import timezone
 
@@ -23,8 +23,8 @@ from apps.core.models import Notificacion, Rol, Usuario
 from apps.personal.models import Empleado
 
 from . import tarjetas
-from .models import (AsignacionBase, BaseComercial, Cliente, FormularioDAMI, HojaProduccion, RegistroBase, RegistroProduccion,
-                     SolicitudBase, TarjetaDAMI)
+from .models import (AsignacionBase, BaseComercial, Cliente, ContactoRepetido, FormularioDAMI, HojaProduccion, RegistroBase,
+                     RegistroProduccion, SolicitudBase, TarjetaDAMI)
 
 Estado = FormularioDAMI.Estado
 EN_CURSO = [Estado.ENVIADO, Estado.EN_GESTION]
@@ -433,11 +433,175 @@ def importar_base(nombre: str, descripcion: str, archivo, usuario) -> BaseComerc
         raise ValidationError("Ya existe una base con ese nombre.")
     resultado = bases_excel.formatear(archivo)
     with transaction.atomic():
+        # Los que ya están en otras bases no entran: van a la base de repetidos.
+        existentes = _indice_contactos(cedulas={f["cedula"] for f in resultado.filas if f["cedula"] and f["cedula_valida"]},
+                                       numeros={n for f in resultado.filas for n in _numeros(f)})
+        nuevas, de_otras_bases = [], []
+        for fila in resultado.filas:
+            original, criterio = _coincidencia(fila, *existentes)
+            if original:
+                de_otras_bases.append((fila, original, criterio))
+            else:
+                nuevas.append(fila)
+        resumen = resultado.resumen() | {"importadas": len(nuevas), "repetidos_otras_bases": len(de_otras_bases)}
         base = BaseComercial.objects.create(
-            nombre=nombre, descripcion=(descripcion or "").strip(), total_registros=resultado.importadas, cargada_por=usuario,
-            archivo_origen=(getattr(archivo, "name", "") or "")[:255], resumen_carga=resultado.resumen())
-        RegistroBase.objects.bulk_create([RegistroBase(base=base, **fila) for fila in resultado.filas], batch_size=1000)
+            nombre=nombre, descripcion=(descripcion or "").strip(), total_registros=len(nuevas), cargada_por=usuario,
+            archivo_origen=(getattr(archivo, "name", "") or "")[:255], resumen_carga=resumen)
+        creados = RegistroBase.objects.bulk_create([RegistroBase(base=base, **fila) for fila in nuevas], batch_size=1000)
+        por_fila = {r.fila: r for r in creados} | {fila["fila"]: original for fila, original, _ in de_otras_bases}
+        repetidos = [ContactoRepetido(base=base, motivo=ContactoRepetido.Motivo.OTRA_BASE, criterio=criterio, original=original,
+                                      **_solo_datos(fila)) for fila, original, criterio in de_otras_bases]
+        # Del mismo archivo: coincide con la primera aparición (o, si esa ya estaba en otra base, con el contacto de esa base).
+        repetidos += [ContactoRepetido(base=base, motivo=ContactoRepetido.Motivo.MISMO_ARCHIVO, criterio=fila["criterio"],
+                                       original=por_fila.get(fila["repite_fila"]), **_solo_datos(fila))
+                      for fila in resultado.repetidas]
+        ContactoRepetido.objects.bulk_create(repetidos, batch_size=1000)
+        if repetidos:
+            _avisar_repetidos(base, len(de_otras_bases), resultado.duplicadas, usuario)
     return base
+
+
+# --------------------------------------------------------------------------- contactos repetidos
+def _numeros(contacto) -> list[str]:
+    if isinstance(contacto, dict):
+        return [contacto["numero"]] + [n for n in contacto.get("numero_alterno", "").split(" / ") if n]
+    return contacto.numeros
+
+
+def _solo_datos(fila: dict) -> dict:
+    return {campo: fila[campo] for campo in ContactoRepetido.CAMPOS}
+
+
+def _indice_contactos(cedulas, numeros) -> tuple[dict, dict]:
+    """
+    ({cédula: contacto}, {teléfono: contacto}) de los contactos ya cargados que pueden coincidir
+    con estas cédulas o teléfonos (también por sus «otros números»); manda el más antiguo.
+    """
+    numeros = set(numeros or [])
+    # «otros números» se guarda como «0991… / 0982…»: se compara cada teléfono por separado.
+    con_alterno = [pk for pk, alternos in RegistroBase.objects.exclude(numero_alterno="").values_list("pk", "numero_alterno")
+                   if numeros.intersection(alternos.split(" / "))]
+    qs = RegistroBase.objects.filter(Q(cedula__in=cedulas or [], cedula_valida=True) | Q(numero__in=numeros) | Q(pk__in=con_alterno))
+    por_cedula, por_numero = {}, {}
+    for r in qs.select_related("base", "vendedor").order_by("creado_en", "pk"):
+        if r.cedula and r.cedula_valida:
+            por_cedula.setdefault(r.cedula, r)
+        for n in r.numeros:
+            por_numero.setdefault(n, r)
+    return por_cedula, por_numero
+
+
+def _coincidencia(contacto, por_cedula: dict, por_numero: dict):
+    """(contacto existente, criterio) con el que coincide, o (None, None)."""
+    cedula = contacto["cedula"] if isinstance(contacto, dict) else contacto.cedula
+    valida = contacto["cedula_valida"] if isinstance(contacto, dict) else contacto.cedula_valida
+    if cedula and valida and cedula in por_cedula:
+        return por_cedula[cedula], ContactoRepetido.Criterio.CEDULA
+    for n in _numeros(contacto):
+        if n in por_numero:
+            return por_numero[n], ContactoRepetido.Criterio.NUMERO
+    return None, None
+
+
+def usuarios_gestion_bases():
+    """Quienes cargan y reparten bases: administradores y encargados de cierre."""
+    return usuarios_con_rol(Rol.ADMINISTRADOR, Rol.ENCARGADO_CIERRE)
+
+
+def _avisar_repetidos(base, de_otras_bases: int, del_archivo: int, usuario=None, ya_enviados: int = 0) -> None:
+    total = de_otras_bases + del_archivo
+    partes = []
+    if de_otras_bases:
+        partes.append(f"{de_otras_bases} ya estaban en otras bases")
+    if del_archivo:
+        partes.append(f"{del_archivo} estaban repetidos en el mismo archivo")
+    mensaje = ("; ".join(partes) + ". No se enviarán a los vendedores hasta que los revise.") if partes else ""
+    if ya_enviados:
+        mensaje += f" Además, {ya_enviados} repetidos ya estaban enviados a vendedores y se dejaron donde están."
+    destinatarios = set(usuarios_gestion_bases())
+    if usuario is not None and getattr(usuario, "is_active", False):
+        destinatarios.add(usuario)
+    _notificar(destinatarios, titulo=f"{total} contacto{'s' if total != 1 else ''} repetido{'s' if total != 1 else ''}"
+               + (f" en la base «{base.nombre}»" if base else " en las bases comerciales"),
+               mensaje=mensaje.strip(), url=reverse("ventas:repetidos") + (f"?base={base.pk}" if base else ""),
+               tipo=Notificacion.Tipo.CONTACTOS_REPETIDOS)
+
+
+@transaction.atomic
+def buscar_repetidos(usuario=None) -> dict:
+    """
+    Revisa TODAS las bases ya cargadas. El contacto cargado primero se queda en su base; los
+    repetidos posteriores que aún no se enviaron a ningún vendedor pasan a la base de repetidos.
+    Los que ya tiene un vendedor no se mueven (se cuentan aparte), ni los que alguien ya revisó y
+    recuperó a su base por no ser la misma persona.
+    Devuelve {"movidos": n, "ya_enviados": n, "por_base": {id de base: n}}.
+    """
+    recuperados = set(ContactoRepetido.objects.filter(estado=ContactoRepetido.Estado.RECUPERADO)
+                      .values_list("base_id", "fila", "numero"))
+    por_cedula, por_numero, mover, ya_enviados = {}, {}, [], 0
+    for r in RegistroBase.objects.select_for_update().order_by("creado_en", "pk"):
+        original, criterio = _coincidencia(r, por_cedula, por_numero)
+        if (r.base_id, r.fila, r.numero) in recuperados:
+            original = None
+        if original is None:
+            if r.cedula and r.cedula_valida:
+                por_cedula.setdefault(r.cedula, r)
+            for n in r.numeros:
+                por_numero.setdefault(n, r)
+        elif r.vendedor_id:
+            ya_enviados += 1
+        else:
+            mover.append((r, original, criterio))
+    por_base = defaultdict(int)
+    ContactoRepetido.objects.bulk_create([
+        ContactoRepetido(base_id=r.base_id, original=original, criterio=criterio, **r.datos_contacto(),
+                         motivo=ContactoRepetido.Motivo.MISMO_ARCHIVO if original.base_id == r.base_id else ContactoRepetido.Motivo.OTRA_BASE)
+        for r, original, criterio in mover], batch_size=1000)
+    for r, _, _ in mover:
+        por_base[r.base_id] += 1
+    RegistroBase.objects.filter(pk__in=[r.pk for r, _, _ in mover]).delete()
+    for base_id, n in por_base.items():
+        BaseComercial.objects.filter(pk=base_id).update(total_registros=F("total_registros") - n)
+    if mover:  # solo se avisa cuando hay algo nuevo que revisar
+        bases = list(BaseComercial.objects.filter(pk__in=por_base))
+        de_otras = sum(1 for r, o, _ in mover if o.base_id != r.base_id)
+        _avisar_repetidos(bases[0] if len(bases) == 1 else None, de_otras, len(mover) - de_otras, usuario, ya_enviados)
+    return {"movidos": len(mover), "ya_enviados": ya_enviados, "por_base": dict(por_base)}
+
+
+def repetidos_por_revisar() -> int:
+    return ContactoRepetido.objects.filter(estado=ContactoRepetido.Estado.POR_REVISAR).count()
+
+
+@transaction.atomic
+def revisar_repetido(usuario, repetido_id: int, accion: str) -> ContactoRepetido:
+    """«descartar»: se queda fuera. «recuperar»: no era la misma persona; entra a su base como contacto libre."""
+    repetido = ContactoRepetido.objects.select_for_update().select_related("base").filter(pk=repetido_id).first()
+    if repetido is None:
+        raise ValidationError("Ese contacto repetido no existe.")
+    if repetido.estado != ContactoRepetido.Estado.POR_REVISAR:
+        raise ValidationError("Ese contacto ya fue revisado.")
+    if accion == "descartar":
+        repetido.estado = ContactoRepetido.Estado.DESCARTADO
+    elif accion == "recuperar":
+        RegistroBase.objects.create(base=repetido.base, **repetido.datos_contacto())
+        BaseComercial.objects.filter(pk=repetido.base_id).update(total_registros=F("total_registros") + 1)
+        repetido.estado = ContactoRepetido.Estado.RECUPERADO
+    else:
+        raise ValidationError("Acción no válida.")
+    repetido.revisado_por, repetido.revisado_en = usuario, timezone.now()
+    repetido.save(update_fields=["estado", "revisado_por", "revisado_en", "actualizado_en"])
+    return repetido
+
+
+@transaction.atomic
+def descartar_repetidos(usuario, base=None) -> int:
+    """Descarta de una vez todos los repetidos por revisar (de una base o de todas)."""
+    qs = ContactoRepetido.objects.filter(estado=ContactoRepetido.Estado.POR_REVISAR)
+    if base:
+        qs = qs.filter(base=base)
+    return qs.update(estado=ContactoRepetido.Estado.DESCARTADO, revisado_por=usuario, revisado_en=timezone.now(),
+                     actualizado_en=timezone.now())
 
 
 def repartir(base: BaseComercial, vendedores: list, cantidad: int | None = None) -> dict:

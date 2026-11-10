@@ -19,7 +19,7 @@ from . import bases_excel, servicios, tarjetas
 from . import bin as bines
 from .forms import (AsignarBaseForm, BaseComercialForm, CargarBaseForm, EntidadEmisoraForm, FormularioDAMIForm, ImportarBINForm,
                     RangoBINForm, SolicitudBaseForm)
-from .models import (BaseComercial, EntidadEmisora, FormularioDAMI, RangoBIN, RegistroBase, RegistroProduccion,
+from .models import (BaseComercial, ContactoRepetido, EntidadEmisora, FormularioDAMI, RangoBIN, RegistroBase, RegistroProduccion,
                      SolicitudBase)
 
 Estado = FormularioDAMI.Estado
@@ -405,6 +405,10 @@ def _bases_gestion(request):
                     form_cargar.add_error(None, error)
                 else:
                     messages.success(request, f"Base «{base.nombre}» cargada con {base.total_registros} contactos.")
+                    repetidos = base.repetidos.count()
+                    if repetidos:
+                        messages.warning(request, f"Se encontraron {repetidos} contactos repetidos: no se cargaron a la base y "
+                                                  "quedaron en «Repetidos» para que los revise.")
                     return redirect("ventas:base_detalle", pk=base.pk)
         elif "crear_base" in request.POST and request.user.has_perm("ventas.add_basecomercial"):
             form_base = BaseComercialForm(request.POST, prefix="b")
@@ -437,6 +441,7 @@ def _bases_gestion(request):
         "form_base": form_base,
         "form_asignar": form_asignar,
         "form_cargar": form_cargar,
+        "repetidos_por_revisar": servicios.repetidos_por_revisar(),
     })
 
 
@@ -458,6 +463,8 @@ def base_detalle(request, pk):
         "seguimiento": servicios.seguimiento(base=base),
         "form_asignar": AsignarBaseForm(prefix="a", initial={"base": base}),
         "encabezados": bases_excel.ENCABEZADOS,
+        "repetidos": base.repetidos.count(),
+        "repetidos_por_revisar": base.repetidos.filter(estado=ContactoRepetido.Estado.POR_REVISAR).count(),
     })
 
 
@@ -594,3 +601,82 @@ def responder_solicitud(request, pk):
     except ValidationError as error:
         messages.error(request, " ".join(error.messages))
     return redirect("ventas:bases")
+
+
+# --------------------------------------------------------------------------- base de repetidos
+def _filtro_repetidos(request):
+    base_id = request.GET.get("base") or request.POST.get("base") or ""
+    base = BaseComercial.objects.filter(pk=base_id).first() if base_id.isdigit() else None
+    estado = request.GET.get("estado", ContactoRepetido.Estado.POR_REVISAR)
+    qs = ContactoRepetido.objects.select_related("base", "original__base", "original__vendedor", "revisado_por")
+    if base:
+        qs = qs.filter(base=base)
+    if estado in ContactoRepetido.Estado.values:
+        qs = qs.filter(estado=estado)
+    else:
+        estado = ""
+    return qs, base, estado
+
+
+def _coincide_con(r) -> str:
+    o = r.original
+    if o is None:
+        return ""
+    quien = f" · {o.vendedor.apellidos} {o.vendedor.nombres} ({o.get_estado_display()})" if o.vendedor_id else " · sin enviar"
+    return f"{o.base.nombre}, fila {o.fila}{quien}"
+
+
+@login_required
+@permission_required("ventas.view_contactorepetido", raise_exception=True)
+def repetidos(request):
+    """Base de repetidos: contactos que no entraron a su base porque la persona o el teléfono ya estaban cargados."""
+    _solo_gestion_bases(request)
+    if request.method == "POST":
+        if not request.user.has_perm("ventas.change_contactorepetido"):
+            raise PermissionDenied
+        if "buscar" in request.POST:
+            r = servicios.buscar_repetidos(request.user)
+            if r["movidos"]:
+                messages.warning(request, f"Se encontraron {r['movidos']} contactos repetidos y se pasaron a esta lista.")
+            else:
+                messages.success(request, "No hay contactos repetidos nuevos en las bases.")
+            if r["ya_enviados"]:
+                messages.info(request, f"{r['ya_enviados']} repetidos ya estaban enviados a vendedores y se dejaron donde están.")
+        elif "descartar_todos" in request.POST:
+            _, base, _ = _filtro_repetidos(request)
+            n = servicios.descartar_repetidos(request.user, base)
+            messages.success(request, f"Se descartaron {n} contactos repetidos.")
+        else:
+            raise PermissionDenied
+        return redirect(_volver(request, "ventas:repetidos"))
+
+    qs, base, estado = _filtro_repetidos(request)
+    if request.GET.get("excel") == "1":
+        extra = [("BASE", 22, lambda r: r.base.nombre), ("FILA", 7, lambda r: r.fila),
+                 ("MOTIVO", 28, lambda r: r.get_motivo_display()), ("COINCIDE POR", 15, lambda r: r.get_criterio_display()),
+                 ("COINCIDE CON", 48, _coincide_con), ("REVISION", 20, lambda r: r.get_estado_display())]
+        contenido = bases_excel.excel(qs.order_by("base__nombre", "fila"), extra=extra, titulo_hoja="Repetidos")
+        return _archivo_excel(contenido, f"Repetidos{' - ' + base.nombre if base else ''}.xlsx")
+    pagina = Paginator(qs, 50).get_page(request.GET.get("pagina"))
+    return render(request, "ventas/repetidos.html", {
+        "pagina": pagina, "base": base, "estado": estado, "estados": ContactoRepetido.Estado.choices,
+        "por_revisar": servicios.repetidos_por_revisar(),
+        "bases": BaseComercial.objects.filter(repetidos__isnull=False).distinct().order_by("nombre"),
+    })
+
+
+@login_required
+@permission_required("ventas.change_contactorepetido", raise_exception=True)
+@require_POST
+def repetido_revisar(request, pk):
+    _solo_gestion_bases(request)
+    try:
+        r = servicios.revisar_repetido(request.user, pk, request.POST.get("accion", ""))
+    except ValidationError as error:
+        messages.error(request, " ".join(error.messages))
+    else:
+        if r.estado == ContactoRepetido.Estado.RECUPERADO:
+            messages.success(request, f"{r.nombre or r.numero} volvió a la base «{r.base.nombre}» como contacto sin enviar.")
+        else:
+            messages.success(request, f"{r.nombre or r.numero}: descartado.")
+    return redirect(_volver(request, "ventas:repetidos"))

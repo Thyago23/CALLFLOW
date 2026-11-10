@@ -8,6 +8,9 @@
   <h2 class="h4 mb-0">Bases comerciales</h2>
   <div class="d-flex flex-wrap gap-2">
     <a href="{% url 'ventas:bases_seguimiento' %}" class="btn btn-primary"><i class="bi bi-person-lines-fill me-1" aria-hidden="true"></i>Seguimiento por vendedor</a>
+    {% if perms.ventas.view_contactorepetido %}
+    <a href="{% url 'ventas:repetidos' %}" class="btn {% if repetidos_por_revisar %}btn-warning{% else %}btn-outline-secondary{% endif %}"><i class="bi bi-people me-1" aria-hidden="true"></i>Repetidos{% if repetidos_por_revisar %} <span class="badge rounded-pill bg-danger ms-1">{{ repetidos_por_revisar }}<span class="visually-hidden"> por revisar</span></span>{% endif %}</a>
+    {% endif %}
     <a href="{% url 'ventas:bases_plantilla' %}" class="btn btn-outline-secondary"><i class="bi bi-download me-1" aria-hidden="true"></i>Plantilla</a>
   </div>
 </div>

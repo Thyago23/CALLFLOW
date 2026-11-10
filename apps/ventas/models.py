@@ -35,7 +35,33 @@ class BaseComercial(ModeloBase):
         return self.nombre
 
 
-class RegistroBase(ModeloBase):
+class DatosContacto(ModeloBase):
+    """Las columnas del formato de la empresa, comunes a los contactos de una base y a los repetidos."""
+
+    CAMPOS = ("fila", "ciudad", "categoria_tarjeta", "direccion", "nombre", "cedula", "cedula_valida", "numero", "numero_alterno")
+
+    fila = models.PositiveIntegerField("fila del archivo", default=0)
+    ciudad = models.CharField(max_length=100, blank=True, default="")
+    categoria_tarjeta = models.CharField("categoría de tarjeta", max_length=150, blank=True, default="")
+    direccion = models.CharField("dirección", max_length=255, blank=True, default="")
+    nombre = models.CharField("nombre y apellido", max_length=200, blank=True, default="")
+    cedula = models.CharField("cédula", max_length=13, blank=True, default="")
+    cedula_valida = models.BooleanField(default=True)
+    numero = models.CharField("número", max_length=15)
+    numero_alterno = models.CharField("otros números", max_length=60, blank=True, default="")
+
+    class Meta:
+        abstract = True
+
+    @property
+    def numeros(self) -> list[str]:
+        return [self.numero] + [n for n in self.numero_alterno.split(" / ") if n]
+
+    def datos_contacto(self) -> dict:
+        return {campo: getattr(self, campo) for campo in self.CAMPOS}
+
+
+class RegistroBase(DatosContacto):
     """
     Un contacto de una base comercial, con el formato de la empresa: ciudad, categoría de tarjeta,
     dirección, nombre y apellido, cédula y número. Se envía a un vendedor, que lo categoriza.
@@ -48,15 +74,6 @@ class RegistroBase(ModeloBase):
         DAMI_SACADO = "DAMI_SACADO", "DAMI sacado"
 
     base = models.ForeignKey(BaseComercial, on_delete=models.CASCADE, related_name="registros")
-    fila = models.PositiveIntegerField("fila del archivo", default=0)
-    ciudad = models.CharField(max_length=100, blank=True, default="")
-    categoria_tarjeta = models.CharField("categoría de tarjeta", max_length=150, blank=True, default="")
-    direccion = models.CharField("dirección", max_length=255, blank=True, default="")
-    nombre = models.CharField("nombre y apellido", max_length=200, blank=True, default="")
-    cedula = models.CharField("cédula", max_length=13, blank=True, default="")
-    cedula_valida = models.BooleanField(default=True)
-    numero = models.CharField("número", max_length=15)
-    numero_alterno = models.CharField("otros números", max_length=60, blank=True, default="")
     vendedor = models.ForeignKey("personal.Empleado", on_delete=models.PROTECT, null=True, blank=True, related_name="contactos_base")
     asignado_en = models.DateTimeField(null=True, blank=True)
     estado = models.CharField(max_length=12, choices=Estado.choices, default=Estado.PENDIENTE)
@@ -86,6 +103,53 @@ class RegistroBase(ModeloBase):
     @property
     def gestionado(self) -> bool:
         return self.estado != self.Estado.PENDIENTE
+
+
+class ContactoRepetido(DatosContacto):
+    """
+    «Base de repetidos»: contactos que no entraron a su base porque la misma persona (cédula) o el
+    mismo teléfono ya estaba en el mismo archivo o en otra base. Se revisan aquí: se descartan o,
+    si de verdad son otra persona, se recuperan a su base.
+    """
+
+    class Motivo(models.TextChoices):
+        MISMO_ARCHIVO = "MISMO_ARCHIVO", "Repetido en el mismo archivo"
+        OTRA_BASE = "OTRA_BASE", "Ya estaba en otra base"
+
+    class Criterio(models.TextChoices):
+        CEDULA = "CEDULA", "Misma cédula"
+        NUMERO = "NUMERO", "Mismo número"
+
+    class Estado(models.TextChoices):
+        POR_REVISAR = "POR_REVISAR", "Por revisar"
+        DESCARTADO = "DESCARTADO", "Descartado"
+        RECUPERADO = "RECUPERADO", "Recuperado a la base"
+
+    base = models.ForeignKey(BaseComercial, on_delete=models.CASCADE, related_name="repetidos",
+                             help_text="Base en la que llegó el contacto repetido.")
+    motivo = models.CharField(max_length=13, choices=Motivo.choices)
+    criterio = models.CharField("coincide por", max_length=6, choices=Criterio.choices)
+    original = models.ForeignKey(RegistroBase, on_delete=models.SET_NULL, null=True, blank=True, related_name="repetidos",
+                                 help_text="Contacto que ya existía y con el que coincide.")
+    estado = models.CharField(max_length=11, choices=Estado.choices, default=Estado.POR_REVISAR)
+    revisado_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    revisado_en = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = "contacto repetido"
+        verbose_name_plural = "contactos repetidos"
+        ordering = ["-creado_en", "base", "fila", "pk"]
+        indexes = [models.Index(fields=["estado", "base"], name="repetido_estado_base_idx")]
+        constraints = [
+            models.CheckConstraint(condition=Q(motivo__in=["MISMO_ARCHIVO", "OTRA_BASE"]), name="repetido_motivo_valido"),
+            models.CheckConstraint(condition=Q(criterio__in=["CEDULA", "NUMERO"]), name="repetido_criterio_valido"),
+            models.CheckConstraint(condition=Q(estado__in=["POR_REVISAR", "DESCARTADO", "RECUPERADO"]), name="repetido_estado_valido"),
+            models.CheckConstraint(condition=Q(estado="POR_REVISAR") | Q(revisado_en__isnull=False), name="repetido_revisado_con_fecha"),
+            models.CheckConstraint(condition=~Q(numero=""), name="repetido_con_numero"),
+        ]
+
+    def __str__(self):
+        return f"{self.nombre or self.numero} (repetido en {self.base})"
 
 
 class AsignacionBase(models.Model):

@@ -10,7 +10,7 @@ from openpyxl import Workbook, load_workbook
 from apps.core.models import Notificacion
 
 from . import bases_excel, servicios
-from .models import BaseComercial, RegistroBase
+from .models import BaseComercial, ContactoRepetido, RegistroBase
 from .tests import BaseVentas
 
 XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
@@ -43,9 +43,9 @@ def excel_sin_encabezados(filas) -> SimpleUploadedFile:
     return SimpleUploadedFile("sin encabezados.xlsx", salida.getvalue(), content_type=XLSX)
 
 
-def csv_simple(filas: int = 5) -> SimpleUploadedFile:
+def csv_simple(filas: int = 5, desde: int = 0) -> SimpleUploadedFile:
     lineas = ["Ciudad;Categoria Tarjeta;Direccion;Nombre y Apellido;Cedula;Numero"]
-    lineas += [f"Quito;Visa;Calle {i};Cliente Número {i};;09912345{i:02d}" for i in range(filas)]
+    lineas += [f"Quito;Visa;Calle {i};Cliente Número {i};;09912345{i:02d}" for i in range(desde, desde + filas)]
     return SimpleUploadedFile("base.csv", "\n".join(lineas).encode("latin-1"), content_type="text/csv")
 
 
@@ -95,6 +95,16 @@ class FormatoExcelTests(BaseVentas):
         self.assertEqual(r.importadas, 3)
         self.assertEqual((r.filas[0]["ciudad"], r.filas[0]["nombre"], r.filas[0]["direccion"]),
                          ("Pimampiro", "Juan Pablo Ruiz", "Sector El Inca"))
+
+    def test_una_fila_de_datos_con_palabras_de_encabezado_no_es_encabezado(self):
+        """Hallado al probar: «sin número | CLIENTE SIN TELEFONO» en medio de los datos se tomaba como encabezados."""
+        filas = [["0991234567", "PEREZ MARIA", "1710034065", "QUITO", "AV. AMAZONAS", "VISA ORO"],
+                 ["0987654321", "VEGA CARLA", "0926687856", "GUAYAQUIL", "CDLA. KENNEDY", "DINERS"],
+                 ["sin número", "CLIENTE SIN TELEFONO", "1710000009", "QUITO", "AV. COLON", "VISA ORO"],
+                 ["0981112233", "TORRES LUIS", "1714616123", "CUENCA", "CALLE LARGA", "MASTERCARD"]]
+        r = bases_excel.formatear(excel_sin_encabezados(filas))
+        self.assertEqual((r.fila_encabezado, r.importadas, r.sin_telefono), (0, 3, 1))
+        self.assertEqual(r.columnas["cedula"], "Columna C")
 
     def test_sin_telefonos_no_se_puede_cargar(self):
         archivo = SimpleUploadedFile("x.csv", b"a;b;c\n1;2;3\n", content_type="text/csv")
@@ -146,7 +156,7 @@ class CargaYRepartoTests(BaseVentas):
                          sorted([self.lucia.empleado.pk] * 3 + [self.pedro.empleado.pk] * 2))
         aviso = Notificacion.objects.get(destinatario=self.lucia)
         self.assertIn("3 contactos", aviso.titulo)
-        otra = servicios.importar_base("CSV 2", "", csv_simple(6), self.ana)
+        otra = servicios.importar_base("CSV 2", "", csv_simple(6, desde=10), self.ana)
         self.client.post(reverse("ventas:bases"), datos | {"a-base": otra.pk, "a-cantidad": "2"})
         self.assertEqual(otra.registros.filter(vendedor__isnull=False).count(), 4)
         self.assertEqual(otra.registros.filter(vendedor__isnull=True).count(), 2)
@@ -241,3 +251,111 @@ class GestionDelVendedorTests(BaseVentas):
             self.assertEqual(len(vista.context["tabla"].filas), 1 if codigo == "bases_efectividad" else 2)
             pdf = self.client.get(reverse("reportes:reporte_pdf", args=[codigo]))
             self.assertTrue(pdf.content.startswith(b"%PDF"))
+
+
+class RepetidosTests(BaseVentas):
+    """Contactos repetidos: van a la base de repetidos y se avisa a administradores y encargados."""
+
+    def csv(self, *filas, nombre="base.csv"):
+        lineas = ["Nombre y Apellido;Cedula;Numero;Celular"] + [";".join(f) for f in filas]
+        return SimpleUploadedFile(nombre, "\n".join(lineas).encode("utf-8"), content_type="text/csv")
+
+    def test_repetidos_dentro_del_mismo_archivo(self):
+        base = servicios.importar_base("A", "", self.csv(
+            ["Maria Perez", "0926687856", "0991111111", ""],
+            ["Maria P.", "0926687856", "0992222222", ""],  # misma cédula
+            ["Carla Vega", "", "0993333333", "0991111111"],  # su celular es el número de María
+            ["Luis Torres", "", "0994444444", ""]), self.ana)
+        self.assertEqual(base.registros.count(), 2)
+        repetidos = {r.nombre: r for r in base.repetidos.select_related("original")}
+        self.assertEqual(set(repetidos), {"Maria P.", "Carla Vega"})
+        self.assertEqual((repetidos["Maria P."].criterio, repetidos["Carla Vega"].criterio), ("CEDULA", "NUMERO"))
+        self.assertTrue(all(r.motivo == "MISMO_ARCHIVO" and r.original.nombre == "Maria Perez" for r in repetidos.values()))
+        self.assertEqual(base.resumen_carga["duplicadas"], 2)
+
+    def test_repetidos_de_otra_base_no_entran_y_se_avisa(self):
+        primera = servicios.importar_base("Primera", "", self.csv(["Maria Perez", "0926687856", "0991111111", "0995555555"],
+                                                                  ["Luis Torres", "", "0994444444", ""]), self.ana)
+        servicios.asignar_base(primera, [self.lucia.empleado], self.ana)
+        Notificacion.objects.all().delete()
+        segunda = servicios.importar_base("Segunda", "", self.csv(
+            ["Maria Perez", "0926687856", "0990000001", ""],  # misma cédula
+            ["Otra Persona", "", "0995555555", ""],  # era el «otro número» de María
+            ["Nueva Persona", "", "0996666666", ""]), self.ana)
+        self.assertEqual(list(segunda.registros.values_list("nombre", flat=True)), ["Nueva Persona"])
+        self.assertEqual((segunda.total_registros, segunda.resumen_carga["repetidos_otras_bases"]), (1, 2))
+        maria = segunda.repetidos.get(nombre="Maria Perez")
+        self.assertEqual((maria.motivo, maria.criterio, maria.original.base, maria.original.vendedor),
+                         ("OTRA_BASE", "CEDULA", primera, self.lucia.empleado))
+        # Aviso a administradores y encargados de cierre; los vendedores no.
+        avisados = set(Notificacion.objects.filter(tipo="CONTACTOS_REPETIDOS").values_list("destinatario__username", flat=True))
+        self.assertEqual(avisados, {"ana.torres", "diego.mendoza"})
+        aviso = Notificacion.objects.filter(destinatario=self.ana).get()
+        self.assertIn("2 contactos repetidos", aviso.titulo)
+        self.assertIn(f"base={segunda.pk}", aviso.url)
+        # Al repartir la segunda base, los repetidos no se envían.
+        servicios.asignar_base(segunda, [self.pedro.empleado], self.ana)
+        self.assertEqual(RegistroBase.objects.filter(vendedor=self.pedro.empleado).count(), 1)
+
+    def test_aviso_en_pantalla_al_cargar(self):
+        servicios.importar_base("Primera", "", csv_simple(3), self.ana)
+        self.client.force_login(self.ana)
+        respuesta = self.client.post(reverse("ventas:bases"), {"cargar": "", "c-nombre": "Segunda", "c-archivo": csv_simple(5)},
+                                     follow=True)
+        self.assertContains(respuesta, "Se encontraron 3 contactos repetidos")
+        self.assertContains(respuesta, "3 contactos repetidos por revisar")
+
+    def test_revisar_descartar_y_recuperar(self):
+        servicios.importar_base("Primera", "", csv_simple(2), self.ana)
+        segunda = servicios.importar_base("Segunda", "", csv_simple(3), self.ana)
+        uno, dos = segunda.repetidos.order_by("fila")
+        self.client.force_login(self.ana)
+        lista = self.client.get(reverse("ventas:repetidos"))
+        self.assertContains(lista, uno.numero)
+        self.client.post(reverse("ventas:repetido_revisar", args=[uno.pk]), {"accion": "descartar"})
+        self.client.post(reverse("ventas:repetido_revisar", args=[dos.pk]), {"accion": "recuperar"})
+        for objeto in (uno, dos, segunda):
+            objeto.refresh_from_db()
+        self.assertEqual((uno.estado, dos.estado, dos.revisado_por), ("DESCARTADO", "RECUPERADO", self.ana))
+        self.assertTrue(segunda.registros.filter(numero=dos.numero, vendedor__isnull=True).exists())
+        self.assertEqual(segunda.total_registros, 2)
+        # Lo recuperado no vuelve a marcarse como repetido al buscar de nuevo.
+        self.assertEqual(servicios.buscar_repetidos()["movidos"], 0)
+        # El vendedor no entra.
+        self.client.force_login(self.lucia)
+        self.assertEqual(self.client.get(reverse("ventas:repetidos")).status_code, 403)
+        self.assertEqual(self.client.post(reverse("ventas:repetido_revisar", args=[uno.pk]), {"accion": "recuperar"}).status_code, 403)
+
+    def test_buscar_repetidos_en_bases_ya_cargadas(self):
+        """Bases cargadas antes de esta función: se mueven los libres; los ya enviados se quedan."""
+        vieja = BaseComercial.objects.create(nombre="Vieja", total_registros=2)
+        nueva = BaseComercial.objects.create(nombre="Nueva", total_registros=2)
+        RegistroBase.objects.create(base=vieja, fila=1, nombre="Maria", cedula="0926687856", numero="0991111111")
+        RegistroBase.objects.create(base=vieja, fila=2, nombre="Luis", numero="0994444444")
+        RegistroBase.objects.create(base=nueva, fila=1, nombre="Maria otra vez", cedula="0926687856", numero="0990000001")
+        enviado = RegistroBase.objects.create(base=nueva, fila=2, nombre="Luis enviado", numero="0994444444",
+                                              vendedor=self.lucia.empleado)
+        self.client.force_login(self.admin)
+        respuesta = self.client.post(reverse("ventas:repetidos"), {"buscar": ""}, follow=True)
+        self.assertContains(respuesta, "Se encontraron 1 contactos repetidos")
+        self.assertContains(respuesta, "1 repetidos ya estaban enviados")
+        self.assertFalse(RegistroBase.objects.filter(nombre="Maria otra vez").exists())
+        self.assertTrue(RegistroBase.objects.filter(pk=enviado.pk).exists())
+        repetido = ContactoRepetido.objects.get()
+        self.assertEqual((repetido.base, repetido.motivo, repetido.original.nombre), (nueva, "OTRA_BASE", "Maria"))
+        nueva.refresh_from_db()
+        self.assertEqual(nueva.total_registros, 1)
+        self.assertTrue(Notificacion.objects.filter(destinatario=self.ana, tipo="CONTACTOS_REPETIDOS").exists())
+        self.assertEqual(servicios.buscar_repetidos()["movidos"], 0)  # una segunda vez no encuentra nada nuevo
+
+    def test_descartar_todos_y_excel(self):
+        servicios.importar_base("Primera", "", csv_simple(2), self.ana)
+        segunda = servicios.importar_base("Segunda", "", csv_simple(3), self.ana)
+        self.client.force_login(self.ana)
+        archivo = self.client.get(reverse("ventas:repetidos"), {"excel": "1", "base": segunda.pk})
+        hoja = load_workbook(io.BytesIO(archivo.content)).active
+        self.assertEqual(hoja.max_row, 3)
+        self.assertEqual(hoja.cell(1, 9).value, "MOTIVO")
+        self.assertEqual(hoja["F2"].value, "0991234500")
+        self.client.post(reverse("ventas:repetidos"), {"descartar_todos": "", "base": segunda.pk})
+        self.assertEqual(servicios.repetidos_por_revisar(), 0)

@@ -28,16 +28,24 @@
       <div class="col-6 col-md"><div class="small text-body-secondary">Filas con datos</div><div class="fs-5 fw-semibold">{{ resumen.leidas }}</div></div>
       <div class="col-6 col-md"><div class="small text-body-secondary">Contactos cargados</div><div class="fs-5 fw-semibold text-success-emphasis">{{ resumen.importadas }}</div></div>
       <div class="col-4 col-md"><div class="small text-body-secondary">Sin teléfono válido</div><div class="fs-5 fw-semibold">{{ resumen.sin_telefono }}</div></div>
-      <div class="col-4 col-md"><div class="small text-body-secondary">Repetidos</div><div class="fs-5 fw-semibold">{{ resumen.duplicadas }}</div></div>
+      <div class="col-4 col-md"><div class="small text-body-secondary">Repetidos en el archivo</div><div class="fs-5 fw-semibold">{{ resumen.duplicadas }}</div></div>
+      <div class="col-4 col-md"><div class="small text-body-secondary">Ya estaban en otras bases</div><div class="fs-5 fw-semibold {% if resumen.repetidos_otras_bases %}text-warning-emphasis{% endif %}">{{ resumen.repetidos_otras_bases|default:0 }}</div></div>
       <div class="col-4 col-md"><div class="small text-body-secondary">Cédulas por revisar</div><div class="fs-5 fw-semibold {% if resumen.cedulas_invalidas %}text-warning-emphasis{% endif %}">{{ resumen.cedulas_invalidas }}</div></div>
     </div>
     <div class="small">
       <span class="text-body-secondary">{% if resumen.fila_encabezado %}Columnas reconocidas (encabezados en la fila {{ resumen.fila_encabezado }}):{% else %}El archivo no traía encabezados; cada columna se reconoció por su contenido:{% endif %}</span>
       {% for campo, original in resumen.columnas.items %}<span class="badge text-bg-light border fw-normal me-1">{{ original }} → {% if campo == "nombre" %}Nombre y apellido{% elif campo == "apellido" %}Nombre y apellido{% elif campo == "categoria_tarjeta" %}Categoría tarjeta{% elif campo == "numero" %}Número{% elif campo == "cedula" %}Cédula{% elif campo == "direccion" %}Dirección{% else %}Ciudad{% endif %}</span>{% endfor %}
     </div>
-    <p class="small text-body-secondary mb-0 mt-2">Las filas sin un teléfono válido y los contactos repetidos (misma cédula o número) no se cargaron. Las cédulas «por revisar» se cargaron pero no pasaron la validación.</p>
+    <p class="small text-body-secondary mb-0 mt-2">Las filas sin un teléfono válido no se cargaron. Los contactos repetidos (misma cédula o número, en el archivo o en otra base) tampoco: quedaron en la lista de repetidos. Las cédulas «por revisar» se cargaron pero no pasaron la validación.</p>
   </div>
 </section>
+{% endif %}
+
+{% if repetidos %}
+<div class="alert {% if repetidos_por_revisar %}alert-warning{% else %}alert-secondary{% endif %} d-flex flex-wrap justify-content-between align-items-center gap-2" role="status">
+  <span><i class="bi bi-people me-1" aria-hidden="true"></i>{% if repetidos_por_revisar %}<strong>{{ repetidos_por_revisar }} contacto{{ repetidos_por_revisar|pluralize }} repetido{{ repetidos_por_revisar|pluralize }} por revisar</strong> en esta base. No se enviarán a los vendedores.{% else %}Los {{ repetidos }} contactos repetidos de esta base ya fueron revisados.{% endif %}</span>
+  {% if perms.ventas.view_contactorepetido %}<a href="{% url 'ventas:repetidos' %}?base={{ base.pk }}{% if not repetidos_por_revisar %}&estado=todos{% endif %}" class="btn btn-sm {% if repetidos_por_revisar %}btn-warning{% else %}btn-outline-secondary{% endif %}">Ver repetidos</a>{% endif %}
+</div>
 {% endif %}
 
 <div class="row g-4">
