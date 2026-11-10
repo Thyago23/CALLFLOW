@@ -893,3 +893,96 @@ details.anular-caja > summary::-webkit-details-marker { display: none; }
   .contacto-base .acciones .btn-group { width: 100%; }
 }
 .tabla-base td { white-space: nowrap; }
+
+/* ================================================================ Formulario DAMI (vendedor)
+   Igual que el DAMI en papel («Formulario de ventas»): hoja blanca, recuadros con borde azul #0E325C,
+   etiqueta a la izquierda y línea para escribir, casillas cuadradas para la marca de la tarjeta. */
+.dami-papel { --papel-azul: #0e325c; --papel-linea: #8aa0bb; --papel-texto: #2b2f36; max-width: 54rem; }
+.papel-alerta { max-width: 54rem; }
+
+.papel-hoja { padding: 2rem 2.2rem 1.6rem; border-radius: .5rem; background: #fff; border: 1px solid #e3e8ef;
+  box-shadow: 0 .1rem .25rem rgba(14, 50, 92, .06), 0 .9rem 2.2rem rgba(14, 50, 92, .1); color: var(--papel-texto); }
+
+.papel-cabecera { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1.4rem; }
+.papel-logo { width: 5.5rem; height: auto; }
+.papel-titulo { margin: 0; font-size: 1.35rem; font-weight: 800; text-transform: uppercase; letter-spacing: .02em; color: #3a3f47; }
+
+/* Una línea «Etiqueta: ______» */
+.papel-campo { display: flex; align-items: flex-start; gap: .5rem; min-width: 0; margin-bottom: .85rem; }
+.papel-campo > label, .papel-etiqueta { flex: none; margin: 0; padding-top: .35rem; font-weight: 700; font-size: .95rem; color: #3a3f47; white-space: nowrap; }
+.papel-obligatorio { margin-left: .1rem; color: #c0392b; }
+.papel-entrada { flex: 1; min-width: 0; }
+.dami-papel .papel-entrada .form-control { height: auto; padding: .25rem .2rem .3rem; border: 0; border-bottom: 1.5px solid var(--papel-linea);
+  border-radius: 0; background: transparent; box-shadow: none; font-size: 1rem; color: #1d2733; }
+.dami-papel .papel-entrada .form-control:hover { border-bottom-color: #5e7896; }
+.dami-papel .papel-entrada .form-control:focus { border-bottom: 2px solid var(--papel-azul); background: #f4f7fb; box-shadow: none; }
+.dami-papel .papel-entrada .form-control.is-invalid { border-bottom-color: #c0392b; background-image: none; padding-right: .2rem; }
+.dami-papel .papel-entrada .form-control.desde-cv { background: #fffbea; }
+.dami-papel .papel-entrada .form-control::placeholder { color: #a9b3c0; font-size: .9rem; }
+.papel-error { margin-top: .2rem; font-size: .8rem; color: #c0392b; }
+.papel-ayuda { margin-top: .15rem; font-size: .75rem; color: #7a8592; }
+.papel-fijo .papel-valor { flex: 1; min-width: 0; padding: .25rem .2rem .3rem; border-bottom: 1.5px solid var(--papel-linea); font-weight: 600; color: #1d2733;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.papel-pendiente { font-weight: 400; font-style: italic; color: #8a94a3; }
+
+.papel-datos-generales { display: grid; grid-template-columns: 3fr 2fr; gap: 0 2rem; margin-bottom: .6rem; }
+.papel-fila { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: 0 2rem; }
+.papel-fila .papel-ancho-2 { grid-column: span 2; }
+.papel-dos { display: grid; grid-template-columns: 1fr 1fr; gap: 0 1rem; }
+.papel-estado-cliente:empty { display: none; }
+.papel-estado-cliente { margin: -.3rem 0 .8rem; }
+
+/* Recuadros con borde azul, como en la hoja */
+.papel-recuadro { margin-bottom: 1rem; padding: 1.05rem 1.2rem .3rem; border: 2px solid var(--papel-azul); border-radius: .2rem; }
+.papel-subtitulo { margin: 0 0 1rem; font-size: 1rem; font-weight: 800; text-transform: uppercase; letter-spacing: .03em; color: #3a3f47; }
+.papel-centrado { margin: 1.4rem 0 .6rem; text-align: center; }
+
+/* Casillas cuadradas: marca de la tarjeta y ¿activa? */
+.papel-marcas { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .55rem 1.5rem; margin: 0 0 1.1rem; padding: 0 .4rem; border: 0; }
+.papel-marca-celda.marca-diners { order: 1; }
+.papel-marca-celda.marca-mastercard { order: 2; }
+.papel-marca-celda.marca-amex { order: 3; }
+.papel-marca-celda.marca-visa { order: 4; }
+.papel-casilla { display: inline-flex; align-items: center; gap: .75rem; padding: .3rem .5rem; margin: 0; border-radius: .4rem; cursor: pointer;
+  font-weight: 600; color: #3a3f47; transition: background .15s; }
+.papel-casilla:hover { background: #eef3f9; }
+.papel-cuadro { display: grid; place-items: center; width: 1.6rem; height: 1.6rem; border: 2px solid var(--papel-azul); border-radius: .3rem;
+  background: #fff; color: #fff; font-size: 1.15rem; transition: background .15s; }
+.papel-cuadro .bi { opacity: 0; transform: scale(.6); transition: opacity .15s, transform .15s; }
+.btn-check:checked + .papel-casilla .papel-cuadro { background: var(--papel-azul); }
+.btn-check:checked + .papel-casilla .papel-cuadro .bi { opacity: 1; transform: scale(1); }
+.btn-check:checked + .papel-casilla .papel-casilla-texto { color: var(--papel-azul); }
+.btn-check:focus-visible + .papel-casilla { outline: 0; box-shadow: 0 0 0 .2rem rgba(14, 50, 92, .3); }
+.papel-activa { margin: 0 0 1rem; padding: 0; border: 0; display: flex; flex-wrap: wrap; align-items: center; gap: .3rem 1rem; }
+.papel-activa legend { float: left; width: auto; margin: 0; padding: 0; font-size: .95rem; }
+.papel-activa-opciones { display: flex; flex-wrap: wrap; align-items: center; gap: .25rem 1rem; }
+
+.papel-seguridad { display: flex; gap: .5rem; margin: .2rem 0 .9rem; font-size: .8rem; color: #5f6b7a; }
+.papel-seguridad .bi { color: var(--papel-azul); }
+
+/* Observación: hoja rayada */
+.papel-observacion { padding: .6rem 1rem .8rem; }
+.dami-papel .papel-observacion textarea.form-control { min-height: 8.5rem; padding: 0 .2rem; border: 0; border-radius: 0; box-shadow: none; resize: vertical;
+  line-height: 2rem; background: repeating-linear-gradient(to bottom, transparent 0, transparent calc(2rem - 1px), #b9c6d6 calc(2rem - 1px), #b9c6d6 2rem); }
+.dami-papel .papel-observacion textarea.form-control:focus { background-color: #f8fafd; }
+
+/* Acciones fijas abajo mientras se llena */
+.dami-acciones { position: sticky; bottom: 0; z-index: 5; display: flex; flex-wrap: wrap; align-items: center; gap: .5rem;
+  margin-top: 1rem; padding: .8rem 1rem; border-radius: .75rem .75rem 0 0; background: rgba(255, 255, 255, .95); backdrop-filter: blur(6px);
+  border: 1px solid #dfe5ee; border-bottom: 0; box-shadow: 0 -.4rem 1.2rem rgba(14, 50, 92, .08); }
+.papel-acciones { max-width: 54rem; }
+.dami-acciones .btn { padding: .55rem 1.1rem; border-radius: .6rem; font-weight: 600; }
+.dami-enviar { box-shadow: 0 .3rem .8rem rgba(14, 50, 92, .3); }
+
+@media (max-width: 767.98px) {
+  .papel-hoja { padding: 1.2rem 1rem; }
+  .papel-cabecera { flex-direction: column-reverse; align-items: flex-start; }
+  .papel-datos-generales, .papel-dos { grid-template-columns: 1fr; }
+  .papel-fila .papel-ancho-2 { grid-column: auto; }
+  .papel-campo { flex-direction: column; align-items: stretch; gap: 0; }
+  .papel-campo > label, .papel-etiqueta { padding-bottom: 0; }
+  .papel-marcas { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .papel-recuadro { padding: .9rem .8rem .2rem; }
+  .dami-acciones .btn { flex: 1; }
+}
+@media (prefers-reduced-motion: reduce) { .papel-cuadro, .papel-cuadro .bi, .papel-casilla { transition: none; } }

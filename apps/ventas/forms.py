@@ -32,6 +32,7 @@ class FormularioDAMIForm(FormularioEstilizado, forms.Form):
     Fecha, código único y asesor los pone el sistema.
     """
 
+    producto = forms.CharField(label="Producto", max_length=120, required=False)
     cedula = forms.CharField(label="Cédula", max_length=13, required=False)
     ruc = forms.CharField(label="RUC", max_length=13, required=False)
     # La hoja de producción lleva el nombre del cliente, así que se pide aquí.
@@ -91,7 +92,7 @@ class FormularioDAMIForm(FormularioEstilizado, forms.Form):
         inicial = {
             "cedula": c.cedula, "ruc": c.ruc_mostrar, "nombres": c.nombres, "apellidos": c.apellidos, "telefono": c.telefono,
             "direccion": c.direccion, "sector": c.sector, "ciudad": c.ciudad,
-            "referencia": c.referencia, "email": c.email, "observaciones": f.observaciones,
+            "referencia": c.referencia, "email": c.email, "observaciones": f.observaciones, "producto": f.producto,
         }
         if tarjeta:
             inicial |= {"marca": tarjeta.marca, "banco": tarjeta.banco, "caducidad": tarjeta.caducidad,
@@ -125,6 +126,9 @@ class FormularioDAMIForm(FormularioEstilizado, forms.Form):
 
     def clean_telefono(self):
         return self._telefono("telefono", True)
+
+    def clean_producto(self):
+        return sin_numero_de_tarjeta(" ".join((self.cleaned_data.get("producto") or "").split()))
 
     def clean_email(self):
         return (self.cleaned_data.get("email") or "").strip().lower()

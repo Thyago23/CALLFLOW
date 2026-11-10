@@ -125,6 +125,7 @@ def guardar_formulario(usuario, datos: dict, formulario: FormularioDAMI | None =
     formulario.cliente = cliente
     formulario.base_comercial = datos.get("base_comercial")
     formulario.observaciones = (datos.get("observaciones") or "").strip()
+    formulario.producto = datos.get("producto") or ""
     formulario.save()
     if datos.get("tarjeta"):
         guardar_tarjeta(formulario, datos["tarjeta"])

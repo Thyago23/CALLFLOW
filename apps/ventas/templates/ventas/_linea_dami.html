@@ -1,0 +1,9 @@
+{# Una línea del DAMI en papel: «Etiqueta: ________». Recibe `campo` y, opcional, `etiqueta`, `clase` y `ayuda`. #}
+<div class="papel-campo {{ clase }}">
+  <label for="{{ campo.id_for_label }}">{{ etiqueta|default:campo.label }}:{% if campo.field.required %}<span class="papel-obligatorio" aria-hidden="true">*</span>{% endif %}</label>
+  <div class="papel-entrada">
+    {{ campo }}
+    {% for error in campo.errors %}<div class="papel-error">{{ error }}</div>{% endfor %}
+    {% if ayuda %}<div class="papel-ayuda">{{ ayuda }}</div>{% endif %}
+  </div>
+</div>

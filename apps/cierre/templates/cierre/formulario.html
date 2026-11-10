@@ -120,6 +120,7 @@
       <div class="card-body">
         <h2 class="h6 text-uppercase text-body-secondary mb-3">Cliente</h2>
         <dl class="row datos-ficha mb-0">
+          {% if f.producto %}<div class="col-12"><dt>Producto</dt><dd>{{ f.producto }}</dd></div>{% endif %}
           <div class="col-sm-6"><dt>Cédula</dt><dd>{{ f.cliente.cedula|default:"—" }}</dd></div>
           <div class="col-sm-6"><dt>RUC</dt><dd>{{ f.cliente.ruc_mostrar|default:"—" }}</dd></div>
           <div class="col-sm-4"><dt>Telf</dt><dd><a href="tel:{{ f.cliente.telefono }}">{{ f.cliente.telefono }}</a></dd></div>
