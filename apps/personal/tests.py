@@ -174,8 +174,10 @@ class EmpleadoVistasTests(TestCase):
         self.assertEqual((empleado.usuario, marlon.rol), (marlon, Rol.ENCARGADO_CIERRE))  # rol según el cargo
         self.assertTrue(marlon.check_password("clave-segura-123"))  # conserva su código
         self.assertFalse(Usuario.objects.filter(username__startswith="marlon.prue").exclude(pk=marlon.pk).exists())
-        # Una cuenta ya vinculada no se ofrece ni se acepta para otro empleado.
-        self.assertNotContains(self.client.get(reverse("personal:empleado_crear")), "marlon.prue")
+        # Una cuenta ya vinculada no se ofrece ni se acepta para otro empleado. (Se mira la lista de cuentas
+        # y no toda la página: el mensaje «Se vinculó la cuenta existente marlon.prue» también trae el nombre.)
+        ofrecidas = self.client.get(reverse("personal:empleado_crear")).context["form"].fields["cuenta_existente"].queryset
+        self.assertNotIn(marlon, ofrecidas)
         otro = self.client.post(reverse("personal:empleado_crear"), datos_registro(identificacion=OTRA_CEDULA_VALIDA, cuenta_existente=marlon.pk))
         self.assertIn("cuenta_existente", otro.context["form"].errors)
 

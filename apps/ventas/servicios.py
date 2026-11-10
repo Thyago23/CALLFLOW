@@ -237,11 +237,12 @@ def guardar_aprobacion(usuario, registro_id: int, texto: str) -> RegistroProducc
     El vendedor escribe la aprobación (la hora en que terminó la llamada) en una fila de su
     propia hoja (solo dígitos). Una vez guardada queda fija: ya no se puede cambiar ni borrar.
     """
-    aprobacion = hora_aprobacion(texto)
+    # Primero, de quién es la fila: a una fila ajena no se le valida nada, se rechaza (403).
     registro = RegistroProduccion.objects.select_for_update().filter(
         pk=registro_id, hoja__vendedor=empleado_de(usuario)).first()
     if registro is None or not es_vendedor(usuario):
         raise PermissionDenied("Esa fila no es de su hoja de producción.")
+    aprobacion = hora_aprobacion(texto)
     if registro.estado == "ANULADO":
         raise ValidationError("El formulario está anulado.")
     if registro.aprobacion and registro.aprobacion != aprobacion:
