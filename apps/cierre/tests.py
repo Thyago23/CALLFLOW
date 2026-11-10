@@ -434,3 +434,52 @@ class EncargadoSinFichaTests(TestCase):
         respuesta = self.client.get(reverse("cierre:bandeja"))
         self.assertContains(respuesta, "no está vinculada a una ficha de empleado")
         self.assertContains(respuesta, "marlon.prue")
+
+
+class TableroVentasTests(BaseCierre):
+    """Tablero de ventas para la TV del call: todos los vendedores con lo vendido en el mes."""
+
+    def cerrar_venta(self, usuario, valor, cedula):
+        f = self.enviado(usuario, cedula=cedula)
+        f = servicios.tomar(self.ana, f, f.version)
+        servicios.registrar_resultado(self.ana, f, f.version, resultado="VENTA_CERRADA", valor_venta=D(valor))
+
+    def test_muestra_a_todos_y_destaca_al_mejor(self):
+        self.cerrar_venta(self.lucia, "300", "1710034065")
+        self.cerrar_venta(self.lucia, "250", "1103000004")
+        self.cerrar_venta(self.pedro, "450.50", "0926687856")
+        self.client.force_login(self.ana)
+        respuesta = self.client.get(reverse("tablero:ventas"))
+        self.assertEqual(respuesta.status_code, 200)
+        for texto in ("Lucía Mora", "Pedro Paz", "$550", "$450", "$1.000", "¡Va a la cabeza!", "3 ventas cerradas"):
+            self.assertContains(respuesta, texto)
+        self.assertEqual(respuesta.context["mejor"].vendedor, self.lucia.empleado)
+        self.assertEqual([f.ancho for f in respuesta.context["filas"]], [100, 82])
+
+    def test_venta_mas_alta_y_sin_destacar(self):
+        self.cerrar_venta(self.lucia, "300", "1710034065")
+        self.cerrar_venta(self.lucia, "250", "1103000004")
+        self.cerrar_venta(self.pedro, "450.50", "0926687856")
+        self.client.force_login(self.admin)
+        venta = self.client.get(reverse("tablero:ventas"), {"destacar": "venta"})
+        self.assertContains(venta, "La venta más alta del mes")
+        self.assertEqual((venta.context["venta_mas_alta"].valor_venta, venta.context["venta_nombre"]), (D("450.50"), "Pedro Paz"))
+        nada = self.client.get(reverse("tablero:ventas"), {"destacar": "nada"})
+        self.assertNotContains(nada, "¡Va a la cabeza!")
+        self.assertNotContains(nada, "La venta más alta del mes")
+
+    def test_mes_sin_ventas_y_actualizacion_htmx(self):
+        self.client.force_login(self.ana)
+        vacio = self.client.get(reverse("tablero:ventas"))
+        self.assertContains(vacio, "¡Vamos por la primera!")
+        self.assertIsNone(vacio.context["mejor"])
+        parcial = self.client.get(reverse("tablero:ventas"), HTTP_HX_REQUEST="true")
+        self.assertContains(parcial, "data-tablero")
+        self.assertNotContains(parcial, "<html")
+
+    def test_solo_administrador_y_cierre(self):
+        self.client.force_login(self.lucia)
+        self.assertEqual(self.client.get(reverse("tablero:ventas")).status_code, 403)
+        self.assertNotContains(self.client.get(reverse("inicio")), "Tablero de ventas")
+        self.client.force_login(self.ana)
+        self.assertContains(self.client.get(reverse("inicio")), reverse("tablero:ventas"))

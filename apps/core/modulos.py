@@ -56,6 +56,8 @@ MODULOS = [
            "Formularios DAMI, hoja de producción y bases comerciales.", url="ventas:inicio"),
     Modulo("cierre", "Cierre de ventas", "4.4", "check2-circle", "cierre.view_gestioncierre",
            "Gestión de cierres, metas mensuales y panel comercial.", url="cierre:bandeja"),
+    Modulo("tablero", "Tablero de ventas", "4.4", "trophy", "cierre.view_metamensual",
+           "Lo vendido por cada vendedor en el mes, para proyectar en la TV del call.", url="tablero:ventas"),
     Modulo("reportes", "Reportes", "4.5", "file-earmark-bar-graph", "reportes.view_tiporeporte",
            "Reportes en PDF, estadísticas y proyección de ventas.", url="reportes:centro"),
 ]
@@ -72,7 +74,7 @@ def modulos_de(usuario) -> list[Modulo]:
 # sección de la propuesta (la agenda la usan todos los roles, no solo administración).
 GRUPOS = [
     ("Administración", ("personal", "asistencia", "documentos", "inventario", "nomina")),
-    ("Comercial", ("ventas", "cierre")),
+    ("Comercial", ("ventas", "cierre", "tablero")),
     ("Herramientas", ("agenda", "reportes")),
 ]
 

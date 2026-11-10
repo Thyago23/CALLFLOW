@@ -1,0 +1,57 @@
+{% load panel_cf %}
+<div class="tv-pantalla" data-tablero>
+  <header class="tv-cabecera">
+    <h1 class="tv-titulo"><span class="tv-emoji" aria-hidden="true">🏆</span> Tablero de ventas <span class="tv-titulo-mes">{{ mes_actual|date:"F"|capfirst }}{% if not es_mes_actual %} {{ mes_actual|date:"Y" }}{% endif %}</span></h1>
+    <div class="tv-total">
+      <span class="tv-total-etiqueta">Entre todos llevamos</span>
+      <span class="tv-total-monto">{{ totales.total_vendido|monto_entero }}</span>
+      <span class="tv-total-detalle">{{ totales.ventas_cerradas }} venta{{ totales.ventas_cerradas|pluralize }} cerrada{{ totales.ventas_cerradas|pluralize }}{% if totales.pendientes %} · {{ totales.pendientes }} en cierre ⏳{% endif %}</span>
+    </div>
+    <div class="tv-reloj" id="reloj" aria-hidden="true">{{ actualizado|time:"H:i" }}</div>
+  </header>
+
+  <main class="tv-cuerpo {% if destacar == 'mejor' and mejor or destacar == 'venta' and venta_mas_alta %}con-destacado{% endif %} {% if filas|length > 10 %}muchos{% endif %}">
+    {% if destacar == "mejor" and mejor %}
+    <section class="tv-destacado" data-lider="{{ mejor.vendedor.pk }}" style="--color: {{ mejor.color }}" aria-label="Mejor vendedor del mes">
+      <div class="tv-corona" aria-hidden="true">👑</div>
+      <div class="tv-avatar tv-avatar-grande">{{ mejor.iniciales }}</div>
+      <p class="tv-destacado-titulo">¡Va a la cabeza!</p>
+      <p class="tv-destacado-nombre">{{ mejor.nombre }}</p>
+      <p class="tv-destacado-monto">{{ mejor.total_vendido|monto_entero }}<small>,{{ mejor.total_vendido|centavos }}</small></p>
+      <p class="tv-destacado-detalle">{{ mejor.ventas_cerradas }} venta{{ mejor.ventas_cerradas|pluralize }} cerrada{{ mejor.ventas_cerradas|pluralize }} 🔥</p>
+    </section>
+    {% elif destacar == "venta" and venta_mas_alta %}
+    <section class="tv-destacado tv-destacado-venta" data-lider="v{{ venta_mas_alta.pk }}" aria-label="Venta más alta del mes">
+      <div class="tv-corona" aria-hidden="true">💎</div>
+      <p class="tv-destacado-titulo">La venta más alta del mes</p>
+      <p class="tv-destacado-monto">{{ venta_mas_alta.valor_venta|monto_entero }}<small>,{{ venta_mas_alta.valor_venta|centavos }}</small></p>
+      <p class="tv-destacado-nombre">{{ venta_nombre }}</p>
+      <p class="tv-destacado-detalle">el {{ venta_mas_alta.fecha|date:"j \d\e F" }} ✨</p>
+    </section>
+    {% endif %}
+
+    {% if filas %}
+    <ol class="tv-ranking {% if filas|length > 10 %}dos-columnas{% endif %}" style="--filas: {{ filas_por_columna|default:1 }}">
+      {% for f in filas %}
+      <li class="tv-fila {% if f.posicion == 1 and f.total_vendido %}primero{% endif %} {% if not f.total_vendido %}en-cero{% endif %}"
+          data-vendedor="{{ f.vendedor.pk }}" data-total="{{ f.total_vendido|stringformat:'s' }}" style="--color: {{ f.color }}">
+        <span class="tv-puesto">{% if f.total_vendido and f.posicion == 1 %}🥇{% elif f.total_vendido and f.posicion == 2 %}🥈{% elif f.total_vendido and f.posicion == 3 %}🥉{% else %}{{ f.posicion }}{% endif %}</span>
+        <span class="tv-avatar">{{ f.iniciales }}</span>
+        <span class="tv-persona">
+          <span class="tv-nombre">{{ f.nombre }}</span>
+          <span class="tv-detalle">
+            {% if f.ventas_cerradas %}{{ f.ventas_cerradas }} venta{{ f.ventas_cerradas|pluralize }}{% else %}¡Vamos por la primera! 💪{% endif %}
+            {% if f.cumplio_meta %} · <span class="tv-meta-ok">✅ ¡Meta cumplida!</span>{% elif f.monto_meta %} · 🎯 {{ f.porcentaje_meta|floatformat:0 }}% de la meta{% endif %}
+          </span>
+          <span class="tv-barra" aria-hidden="true"><i style="width: {{ f.ancho }}%"></i></span>
+        </span>
+        <span class="tv-monto">{{ f.total_vendido|monto_entero }}<small>,{{ f.total_vendido|centavos }}</small></span>
+      </li>
+      {% endfor %}
+    </ol>
+    {% else %}
+    <p class="tv-vacio">Todavía no hay vendedores activos. 🙂</p>
+    {% endif %}
+  </main>
+  {% if not totales.total_vendido and filas %}<p class="tv-animo">¡Arranca el mes! ¿Quién se lleva la primera venta? 🚀</p>{% endif %}
+</div>

@@ -298,3 +298,28 @@ def ocultar_valores(request):
     mes = request.POST.get("mes", "")
     destino = reverse("cierre:panel")
     return redirect(f"{destino}?mes={mes}" if re.fullmatch(r"\d{4}-\d{2}", mes) else destino)
+
+
+# --------------------------------------------------------------------------- tablero de ventas (TV del call)
+DESTACAR = {"mejor": "Mejor vendedor", "venta": "Venta más alta", "nada": "Sin destacar"}
+
+
+@login_required
+@permission_required("cierre.view_metamensual", raise_exception=True)
+def tablero_ventas(request):
+    """
+    Pantalla para proyectar en la TV: lo que lleva vendido cada vendedor en el mes. Se actualiza
+    sola cada minuto (HTMX). ?destacar=mejor|venta|nada elige qué se muestra en grande.
+    """
+    anio, mes = _mes_de(request)
+    destacar = request.GET.get("destacar", "mejor")
+    if destacar not in DESTACAR:
+        destacar = "mejor"
+    hoy = timezone.localdate()
+    contexto = {
+        **servicios.tablero_ventas(anio, mes, request.user), **_navegacion_mes(anio, mes),
+        "destacar": destacar, "opciones_destacar": DESTACAR, "es_mes_actual": (anio, mes) == (hoy.year, hoy.month),
+        "actualizado": timezone.localtime(),
+    }
+    plantilla = "cierre/_tablero_ventas.html" if request.headers.get("HX-Request") == "true" else "cierre/tablero_ventas.html"
+    return render(request, plantilla, contexto)

@@ -1,0 +1,320 @@
+/* Tablero de ventas para la TV del call: grande, colorido y fácil de leer de lejos.
+   Todo se mide con vh/vw para que llene la pantalla sin barras de desplazamiento. */
+:root {
+  --fondo-1: #1b1446;
+  --fondo-2: #2b1a63;
+  --fondo-3: #0f3a6b;
+  --tarjeta: rgba(255, 255, 255, 0.08);
+  --tarjeta-borde: rgba(255, 255, 255, 0.14);
+  --texto: #ffffff;
+  --texto-suave: rgba(255, 255, 255, 0.72);
+  --oro: #ffd43b;
+  --verde: #69db7c;
+  --letra: "Segoe UI Variable Display", "Segoe UI", "Trebuchet MS", system-ui, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+html, body.tv {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: radial-gradient(ellipse at 15% 0%, #4c2a9a 0%, transparent 55%),
+              radial-gradient(ellipse at 100% 100%, #0b6e8a 0%, transparent 50%),
+              linear-gradient(135deg, var(--fondo-1), var(--fondo-2) 50%, var(--fondo-3));
+  color: var(--texto);
+  font-family: var(--letra);
+  font-variant-numeric: tabular-nums;
+}
+
+body.tv:not(.con-controles) { cursor: none; }
+
+#tablero, .tv-pantalla { height: 100%; }
+
+.tv-pantalla {
+  display: flex;
+  flex-direction: column;
+  padding: 2.4vh 2.4vw 2vh;
+  gap: 2vh;
+}
+
+/* ---------------------------------------------------------------- cabecera */
+.tv-cabecera {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2vw;
+}
+
+.tv-cabecera .tv-titulo { flex: 1; }
+
+.tv-titulo {
+  margin: 0;
+  font-size: 5.2vh;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+}
+
+.tv-emoji { display: inline-block; animation: rebote 2.4s ease-in-out infinite; }
+
+.tv-titulo-mes {
+  display: inline-block;
+  margin-left: 0.4em;
+  padding: 0.12em 0.55em;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #ff6b6b, #f783ac);
+  font-size: 0.62em;
+  vertical-align: middle;
+}
+
+.tv-total {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.1;
+  text-align: right;
+}
+
+.tv-total-etiqueta, .tv-total-detalle { font-size: 2.1vh; color: var(--texto-suave); font-weight: 600; }
+.tv-total-monto { font-size: 5.4vh; font-weight: 800; color: var(--verde); }
+
+.tv-reloj {
+  padding: 0.6vh 1.2vw;
+  border-radius: 1.6vh;
+  background: var(--tarjeta);
+  border: 1px solid var(--tarjeta-borde);
+  font-size: 4.4vh;
+  font-weight: 800;
+}
+
+/* ---------------------------------------------------------------- cuerpo */
+.tv-cuerpo {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 2vw;
+}
+
+.tv-cuerpo.con-destacado { grid-template-columns: 30vw 1fr; }
+.tv-cuerpo.con-destacado.muchos { grid-template-columns: 24vw 1fr; }
+
+/* Destacado: mejor vendedor o venta más alta */
+.tv-destacado {
+  --color: var(--oro);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 3vh 2vw;
+  border-radius: 3.2vh;
+  background: linear-gradient(160deg, rgba(255, 212, 59, 0.28), rgba(255, 107, 107, 0.18) 60%, rgba(151, 117, 250, 0.2));
+  border: 3px solid rgba(255, 212, 59, 0.7);
+  box-shadow: 0 0 6vh rgba(255, 212, 59, 0.28);
+  animation: brillo 3s ease-in-out infinite;
+  overflow: hidden;
+}
+
+.tv-destacado-venta {
+  background: linear-gradient(160deg, rgba(77, 171, 247, 0.3), rgba(151, 117, 250, 0.25) 60%, rgba(56, 217, 169, 0.2));
+  border-color: rgba(116, 192, 252, 0.8);
+  box-shadow: 0 0 6vh rgba(116, 192, 252, 0.3);
+  animation-name: brillo-azul;
+}
+
+.tv-destacado p { margin: 0; }
+.tv-corona { font-size: 11vh; line-height: 1; animation: rebote 2s ease-in-out infinite; }
+.tv-destacado-titulo { margin-top: 1.4vh !important; font-size: 3.2vh; font-weight: 700; color: var(--oro); text-transform: uppercase; letter-spacing: 0.06em; }
+.tv-destacado-venta .tv-destacado-titulo { color: #a5d8ff; }
+.tv-destacado-nombre { font-size: 6vh; font-weight: 800; line-height: 1.1; margin-top: 0.8vh !important; }
+.tv-destacado-monto { font-size: 9vh; font-weight: 900; line-height: 1.05; margin-top: 1vh !important; text-shadow: 0 0.4vh 2vh rgba(0, 0, 0, 0.35); }
+.tv-destacado-monto small { font-size: 0.45em; opacity: 0.8; }
+.tv-destacado-detalle { font-size: 3vh; color: var(--texto-suave); margin-top: 1vh !important; font-weight: 600; }
+
+.tv-destacado.nuevo-lider { animation: entrada 1s ease-out, brillo 3s ease-in-out 1s infinite; }
+
+/* Ranking */
+.tv-ranking {
+  --filas: 8;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  min-height: 0;
+  display: grid;
+  /* Con pocos vendedores las filas no pasan de 13vh; con muchos se reparten la altura disponible. */
+  height: min(100%, calc(var(--filas) * 13vh));
+  grid-template-rows: repeat(var(--filas), minmax(0, 1fr));
+  grid-auto-flow: column;
+  gap: 1.2vh 1.6vw;
+  /* La letra se ajusta a cuántas filas hay que mostrar. */
+  font-size: clamp(1.6vh, calc(62vh / var(--filas) * 0.42), 5vh);
+}
+
+/* Más de 10 vendedores: dos columnas y letra más chica para que entren los nombres completos. */
+.tv-ranking.dos-columnas { grid-template-columns: 1fr 1fr; font-size: clamp(1.6vh, calc(62vh / var(--filas) * 0.3), 3.4vh); }
+.tv-ranking.dos-columnas .tv-fila { grid-template-columns: 1.8em 2.2em 1fr auto; }
+
+.tv-fila {
+  --color: #4dabf7;
+  position: relative;
+  display: grid;
+  grid-template-columns: 2.2em 2.2em 1fr auto;
+  align-items: center;
+  gap: 0 0.7em;
+  padding: 0.35em 0.9em 0.35em 0.6em;
+  min-height: 0;
+  border-radius: 0.7em;
+  background: var(--tarjeta);
+  border: 1px solid var(--tarjeta-borde);
+  border-left: 0.32em solid var(--color);
+  transition: transform 0.4s ease, background 0.4s ease;
+}
+
+.tv-fila.primero {
+  background: linear-gradient(90deg, rgba(255, 212, 59, 0.26), rgba(255, 255, 255, 0.08));
+  border-color: rgba(255, 212, 59, 0.6);
+  border-left-color: var(--oro);
+}
+
+.tv-fila.en-cero { opacity: 0.72; }
+
+.tv-puesto { font-size: 1.3em; font-weight: 800; text-align: center; color: var(--texto-suave); }
+
+.tv-avatar {
+  display: grid;
+  place-items: center;
+  width: 2.1em;
+  height: 2.1em;
+  border-radius: 50%;
+  background: var(--color);
+  color: #1b1446;
+  font-weight: 900;
+  font-size: 0.95em;
+  box-shadow: 0 0.15em 0.5em rgba(0, 0, 0, 0.25);
+}
+
+.tv-avatar-grande { width: 16vh; height: 16vh; font-size: 6.5vh; margin-top: 1vh; border: 0.6vh solid #fff; }
+
+.tv-persona { display: flex; flex-direction: column; min-width: 0; gap: 0.12em; }
+.tv-nombre { font-weight: 800; font-size: 1.05em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.1; }
+.tv-detalle { font-size: 0.56em; color: var(--texto-suave); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tv-meta-ok { color: var(--verde); }
+
+.tv-barra { display: block; height: 0.22em; border-radius: 999px; background: rgba(255, 255, 255, 0.1); overflow: hidden; }
+.tv-barra i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--color), #fff); transition: width 1.2s ease; }
+
+.tv-monto { font-size: 1.35em; font-weight: 900; white-space: nowrap; }
+.tv-monto small { font-size: 0.5em; opacity: 0.7; }
+.tv-fila.primero .tv-monto { color: var(--oro); }
+
+/* Alguien vendió desde la última actualización */
+.tv-fila.subio { animation: subio 1.4s ease-out 2; }
+
+.burbuja {
+  position: absolute;
+  right: 1em;
+  top: -0.2em;
+  padding: 0.1em 0.5em;
+  border-radius: 999px;
+  background: var(--verde);
+  color: #0b3d1a;
+  font-weight: 900;
+  font-size: 0.7em;
+  animation: burbuja 4s ease-out forwards;
+  pointer-events: none;
+}
+
+.tv-vacio, .tv-animo { text-align: center; font-size: 3.4vh; font-weight: 700; color: var(--texto-suave); margin: 0; }
+
+/* ---------------------------------------------------------------- controles (se esconden solos) */
+.tv-controles {
+  position: fixed;
+  left: 50%;
+  bottom: 1.6vh;
+  transform: translate(-50%, 150%);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  max-width: calc(100vw - 32px);
+  padding: 8px 10px;
+  border-radius: 999px;
+  background: rgba(15, 10, 40, 0.88);
+  border: 1px solid var(--tarjeta-borde);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+  font-size: 15px;
+  opacity: 0;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+body.con-controles .tv-controles { opacity: 1; transform: translate(-50%, 0); }
+
+.tv-boton {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--texto);
+  font: inherit;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.tv-boton:hover, .tv-boton:focus-visible { background: rgba(255, 255, 255, 0.14); outline: none; }
+.tv-boton.activo { background: var(--oro); color: #1b1446; }
+.tv-mes { font-weight: 700; padding: 0 4px; }
+.tv-etiqueta { color: var(--texto-suave); padding-left: 4px; }
+.tv-separador { width: 1px; height: 22px; background: var(--tarjeta-borde); margin: 0 4px; }
+
+/* Confeti */
+#confeti { position: fixed; inset: 0; pointer-events: none; overflow: hidden; z-index: 10; }
+#confeti i { position: absolute; top: -3vh; width: 1.1vh; height: 1.8vh; border-radius: 2px; animation: caer linear forwards; }
+
+/* ---------------------------------------------------------------- animaciones */
+@keyframes rebote { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-0.6vh) rotate(-4deg); } }
+@keyframes brillo { 0%, 100% { box-shadow: 0 0 4vh rgba(255, 212, 59, 0.22); } 50% { box-shadow: 0 0 8vh rgba(255, 212, 59, 0.45); } }
+@keyframes brillo-azul { 0%, 100% { box-shadow: 0 0 4vh rgba(116, 192, 252, 0.22); } 50% { box-shadow: 0 0 8vh rgba(116, 192, 252, 0.45); } }
+@keyframes entrada { from { transform: scale(0.85); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+@keyframes subio {
+  0% { transform: scale(1); background: var(--tarjeta); }
+  30% { transform: scale(1.03); background: rgba(105, 219, 124, 0.35); }
+  100% { transform: scale(1); }
+}
+@keyframes burbuja { 0% { opacity: 0; transform: translateY(0.6em); } 15% { opacity: 1; transform: translateY(-0.4em); } 80% { opacity: 1; } 100% { opacity: 0; transform: translateY(-1.4em); } }
+@keyframes caer { to { transform: translateY(108vh) rotate(720deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+
+/* Pantallas angostas (laptop pequeña o celular): el destacado va arriba. */
+@media (max-width: 900px), (max-aspect-ratio: 1/1) {
+  html, body.tv { overflow: auto; }
+  #tablero, .tv-pantalla { height: auto; min-height: 100%; }
+  .tv-pantalla { padding: 16px; }
+  .tv-cabecera { flex-direction: column; align-items: flex-start; padding-right: 0; }
+  .tv-total { align-items: flex-start; text-align: left; }
+  .tv-reloj { display: none; }
+  .tv-cuerpo.con-destacado { grid-template-columns: 1fr; }
+  .tv-ranking, .tv-ranking.dos-columnas { grid-template-columns: 1fr; grid-template-rows: none; grid-auto-flow: row; font-size: 20px; }
+  .tv-titulo { font-size: 28px; }
+  .tv-total-monto { font-size: 30px; }
+  .tv-destacado-nombre { font-size: 30px; }
+  .tv-destacado-monto { font-size: 44px; }
+  .tv-corona { font-size: 56px; }
+  .tv-avatar-grande { width: 96px; height: 96px; font-size: 38px; }
+  .tv-destacado-titulo, .tv-destacado-detalle { font-size: 18px; }
+}
+
+/* Con dos columnas el destacado es más angosto. */
+.tv-cuerpo.muchos .tv-destacado-monto { font-size: 7vh; }
+.tv-cuerpo.muchos .tv-destacado-nombre { font-size: 4.8vh; }
+.tv-cuerpo.muchos .tv-destacado-titulo { font-size: 2.6vh; }

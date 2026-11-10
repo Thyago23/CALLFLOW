@@ -15,3 +15,14 @@ def monto(valor, ocultar=False):
     if valor is None:
         return "—"
     return f"${dinero(valor)}"
+
+
+@register.filter
+def monto_entero(valor):
+    """Para el tablero de la TV: '$1.234' (los centavos van aparte, más pequeños)."""
+    return f"${dinero(valor or 0).split(',')[0]}"
+
+
+@register.filter
+def centavos(valor):
+    return dinero(valor or 0).split(",")[1]

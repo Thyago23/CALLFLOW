@@ -43,6 +43,12 @@ No dependen de que la aplicación "se acuerde": aplican aunque alguien escriba S
 - El vendedor categoriza cada cliente en **Mis contactos**: No contestó, No quiere o DAMI sacado (se puede corregir). «Llenar DAMI» prellena el formulario con los datos del contacto.
 - **Seguimiento por vendedor**: enviados, gestionados, faltantes y cada categoría. Reportes: *Efectividad de bases* (DAMI sacados ÷ gestionados, con la media de todas las bases) y *Gestión de bases por vendedor*.
 
+## Tablero de ventas (TV del call)
+
+- Menú **Comercial → Tablero de ventas** (`/tablero/`), para administrador y encargados de cierre. Reemplaza al tablero escrito a mano: todos los vendedores con lo vendido en el mes, del primero al último, el total del call y el avance de la meta si la tiene. Los montos salen de la misma vista que el panel comercial y la hoja de producción.
+- Pantalla pensada para proyectar por HDMI (1920×1080): sin menú ni avisos flotantes, letra grande y se actualiza sola cada 30 s. Cuando alguien vende, su fila se ilumina con «+$…» y cae confeti; si cambia el primero, el confeti es mayor. Con más de 10 vendedores pasa a dos columnas.
+- Al mover el mouse aparecen los controles (se esconden solos a los 3 s): mes, **Destacar** (👑 mejor vendedor, 💎 venta más alta del mes o nada) y pantalla completa. La opción elegida queda en la dirección (`?destacar=mejor|venta|nada`), así que se puede dejar como favorito en el navegador de la TV.
+
 ## Notificaciones
 
 - **En el sistema:** la campana abre un panel con las últimas; «Ver todas» lleva a `/notificaciones/`. Cada 20 s se consultan las nuevas y aparecen como avisos flotantes abajo a la derecha.

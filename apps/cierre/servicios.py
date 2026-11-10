@@ -420,3 +420,50 @@ def ocultar_valores(usuario) -> bool:
 
 def cambiar_ocultar_valores(usuario, ocultar: bool) -> None:
     PreferenciaPanel.objects.update_or_create(usuario=usuario, defaults={"ocultar_valores": ocultar})
+
+
+# --------------------------------------------------------------------------- tablero de ventas (para la TV del call)
+COLORES_TABLERO = ["#ff6b6b", "#ffa94d", "#ffd43b", "#69db7c", "#38d9a9", "#4dabf7", "#9775fa", "#f783ac", "#63e6be", "#74c0fc"]
+
+
+@dataclass
+class FilaTablero:
+    fila: FilaPanel
+    nombre: str
+    iniciales: str
+    color: str
+    ancho: int = 0  # largo de la barra: lo vendido respecto del primero (100)
+
+    def __getattr__(self, nombre):
+        return getattr(self.fila, nombre)
+
+
+def _nombre_corto(empleado: Empleado) -> tuple[str, str]:
+    """('Lucía Mora', 'LM'): primer nombre y primer apellido, como en el tablero a mano."""
+    nombre = (empleado.nombres.split() or [""])[0]
+    apellido = (empleado.apellidos.split() or [""])[0]
+    return f"{nombre} {apellido}".strip(), f"{nombre[:1]}{apellido[:1]}".upper()
+
+
+def venta_mas_alta(anio: int, mes: int):
+    """La venta cerrada de mayor valor del mes (mismo mes que la hoja de producción); la primera si hay empate."""
+    from apps.ventas.models import EstadoProduccion, RegistroProduccion
+
+    return (RegistroProduccion.objects.filter(hoja__anio=anio, hoja__mes=mes, estado=EstadoProduccion.VENTA_CERRADA)
+            .select_related("hoja__vendedor").order_by("-valor_venta", "fecha", "pk").first())
+
+
+def tablero_ventas(anio: int, mes: int, usuario) -> dict:
+    """Todos los vendedores con lo vendido en el mes, del primero al último. Misma fuente que el panel comercial."""
+    panel = panel_comercial(anio, mes, usuario)
+    maximo = max((f.total_vendido for f in panel.filas), default=Decimal("0"))
+    filas = []
+    for f in panel.filas:
+        nombre, iniciales = _nombre_corto(f.vendedor)
+        filas.append(FilaTablero(fila=f, nombre=nombre, iniciales=iniciales, color=COLORES_TABLERO[f.vendedor.pk % len(COLORES_TABLERO)],
+                                 ancho=round(f.total_vendido * 100 / maximo) if maximo else 0))
+    mejor = next((f for f in filas if panel.mejor and f.fila is panel.mejor), None)
+    venta = venta_mas_alta(anio, mes)
+    venta_nombre = _nombre_corto(venta.hoja.vendedor)[0] if venta else ""
+    return {"filas": filas, "totales": panel.totales, "mejor": mejor, "venta_mas_alta": venta, "venta_nombre": venta_nombre,
+            "filas_por_columna": (len(filas) + 1) // 2 if len(filas) > 10 else len(filas)}
