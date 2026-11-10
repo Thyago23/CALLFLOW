@@ -1,0 +1,23 @@
+{# Una catalogo.Tabla en pantalla. Recibe `tabla`. #}
+<div class="table-responsive">
+  <table class="table table-sm align-middle mb-0 tabla-reporte-pantalla">
+    <thead>
+      <tr>{% for c in tabla.columnas %}<th scope="col" class="{% if c.numerica %}text-end{% endif %}">{{ c.titulo }}</th>{% endfor %}</tr>
+    </thead>
+    <tbody>
+      {% for fila in tabla.filas_formateadas %}
+      <tr>{% for texto, derecha in fila %}<td class="{% if derecha %}text-end text-nowrap{% endif %}">{{ texto }}</td>{% endfor %}</tr>
+      {% empty %}
+      <tr><td colspan="{{ tabla.columnas|length }}" class="text-center text-body-secondary py-5">{{ tabla.vacio }}</td></tr>
+      {% endfor %}
+    </tbody>
+    {% if tabla.totales and tabla.filas %}
+    <tfoot>
+      <tr>{% for texto, derecha in tabla.totales_formateados %}<td class="{% if derecha %}text-end text-nowrap{% endif %}">{{ texto }}</td>{% endfor %}</tr>
+    </tfoot>
+    {% endif %}
+  </table>
+</div>
+{% if tabla.notas %}
+<div class="card-footer bg-body small text-body-secondary">{% for nota in tabla.notas %}<div>{{ nota }}</div>{% endfor %}</div>
+{% endif %}

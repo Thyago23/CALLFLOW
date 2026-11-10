@@ -34,6 +34,21 @@ No dependen de que la aplicación "se acuerde": aplican aunque alguien escriba S
 - **Documentos**: solo PDF, JPG y PNG de hasta 10 MB; sin duplicados por huella SHA-256; borrado lógico.
 - **Auditoría** (sección 6): los cambios en empleados, salarios, comisiones, nómina, producción, cierres, metas y usuarios quedan en `core_registrocambio` (sin contraseñas). La bitácora no se puede modificar ni borrar.
 
+## Notificaciones
+
+- **En el sistema:** la campana abre un panel con las últimas; «Ver todas» lleva a `/notificaciones/`. Cada 20 s se consultan las nuevas y aparecen como avisos flotantes abajo a la derecha.
+- **Push del navegador (Web Push):** cada persona las activa en su navegador desde el panel de la campana; llegan como avisos del sistema operativo aunque CALLFLOW esté cerrado (con el navegador abierto). Requieren HTTPS o `localhost` y claves VAPID en el `.env`:
+  `python manage.py generar_claves_push --guardar` (una vez por instalación; si se cambian, hay que reactivarlas).
+- Toda notificación nace con `push_enviada = false`, también las que crean los triggers (stock bajo). Se envían solas al terminar cualquier petición; para los ratos sin uso, programar cada minuto `python manage.py enviar_push` (el comando `enviar_avisos_agenda` también las envía). Las de más de 15 minutos ya no se envían como push.
+- Al cerrar sesión, el navegador deja de recibir los avisos de esa persona.
+
+## Reportes y estadísticas (4.5, épica SCRUM-61)
+
+- Catálogo en `apps/reportes/catalogo.py`: cada reporte arma una tabla que se ve en pantalla y se exporta a PDF con el mismo contenido. Quién genera cada uno lo dicen los roles de `reportes_tiporeporte`, que carga `inicializar_datos` (administrador: todos; encargado de cierre: los comerciales; el vendedor no entra al módulo).
+- Cada descarga queda en `reportes_reportegenerado` (tipo, filtros, usuario, tamaño); el archivo no se guarda.
+- Estadísticas (`apps/reportes/estadisticas.py`): las ventas cuentan en el mes en que se envió el DAMI. Proyección del mes en curso = vendido ÷ días laborables transcurridos × días laborables del mes; próximos 3 meses = tendencia lineal sobre los meses completos con actividad, junto al promedio de los últimos 3.
+- Las gráficas son SVG generados en el servidor (sin librerías ni internet); en el PDF se dibujan con fpdf2.
+
 ## Puesta en marcha
 
 1. Crear la base y los usuarios (pide la contraseña del superusuario `postgres` actual; no la guarda):

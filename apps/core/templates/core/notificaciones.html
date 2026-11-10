@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% load interfaz %}
+{% block titulo %}Notificaciones{% endblock %}
+{% block contenido %}
+<div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-3">
+  <div>
+    <h1 class="h3 mb-0">Notificaciones</h1>
+    <p class="text-body-secondary small mb-0">Avisos del sistema: formularios, agenda, inventario, bases y nómina.</p>
+  </div>
+  {% if notificaciones_sin_leer %}
+  <form method="post" action="{% url 'notificaciones_leidas' %}">
+    {% csrf_token %}<input type="hidden" name="volver" value="{{ request.get_full_path }}">
+    <button type="submit" class="btn btn-outline-primary"><i class="bi bi-check2-all me-1" aria-hidden="true"></i>Marcar todas como leídas</button>
+  </form>
+  {% endif %}
+</div>
+
+<div class="row g-4">
+  <div class="col-lg-8">
+    <ul class="nav nav-pills mb-3 filtro-notificaciones">
+      <li class="nav-item"><a class="nav-link {% if not sin_leer %}active{% endif %}" href="?">Todas</a></li>
+      <li class="nav-item"><a class="nav-link {% if sin_leer %}active{% endif %}" href="?ver=sin_leer">Sin leer{% if notificaciones_sin_leer %} <span class="badge rounded-pill text-bg-danger ms-1">{{ notificaciones_sin_leer }}</span>{% endif %}</a></li>
+    </ul>
+    <section class="card">
+      {% if pagina.object_list %}
+      <ul class="list-unstyled mb-0 lista-notificaciones lista-completa">
+        {% for n in pagina.object_list %}
+        {% ifchanged n.creado_en|date:"Ymd" %}<li class="dia-notificaciones">{% if n.creado_en|date:"Ymd" == hoy %}Hoy{% else %}{{ n.creado_en|date:"l j \d\e F" }}{% endif %}</li>{% endifchanged %}
+        <li class="notificacion {% if not n.leida %}no-leida{% endif %}">
+          <span class="icono-notificacion tono-{{ n.tono }}" aria-hidden="true"><i class="bi bi-{{ n.icono }}"></i></span>
+          <div class="min-w-0 flex-grow-1">
+            <div class="d-flex justify-content-between align-items-baseline gap-2">
+              <a href="{% url 'notificacion_abrir' n.pk %}" class="stretched-link text-reset text-decoration-none fw-semibold">{{ n.titulo }}{% if not n.leida %}<span class="visually-hidden"> (sin leer)</span>{% endif %}</a>
+              <span class="small text-body-secondary text-nowrap" title="{{ n.creado_en|date:'d/m/Y H:i' }}">{{ n.creado_en|date:"H:i" }}</span>
+            </div>
+            {% if n.mensaje %}<div class="small text-body-secondary">{{ n.mensaje }}</div>{% endif %}
+            <div class="small text-body-tertiary">{{ n.get_tipo_display }} · {{ n.creado_en|hace }}</div>
+          </div>
+          {% if not n.leida %}<span class="punto-notificacion" aria-hidden="true"></span>{% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <div class="text-center text-body-secondary py-5">
+        <i class="bi bi-bell-slash fs-2 d-block mb-2" aria-hidden="true"></i>
+        {% if sin_leer %}Está al día: no tiene notificaciones sin leer.{% else %}Aún no tiene notificaciones.{% endif %}
+      </div>
+      {% endif %}
+    </section>
+    {% if pagina.has_other_pages %}
+    <nav class="mt-3" aria-label="Páginas">
+      <ul class="pagination pagination-sm mb-0">
+        {% if pagina.has_previous %}<li class="page-item"><a class="page-link" href="?{% if sin_leer %}ver=sin_leer&{% endif %}pagina={{ pagina.previous_page_number }}">Anteriores</a></li>{% endif %}
+        <li class="page-item active" aria-current="page"><span class="page-link">{{ pagina.number }} de {{ pagina.paginator.num_pages }}</span></li>
+        {% if pagina.has_next %}<li class="page-item"><a class="page-link" href="?{% if sin_leer %}ver=sin_leer&{% endif %}pagina={{ pagina.next_page_number }}">Siguientes</a></li>{% endif %}
+      </ul>
+    </nav>
+    {% endif %}
+  </div>
+  <div class="col-lg-4">
+    <section class="card" aria-labelledby="titulo-push">
+      <div class="card-body">
+        <div class="d-flex align-items-center gap-2 mb-2">
+          <span class="icono-notificacion tono-marca" aria-hidden="true"><i class="bi bi-window-stack"></i></span>
+          <h2 class="h6 mb-0" id="titulo-push">Avisos en este equipo</h2>
+        </div>
+        <p class="small text-body-secondary">Reciba las notificaciones como avisos del sistema operativo, aunque CALLFLOW esté minimizado o cerrado (con el navegador abierto). Se activa en cada navegador.</p>
+        <div data-estado-push class="small"></div>
+      </div>
+    </section>
+  </div>
+</div>
+{% endblock %}

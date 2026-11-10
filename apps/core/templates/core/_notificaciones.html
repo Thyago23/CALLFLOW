@@ -1,25 +1,33 @@
+{% load interfaz %}
+{# Lista de notificaciones del panel de la campana y del inicio. Recibe `notificaciones`. #}
 {% if notificaciones %}
-<ul class="list-group list-group-flush">
+<ul class="list-unstyled mb-0 lista-notificaciones">
   {% for n in notificaciones %}
-  <li class="list-group-item notificacion {% if not n.leida %}no-leida{% endif %} py-3">
-    <div class="d-flex justify-content-between gap-2">
-      <div class="min-w-0">
-        <div class="small fw-semibold">{% if n.url %}<a href="{{ n.url }}" class="text-reset">{{ n.titulo }}</a>{% else %}{{ n.titulo }}{% endif %}</div>
-        {% if n.mensaje %}<div class="small text-body-secondary">{{ n.mensaje }}</div>{% endif %}
+  <li class="notificacion {% if not n.leida %}no-leida{% endif %}">
+    <span class="icono-notificacion tono-{{ n.tono }}" aria-hidden="true"><i class="bi bi-{{ n.icono }}"></i></span>
+    <div class="min-w-0 flex-grow-1">
+      <div class="d-flex justify-content-between align-items-baseline gap-2">
+        <a href="{% url 'notificacion_abrir' n.pk %}" class="stretched-link text-reset text-decoration-none small fw-semibold">{{ n.titulo }}{% if not n.leida %}<span class="visually-hidden"> (sin leer)</span>{% endif %}</a>
+        <span class="small text-body-secondary text-nowrap">{{ n.creado_en|hace }}</span>
       </div>
-      <span class="small text-body-secondary text-nowrap">{{ n.creado_en|timesince }}</span>
+      {% if n.mensaje %}<div class="small text-body-secondary texto-notificacion">{{ n.mensaje }}</div>{% endif %}
     </div>
+    {% if not n.leida %}<span class="punto-notificacion" aria-hidden="true"></span>{% endif %}
   </li>
   {% endfor %}
 </ul>
 {% if notificaciones_sin_leer %}
-<div class="card-footer bg-body text-end">
-  <form method="post" action="{% url 'notificaciones_leidas' %}" hx-post="{% url 'notificaciones_leidas' %}" hx-target="#lista-notificaciones">
+<div class="border-top px-3 py-2 text-end">
+  <form method="post" action="{% url 'notificaciones_leidas' %}" hx-post="{% url 'notificaciones_leidas' %}" hx-target="closest [data-notificaciones]">
     {% csrf_token %}
-    <button class="btn btn-sm btn-link p-0" type="submit">Marcar todas como leídas</button>
+    <button class="btn btn-sm btn-link p-0 text-decoration-none" type="submit"><i class="bi bi-check2-all me-1" aria-hidden="true"></i>Marcar todas como leídas</button>
   </form>
 </div>
 {% endif %}
 {% else %}
-<p class="text-body-secondary small px-3 py-3 mb-0">No tiene notificaciones.</p>
+<div class="text-center text-body-secondary small px-3 py-5">
+  <i class="bi bi-bell-slash fs-3 d-block mb-2" aria-hidden="true"></i>
+  No tiene notificaciones.
+</div>
 {% endif %}
+{% if actualizar_contador %}<span id="contador-notificaciones" hx-swap-oob="innerHTML"></span>{% endif %}

@@ -3,3 +3,4 @@ psycopg2-binary>=2.9
 pypdf>=5.0
 fpdf2>=2.7
 cryptography>=42
+pywebpush>=2.0,<3

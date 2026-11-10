@@ -132,17 +132,64 @@ class Notificacion(models.Model):
     leida = models.BooleanField(default=False)
     leida_en = models.DateTimeField(null=True, blank=True)
     creado_en = models.DateTimeField(db_default=Now())
+    # db_default: también las que crean los triggers (stock bajo) quedan pendientes de enviar como push.
+    push_enviada = models.BooleanField(default=False, db_default=False)
 
     class Meta:
         verbose_name = "notificación"
         verbose_name_plural = "notificaciones"
         ordering = ["-creado_en"]
-        indexes = [models.Index(fields=["destinatario", "leida"], name="notif_destinatario_leida_idx")]
+        indexes = [
+            models.Index(fields=["destinatario", "leida"], name="notif_destinatario_leida_idx"),
+            models.Index(fields=["creado_en"], condition=Q(push_enviada=False), name="notif_push_pendiente_idx"),
+        ]
         constraints = [
             models.CheckConstraint(
                 condition=Q(leida=False) | Q(leida_en__isnull=False), name="notif_leida_requiere_fecha"
             ),
         ]
 
+    # Ícono (Bootstrap Icons) y tono de cada tipo, para el panel, los avisos y la página de notificaciones.
+    ESTILOS = {
+        Tipo.GENERAL: ("bell", "neutro"),
+        Tipo.STOCK_BAJO: ("box-seam", "alerta"),
+        Tipo.AGENDA: ("calendar-event", "marca"),
+        Tipo.SOLICITUD_BASE: ("database", "marca"),
+        Tipo.FORMULARIO_DAMI: ("file-earmark-text", "marca"),
+        Tipo.NOMINA: ("cash-coin", "marca"),
+    }
+
+    @property
+    def icono(self) -> str:
+        return self.ESTILOS.get(self.tipo, ("bell", "neutro"))[0]
+
+    @property
+    def tono(self) -> str:
+        return self.ESTILOS.get(self.tipo, ("bell", "neutro"))[1]
+
     def __str__(self):
         return self.titulo
+
+
+class SuscripcionPush(ModeloBase):
+    """
+    Un navegador que aceptó recibir notificaciones push de CALLFLOW (Web Push, estándar W3C).
+    Queda ligado al último usuario que inició sesión en ese navegador; al cerrar sesión se borra.
+    """
+
+    usuario = models.ForeignKey(Usuario, on_delete=models.CASCADE, related_name="suscripciones_push")
+    endpoint = models.TextField(unique=True)
+    p256dh = models.CharField(max_length=200)
+    auth = models.CharField(max_length=100)
+    navegador = models.CharField(max_length=255, blank=True, default="")
+
+    class Meta:
+        verbose_name = "suscripción push"
+        verbose_name_plural = "suscripciones push"
+
+    def __str__(self):
+        return f"{self.usuario} · {self.navegador[:40]}"
+
+    @property
+    def datos(self) -> dict:
+        return {"endpoint": self.endpoint, "keys": {"p256dh": self.p256dh, "auth": self.auth}}

@@ -28,11 +28,11 @@
       <span class="form-label small mb-1 d-block">Formato</span>
       <div class="btn-group w-100" role="group" aria-label="Formato del reporte">
         <input type="radio" class="btn-check" name="formato" id="formato-general" value="general" {% if formato == "general" %}checked{% endif %} onchange="this.form.requestSubmit()">
-        <label class="btn btn-outline-secondary" for="formato-general">Cuadro general</label>
+        <label class="btn btn-outline-secondary text-nowrap" for="formato-general">General</label>
         <input type="radio" class="btn-check" name="formato" id="formato-individual" value="individual" {% if formato == "individual" %}checked{% endif %} onchange="this.form.requestSubmit()">
-        <label class="btn btn-outline-secondary" for="formato-individual">Rol por empleado</label>
+        <label class="btn btn-outline-secondary text-nowrap" for="formato-individual">Por empleado</label>
         <input type="radio" class="btn-check" name="formato" id="formato-comisiones" value="comisiones" {% if formato == "comisiones" %}checked{% endif %} onchange="this.form.requestSubmit()">
-        <label class="btn btn-outline-secondary" for="formato-comisiones">Comisiones</label>
+        <label class="btn btn-outline-secondary text-nowrap" for="formato-comisiones">Comisiones</label>
       </div>
     </div>
     <div class="col-md-2 text-md-end">

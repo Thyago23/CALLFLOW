@@ -1,9 +1,15 @@
+import json
+from pathlib import Path
+
 from django.contrib import messages
 from django.contrib.auth import update_session_auth_hash
 from django.contrib.auth import views as auth_views
 from django.contrib.auth.decorators import login_required, permission_required
+from django.contrib.staticfiles import finders
+from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models import F, Q
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -20,8 +26,8 @@ from . import notificaciones as avisos
 from .codigos import generar_codigo_acceso, generar_usuario
 from .cuentas import CLAVE_SESION_CREDENCIALES, preparar_credenciales
 from .forms import CambioClaveForm, IngresoForm, UsuarioCrearForm
-from .modulos import SECCIONES, modulos_de
-from .models import Notificacion, Rol, Usuario
+from .modulos import grupos_de
+from .models import Notificacion, Rol, SuscripcionPush, Usuario
 
 
 def _es_htmx(request) -> bool:
@@ -55,8 +61,8 @@ def cambiar_clave(request):
 def dashboard(request):
     usuario = request.user
     hoy = timezone.localdate()
-    visibles = modulos_de(usuario)
 
+    # Indicadores: los de "alerta" van al panel de pendientes con lo que hay que hacer; el resto, al resumen.
     indicadores = []
     if usuario.has_perm("personal.view_empleado"):
         indicadores.append({
@@ -76,13 +82,13 @@ def dashboard(request):
         indicadores.append({
             "titulo": "Novedades de asistencia por revisar", "icono": "clock-history",
             "valor": NovedadAsistencia.objects.filter(estado=NovedadAsistencia.Estado.PENDIENTE).count(),
-            "url": reverse("asistencia:novedades"), "alerta": True,
+            "url": reverse("asistencia:novedades"), "alerta": True, "accion": "Justificar o descontar",
         })
     if usuario.has_perm("inventario.view_material"):
         indicadores.append({
             "titulo": "Materiales con stock bajo", "icono": "box-seam",
             "valor": Material.objects.filter(activo=True, stock_actual__lte=F("stock_minimo")).count(),
-            "url": reverse("inventario:materiales") + "?estado=bajo", "alerta": True,
+            "url": reverse("inventario:materiales") + "?estado=bajo", "alerta": True, "accion": "Conviene reponerlos",
         })
     if usuario.has_perm("cierre.add_gestioncierre"):
         from apps.ventas.models import FormularioDAMI
@@ -90,14 +96,14 @@ def dashboard(request):
         indicadores.append({
             "titulo": "Formularios DAMI sin asignar", "icono": "inbox",
             "valor": FormularioDAMI.objects.filter(estado=FormularioDAMI.Estado.ENVIADO).count(),
-            "url": reverse("cierre:bandeja") + "?estado=ENVIADO", "alerta": True,
+            "url": reverse("cierre:bandeja") + "?estado=ENVIADO", "alerta": True, "accion": "Esperan a un encargado",
         })
     if usuario.has_perm("ventas.change_solicitudbase"):
         from apps.ventas.servicios import solicitudes_pendientes
 
         indicadores.append({
             "titulo": "Solicitudes de bases pendientes", "icono": "database",
-            "valor": solicitudes_pendientes(), "url": reverse("ventas:bases"), "alerta": True,
+            "valor": solicitudes_pendientes(), "url": reverse("ventas:bases"), "alerta": True, "accion": "Asignar o rechazar",
         })
     if usuario.has_perm("agenda.view_evento"):
         indicadores.append({
@@ -106,19 +112,42 @@ def dashboard(request):
             "url": reverse("agenda:calendario") + f"?vista=dia&fecha={hoy.isoformat()}",
         })
 
-    secciones = [
-        {"codigo": codigo, "nombre": nombre, "modulos": [m for m in visibles if m.seccion == codigo]}
-        for codigo, nombre in SECCIONES
-    ]
+    pendientes = [i for i in indicadores if i.get("alerta")]
     hora = timezone.localtime().hour
     return render(request, "core/dashboard.html", {
         "saludo": "Buenos días" if hora < 12 else "Buenas tardes" if hora < 19 else "Buenas noches",
-        "indicadores": indicadores,
-        "secciones": [s for s in secciones if s["modulos"]],
+        "accesos": _accesos_rapidos(usuario),
+        "resumen": [i for i in indicadores if not i.get("alerta")],
+        "pendientes": pendientes,
+        "por_atender": sum(1 for i in pendientes if i["valor"]),
+        "grupos": grupos_de(usuario),
         "notificaciones": Notificacion.objects.filter(destinatario=usuario).order_by("leida", "-creado_en")[:6],
-        "modulos_listos": sum(m.disponible for m in visibles),
-        "modulos_total": len(visibles),
     })
+
+
+# (permiso, texto, icono, ruta): las tareas más comunes de cada rol, en orden de prioridad.
+_ACCESOS = [
+    ("personal.add_empleado", "Registrar empleado", "person-plus", "personal:empleado_crear"),
+    ("ventas.add_formulariodami", "Nuevo DAMI", "file-earmark-plus", "ventas:formulario_nuevo"),
+    ("cierre.add_gestioncierre", "Bandeja de cierre", "inbox", "cierre:bandeja"),
+    ("asistencia.view_registroasistencia", "Asistencia de hoy", "clock-history", "asistencia:tablero"),
+    ("nomina.view_periodonomina", "Roles de pago", "cash-coin", "nomina:resumen"),
+    ("core.add_usuario", "Nuevo usuario", "person-badge", "usuario_crear"),
+    ("agenda.add_evento", "Nueva actividad", "calendar-plus", "agenda:crear"),
+]
+MAX_ACCESOS = 4
+
+
+def _accesos_rapidos(usuario) -> list[dict]:
+    accesos = []
+    for permiso, titulo, icono, ruta in _ACCESOS:
+        if permiso == "ventas.add_formulariodami" and not (usuario.rol == Rol.VENDEDOR and hasattr(usuario, "empleado")):
+            continue  # solo el vendedor con ficha registra formularios
+        if permiso == "cierre.add_gestioncierre" and usuario.rol != Rol.ENCARGADO_CIERRE:
+            continue
+        if usuario.has_perm(permiso):
+            accesos.append({"titulo": titulo, "icono": icono, "url": reverse(ruta)})
+    return accesos[:MAX_ACCESOS]
 
 
 # --------------------------------------------------------------------------- usuarios
@@ -209,16 +238,76 @@ def _guardar_credenciales(request, usuario, clave, nuevo, volver=None):
 
 
 # --------------------------------------------------------------------------- notificaciones
+POR_PAGINA = 20
+
+
+def _de(usuario):
+    return Notificacion.objects.filter(destinatario=usuario)
+
+
 @login_required
 @require_POST
 def marcar_notificaciones_leidas(request):
-    Notificacion.objects.filter(destinatario=request.user, leida=False).update(leida=True, leida_en=timezone.now())
+    _de(request.user).filter(leida=False).update(leida=True, leida_en=timezone.now())
     if _es_htmx(request):
         if request.GET.get("panel") == "campana":
             return _panel_campana(request)
-        notificaciones = Notificacion.objects.filter(destinatario=request.user).order_by("-creado_en")[:6]
-        return render(request, "core/_notificaciones.html", {"notificaciones": notificaciones})
-    return redirect("inicio")
+        return render(request, "core/_notificaciones.html", {
+            "notificaciones": _de(request.user).order_by("-creado_en")[:6],
+            "notificaciones_sin_leer": 0, "actualizar_contador": True,
+        })
+    volver = request.POST.get("volver", "")
+    return redirect(volver if url_has_allowed_host_and_scheme(volver, allowed_hosts={request.get_host()}) else "notificaciones")
+
+
+@login_required
+def notificaciones(request):
+    sin_leer = request.GET.get("ver") == "sin_leer"
+    qs = _de(request.user).order_by("-creado_en")
+    if sin_leer:
+        qs = qs.filter(leida=False)
+    return render(request, "core/notificaciones.html", {
+        "pagina": Paginator(qs, POR_PAGINA).get_page(request.GET.get("pagina")), "sin_leer": sin_leer,
+        "hoy": f"{timezone.localdate():%Y%m%d}",
+    })
+
+
+def _json(request) -> dict:
+    try:
+        datos = json.loads(request.body or b"{}")
+    except ValueError:
+        return {}
+    return datos if isinstance(datos, dict) else {}
+
+
+@login_required
+@require_POST
+def push_suscribir(request):
+    """Guarda (o pasa a este usuario) la suscripción push del navegador."""
+    datos = _json(request)
+    endpoint, claves = str(datos.get("endpoint", "")), datos.get("keys") or {}
+    p256dh, auth = str(claves.get("p256dh", "")), str(claves.get("auth", ""))
+    if not endpoint.startswith("https://") or len(endpoint) > 2000 or not (0 < len(p256dh) <= 200 and 0 < len(auth) <= 100):
+        return JsonResponse({"error": "Suscripción no válida."}, status=400)
+    SuscripcionPush.objects.update_or_create(endpoint=endpoint, defaults={
+        "usuario": request.user, "p256dh": p256dh, "auth": auth, "navegador": request.headers.get("User-Agent", "")[:255]})
+    return JsonResponse({"ok": True})
+
+
+@login_required
+@require_POST
+def push_desuscribir(request):
+    SuscripcionPush.objects.filter(usuario=request.user, endpoint=str(_json(request).get("endpoint", ""))).delete()
+    return JsonResponse({"ok": True})
+
+
+@never_cache
+def service_worker(request):
+    """El service worker se sirve desde la raíz para poder recibir push en todo el sistema."""
+    ruta = finders.find("js/sw.js")
+    respuesta = HttpResponse(Path(ruta).read_bytes(), content_type="application/javascript; charset=utf-8")
+    respuesta["Service-Worker-Allowed"] = "/"
+    return respuesta
 
 
 @login_required

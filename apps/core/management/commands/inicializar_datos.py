@@ -17,6 +17,7 @@ from apps.documentos.models import TipoDocumento
 from apps.inventario.models import CategoriaMaterial
 from apps.nomina.models import TipoNovedadNomina
 from apps.personal.models import Cargo
+from apps.reportes.catalogo import TIPOS_REPORTE  # tipos de reporte y sus roles (4.5)
 from apps.reportes.models import TipoReporte
 
 CARGOS = ["Administrador", "Vendedor telefónico", "Encargado de cierre"]
@@ -44,16 +45,6 @@ TIPOS_NOVEDAD = [
 
 CATEGORIAS = ["Papelería", "Tecnología y accesorios", "Limpieza", "Cafetería"]
 
-A, V, C = Rol.ADMINISTRADOR, Rol.VENDEDOR, Rol.ENCARGADO_CIERRE
-TIPOS_REPORTE = [
-    ("PERSONAL_LISTADO", "Listado del personal", "ADMINISTRATIVO", ["estado", "cargo"], [A]),
-    ("ASISTENCIA_HISTORIAL", "Historial de asistencia", "ADMINISTRATIVO", ["fecha_desde", "fecha_hasta", "empleado"], [A]),
-    ("INVENTARIO_STOCK", "Existencias de inventario", "ADMINISTRATIVO", ["categoria"], [A]),
-    ("NOMINA_RESUMEN", "Resumen de nómina por periodo", "NOMINA", ["periodo"], [A]),
-    ("NOMINA_ROL_PAGO", "Rol de pagos individual", "NOMINA", ["periodo", "empleado"], [A]),
-    ("VENTAS_PRODUCCION", "Hoja de producción del vendedor", "VENTAS", ["vendedor", "anio", "mes"], [A, V, C]),
-    ("CIERRE_PANEL", "Panel comercial: ventas y metas", "CIERRE", ["anio", "mes", "vendedor"], [A, C]),
-]
 
 # Permisos por rol. Clave "app" = todas las tablas de la app; "app.modelo" = solo esa tabla.
 # Acciones: view, add, change, delete.
@@ -117,10 +108,11 @@ class Command(BaseCommand):
                       "dias_laborables": jornada.dias()},
         )
 
-        for codigo, nombre, modulo, filtros, roles in TIPOS_REPORTE:
+        for codigo, nombre, modulo, filtros, roles, descripcion in TIPOS_REPORTE:
             TipoReporte.objects.update_or_create(
                 codigo=codigo,
-                defaults={"nombre": nombre, "modulo": modulo, "filtros_disponibles": filtros, "roles_permitidos": list(roles)},
+                defaults={"nombre": nombre, "modulo": modulo, "filtros_disponibles": filtros, "roles_permitidos": list(roles),
+                          "descripcion": descripcion},
             )
 
         for rol, apps in PERMISOS_POR_ROL.items():

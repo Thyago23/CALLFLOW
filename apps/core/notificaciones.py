@@ -14,15 +14,7 @@ from .models import Notificacion
 CLAVE_SESION = "notificaciones_ultima_mostrada"
 VENTANA_INICIAL = timedelta(minutes=10)  # al iniciar sesión, solo se muestran las sin leer recientes
 MAXIMO_POR_CONSULTA = 4
-
-ICONOS = {
-    Notificacion.Tipo.AGENDA: "calendar-event",
-    Notificacion.Tipo.STOCK_BAJO: "box-seam",
-    Notificacion.Tipo.SOLICITUD_BASE: "database",
-    Notificacion.Tipo.FORMULARIO_DAMI: "file-earmark-text",
-    Notificacion.Tipo.NOMINA: "cash-coin",
-    Notificacion.Tipo.GENERAL: "bell",
-}
+# El ícono de cada tipo lo da el modelo (Notificacion.icono), igual en avisos, campana y página.
 
 
 def generar_pendientes(usuario) -> None:
@@ -46,6 +38,5 @@ def nuevas_para_mostrar(request) -> list[Notificacion]:
     ultima_existente = Notificacion.objects.filter(destinatario=usuario).order_by("-pk").values_list("pk", flat=True).first()
     request.session[CLAVE_SESION] = max(ultima or 0, ultima_existente or 0)
     for n in nuevas:
-        n.icono = ICONOS.get(n.tipo, "bell")
         n.fija = n.tipo == Notificacion.Tipo.AGENDA  # los recordatorios se quedan hasta cerrarlos
     return nuevas

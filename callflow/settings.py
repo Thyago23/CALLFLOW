@@ -73,6 +73,7 @@ MIDDLEWARE = [
     "apps.agenda.middleware.AvisosAgendaMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "apps.core.push.PushMiddleware",
 ]
 
 ROOT_URLCONF = "callflow.urls"
@@ -155,3 +156,9 @@ SESSION_COOKIE_HTTPONLY = True
 CSRF_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SECURE = not DEBUG
 CSRF_COOKIE_SECURE = not DEBUG
+
+# Notificaciones push del navegador (Web Push). Generarlas con: python manage.py generar_claves_push --guardar
+# Sin claves no se envían push; los avisos dentro del sistema funcionan igual.
+VAPID_PUBLIC_KEY = env("VAPID_PUBLIC_KEY", "")
+VAPID_PRIVATE_KEY = env("VAPID_PRIVATE_KEY", "")
+VAPID_CONTACTO = env("VAPID_CONTACTO", "mailto:soporte@callflow.local")

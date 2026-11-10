@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block titulo %}Reportes{% endblock %}
+{% block contenido %}
+<div class="mb-4">
+  <h1 class="h3 mb-0">Reportes</h1>
+  <p class="text-body-secondary small mb-0">Elija un reporte, ajuste los filtros, revíselo en pantalla y descárguelo en PDF.</p>
+</div>
+
+{% if estadisticas %}
+<a href="{% url 'reportes:estadisticas' %}" class="card tarjeta-estadisticas text-decoration-none mb-4">
+  <div class="card-body d-flex flex-wrap align-items-center gap-3">
+    <span class="icono-estadisticas" aria-hidden="true"><i class="bi bi-bar-chart-line"></i></span>
+    <span class="flex-grow-1 min-w-0">
+      <span class="d-block h5 mb-1 text-white">Estadísticas y proyección de ventas</span>
+      <span class="d-block small texto-suave">Ventas por mes, ranking de vendedores, equipos y proyección del cierre del mes y de los próximos 3 meses.</span>
+    </span>
+    <span class="btn btn-light btn-sm">Abrir <i class="bi bi-arrow-right ms-1" aria-hidden="true"></i></span>
+  </div>
+</a>
+{% endif %}
+
+<div class="row g-4">
+  <div class="col-xl-8">
+    {% for g in grupos %}
+    <section class="mb-4" aria-labelledby="grupo-{{ forloop.counter }}">
+      <h2 class="titulo-grupo" id="grupo-{{ forloop.counter }}"><i class="bi bi-{{ g.icono }} me-1" aria-hidden="true"></i>{{ g.nombre }}</h2>
+      <div class="list-group">
+        {% for r in g.reportes %}
+        <a href="{% url 'reportes:reporte' r.codigo|lower %}" class="list-group-item list-group-item-action fila-reporte">
+          <span class="icono-pendiente" aria-hidden="true"><i class="bi bi-{{ r.icono }}"></i></span>
+          <span class="flex-grow-1 min-w-0">
+            <span class="d-block fw-semibold">{{ r.nombre }}</span>
+            <span class="d-block small text-body-secondary">{{ r.descripcion }}</span>
+          </span>
+          <i class="bi bi-chevron-right text-body-tertiary" aria-hidden="true"></i>
+        </a>
+        {% endfor %}
+      </div>
+    </section>
+    {% empty %}
+    <div class="card"><div class="card-body text-body-secondary">Su rol no tiene reportes asignados.</div></div>
+    {% endfor %}
+  </div>
+
+  <div class="col-xl-4">
+    <section class="card" aria-labelledby="titulo-recientes">
+      <div class="card-header bg-body py-3"><h2 class="h6 mb-0" id="titulo-recientes">Sus últimas descargas</h2></div>
+      {% if recientes %}
+      <ul class="list-group list-group-flush">
+        {% for g in recientes %}
+        <li class="list-group-item small">
+          <div class="fw-semibold">{{ g.tipo.nombre }}</div>
+          <div class="text-body-secondary">{{ g.generado_en|date:"d/m/Y H:i" }}{% for k, v in g.filtros.items %} · {% if v.texto %}{{ v.texto }}{% else %}{{ v }}{% endif %}{% endfor %}</div>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <div class="card-body small text-body-secondary">Aún no ha descargado reportes. Cada descarga queda registrada aquí.</div>
+      {% endif %}
+    </section>
+  </div>
+</div>
+{% endblock %}

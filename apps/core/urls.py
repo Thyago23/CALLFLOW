@@ -13,8 +13,12 @@ urlpatterns = [
     path("usuarios/credenciales/", views.usuario_credenciales, name="usuario_credenciales"),
     path("usuarios/<int:pk>/restablecer-clave/", views.usuario_restablecer_clave, name="usuario_restablecer_clave"),
     path("usuarios/<int:pk>/cambiar-estado/", views.usuario_cambiar_estado, name="usuario_cambiar_estado"),
+    path("notificaciones/", views.notificaciones, name="notificaciones"),
     path("notificaciones/marcar-leidas/", views.marcar_notificaciones_leidas, name="notificaciones_leidas"),
     path("notificaciones/contadores/", views.contadores, name="contadores"),
     path("notificaciones/panel/", views.panel_notificaciones, name="notificaciones_panel"),
     path("notificaciones/<int:pk>/abrir/", views.abrir_notificacion, name="notificacion_abrir"),
+    path("notificaciones/push/suscribir/", views.push_suscribir, name="push_suscribir"),
+    path("notificaciones/push/desuscribir/", views.push_desuscribir, name="push_desuscribir"),
+    path("sw.js", views.service_worker, name="service_worker"),
 ]

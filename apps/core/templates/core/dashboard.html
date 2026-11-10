@@ -1,81 +1,110 @@
 {% extends "base.html" %}
 {% block titulo %}Inicio{% endblock %}
 {% block contenido %}
-<div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-4">
+<div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-4">
   <div>
     <p class="text-body-secondary mb-1 small fecha-hoy">{% now "l, j \d\e F \d\e Y" %}</p>
     <h1 class="h3 mb-0">{{ saludo }}, {{ user.first_name|default:user.username }}</h1>
   </div>
-  <span class="badge rounded-pill text-bg-light border px-3 py-2"><i class="bi bi-shield-check me-1" aria-hidden="true"></i>{{ user.get_rol_display }}</span>
+  {% if accesos %}
+  <nav class="accesos-rapidos d-flex flex-wrap gap-2" aria-label="Accesos rápidos">
+    {% for a in accesos %}
+    <a href="{{ a.url }}" class="btn {% if forloop.first %}btn-primary{% else %}btn-light border{% endif %}"><i class="bi bi-{{ a.icono }} me-1" aria-hidden="true"></i>{{ a.titulo }}</a>
+    {% endfor %}
+  </nav>
+  {% endif %}
 </div>
 
-{% if indicadores %}
-<div class="row g-3 mb-4">
-  {% for i in indicadores %}
-  <div class="col-6 col-xl-3">
-    {% if i.url %}<a href="{{ i.url }}" class="text-reset text-decoration-none">{% endif %}
-    <div class="card indicador h-100 {% if i.alerta and i.valor %}con-alerta{% endif %}">
-      <div class="card-body d-flex align-items-center gap-3">
-        <span class="icono-indicador" aria-hidden="true"><i class="bi bi-{{ i.icono }}"></i></span>
-        <div class="min-w-0">
-          <div class="fs-3 fw-semibold lh-1 mb-1">{{ i.valor }}</div>
-          <div class="small text-body-secondary lh-sm">{{ i.titulo }}</div>
+{% if resumen %}
+<div class="row g-2 g-sm-3 mb-4">
+  {% for i in resumen %}
+  <div class="col-4">
+    <a href="{{ i.url }}" class="card tarjeta-resumen h-100 text-reset text-decoration-none">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-start gap-2">
+          <span class="small text-body-secondary">{{ i.titulo }}</span>
+          <span class="icono-resumen" aria-hidden="true"><i class="bi bi-{{ i.icono }}"></i></span>
         </div>
+        <div class="valor">{{ i.valor }}</div>
       </div>
-    </div>
-    {% if i.url %}</a>{% endif %}
+    </a>
   </div>
   {% endfor %}
 </div>
 {% endif %}
 
-<div class="row g-4">
-  <div class="col-lg-8">
-    <div class="d-flex justify-content-between align-items-baseline mb-2">
-      <h2 class="h5 mb-0">Módulos</h2>
-      <span class="small text-body-secondary">{{ modulos_listos }} de {{ modulos_total }} disponibles</span>
-    </div>
-    {% for seccion in secciones %}
-    <h3 class="titulo-grupo">{{ seccion.codigo }} · {{ seccion.nombre }}</h3>
-    <div class="row g-3 mb-3">
-      {% for m in seccion.modulos %}
-      <div class="col-sm-6 col-xxl-4">
-        {% if m.disponible %}
-        <a href="{{ m.href }}" class="card tarjeta-modulo h-100 text-reset text-decoration-none">
+<div class="row g-4 mb-4">
+  {% if pendientes %}
+  <div class="col-lg-7">
+    <section class="card h-100" aria-labelledby="titulo-pendientes">
+      <div class="card-header bg-body d-flex justify-content-between align-items-center py-3">
+        <h2 class="h6 mb-0" id="titulo-pendientes">Pendientes</h2>
+        {% if por_atender %}
+        <span class="small text-danger-emphasis fw-semibold">{{ por_atender }} por atender</span>
         {% else %}
-        <div class="card tarjeta-modulo pendiente h-100" aria-disabled="true">
+        <span class="small text-success-emphasis fw-semibold"><i class="bi bi-check-circle-fill me-1" aria-hidden="true"></i>Todo al día</span>
         {% endif %}
-          <div class="card-body">
-            <div class="d-flex justify-content-between align-items-start mb-2">
-              <span class="icono-modulo" aria-hidden="true"><i class="bi bi-{{ m.icono }}"></i></span>
-              {% if m.disponible %}
-              <span class="badge bg-success-subtle text-success-emphasis border border-success-subtle">Disponible</span>
-              {% else %}
-              <span class="badge text-bg-light text-body-secondary border">Próximamente</span>
-              {% endif %}
-            </div>
-            <div class="fw-semibold">{{ m.nombre }}</div>
-            <div class="small text-body-secondary">{{ m.descripcion }}</div>
-          </div>
-        {% if m.disponible %}</a>{% else %}</div>{% endif %}
       </div>
-      {% endfor %}
-    </div>
-    {% empty %}
-    <div class="card"><div class="card-body text-body-secondary">Su rol todavía no tiene módulos asignados.</div></div>
-    {% endfor %}
-  </div>
-
-  <div class="col-lg-4">
-
-    <section class="card" id="notificaciones" aria-labelledby="titulo-notificaciones">
-      <div class="card-header bg-body">
-        <h2 class="h6 mb-0" id="titulo-notificaciones">Notificaciones</h2>
-      </div>
-      <div id="lista-notificaciones">
-        {% include "core/_notificaciones.html" %}
+      <div class="list-group list-group-flush">
+        {% for p in pendientes %}
+        <a href="{{ p.url }}" class="list-group-item list-group-item-action fila-pendiente {% if p.valor %}con-pendientes{% endif %}">
+          <span class="icono-pendiente" aria-hidden="true"><i class="bi bi-{{ p.icono }}"></i></span>
+          <span class="flex-grow-1 min-w-0">
+            <span class="d-block fw-semibold">{{ p.titulo }}</span>
+            <span class="d-block small text-body-secondary">{% if p.valor %}{{ p.accion }}{% else %}Al día{% endif %}</span>
+          </span>
+          {% if p.valor %}
+          <span class="badge rounded-pill text-bg-danger cantidad-pendiente">{{ p.valor }}</span>
+          {% else %}
+          <i class="bi bi-check-circle text-success fs-5" aria-label="Al día"></i>
+          {% endif %}
+          <i class="bi bi-chevron-right text-body-tertiary" aria-hidden="true"></i>
+        </a>
+        {% endfor %}
       </div>
     </section>
   </div>
+  {% endif %}
+
+  <div class="{% if pendientes %}col-lg-5{% else %}col-12{% endif %}">
+    <section class="card h-100" id="notificaciones" aria-labelledby="titulo-notificaciones">
+      <div class="card-header bg-body d-flex justify-content-between align-items-center py-3">
+        <h2 class="h6 mb-0" id="titulo-notificaciones">Notificaciones</h2>
+        {% if notificaciones_sin_leer %}<span class="badge rounded-pill text-bg-primary">{{ notificaciones_sin_leer }} sin leer</span>{% endif %}
+      </div>
+      <div id="lista-notificaciones" data-notificaciones>
+        {% include "core/_notificaciones.html" %}
+      </div>
+      <div class="card-footer bg-body small text-end"><a href="{% url 'notificaciones' %}" class="text-decoration-none">Ver todas <i class="bi bi-arrow-right" aria-hidden="true"></i></a></div>
+    </section>
+  </div>
 </div>
+
+<section aria-labelledby="titulo-modulos">
+  <h2 class="h5 mb-3" id="titulo-modulos">Módulos</h2>
+  {% for grupo in grupos %}
+  <h3 class="titulo-grupo">{{ grupo.nombre }}</h3>
+  <div class="row g-3 mb-3">
+    {% for m in grupo.modulos %}
+    <div class="col-sm-6 col-lg-4 col-xxl-3">
+      {% if m.disponible %}
+      <a href="{{ m.href }}" class="card tarjeta-modulo h-100 text-reset text-decoration-none">
+      {% else %}
+      <div class="card tarjeta-modulo pendiente h-100" aria-disabled="true">
+      {% endif %}
+        <div class="card-body d-flex align-items-start gap-3">
+          <span class="icono-modulo" aria-hidden="true"><i class="bi bi-{{ m.icono }}"></i></span>
+          <span class="min-w-0">
+            <span class="d-block fw-semibold">{{ m.nombre }}{% if not m.disponible %} <span class="badge text-bg-light border fw-normal ms-1">Próximamente</span>{% endif %}</span>
+            <span class="d-block small text-body-secondary">{{ m.descripcion }}</span>
+          </span>
+        </div>
+      {% if m.disponible %}</a>{% else %}</div>{% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% empty %}
+  <div class="card"><div class="card-body text-body-secondary">Su rol todavía no tiene módulos asignados.</div></div>
+  {% endfor %}
+</section>
 {% endblock %}

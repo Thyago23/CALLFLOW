@@ -1,0 +1,22 @@
+{# Barra de filtros. Recibe `form`, `accion_pdf` y `mostrar_errores`. #}
+<form method="get" class="card filtros-reporte mb-4">
+  <div class="card-body">
+    <div class="row g-3 align-items-end">
+      {% for campo in form %}
+      <div class="col-sm-6 col-lg">
+        <label class="form-label small mb-1" for="{{ campo.id_for_label }}">{{ campo.label }}{% if campo.field.required %} <span class="text-danger" aria-hidden="true">*</span>{% endif %}</label>
+        {{ campo }}
+        {% if mostrar_errores %}{% for error in campo.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}{% endif %}
+      </div>
+      {% endfor %}
+      <div class="col-12 col-lg-auto d-flex gap-2">
+        <button type="submit" class="btn btn-primary flex-grow-1"><i class="bi bi-eye me-1" aria-hidden="true"></i>Ver</button>
+        {% if accion_pdf %}
+        <button type="submit" formaction="{{ accion_pdf }}" formtarget="_blank" class="btn btn-outline-primary flex-grow-1 text-nowrap">
+          <i class="bi bi-file-earmark-pdf me-1" aria-hidden="true"></i>Descargar PDF
+        </button>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</form>

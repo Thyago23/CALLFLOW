@@ -14,5 +14,6 @@ urlpatterns = [
     path("cierre/", include("apps.cierre.urls")),
     path("documentos/", include("apps.documentos.urls")),
     path("nomina/", include("apps.nomina.urls")),
+    path("reportes/", include("apps.reportes.urls")),
     path("admin/", admin.site.urls),
 ]

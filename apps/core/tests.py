@@ -186,7 +186,7 @@ class DashboardTests(TestCase):
         self.client.force_login(self.admin)
         respuesta = self.client.get(reverse("inicio"))
         for texto in ["Gabo", "Empleados activos", "Usuarios activos", "Materiales con stock bajo", "Personal",
-                      "Asistencia", "Inventario", "Nómina", "Cierre de ventas", "Reportes", "Próximamente",
+                      "Asistencia", "Inventario", "Nómina", "Cierre de ventas", "Reportes", reverse("reportes:centro"),
                       reverse("personal:empleado_lista"), reverse("usuarios"), "gabo.admin"]:
             self.assertContains(respuesta, texto)
 
@@ -198,6 +198,28 @@ class DashboardTests(TestCase):
         for texto in ["Empleados activos", "Usuarios activos", "Nómina", "Inventario",
                       reverse("personal:empleado_lista"), reverse("usuarios")]:
             self.assertNotContains(respuesta, texto)
+
+    def test_inicio_con_accesos_rapidos_y_pendientes_por_rol(self):
+        self.client.force_login(self.admin)
+        respuesta = self.client.get(reverse("inicio"))
+        accesos = [a["titulo"] for a in respuesta.context["accesos"]]
+        self.assertEqual(accesos[0], "Registrar empleado")
+        self.assertLessEqual(len(accesos), 4)
+        self.assertNotIn("Nuevo DAMI", accesos)
+        self.assertContains(respuesta, "Pendientes")
+        self.assertContains(respuesta, "Todo al día")  # sin novedades, stock bajo ni DAMI en cola
+        self.assertNotContains(respuesta, "4.1 ·")  # sin los números de sección de la propuesta
+
+        self.client.force_login(self.vendedor)
+        respuesta = self.client.get(reverse("inicio"))
+        self.assertNotContains(respuesta, "Registrar empleado")
+        self.assertNotContains(respuesta, 'id="titulo-pendientes"')  # el vendedor no tiene pendientes que atender
+
+    def test_menu_sin_modulos_que_aun_no_existen(self):
+        self.client.force_login(self.admin)
+        respuesta = self.client.get(reverse("usuarios"))
+        self.assertNotContains(respuesta, "Pronto")
+        self.assertEqual([g["nombre"] for g in respuesta.context["menu_secciones"]], ["Administración", "Comercial", "Herramientas"])
 
     def test_marcar_notificaciones_leidas(self):
         Notificacion.objects.create(destinatario=self.vendedor, titulo="Hola")

@@ -57,7 +57,7 @@ MODULOS = [
     Modulo("cierre", "Cierre de ventas", "4.4", "check2-circle", "cierre.view_gestioncierre",
            "Gestión de cierres, metas mensuales y panel comercial.", url="cierre:bandeja"),
     Modulo("reportes", "Reportes", "4.5", "file-earmark-bar-graph", "reportes.view_tiporeporte",
-           "Reportes en PDF con filtros por fechas, empleados y periodos."),
+           "Reportes en PDF, estadísticas y proyección de ventas.", url="reportes:centro"),
 ]
 
 
@@ -68,11 +68,22 @@ def modulos_de(usuario) -> list[Modulo]:
     return [m for m in MODULOS if usuario.has_perm(m.permiso)]
 
 
+# Cómo se agrupan los módulos en el menú y en el inicio: por lo que hace cada uno, no por la
+# sección de la propuesta (la agenda la usan todos los roles, no solo administración).
+GRUPOS = [
+    ("Administración", ("personal", "asistencia", "documentos", "inventario", "nomina")),
+    ("Comercial", ("ventas", "cierre")),
+    ("Herramientas", ("agenda", "reportes")),
+]
+
+
+def grupos_de(usuario, solo_disponibles: bool = False) -> list[dict]:
+    """Módulos visibles agrupados; solo los grupos que tienen algo que mostrar."""
+    visibles = {m.clave: m for m in modulos_de(usuario) if m.disponible or not solo_disponibles}
+    grupos = [{"nombre": nombre, "modulos": [visibles[c] for c in claves if c in visibles]} for nombre, claves in GRUPOS]
+    return [g for g in grupos if g["modulos"]]
+
+
 def menu_de(usuario) -> list[dict]:
-    """Módulos agrupados por sección, solo las secciones con algo visible."""
-    visibles = modulos_de(usuario)
-    return [
-        {"codigo": codigo, "nombre": nombre, "modulos": [m for m in visibles if m.seccion == codigo]}
-        for codigo, nombre in SECCIONES
-        if any(m.seccion == codigo for m in visibles)
-    ]
+    """Menú lateral: solo lo que ya se puede usar."""
+    return grupos_de(usuario, solo_disponibles=True)

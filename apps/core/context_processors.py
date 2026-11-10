@@ -20,7 +20,9 @@ def navegacion(request):
     usuario = getattr(request, "user", None)
     if usuario is None or not usuario.is_authenticated:
         return {}
-    contexto = {"menu_secciones": menu_de(usuario)} | contadores(usuario)
+    from .push import clave_publica
+
+    contexto = {"menu_secciones": menu_de(usuario), "vapid_publica": clave_publica()} | contadores(usuario)
     if usuario.has_perm("asistencia.view_novedadasistencia"):
         from apps.asistencia.models import NovedadAsistencia
 
