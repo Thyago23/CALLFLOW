@@ -54,7 +54,7 @@
           <td class="font-monospace">{{ r.cedula|default:"—" }}</td>
           <td class="font-monospace">{{ r.numero }}{% if r.numero_alterno %}<div class="small text-body-secondary">{{ r.numero_alterno }}</div>{% endif %}</td>
           {% if not base %}<td><a href="{% url 'ventas:base_detalle' r.base.pk %}" class="text-decoration-none">{{ r.base.nombre }}</a><div class="small text-body-secondary">fila {{ r.fila }}</div></td>{% endif %}
-          <td><span class="badge {% if r.motivo == 'OTRA_BASE' %}text-bg-warning{% else %}text-bg-light border{% endif %} fw-normal">{{ r.get_motivo_display }}</span><div class="small text-body-secondary">{{ r.get_criterio_display }}</div></td>
+          <td><span class="badge {% if r.motivo == 'OTRA_BASE' %}text-bg-warning{% else %}bg-body-tertiary text-body-secondary border{% endif %} fw-normal">{{ r.get_motivo_display }}</span><div class="small text-body-secondary">{{ r.get_criterio_display }}</div></td>
           <td class="small">
             {% if r.original %}
             {{ r.original.nombre|default:r.original.numero }} · <a href="{% url 'ventas:base_detalle' r.original.base.pk %}" class="text-decoration-none">{{ r.original.base.nombre }}</a>, fila {{ r.original.fila }}

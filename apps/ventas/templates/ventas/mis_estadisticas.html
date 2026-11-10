@@ -89,7 +89,7 @@
       <tbody>
         {% for f in filas %}
         <tr {% if f.en_curso %}class="fw-semibold"{% endif %}>
-          <td>{{ f.mes.etiqueta }}{% if f.en_curso %} <span class="badge text-bg-light border fw-normal">en curso</span>{% endif %}{% if f.mes == mejor_mes %} <span title="Tu mejor mes" aria-label="Tu mejor mes">🏆</span>{% endif %}</td>
+          <td>{{ f.mes.etiqueta }}{% if f.en_curso %} <span class="badge bg-body-tertiary text-body-secondary border fw-normal">en curso</span>{% endif %}{% if f.mes == mejor_mes %} <span title="Tu mejor mes" aria-label="Tu mejor mes">🏆</span>{% endif %}</td>
           <td class="text-end">{{ f.mes.enviados }}</td>
           <td class="text-end">{{ f.mes.cerradas }}</td>
           <td class="text-end">{{ f.mes.no_concretadas }}</td>

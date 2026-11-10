@@ -1067,3 +1067,44 @@ img.avatar.con-foto { object-fit: cover; padding: 0; background: var(--bs-second
 .pedir-ayuda > summary::-webkit-details-marker { display: none; }
 .pedir-ayuda[open] { padding: .6rem .75rem; border-radius: .5rem; background: var(--bs-tertiary-bg); }
 .ayudas-pendientes { border-color: #b6c6dc; border-left: 4px solid var(--cf-primario); }
+
+/* ---------------------------------------------------------------- Modo oscuro: DAMI en papel, ayuda y gráficas
+   La hoja deja de ser blanca: «papel oscuro» un poco más claro que el fondo, con el azul de la marca aclarado. */
+[data-bs-theme="dark"] .dami-papel { --papel-azul: #5b8fd0; --papel-linea: #59636e; --papel-texto: #dee2e6; }
+[data-bs-theme="dark"] .papel-hoja { background: #262b31; border-color: #3d444b; box-shadow: 0 .9rem 2.2rem rgba(0, 0, 0, .35); }
+[data-bs-theme="dark"] .papel-titulo, [data-bs-theme="dark"] .papel-subtitulo { color: #e6eaef; }
+[data-bs-theme="dark"] .papel-campo > label, [data-bs-theme="dark"] .papel-etiqueta, [data-bs-theme="dark"] .papel-casilla { color: #c9d1db; }
+[data-bs-theme="dark"] .dami-papel .papel-entrada .form-control, [data-bs-theme="dark"] .papel-fijo .papel-valor { color: var(--bs-body-color); }
+[data-bs-theme="dark"] .dami-papel .papel-entrada .form-control:hover { border-bottom-color: #7d8996; }
+[data-bs-theme="dark"] .dami-papel .papel-entrada .form-control:focus { background: rgba(91, 143, 208, .1); }
+[data-bs-theme="dark"] .dami-papel .papel-entrada .form-control::placeholder { color: #6c7681; }
+[data-bs-theme="dark"] .dami-papel .papel-entrada .form-control.desde-cv { background: rgba(255, 193, 7, .12); }
+[data-bs-theme="dark"] .papel-error { color: #ea868f; }
+[data-bs-theme="dark"] .papel-ayuda, [data-bs-theme="dark"] .papel-pendiente, [data-bs-theme="dark"] .papel-seguridad { color: #98a2ad; }
+[data-bs-theme="dark"] .papel-casilla:hover { background: rgba(255, 255, 255, .05); }
+[data-bs-theme="dark"] .papel-cuadro { background: transparent; }
+[data-bs-theme="dark"] .btn-check:checked + .papel-casilla .papel-casilla-texto { color: #8db8ec; }
+[data-bs-theme="dark"] .papel-seguridad .bi { color: #8db8ec; }
+[data-bs-theme="dark"] .papel-logo { filter: drop-shadow(0 0 1px rgba(255, 255, 255, .6)); }
+[data-bs-theme="dark"] .dami-papel .papel-observacion textarea.form-control {
+  background: repeating-linear-gradient(to bottom, transparent 0, transparent calc(2rem - 1px), #3d4650 calc(2rem - 1px), #3d4650 2rem); }
+[data-bs-theme="dark"] .dami-papel .papel-observacion textarea.form-control:focus { background-color: rgba(91, 143, 208, .06); }
+
+/* Ayuda entre asesores */
+[data-bs-theme="dark"] .badge-ayuda { background: rgba(91, 143, 208, .18); color: #8db8ec; }
+[data-bs-theme="dark"] .ayudas-pendientes { border-color: #3d444b; border-left-color: #5b8fd0; }
+
+/* Gráficas SVG del servidor (reportes y «Mis estadísticas»): rejilla tenue, textos claros y series para fondo oscuro
+   (azul #3987e5 y naranja #d95926, validadas para daltonismo y contraste sobre #212529). */
+[data-bs-theme="dark"] .grafica [stroke="#e4e8ee"] { stroke: #343a40; }
+[data-bs-theme="dark"] .grafica text[fill="#5f6b7a"] { fill: #a7b0ba; }
+[data-bs-theme="dark"] .grafica text[fill="#1d2733"] { fill: #e9ecef; }
+[data-bs-theme="dark"] .grafica [stroke="#5f6b7a"] { stroke: #6c757d; }
+[data-bs-theme="dark"] .grafica [stroke="#8a94a3"] { stroke: #8d97a3; }
+[data-bs-theme="dark"] .grafica [fill="#0e325c"], [data-bs-theme="dark"] .grafica [fill="#2a78d6"] { fill: #3987e5; }
+[data-bs-theme="dark"] .grafica [stroke="#0e325c"] { stroke: #3987e5; }
+[data-bs-theme="dark"] .grafica [fill="#eb6834"] { fill: #d95926; }
+[data-bs-theme="dark"] .grafica circle[fill="#fff"] { fill: #212529; }
+[data-bs-theme="dark"] .grafica circle[stroke="#fff"] { stroke: #212529; }
+[data-bs-theme="dark"] .leyenda-grafica .muestra-color[style*="#2a78d6"] { background: #3987e5 !important; }
+[data-bs-theme="dark"] .leyenda-grafica .muestra-color[style*="#eb6834"] { background: #d95926 !important; }
