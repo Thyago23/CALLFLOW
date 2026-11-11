@@ -1,6 +1,6 @@
 {# Las tres cifras de cada vendedor (tarjetas del podio y filas). Recibe `f`. #}
 <dl class="tv-datos">
   <div><dd>{{ f.ventas_cerradas }}</dd><dt>Venta{{ f.ventas_cerradas|pluralize }}</dt></div>
-  <div><dd>{% if f.cumplio_meta %}✅{% elif f.monto_meta %}{{ f.porcentaje_meta|floatformat:0 }}<small>%</small>{% else %}—{% endif %}</dd><dt>De la meta</dt></div>
+  <div><dd>{% if f.cumplio_meta %}<i class="bi bi-check-circle-fill" aria-label="Cumplida"></i>{% elif f.monto_meta %}{{ f.porcentaje_meta|floatformat:0 }}<small>%</small>{% else %}—{% endif %}</dd><dt>De la meta</dt></div>
   <div><dd>{{ f.pendientes }}</dd><dt>En cierre</dt></div>
 </dl>

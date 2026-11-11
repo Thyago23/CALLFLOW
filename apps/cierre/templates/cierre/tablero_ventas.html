@@ -26,7 +26,7 @@
     <span class="tv-etiqueta">Destacar:</span>
     {% for valor, nombre in opciones_destacar.items %}
     <a href="?mes={{ mes_param }}&destacar={{ valor }}" class="tv-boton {% if destacar == valor %}activo{% endif %}" {% if destacar == valor %}aria-current="true"{% endif %}>
-      {% if valor == "mejor" %}👑{% elif valor == "venta" %}💎{% else %}🚫{% endif %} {{ nombre }}</a>
+      <i class="bi {% if valor == "mejor" %}bi-star{% elif valor == "venta" %}bi-gem{% else %}bi-slash-circle{% endif %}" aria-hidden="true"></i>{{ nombre }}</a>
     {% endfor %}
     <span class="tv-separador"></span>
     <button type="button" class="tv-boton" id="pantalla-completa" title="Pantalla completa (F11)"><i class="bi bi-arrows-fullscreen" aria-hidden="true"></i><span>Pantalla completa</span></button>
@@ -66,7 +66,8 @@
     });
 
     // Confeti hecho con CSS (sin librerías ni internet).
-    const COLORES = ["#ff6b6b", "#ffd43b", "#69db7c", "#4dabf7", "#9775fa", "#f783ac", "#ffa94d"];
+    // Colores de CALLFLOW: azules de la marca, el amarillo de resaltado y blanco.
+    const COLORES = ["#0062a8", "#2b80c4", "#7db8ea", "#fff3cd", "#ffffff", "#4cc38a"];
     function lanzarConfeti(cantidad) {
       if (quieto) return;
       for (let i = 0; i < cantidad; i++) {
@@ -109,7 +110,7 @@
           fila.classList.add("subio");
           const burbuja = document.createElement("span");
           burbuja.className = "burbuja";
-          burbuja.textContent = "+$" + (ahora - previo).toLocaleString("es-EC", { maximumFractionDigits: 0 }) + " 🎉";
+          burbuja.textContent = "+$" + (ahora - previo).toLocaleString("es-EC", { maximumFractionDigits: 0 });
           fila.appendChild(burbuja);
         }
       });
