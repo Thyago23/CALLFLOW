@@ -221,10 +221,10 @@ class RegistroConDocumentosTests(TestCase):
 
     def test_rol_segun_cargo(self):
         self.assertEqual(rol_para_cargo("Administrador"), Rol.ADMINISTRADOR)
-        self.assertEqual(rol_para_cargo("Encargado de cierre"), Rol.ENCARGADO_CIERRE)
-        self.assertEqual(rol_para_cargo("Vendedor telefónico"), Rol.VENDEDOR)
+        self.assertEqual(rol_para_cargo("Supervisor"), Rol.ENCARGADO_CIERRE)
+        self.assertEqual(rol_para_cargo("Asesor de ventas"), Rol.VENDEDOR)
         self.assertEqual(rol_para_cargo("Cargo nuevo"), Rol.VENDEDOR)
-        cierre = Cargo.objects.get(nombre="Encargado de cierre")
+        cierre = Cargo.objects.get(nombre="Supervisor")
         self.registrar(cargo=cierre.pk)
         self.assertEqual(Empleado.objects.get().usuario.rol, Rol.ENCARGADO_CIERRE)
 
@@ -302,7 +302,7 @@ class RegistroConDocumentosTests(TestCase):
     def test_crear_cuenta_a_empleado_antiguo_sin_usuario(self):
         empleado = Empleado.objects.create(
             identificacion=OTRA_CEDULA_VALIDA, nombres="Luis", apellidos="Andrade",
-            cargo=Cargo.objects.get(nombre="Vendedor telefónico"), fecha_ingreso=date.today(),
+            cargo=Cargo.objects.get(nombre="Asesor de ventas"), fecha_ingreso=date.today(),
         )
         ficha = self.client.get(reverse("personal:empleado_detalle", args=[empleado.pk]))
         self.assertContains(ficha, "Crear usuario y código de acceso")
@@ -326,7 +326,7 @@ class FichaPestanasTests(TestCase):
         cls.vendedor = Usuario.objects.create_user("vend1", "vend1@callflow.test", "clave-segura-123", rol=Rol.VENDEDOR)
         cls.empleado = Empleado.objects.create(
             identificacion=CEDULA_VALIDA, nombres="Luis", apellidos="Andrade",
-            cargo=Cargo.objects.get(nombre="Vendedor telefónico"), fecha_ingreso=date.today(),
+            cargo=Cargo.objects.get(nombre="Asesor de ventas"), fecha_ingreso=date.today(),
         )
 
     @classmethod

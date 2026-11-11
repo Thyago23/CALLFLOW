@@ -21,13 +21,13 @@
       <div class="card-header bg-body"><h2 class="h6 mb-0">Solicitar una nueva base</h2></div>
       <div class="card-body">
         {% if pendiente %}
-        <p class="mb-0 small"><i class="bi bi-hourglass-split me-1" aria-hidden="true"></i>Ya tiene una solicitud pendiente. Le avisaremos cuando un encargado la responda.</p>
+        <p class="mb-0 small"><i class="bi bi-hourglass-split me-1" aria-hidden="true"></i>Ya tiene una solicitud pendiente. Le avisaremos cuando un supervisor la responda.</p>
         {% else %}
         <form method="post" novalidate>
           {% csrf_token %}
           {% include "_campo.html" with campo=form.mensaje %}
           <button type="submit" class="btn btn-primary w-100"><i class="bi bi-send me-1" aria-hidden="true"></i>Solicitar base</button>
-          <p class="form-text mb-0 mt-2">Los encargados de cierre y los administradores recibirán una notificación.</p>
+          <p class="form-text mb-0 mt-2">Los supervisores y los administradores recibirán una notificación.</p>
         </form>
         {% endif %}
       </div>

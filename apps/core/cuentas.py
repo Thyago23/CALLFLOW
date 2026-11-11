@@ -18,7 +18,7 @@ def rol_para_cargo(nombre_cargo: str) -> str:
     cargo = _ascii(nombre_cargo or "").lower()
     if "administr" in cargo:
         return Rol.ADMINISTRADOR
-    if "cierre" in cargo:
+    if "supervis" in cargo or "cierre" in cargo:
         return Rol.ENCARGADO_CIERRE
     return Rol.VENDEDOR
 

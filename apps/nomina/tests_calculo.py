@@ -83,11 +83,11 @@ class EstimacionMesTests(TestCase):
         hoy = timezone.localdate()
         cls.anio, cls.mes = hoy.year, hoy.month
         cls.inicio = date(cls.anio, cls.mes, 1)
-        vendedor_cargo = Cargo.objects.get(nombre="Vendedor telefónico")
+        vendedor_cargo = Cargo.objects.get(nombre="Asesor de ventas")
         cls.vendedor = Empleado.objects.create(identificacion="1710034065", nombres="Ana", apellidos="Vera",
                                                cargo=vendedor_cargo, fecha_ingreso=date(2026, 1, 1))
         cls.encargado = Empleado.objects.create(identificacion="0926687856", nombres="Luis", apellidos="Paz",
-                                                cargo=Cargo.objects.get(nombre="Encargado de cierre"), fecha_ingreso=date(2026, 1, 1))
+                                                cargo=Cargo.objects.get(nombre="Supervisor"), fecha_ingreso=date(2026, 1, 1))
         HistorialSalario.objects.create(empleado=cls.vendedor, salario_base=D("400.00"), vigente_desde=date(2026, 1, 1))
         AsignacionComision.objects.create(empleado=cls.vendedor, esquema=EsquemaComision.objects.get(nombre="Visas"),
                                           vigente_desde=date(2026, 1, 1))

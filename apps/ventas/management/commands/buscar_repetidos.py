@@ -13,7 +13,7 @@ from apps.ventas import servicios
 
 
 class Command(BaseCommand):
-    help = "Pasa a la base de repetidos los contactos repetidos entre bases comerciales y avisa a los encargados."
+    help = "Pasa a la base de repetidos los contactos repetidos entre bases comerciales y avisa a los supervisores."
 
     def handle(self, *args, **options):
         r = servicios.buscar_repetidos()

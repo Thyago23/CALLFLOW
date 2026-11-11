@@ -175,7 +175,7 @@ def accion(request, pk):
         elif accion == "reasignar":
             form = ReasignarForm(request.POST)
             if not form.is_valid():
-                raise ValidationError("Elija el encargado al que se reasigna.")
+                raise ValidationError("Elija el supervisor al que se reasigna.")
             formulario = servicios.reasignar(request.user, formulario, form.cleaned_data["version"], form.cleaned_data["encargado"])
             messages.success(request, f"{formulario} quedó a cargo de {formulario.encargado_asignado}.")
         else:

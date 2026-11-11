@@ -46,7 +46,7 @@ VARIABLES = [
     Variable("direccion", "Dirección", "Av. Amazonas y Colón, Quito"),
     Variable("telefono", "Teléfono", "0991234567"),
     Variable("email", "Correo electrónico", "maria.perez@correo.com"),
-    Variable("cargo", "Cargo", "Vendedor telefónico"),
+    Variable("cargo", "Cargo", "Asesor de ventas"),
     Variable("tipo_contrato", "Tipo de contrato", "indefinido"),
     Variable("fecha_ingreso", "Fecha de ingreso", "05/11/2026"),
     Variable("fecha_inicio", "Inicio del contrato", "05/11/2026"),

@@ -349,7 +349,7 @@ def _formularios(f, usuario) -> Tabla:
                       registro.valor_venta if registro else None])
     return Tabla(
         columnas=[Columna("DAMI", peso=1.1), Columna("Enviado", "fecha", 1.3), Columna("Vendedor", peso=1.9), Columna("Cliente", peso=2),
-                  Columna("Ciudad", peso=1.1), Columna("Estado", peso=1.3), Columna("Encargado", peso=1.7), Columna("Valor", "dinero")],
+                  Columna("Ciudad", peso=1.1), Columna("Estado", peso=1.3), Columna("Supervisor", peso=1.7), Columna("Valor", "dinero")],
         filas=filas, periodo=_periodo_rango(f), horizontal=True,
         totales=[f"{len(filas)} formularios", "", "", "", "", "", "Total vendido", sum((x[7] or Decimal("0") for x in filas), Decimal("0"))],
         notas=["Sin datos de la tarjeta de pago."],
@@ -458,7 +458,7 @@ REPORTES = {r.codigo: r for r in [
             "Enviados, cerradas, total vendido, ticket promedio y tasa de cierre de cada vendedor.",
             ("desde", "hasta", "equipo", "vendedor"), (A, C), icono="graph-up"),
     Reporte("VENTAS_FORMULARIOS", "Formularios DAMI", "VENTAS",
-            "Detalle de los DAMI enviados: vendedor, cliente, estado, encargado y valor.", ("desde", "hasta", "estado", "vendedor"),
+            "Detalle de los DAMI enviados: asesor, cliente, estado, supervisor y valor.", ("desde", "hasta", "estado", "vendedor"),
             (A, C), estados=_ESTADOS_DAMI, icono="file-earmark-text"),
     Reporte("VENTAS_PRODUCCION", "Hoja de producción del vendedor", "VENTAS",
             "La hoja de producción de un vendedor en un mes, con sus totales.", ("mes", "vendedor"), (A, C),

@@ -32,7 +32,7 @@ class BaseReportes(TestCase):
         cls.vendedor = Usuario.objects.create_user("lucia.mora", None, "x", first_name="Lucía", last_name="Mora", rol=Rol.VENDEDOR)
         cls.encargado = Usuario.objects.create_user("ana.torres", None, "x", rol=Rol.ENCARGADO_CIERRE)
         cls.hoy = timezone.localdate()
-        cargo = Cargo.objects.get(nombre="Vendedor telefónico")
+        cargo = Cargo.objects.get(nombre="Asesor de ventas")
         for cedula, nombres, apellidos, sueldo in [("1712345675", "Lucía", "Mora", "460"), ("0912345675", "Pedro", "Paz", "400")]:
             e = Empleado.objects.create(identificacion=cedula, nombres=nombres, apellidos=apellidos, cargo=cargo,
                                         fecha_ingreso=date(2026, 1, 5))

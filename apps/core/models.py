@@ -16,8 +16,8 @@ class ModeloBase(models.Model):
 
 class Rol(models.TextChoices):
     ADMINISTRADOR = "ADMINISTRADOR", "Administrador"
-    VENDEDOR = "VENDEDOR", "Vendedor"
-    ENCARGADO_CIERRE = "ENCARGADO_CIERRE", "Encargado de cierre"
+    VENDEDOR = "VENDEDOR", "Asesor de ventas"
+    ENCARGADO_CIERRE = "ENCARGADO_CIERRE", "Supervisor"
 
 
 # Validación de tarjetas: el administrador no entra, aunque sea superusuario (sí gestiona las bases comerciales).

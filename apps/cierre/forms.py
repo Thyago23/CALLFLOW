@@ -57,7 +57,7 @@ class CorreccionForm(ResultadoForm):
 
 
 class ReasignarForm(forms.Form):
-    encargado = forms.ModelChoiceField(label="Encargado", queryset=servicios.encargados_activos(), empty_label="Elija…")
+    encargado = forms.ModelChoiceField(label="Supervisor", queryset=servicios.encargados_activos(), empty_label="Elija…")
     version = forms.IntegerField(widget=forms.HiddenInput)
 
     def __init__(self, *args, **kwargs):

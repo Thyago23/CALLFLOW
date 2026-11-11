@@ -72,7 +72,7 @@ class ContratosVistasTests(TestCase):
         cls.vendedor = Usuario.objects.create_user("vend1", "vend1@callflow.test", "clave-segura-123", rol=Rol.VENDEDOR)
         cls.empleado = Empleado.objects.create(
             identificacion="1710034065", nombres="María José", apellidos="Pérez Ñañez", direccion="Av. Amazonas y Colón",
-            cargo=Cargo.objects.get(nombre="Vendedor telefónico"), fecha_ingreso=date(2026, 11, 2),
+            cargo=Cargo.objects.get(nombre="Asesor de ventas"), fecha_ingreso=date(2026, 11, 2),
         )
         HistorialSalario.objects.create(empleado=cls.empleado, salario_base=Decimal("482.00"), vigente_desde=date(2026, 11, 1))
         cls.plantilla = PlantillaContrato.objects.create(nombre="Contrato prueba", contenido=PLANTILLA,
@@ -120,7 +120,7 @@ class ContratosVistasTests(TestCase):
         self.assertEqual(contrato.datos_utilizados["identificacion"], "1710034065")
         self.assertEqual(contrato.datos_utilizados["fecha_nacimiento"], "")
         texto = texto_pdf(contrato.documento.archivo.open("rb").read())
-        for esperado in ("CONTRATO DE PRUEBA", "María José Pérez Ñañez", "1710034065", "Vendedor telefónico", "$ 482,00"):
+        for esperado in ("CONTRATO DE PRUEBA", "María José Pérez Ñañez", "1710034065", "Asesor de ventas", "$ 482,00"):
             self.assertIn(esperado, texto)
         self.assertIn(contratos.FALTANTE, texto)
         ficha = self.client.get(reverse("personal:empleado_detalle", args=[self.empleado.pk]))
