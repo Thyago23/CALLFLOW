@@ -19,6 +19,7 @@ class Modulo:
     descripcion: str
     url: str | None = None  # None = todavía no implementado
     exclusivo: bool = False  # solo con el permiso asignado directamente a la cuenta (ni superusuario ni grupos)
+    roles: tuple = ()  # si se indica, solo esos roles lo ven (ni el superusuario): p. ej. el módulo de TI
 
     @property
     def disponible(self) -> bool:
@@ -38,6 +39,7 @@ SECCIONES = [
     ("4.3", "Ventas"),
     ("4.4", "Cierre de ventas"),
     ("4.5", "Reportes"),
+    ("TI", "Tecnología"),
 ]
 
 MODULOS = [
@@ -63,6 +65,8 @@ MODULOS = [
            "Chips del call, reposiciones y cambios de número, con reporte para firmar.", url="chips:lista", exclusivo=True),
     Modulo("breaks", "Breaks", "4.1", "cup-straw", "asistencia.gestionar_breaks",
            "Dar breaks a los vendedores y ver quién volvió tarde.", url="asistencia:breaks", exclusivo=True),
+    Modulo("ti", "Equipos de TI", "TI", "pc-display", "ti.view_equipo",
+           "Inventario de equipos, mantenimientos y equipos conectados al sistema.", url="ti:equipos", roles=("TI",)),
     Modulo("reportes", "Reportes", "4.5", "file-earmark-bar-graph", "reportes.view_tiporeporte",
            "Reportes en PDF, estadísticas y proyección de ventas.", url="reportes:centro"),
 ]
@@ -74,7 +78,14 @@ def modulos_de(usuario) -> list[Modulo]:
         return []
     from .acceso import tiene_permiso_directo
 
-    return [m for m in MODULOS if (tiene_permiso_directo(usuario, m.permiso) if m.exclusivo else usuario.has_perm(m.permiso))]
+    def ve(m):
+        if m.roles:
+            return usuario.rol in m.roles
+        if usuario.rol in ("TI",) and m.clave != "reportes":
+            return False  # TI no ve los módulos de la empresa, aunque se le diera algún permiso
+        return tiene_permiso_directo(usuario, m.permiso) if m.exclusivo else usuario.has_perm(m.permiso)
+
+    return [m for m in MODULOS if ve(m)]
 
 
 # Cómo se agrupan los módulos en el menú y en el inicio: por lo que hace cada uno, no por la
@@ -82,6 +93,7 @@ def modulos_de(usuario) -> list[Modulo]:
 GRUPOS = [
     ("Administración", ("personal", "asistencia", "documentos", "inventario", "nomina")),
     ("Comercial", ("ventas", "cierre", "tablero", "breaks", "chips")),
+    ("Tecnología", ("ti",)),
     ("Herramientas", ("agenda", "reportes")),
 ]
 

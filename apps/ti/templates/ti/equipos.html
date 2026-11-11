@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block titulo %}Equipos · TI{% endblock %}
+{% block contenido %}
+{% include "ti/_subnav.html" with seccion="equipos" %}
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-lg"><div class="card h-100"><div class="card-body"><div class="small text-body-secondary">Equipos en uso</div><div class="fs-3 fw-semibold">{{ resumen.total }}</div><div class="small text-body-secondary">sin contar los dados de baja</div></div></div></div>
+  <div class="col-6 col-lg"><div class="card h-100"><div class="card-body"><div class="small text-body-secondary">Operativos</div><div class="fs-3 fw-semibold">{{ resumen.operativos }}</div><div class="small text-body-secondary">{{ resumen.bodega }} en bodega</div></div></div></div>
+  <div class="col-6 col-lg"><div class="card h-100"><div class="card-body"><div class="small text-body-secondary">En reparación</div><div class="fs-3 fw-semibold">{{ resumen.reparacion }}</div></div></div></div>
+  <div class="col-6 col-lg"><div class="card h-100"><div class="card-body"><div class="small text-body-secondary">Garantías por vencer</div><div class="fs-3 fw-semibold">{{ resumen.garantia_por_vencer }}</div><div class="small text-body-secondary">en los próximos 30 días</div></div></div></div>
+  <div class="col-12 col-lg"><a href="{% url 'ti:conectados' %}" class="card h-100 text-decoration-none tarjeta-resumen"><div class="card-body"><div class="small text-body-secondary">Conectados ahora</div><div class="fs-3 fw-semibold"><i class="bi bi-circle-fill text-success fs-6 align-middle me-1" aria-hidden="true"></i>{{ resumen.conectados }}</div><div class="small text-body-secondary">personas con CALLFLOW abierto</div></div></a></div>
+</div>
+
+<form class="row g-2 mb-3" role="search" method="get" data-filtros-ti>
+  <div class="col-md-5">
+    <label class="visually-hidden" for="busqueda">Buscar</label>
+    <input id="busqueda" type="search" name="q" value="{{ q }}" class="form-control" placeholder="Código, marca, serie, IP, nombre de red, ubicación o persona" autocomplete="off">
+  </div>
+  <div class="col-sm-4 col-md-3">
+    <label class="visually-hidden" for="filtro-tipo">Tipo</label>
+    <select id="filtro-tipo" name="tipo" class="form-select">
+      <option value="">Todos los tipos</option>
+      {% for valor, nombre in tipos %}<option value="{{ valor }}" {% if valor == tipo %}selected{% endif %}>{{ nombre }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="col-sm-4 col-md-2">
+    <label class="visually-hidden" for="filtro-estado">Estado</label>
+    <select id="filtro-estado" name="estado" class="form-select">
+      <option value="">Todos</option>
+      {% for valor, nombre in estados %}<option value="{{ valor }}" {% if valor == estado %}selected{% endif %}>{{ nombre }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="col-sm-4 col-md-2 d-grid"><button type="submit" class="btn btn-outline-secondary">Buscar</button></div>
+</form>
+
+{% if equipos %}
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead>
+        <tr>
+          <th scope="col">Código</th>
+          <th scope="col">Equipo</th>
+          <th scope="col" class="d-none d-md-table-cell">Red</th>
+          <th scope="col" class="d-none d-lg-table-cell">Asignado a / ubicación</th>
+          <th scope="col">Estado</th>
+          <th scope="col" class="text-end">Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for e in equipos %}
+        <tr class="{% if e.estado == 'BAJA' %}text-body-secondary{% endif %}">
+          <td><a class="fw-semibold text-reset font-monospace" href="{% url 'ti:detalle' e.pk %}">{{ e.codigo }}</a></td>
+          <td>{{ e.get_tipo_display }}<div class="small text-body-secondary">{{ e.marca }} {{ e.modelo }}{% if e.numero_serie %} · S/N {{ e.numero_serie }}{% endif %}</div></td>
+          <td class="d-none d-md-table-cell small">
+            {% if e.direccion_ip %}<span class="font-monospace">{{ e.direccion_ip }}</span>{% if e.en_linea %} <span class="badge bg-success-subtle text-success-emphasis border border-success-subtle">En línea</span>{% endif %}{% else %}—{% endif %}
+            {% if e.hostname %}<div class="text-body-secondary">{{ e.hostname }}</div>{% endif %}
+          </td>
+          <td class="d-none d-lg-table-cell">{{ e.asignado_a|default:"Sin asignar" }}{% if e.ubicacion %}<div class="small text-body-secondary">{{ e.ubicacion }}</div>{% endif %}</td>
+          <td>{% include "ti/_estado.html" %}{% if e.garantia_hasta and e.garantia_hasta < hoy %}<div class="small text-body-secondary">Sin garantía</div>{% endif %}</td>
+          <td class="text-end text-nowrap">
+            {% if e.estado != "BAJA" %}<a href="{% url 'ti:evento' e.pk %}" class="btn btn-sm btn-outline-primary" title="Registrar mantenimiento o reparación"><i class="bi bi-tools" aria-hidden="true"></i><span class="d-none d-xl-inline ms-1">Mantenimiento</span></a>{% endif %}
+            <a href="{% url 'ti:detalle' e.pk %}" class="btn btn-sm btn-outline-secondary" title="Hoja de vida" aria-label="Ver hoja de vida de {{ e.codigo }}"><i class="bi bi-clock-history" aria-hidden="true"></i></a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+<p class="text-body-secondary small mt-2">{{ equipos|length }} equipo{{ equipos|length|pluralize }}.</p>
+{% else %}
+<div class="card"><div class="card-body text-center text-body-secondary py-5">
+  <i class="bi bi-pc-display fs-2 d-block mb-2" aria-hidden="true"></i>
+  {% if q or tipo or estado %}No hay equipos con esos filtros.{% else %}Todavía no hay equipos registrados. <a href="{% url 'ti:crear' %}">Registre el primero</a>.{% endif %}
+</div></div>
+{% endif %}
+<script>
+  document.querySelectorAll("[data-filtros-ti] select").forEach(function (s) { s.addEventListener("change", function () { s.form.submit(); }); });
+</script>
+{% endblock %}

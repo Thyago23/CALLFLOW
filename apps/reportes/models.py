@@ -14,6 +14,7 @@ class TipoReporte(ModeloBase):
         NOMINA = "NOMINA", "Nómina"
         VENTAS = "VENTAS", "Ventas"
         CIERRE = "CIERRE", "Cierre de ventas"
+        TI = "TI", "Tecnología (TI)"
 
     codigo = models.CharField(max_length=40, unique=True)
     nombre = models.CharField(max_length=120)

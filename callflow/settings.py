@@ -61,6 +61,8 @@ INSTALLED_APPS = [
     "apps.cierre",
     # 4.5 Reportes y exportación
     "apps.reportes",
+    # Departamento de TI: equipos, hoja de vida y equipos conectados
+    "apps.ti",
 ]
 
 MIDDLEWARE = [
@@ -72,6 +74,7 @@ MIDDLEWARE = [
     "apps.core.middleware.UsuarioAuditoriaMiddleware",
     "apps.core.middleware.CambioClaveObligatorioMiddleware",
     "apps.agenda.middleware.AvisosAgendaMiddleware",
+    "apps.ti.middleware.ActividadEquiposMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "apps.core.push.PushMiddleware",
@@ -143,6 +146,11 @@ ASISTENCIA_ALMUERZO_MINUTOS = 60
 ASISTENCIA_ALMUERZO_TOLERANCIA_MINUTOS = 5
 # Breaks: minutos de gracia después del fin antes de contar el regreso como tarde (0 = sin gracia).
 ASISTENCIA_BREAK_TOLERANCIA_MINUTOS = 0
+
+# TI: minutos sin actividad para dejar de mostrar a alguien como «conectado», y si CALLFLOW está detrás de
+# un proxy (Nginx, IIS) que envía la IP real del equipo en X-Forwarded-For (solo activarlo en ese caso).
+TI_MINUTOS_CONECTADO = 5
+TI_PROXY_CONFIABLE = env("TI_PROXY_CONFIABLE", "False").lower() in ("1", "true", "si", "yes")
 
 # Reporte de reposiciones de chips: quiénes firman (nombre, cargo), en ese orden.
 CHIPS_FIRMAS_REPORTE = [

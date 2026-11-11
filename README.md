@@ -135,3 +135,15 @@ Los campos definitivos del DAMI van por ahora en `formulariodami.datos_adicional
 - El vendedor ve arriba de cualquier página un aviso con la cuenta atrás (aparece solo, con el sondeo de la campana) y el botón **«Volví del break»**, que registra la hora de regreso.
 - Si vuelve después del fin (más `ASISTENCIA_BREAK_TOLERANCIA_MINUTOS`, hoy 0), se guarda con cuántos minutos llegó tarde (cada minuto empezado cuenta) y el coordinador recibe la notificación «X volvió N min tarde del break».
 - La pantalla del coordinador se actualiza cada 5 s: quién sigue en break, quién volvió a tiempo, quién volvió tarde y quién no ha marcado su regreso; además, el historial de los últimos 7 días.
+
+## Departamento de TI
+
+- Rol **Tecnología (TI)**. Las cuentas de TI están quemadas en el sistema: `santiago.cedeno` (Santiago Cedeño) y `nicolas.correa` (Nicolas Correa). Las crea la migración `core/0012_cuentas_ti` y las repone `inicializar_datos` si faltan (lista en `CUENTAS_TI`, `apps/core/models.py`). Un trigger (`trg_usuario_cuentas_ti`) impide borrarlas, desactivarlas o cambiarles el usuario o el rol; desde **Usuarios** el administrador no las puede tocar ni crear cuentas de TI.
+- Código de acceso: `python manage.py credenciales_ti [usuario] [--archivo ruta]` (el anterior deja de funcionar).
+- TI no ve nada del administrador (personal, nómina, ventas, cierre, usuarios…) y el administrador no ve TI. TI no marca entrada, salida, almuerzo ni breaks.
+- Menú **Tecnología → Equipos de TI** (`/ti/`):
+  - **Equipos**: inventario de hardware con ficha técnica, red (IP, nombre, MAC), ubicación, asignación, estado, compra y garantía. Código automático `EQ-0001`.
+  - **Hoja de vida**: alta, asignaciones, devoluciones y cambios de estado se anotan solos; mantenimientos, reparaciones y actualizaciones se registran a mano. No se edita ni se borra (trigger).
+  - **Conectados al sistema**: quién tiene CALLFLOW abierto (actividad en los últimos `TI_MINUTOS_CONECTADO` min), desde qué IP, navegador y sistema, y si el equipo está en el inventario (por IP). TI puede cerrar la sesión de otro equipo. Historial de conexiones filtrable.
+- Reportes (solo TI): *Inventario de equipos*, *Mantenimientos y movimientos de equipos*, *Conexiones al sistema por usuario*.
+- Detrás de un proxy (Nginx/IIS) poner `TI_PROXY_CONFIABLE=True` en el `.env` para tomar la IP real de `X-Forwarded-For`.

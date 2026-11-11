@@ -18,6 +18,15 @@ class Rol(models.TextChoices):
     ADMINISTRADOR = "ADMINISTRADOR", "Administrador"
     VENDEDOR = "VENDEDOR", "Vendedor"
     ENCARGADO_CIERRE = "ENCARGADO_CIERRE", "Encargado de cierre"
+    TI = "TI", "Tecnología (TI)"
+
+
+# Cuentas del departamento de TI «quemadas» en el sistema: las crea la migración core/0012 y las repone
+# `inicializar_datos` si faltan. La base de datos impide borrarlas, desactivarlas o cambiarles el usuario o el rol.
+CUENTAS_TI = [
+    ("santiago.cedeno", "Santiago", "Cedeño"),
+    ("nicolas.correa", "Nicolas", "Correa"),
+]
 
 
 # Validación de tarjetas: el administrador no entra, aunque sea superusuario (sí gestiona las bases comerciales).
@@ -65,6 +74,10 @@ class Usuario(AbstractUser):
     foto = models.ImageField("foto de perfil", upload_to=ruta_foto_perfil, blank=True, default="")
     apodo = models.CharField("apodo interno", max_length=30, blank=True, default="")
     tema = models.CharField("modo de pantalla", max_length=10, choices=Tema.choices, default=Tema.CLARO)
+    protegida = models.BooleanField(
+        "cuenta protegida", default=False, editable=False,
+        help_text="Cuenta fija del sistema (TI): no se puede borrar, desactivar ni cambiarle el usuario o el rol.",
+    )
 
     objects = GestorUsuarios()
 

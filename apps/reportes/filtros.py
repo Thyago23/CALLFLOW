@@ -7,7 +7,8 @@ from django.utils import timezone
 from apps.core.models import Rol
 
 ETIQUETAS = {"desde": "Desde", "hasta": "Hasta", "mes": "Mes", "empleado": "Empleado", "vendedor": "Vendedor",
-             "equipo": "Equipo", "estado": "Estado", "cargo": "Cargo", "categoria": "Categoría", "base": "Base comercial"}
+             "equipo": "Equipo", "estado": "Estado", "cargo": "Cargo", "categoria": "Categoría", "base": "Base comercial",
+             "tipo_equipo": "Tipo de equipo", "usuario": "Usuario"}
 
 
 def _mes_actual() -> str:
@@ -62,6 +63,16 @@ class FiltrosForm(forms.Form):
 
             return forms.ModelChoiceField(BaseComercial.objects.order_by("-creado_en"), required=False, empty_label="Todas las bases",
                                           widget=forms.Select(attrs=lista))
+        if nombre == "tipo_equipo":
+            from apps.ti.models import TipoEquipo
+
+            return forms.ChoiceField(choices=[("", "Todos los tipos")] + list(TipoEquipo.choices), required=False,
+                                     widget=forms.Select(attrs=lista))
+        if nombre == "usuario":
+            from apps.core.models import Usuario
+
+            return forms.ModelChoiceField(Usuario.objects.order_by("first_name", "last_name"), required=False,
+                                          empty_label="Todos los usuarios", widget=forms.Select(attrs=lista))
         if nombre == "estado":
             return forms.ChoiceField(choices=[("", "Todos")] + list(self.reporte.estados), required=False,
                                      widget=forms.Select(attrs=lista))
@@ -100,6 +111,10 @@ class FiltrosForm(forms.Form):
             if valor:
                 if nombre == "estado":
                     valor = dict(self.reporte.estados).get(valor, valor)
+                elif nombre == "tipo_equipo":
+                    from apps.ti.models import TipoEquipo
+
+                    valor = dict(TipoEquipo.choices).get(valor, valor)
                 partes.append(f"{ETIQUETAS[nombre]}: {valor}")
         return " · ".join(partes)
 

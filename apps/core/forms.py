@@ -71,6 +71,8 @@ class UsuarioCrearForm(FormularioEstilizado, forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.fields["first_name"].required = True
         self.fields["last_name"].required = True
+        # Las cuentas de TI son fijas del sistema (CUENTAS_TI): no se crean desde aquí.
+        self.fields["rol"].choices = [(v, e) for v, e in self.fields["rol"].choices if v != Rol.TI]
         self.fields["empleado"].queryset = (
             Empleado.objects.filter(usuario__isnull=True).exclude(estado=Empleado.Estado.DESVINCULADO).order_by("apellidos", "nombres")
         )

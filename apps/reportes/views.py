@@ -21,7 +21,7 @@ from .models import ReporteGenerado, TipoReporte
 from .pdf import estadisticas_pdf
 
 VER = "reportes.view_tiporeporte"
-ICONOS_MODULO = {"ADMINISTRATIVO": "building", "NOMINA": "cash-coin", "VENTAS": "telephone-outbound", "CIERRE": "check2-circle"}
+ICONOS_MODULO = {"ADMINISTRATIVO": "building", "NOMINA": "cash-coin", "VENTAS": "telephone-outbound", "CIERRE": "check2-circle", "TI": "pc-display"}
 
 
 def puede(usuario, tipo: TipoReporte) -> bool:

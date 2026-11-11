@@ -18,7 +18,7 @@ from apps.core.models import Rol
 
 from .formato import NUMERICOS, formatear
 
-A, V, C = Rol.ADMINISTRADOR, Rol.VENDEDOR, Rol.ENCARGADO_CIERRE
+A, V, C, T = Rol.ADMINISTRADOR, Rol.VENDEDOR, Rol.ENCARGADO_CIERRE, Rol.TI
 
 
 # --------------------------------------------------------------------------- estructura común
@@ -420,12 +420,83 @@ def _gestion_bases(f, usuario) -> Tabla:
     )
 
 
+# --------------------------------------------------------------------------- TI
+def _ti_equipos(f, usuario) -> Tabla:
+    from apps.ti.models import Equipo
+
+    qs = Equipo.objects.select_related("asignado_a").order_by("tipo", "codigo")
+    if f.get("tipo_equipo"):
+        qs = qs.filter(tipo=f["tipo_equipo"])
+    if f.get("estado"):
+        qs = qs.filter(estado=f["estado"])
+    hoy = timezone.localdate()
+    filas, total = [], Decimal("0")
+    for e in qs:
+        garantia = (f"{e.garantia_hasta:%d/%m/%Y}" + (" (vencida)" if e.garantia_hasta < hoy else "")) if e.garantia_hasta else ""
+        filas.append([e.codigo, e.get_tipo_display(), " ".join(x for x in (e.marca, e.modelo) if x), e.numero_serie,
+                      e.direccion_ip or "", _nombre(e.asignado_a) if e.asignado_a else "", e.ubicacion, e.get_estado_display(),
+                      garantia, e.costo])
+        total += e.costo or 0
+    por_estado = defaultdict(int)
+    for fila in filas:
+        por_estado[fila[7]] += 1
+    return Tabla(
+        columnas=[Columna("Código", peso=.9), Columna("Tipo", peso=1.4), Columna("Marca y modelo", peso=1.7), Columna("Serie", peso=1.2),
+                  Columna("IP", peso=1.1), Columna("Asignado a", peso=1.6), Columna("Ubicación", peso=1.2), Columna("Estado", peso=1),
+                  Columna("Garantía", peso=1.2), Columna("Costo", "dinero", .9)],
+        filas=filas, periodo=f"Al {hoy:%d/%m/%Y}", horizontal=True,
+        totales=["Totales", f"{len(filas)} equipos", "", "", "", "", "", "", "", total] if filas else None,
+        notas=[" · ".join(f"{estado}: {n}" for estado, n in sorted(por_estado.items()))] if por_estado else [],
+        vacio="No hay equipos registrados con esos filtros.",
+    )
+
+
+def _ti_eventos(f, usuario) -> Tabla:
+    from apps.ti.models import EventoEquipo
+
+    qs = (EventoEquipo.objects.filter(fecha__range=(f["desde"], f["hasta"])).select_related("equipo", "empleado", "registrado_por")
+          .order_by("fecha", "pk"))
+    if f.get("tipo_equipo"):
+        qs = qs.filter(equipo__tipo=f["tipo_equipo"])
+    filas = [[ev.fecha, ev.equipo.codigo, ev.equipo.get_tipo_display(), ev.get_tipo_display(), ev.descripcion, ev.realizado_por,
+              ev.costo] for ev in qs]
+    total = sum((fila[6] or 0 for fila in filas), Decimal("0"))
+    return Tabla(
+        columnas=[Columna("Fecha", "fecha", .9), Columna("Equipo", peso=.8), Columna("Tipo de equipo", peso=1.3),
+                  Columna("Evento", peso=1.3), Columna("Descripción", peso=3.2), Columna("Realizado por", peso=1.3),
+                  Columna("Costo", "dinero", .9)],
+        filas=filas, periodo=_periodo_rango(f), horizontal=True,
+        totales=["Totales", "", "", f"{len(filas)} eventos", "", "", total] if filas else None,
+        vacio="No hay mantenimientos ni movimientos de equipos en esas fechas.",
+    )
+
+
+def _ti_conexiones(f, usuario) -> Tabla:
+    from apps.ti.servicios import conexiones_por_usuario
+
+    datos = conexiones_por_usuario(f["desde"], f["hasta"])
+    if f.get("usuario"):
+        datos = datos.filter(usuario=f["usuario"])
+    roles = dict(Rol.choices)
+    filas = [[f"{x['usuario__first_name']} {x['usuario__last_name']}".strip() or x["usuario__username"], x["usuario__username"],
+              roles.get(x["usuario__rol"], x["usuario__rol"]), x["sesiones"], x["ips"], x["cerradas_ti"], x["ultima"]] for x in datos]
+    return Tabla(
+        columnas=[Columna("Persona", peso=2), Columna("Usuario", peso=1.5), Columna("Rol", peso=1.4), Columna("Sesiones", "entero", .9),
+                  Columna("IP distintas", "entero", .9), Columna("Cerradas por TI", "entero", 1), Columna("Última actividad", "fecha", 1.4)],
+        filas=filas, periodo=_periodo_rango(f), horizontal=True,
+        totales=["Totales", "", "", sum(x[3] for x in filas), "", sum(x[5] for x in filas), None] if filas else None,
+        notas=["«IP distintas» mayor a 1 indica que la persona entró desde varios equipos en el periodo."],
+        vacio="No hay conexiones en esas fechas.",
+    )
+
+
 _CONSTRUCTORES = {
     "BASES_EFECTIVIDAD": _efectividad_bases, "BASES_GESTION": _gestion_bases,
     "PERSONAL_LISTADO": _personal, "ASISTENCIA_HISTORIAL": _asistencia, "INVENTARIO_STOCK": _inventario,
     "INVENTARIO_MOVIMIENTOS": _movimientos, "NOMINA_RESUMEN": _nomina, "NOMINA_COMISIONES": _comisiones,
     "NOMINA_ROL_PAGO": _rol_pago, "VENTAS_PRODUCCION": _produccion, "VENTAS_POR_VENDEDOR": _ventas,
     "VENTAS_FORMULARIOS": _formularios, "CIERRE_PANEL": _metas,
+    "TI_EQUIPOS": _ti_equipos, "TI_EVENTOS": _ti_eventos, "TI_CONEXIONES": _ti_conexiones,
 }
 _DOCUMENTOS = {"NOMINA_ROL_PAGO": _rol_pago_pdf}  # tienen su propio formato de PDF
 
@@ -472,6 +543,16 @@ REPORTES = {r.codigo: r for r in [
     Reporte("CIERRE_PANEL", "Cumplimiento de metas", "CIERRE",
             "Meta, vendido, porcentaje de avance y lo que falta de cada vendedor en un mes.", ("mes", "vendedor"), (A, C),
             icono="bullseye"),
+    Reporte("TI_EQUIPOS", "Inventario de equipos", "TI",
+            "Todos los equipos físicos con serie, IP, a quién están asignados, ubicación, estado, garantía y costo.",
+            ("tipo_equipo", "estado"), (T,), estados=(("OPERATIVO", "Operativo"), ("BODEGA", "En bodega"),
+                                                       ("REPARACION", "En reparación"), ("BAJA", "Dado de baja")), icono="pc-display"),
+    Reporte("TI_EVENTOS", "Mantenimientos y movimientos de equipos", "TI",
+            "Altas, asignaciones, devoluciones, mantenimientos, reparaciones y bajas en un rango de fechas, con su costo.",
+            ("desde", "hasta", "tipo_equipo"), (T,), icono="tools"),
+    Reporte("TI_CONEXIONES", "Conexiones al sistema por usuario", "TI",
+            "Cuántas veces entró cada persona a CALLFLOW, desde cuántos equipos y su última actividad.",
+            ("desde", "hasta", "usuario"), (T,), icono="wifi"),
 ]}
 
 # El panel de estadísticas se registra como tipo de reporte para usar los mismos permisos por rol.
