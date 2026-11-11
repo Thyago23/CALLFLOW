@@ -234,7 +234,7 @@ def _comisiones(f, usuario) -> Tabla:
         if not r.es_vendedor:
             continue
         pct = r.porcentaje_comision if r.esquema and r.esquema.tipo != "MONTO_FIJO" else None
-        filas.append([_nombre(r.empleado), str(r.esquema or "Sin equipo"), r.total_ventas, pct, r.comision])
+        filas.append([_nombre(r.empleado), str(r.esquema or "Administrativo"), r.total_ventas, pct, r.comision])
     return Tabla(
         columnas=[Columna("Vendedor", peso=2.6), Columna("Equipo", peso=1.4), Columna("Ventas cerradas", "dinero", 1.2),
                   Columna("Porcentaje", "porcentaje", .9), Columna("Comisión", "dinero", 1.1)],
@@ -314,7 +314,7 @@ def ventas_por_vendedor(desde: date, hasta: date, vendedor=None, equipo=None) ->
 
 def _ventas(f, usuario) -> Tabla:
     datos = ventas_por_vendedor(f["desde"], f["hasta"], f.get("vendedor"), f.get("equipo"))
-    filas = [[_nombre(x["vendedor"]), str(x["esquema"] or "Sin equipo"), x["enviados"], x["cerradas"], x["no_concretadas"],
+    filas = [[_nombre(x["vendedor"]), str(x["esquema"] or "Administrativo"), x["enviados"], x["cerradas"], x["no_concretadas"],
               x["pendientes"], x["total"], x["ticket"], x["tasa"]] for x in datos]
     tot = {k: sum(x[k] for x in datos) for k in ("enviados", "cerradas", "no_concretadas", "pendientes")}
     total = sum((x["total"] for x in datos), Decimal("0"))

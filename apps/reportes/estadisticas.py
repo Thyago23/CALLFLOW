@@ -211,7 +211,7 @@ def calcular(anio: int, mes: int, equipo=None, vendedor=None, hoy: date | None =
     equipos_vigentes = equipos_al(fin_mes)
     por_equipo = {}
     for r in ranking:
-        nombre = str(equipos_vigentes.get(r["vendedor"].pk) or "Sin equipo")
+        nombre = str(equipos_vigentes.get(r["vendedor"].pk) or "Administrativo")
         por_equipo[nombre] = por_equipo.get(nombre, CERO) + r["total"]
     equipos = sorted(({"equipo": k, "total": v} for k, v in por_equipo.items()), key=lambda e: -e["total"])
 

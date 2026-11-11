@@ -15,7 +15,7 @@
       <tr><td>Porcentaje aplicado</td><td>{{ e.porcentaje_comision|floatformat:"-2" }} %</td></tr>
       {% endif %}
       {% else %}
-      <tr><td colspan="2">Sin equipo asignado: no se calculan comisiones.</td></tr>
+      <tr><td colspan="2">Administrativo: no se calculan comisiones.</td></tr>
       {% endif %}
       <tr class="fila-neto"><td>Comisión a recibir</td><td>${{ e.comision|dinero }}</td></tr>
     </tbody>
