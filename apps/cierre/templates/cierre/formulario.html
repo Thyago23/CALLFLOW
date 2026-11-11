@@ -77,7 +77,7 @@
     {% if gestion %}
     <section class="card mb-4">
       <div class="card-body">
-        <h2 class="h6 text-uppercase text-body-secondary mb-3">Resultado</h2>
+        <h2 class="titulo-seccion-formulario">Resultado</h2>
         <dl class="row datos-ficha mb-0">
           <div class="col-sm-6"><dt>Resultado</dt><dd><span class="badge estado-dami estado-{{ gestion.resultado|lower }}">{{ gestion.get_resultado_display }}</span></dd></div>
           <div class="col-sm-6"><dt>{% if gestion.valor_venta %}Valor de la venta{% else %}Motivo{% endif %}</dt>
@@ -118,7 +118,7 @@
 
     <section class="card mb-4">
       <div class="card-body">
-        <h2 class="h6 text-uppercase text-body-secondary mb-3">Cliente</h2>
+        <h2 class="titulo-seccion-formulario">Cliente</h2>
         <dl class="row datos-ficha mb-0">
           {% if f.producto %}<div class="col-12"><dt>Producto</dt><dd>{{ f.producto }}</dd></div>{% endif %}
           <div class="col-sm-6"><dt>Cédula</dt><dd>{{ f.cliente.cedula|default:"—" }}</dd></div>
@@ -136,7 +136,7 @@
     </section>
     <section class="card">
       <div class="card-body">
-        <h2 class="h6 text-uppercase text-body-secondary mb-3">Tarjeta para realizar el pago</h2>
+        <h2 class="titulo-seccion-formulario">Tarjeta para realizar el pago</h2>
         <dl class="row datos-ficha mb-0">
           {% if tarjeta %}
           <div class="col-sm-6"><dt>Tarjeta</dt><dd>{{ tarjeta.get_marca_display }}</dd></div>

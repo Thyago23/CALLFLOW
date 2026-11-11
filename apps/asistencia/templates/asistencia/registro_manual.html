@@ -2,27 +2,45 @@
 {% block titulo %}Registro manual · Asistencia{% endblock %}
 {% block contenido %}
 {% include "asistencia/_subnav.html" with seccion="tablero" %}
-<div class="row">
-  <div class="col-lg-7">
-    <h2 class="h5 mb-1">Registro manual</h2>
-    <p class="text-body-secondary small mb-3">Para olvidos de marcación o días pasados. Si el día ya tenía registro, se corrige; los atrasos se recalculan si aún no fueron clasificados.</p>
-    {% for error in form.non_field_errors %}<div class="alert alert-danger">{{ error }}</div>{% endfor %}
-    <form method="post" novalidate class="card">
-      <div class="card-body">
-        {% csrf_token %}
-        <div class="row">
-          <div class="col-md-8">{% include "_campo.html" with campo=form.empleado %}</div>
-          <div class="col-md-4">{% include "_campo.html" with campo=form.fecha %}</div>
-          <div class="col-sm-6">{% include "_campo.html" with campo=form.hora_entrada %}</div>
-          <div class="col-sm-6">{% include "_campo.html" with campo=form.hora_salida ayuda=form.hora_salida.help_text %}</div>
-          <div class="col-12">{% include "_campo.html" with campo=form.observacion ayuda=form.observacion.help_text %}</div>
-        </div>
+<header class="cabecera-formulario">
+  <h2 class="h4 mb-1">Registro manual</h2>
+  <p class="text-body-secondary mb-0">Para olvidos de marcación o días pasados.</p>
+</header>
+
+<div class="contenedor-formulario">
+  {% for error in form.non_field_errors %}<div class="alert alert-danger">{{ error }}</div>{% endfor %}
+  <form method="post" novalidate class="card formulario">
+    {% csrf_token %}
+    <section class="formulario-seccion">
+      <div class="formulario-seccion-info">
+        <span class="formulario-icono" aria-hidden="true"><i class="bi bi-person-badge"></i></span>
+        <h2>Empleado y día</h2>
+        <p>Si el día ya tenía registro, se corrige.</p>
       </div>
-      <div class="card-footer bg-body d-flex justify-content-end gap-2">
-        <a href="{% url 'asistencia:tablero' %}" class="btn btn-outline-secondary">Cancelar</a>
-        <button type="submit" class="btn btn-primary">Guardar</button>
+      <div class="row">
+        <div class="col-md-8">{% include "_campo.html" with campo=form.empleado %}</div>
+        <div class="col-md-4">{% include "_campo.html" with campo=form.fecha %}</div>
       </div>
-    </form>
-  </div>
+    </section>
+
+    <section class="formulario-seccion">
+      <div class="formulario-seccion-info">
+        <span class="formulario-icono" aria-hidden="true"><i class="bi bi-clock"></i></span>
+        <h2>Horas</h2>
+        <p>Los atrasos se recalculan si aún no fueron clasificados.</p>
+      </div>
+      <div class="row">
+        <div class="col-sm-6">{% include "_campo.html" with campo=form.hora_entrada %}</div>
+        <div class="col-sm-6">{% include "_campo.html" with campo=form.hora_salida ayuda=form.hora_salida.help_text %}</div>
+        <div class="col-12">{% include "_campo.html" with campo=form.observacion ayuda=form.observacion.help_text %}</div>
+      </div>
+    </section>
+
+    <div class="formulario-acciones">
+      <span class="small text-body-secondary d-none d-sm-inline"><span class="text-danger">*</span> Campo obligatorio</span>
+      <a href="{% url 'asistencia:tablero' %}" class="btn btn-outline-secondary ms-auto">Cancelar</a>
+      <button type="submit" class="btn btn-primary"><i class="bi bi-check2" aria-hidden="true"></i> Guardar registro</button>
+    </div>
+  </form>
 </div>
 {% endblock %}

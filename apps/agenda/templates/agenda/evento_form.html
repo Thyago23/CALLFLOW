@@ -8,15 +8,23 @@
     <li class="breadcrumb-item active" aria-current="page">{% if nuevo %}Nuevo evento{% else %}Editar{% endif %}</li>
   </ol>
 </nav>
-<h1 class="h3 mb-3">{% if nuevo %}Nuevo evento{% else %}Editar evento{% endif %}</h1>
-<div class="row">
-  <div class="col-lg-8">
-    {% if form.errors %}<div class="alert alert-danger">Revise los campos marcados en rojo.</div>{% endif %}
-    <form method="post" novalidate class="card" id="formulario-evento">
-      <div class="card-body">
-        {% csrf_token %}
-        {% if volver %}<input type="hidden" name="volver" value="{{ volver }}">{% endif %}
-        {{ form.cliente }}
+<header class="cabecera-formulario">
+  <h1 class="h3 mb-1">{% if nuevo %}Nuevo evento{% else %}Editar evento{% endif %}</h1>
+  <p class="text-body-secondary mb-0">Actividades, reuniones y recordatorios de la agenda.</p>
+</header>
+<div class="contenedor-formulario">
+  {% if form.errors %}<div class="alert alert-danger">Revise los campos marcados en rojo.</div>{% endif %}
+  <form method="post" novalidate class="card formulario" id="formulario-evento">
+    {% csrf_token %}
+    {% if volver %}<input type="hidden" name="volver" value="{{ volver }}">{% endif %}
+    {{ form.cliente }}
+    <section class="formulario-seccion">
+      <div class="formulario-seccion-info">
+        <span class="formulario-icono" aria-hidden="true"><i class="bi bi-calendar-event"></i></span>
+        <h2>Evento</h2>
+        <p>Qué es y de qué se trata.</p>
+      </div>
+      <div>
         {% if cliente %}
         <div class="alert alert-info d-flex align-items-center gap-2 py-2">
           <i class="bi bi-telephone-outbound fs-5" aria-hidden="true"></i>
@@ -33,12 +41,23 @@
           </div>
         </fieldset>
         {% include "_campo.html" with campo=form.titulo %}
-        <div class="row align-items-end">
+        {% include "_campo.html" with campo=form.descripcion %}
+      </div>
+    </section>
+
+    <section class="formulario-seccion">
+      <div class="formulario-seccion-info">
+        <span class="formulario-icono" aria-hidden="true"><i class="bi bi-clock"></i></span>
+        <h2>Cuándo y dónde</h2>
+        <p>El aviso llega a la campana unos minutos antes de empezar.</p>
+      </div>
+      <div>
+        <div class="row">
           <div class="col-sm-4">{% include "_campo.html" with campo=form.fecha ayuda=form.fecha.help_text %}</div>
-          <div class="col-sm-3 col-6 campo-hora">{% include "_campo.html" with campo=form.hora_inicio %}</div>
-          <div class="col-sm-3 col-6 campo-hora">{% include "_campo.html" with campo=form.hora_fin %}</div>
-          <div class="col-sm-2 mb-3">
-            <div class="form-check form-switch pb-2">
+          <div class="col-sm-4 col-6 campo-hora">{% include "_campo.html" with campo=form.hora_inicio %}</div>
+          <div class="col-sm-4 col-6 campo-hora">{% include "_campo.html" with campo=form.hora_fin %}</div>
+          <div class="col-12 mb-3">
+            <div class="form-check form-switch">
               {{ form.todo_el_dia }}
               <label class="form-check-label text-nowrap" for="{{ form.todo_el_dia.id_for_label }}">{{ form.todo_el_dia.label }}</label>
             </div>
@@ -48,23 +67,30 @@
           <div class="col-md-7">{% include "_campo.html" with campo=form.ubicacion %}</div>
           <div class="col-md-5">{% include "_campo.html" with campo=form.minutos_aviso %}</div>
         </div>
-        {% include "_campo.html" with campo=form.descripcion %}
-        <details class="mb-1" {% if form.participantes.value or form.participantes.errors %}open{% endif %}>
-          <summary class="form-label fs-6">{{ form.participantes.label }} <span class="small text-body-secondary fw-normal">(opcional)</span></summary>
-          <div class="lista-checks">
-            {% for opcion in form.participantes %}<div class="form-check">{{ opcion.tag }}<label class="form-check-label" for="{{ opcion.id_for_label }}">{{ opcion.choice_label }}</label></div>
-            {% empty %}<p class="small text-body-secondary mb-0">No hay otros usuarios.</p>{% endfor %}
-          </div>
-          <div class="form-text">{{ form.participantes.help_text }}</div>
-        </details>
       </div>
-      <div class="card-footer bg-body d-flex justify-content-end gap-2">
-        {% url 'agenda:calendario' as url_agenda %}
-        <a href="{% if nuevo %}{{ volver|default:url_agenda }}{% else %}{% url 'agenda:detalle' evento.pk %}{% endif %}" class="btn btn-outline-secondary">Cancelar</a>
-        <button type="submit" class="btn btn-primary">Guardar</button>
+    </section>
+
+    <section class="formulario-seccion">
+      <div class="formulario-seccion-info">
+        <span class="formulario-icono" aria-hidden="true"><i class="bi bi-people"></i></span>
+        <h2>Participantes</h2>
+        <p>Opcional. {{ form.participantes.help_text }}</p>
       </div>
-    </form>
-  </div>
+      <div class="mb-3">
+        <div class="lista-checks">
+          {% for opcion in form.participantes %}<div class="form-check">{{ opcion.tag }}<label class="form-check-label" for="{{ opcion.id_for_label }}">{{ opcion.choice_label }}</label></div>
+          {% empty %}<p class="small text-body-secondary mb-0">No hay otros usuarios.</p>{% endfor %}
+        </div>
+        {% for error in form.participantes.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+      </div>
+    </section>
+
+    <div class="formulario-acciones">
+      {% url 'agenda:calendario' as url_agenda %}
+      <a href="{% if nuevo %}{{ volver|default:url_agenda }}{% else %}{% url 'agenda:detalle' evento.pk %}{% endif %}" class="btn btn-outline-secondary ms-auto">Cancelar</a>
+      <button type="submit" class="btn btn-primary"><i class="bi bi-check2" aria-hidden="true"></i> Guardar evento</button>
+    </div>
+  </form>
 </div>
 <script>
   // Oculta las horas cuando el evento es de todo el día.

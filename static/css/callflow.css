@@ -255,7 +255,7 @@ body {
   color: var(--cf-primario);
   font-size: 1.25rem;
 }
-.indicador.con-alerta .icono-indicador { background: #fdecea; color: #b42318; }
+.indicador.con-alerta .icono-indicador { background: var(--cf-peligro-suave); color: var(--cf-peligro-texto); }
 a .indicador { transition: border-color 0.15s, box-shadow 0.15s; }
 a:hover .indicador { border-color: var(--cf-primario); box-shadow: 0 2px 8px rgba(0, 98, 168, 0.1); }
 
@@ -298,7 +298,7 @@ a.tarjeta-modulo:hover {
 
 .fila-pendiente { display: flex; align-items: center; gap: .85rem; padding: .85rem 1rem; }
 .icono-pendiente { display: inline-grid; place-items: center; flex-shrink: 0; width: 38px; height: 38px; border-radius: 10px; background: var(--bs-secondary-bg); color: var(--bs-secondary-color); font-size: 1.1rem; }
-.fila-pendiente.con-pendientes .icono-pendiente { background: #fdecea; color: #b42318; }
+.fila-pendiente.con-pendientes .icono-pendiente { background: var(--cf-peligro-suave); color: var(--cf-peligro-texto); }
 .cantidad-pendiente { font-size: .8rem; min-width: 1.75rem; }
 
 /* Notificaciones: lista, panel de la campana, página y avisos flotantes */
@@ -310,7 +310,7 @@ a.tarjeta-modulo:hover {
 .punto-notificacion { flex-shrink: 0; width: 8px; height: 8px; margin-top: .45rem; border-radius: 50%; background: var(--cf-primario); }
 .icono-notificacion { display: inline-grid; place-items: center; flex-shrink: 0; width: 34px; height: 34px; border-radius: 10px; font-size: 1rem; }
 .icono-notificacion.tono-marca { background: var(--cf-primario-suave); color: var(--cf-primario); }
-.icono-notificacion.tono-alerta { background: #fff4e5; color: #9a5b00; }
+.icono-notificacion.tono-alerta { background: var(--cf-aviso-suave); color: var(--cf-aviso-texto); }
 .icono-notificacion.tono-neutro { background: var(--bs-secondary-bg); color: var(--bs-secondary-color); }
 .texto-notificacion { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .lista-completa .texto-notificacion { -webkit-line-clamp: unset; }
@@ -355,11 +355,11 @@ a.tarjeta-modulo:hover {
   transition: background-color 2s ease 3s;
 }
 
-.badge.estado-activo { background-color: #198754; }
+.badge.estado-activo { background-color: var(--cf-exito); }
 .badge.estado-vacaciones { background-color: var(--cf-primario); }
-.badge.estado-licencia { background-color: #6f42c1; }
-.badge.estado-inactivo { background-color: #6c757d; }
-.badge.estado-desvinculado { background-color: #dc3545; }
+.badge.estado-licencia { background-color: var(--cf-noche-medio); }
+.badge.estado-inactivo { background-color: var(--cf-neutro); }
+.badge.estado-desvinculado { background-color: var(--cf-peligro); }
 
 #tabla-empleados.htmx-request { opacity: 0.6; transition: opacity 0.2s; }
 
@@ -414,28 +414,28 @@ a.tarjeta-modulo:hover {
 .resumen-dia .valor { font-size: 1.6rem; font-weight: 600; line-height: 1.1; }
 
 .estado-asistencia { font-weight: 600; }
-.estado-asistencia.estado-presente { background: #d1e7dd; color: #0a3622; }
-.estado-asistencia.estado-salio { background: #e2e3e5; color: #2b2f32; }
-.estado-asistencia.estado-en-almuerzo { background: #cfe2ff; color: #052c65; }
-.estado-asistencia.estado-pendiente { background: #fff3cd; color: #664d03; }
-.estado-asistencia.estado-ausente { background: #f8d7da; color: #58151c; }
+.estado-asistencia.estado-presente { background: var(--cf-exito-suave); color: var(--cf-exito-texto); }
+.estado-asistencia.estado-salio { background: var(--cf-neutro-suave); color: var(--cf-neutro-texto); }
+.estado-asistencia.estado-en-almuerzo { background: var(--cf-info-suave); color: var(--cf-info-texto); }
+.estado-asistencia.estado-pendiente { background: var(--cf-aviso-suave); color: var(--cf-aviso-texto); }
+.estado-asistencia.estado-ausente { background: var(--cf-peligro-suave); color: var(--cf-peligro-texto); }
 .estado-asistencia.estado-no-laborable,
 .estado-asistencia.estado-vacaciones,
 .estado-asistencia.estado-licencia,
 .estado-asistencia.estado-inactivo { background: var(--bs-secondary-bg); color: var(--bs-secondary-color); }
 
 .estado-novedad { font-weight: 600; }
-.estado-novedad.estado-pendiente { background: #fff3cd; color: #664d03; }
-.estado-novedad.estado-justificada { background: #d1e7dd; color: #0a3622; }
-.estado-novedad.estado-no_justificada { background: #f8d7da; color: #58151c; }
+.estado-novedad.estado-pendiente { background: var(--cf-aviso-suave); color: var(--cf-aviso-texto); }
+.estado-novedad.estado-justificada { background: var(--cf-exito-suave); color: var(--cf-exito-texto); }
+.estado-novedad.estado-no_justificada { background: var(--cf-peligro-suave); color: var(--cf-peligro-texto); }
 
 .tipo-novedad { font-weight: 600; }
-.tipo-novedad.tipo-ausencia { color: #b02a37; }
+.tipo-novedad.tipo-ausencia { color: var(--cf-peligro-texto); }
 .tipo-novedad.tipo-atraso,
 .tipo-novedad.tipo-salida_anticipada,
 .tipo-novedad.tipo-sin_salida,
 .tipo-novedad.tipo-exceso_almuerzo,
-.tipo-novedad.tipo-ausencia_parcial { color: #997404; }
+.tipo-novedad.tipo-ausencia_parcial { color: var(--cf-aviso-texto); }
 
 .novedad-asistencia.recien { border-color: #a3cfbb; box-shadow: 0 0 0 3px rgba(25, 135, 84, 0.12); }
 
@@ -471,27 +471,27 @@ input[type="checkbox"].form-check-input + .dia-check { margin-left: 0; }
 .ficha-empleado dd:last-child { margin-bottom: 0; }
 .record .numero { font-size: 2.25rem; font-weight: 600; line-height: 1.1; }
 .icono-record { display: inline-grid; place-items: center; width: 40px; height: 40px; border-radius: 10px; font-size: 1.15rem; }
-.icono-record.falta { background: #f8d7da; color: #b02a37; }
-.icono-record.atraso { background: #fff3cd; color: #997404; }
+.icono-record.falta { background: var(--cf-peligro-suave); color: var(--cf-peligro-texto); }
+.icono-record.atraso { background: var(--cf-aviso-suave); color: var(--cf-aviso-texto); }
 .desglose li { display: flex; align-items: center; gap: 0.4rem; padding: 0.1rem 0; }
 .desglose li strong { margin-left: auto; }
 .punto { width: 0.55rem; height: 0.55rem; border-radius: 50%; display: inline-block; }
-.punto.justificada { background: #198754; }
-.punto.no-justificada { background: #dc3545; }
-.punto.pendiente { background: #ffc107; }
+.punto.justificada { background: var(--cf-exito); }
+.punto.no-justificada { background: var(--cf-peligro); }
+.punto.pendiente { background: var(--cf-ambar); }
 
 /* ------------------------------------------------------------------ inventario */
 .tipo-movimiento { font-weight: 600; font-size: 0.875rem; }
 .tipo-movimiento.tipo-entrada,
-.tipo-movimiento.tipo-ajuste_positivo { color: #146c43; }
+.tipo-movimiento.tipo-ajuste_positivo { color: var(--cf-exito-texto); }
 .tipo-movimiento.tipo-salida,
-.tipo-movimiento.tipo-ajuste_negativo { color: #b02a37; }
+.tipo-movimiento.tipo-ajuste_negativo { color: var(--cf-peligro-texto); }
 .opcion-movimiento { font-size: 0.875rem; }
 
 /* ------------------------------------------------------------------ agenda */
 :root {
   --cf-actividad: #0062a8;
-  --cf-reunion: #6f42c1;
+  --cf-reunion: var(--cf-noche-medio);
   --cf-recordatorio: #b35c00;
 }
 .leyenda { display: inline-block; width: 0.65rem; height: 0.65rem; border-radius: 3px; margin-right: 0.35rem; vertical-align: baseline; }
@@ -554,8 +554,8 @@ input[type="checkbox"].form-check-input + .dia-check { margin-left: 0; }
 .tipo-evento.tipo-actividad { background: var(--cf-actividad); }
 .tipo-evento.tipo-reunion { background: var(--cf-reunion); }
 .tipo-evento.tipo-recordatorio { background: var(--cf-recordatorio); }
-.estado-evento.estado-pendiente { background: #fff3cd; color: #664d03; }
-.estado-evento.estado-completado { background: #d1e7dd; color: #0a3622; }
+.estado-evento.estado-pendiente { background: var(--cf-aviso-suave); color: var(--cf-aviso-texto); }
+.estado-evento.estado-completado { background: var(--cf-exito-suave); color: var(--cf-exito-texto); }
 .estado-evento.estado-cancelado { background: var(--bs-secondary-bg); color: var(--bs-secondary-color); }
 .detalle-evento li { display: flex; gap: 0.6rem; align-items: baseline; padding: 0.2rem 0; }
 .detalle-evento .bi { color: var(--bs-secondary-color); }
@@ -576,12 +576,12 @@ input[type="checkbox"].form-check-input + .dia-check { margin-left: 0; }
 
 /* Observaciones: borde de color según el tipo */
 .observacion { border-left: 4px solid var(--bs-border-color); }
-.observacion.tipo-positiva { border-left-color: #198754; }
-.observacion.tipo-llamado_atencion { border-left-color: #dc3545; }
+.observacion.tipo-positiva { border-left-color: var(--cf-exito); }
+.observacion.tipo-llamado_atencion { border-left-color: var(--cf-peligro); }
 .observacion.tipo-seguimiento { border-left-color: var(--cf-primario); }
-.tipo-observacion { background-color: #6c757d; }
-.tipo-observacion.tipo-positiva { background-color: #198754; }
-.tipo-observacion.tipo-llamado_atencion { background-color: #dc3545; }
+.tipo-observacion { background-color: var(--cf-neutro); }
+.tipo-observacion.tipo-positiva { background-color: var(--cf-exito); }
+.tipo-observacion.tipo-llamado_atencion { background-color: var(--cf-peligro); }
 .tipo-observacion.tipo-seguimiento { background-color: var(--cf-primario); }
 .texto-observacion { white-space: normal; overflow-wrap: anywhere; }
 
@@ -614,14 +614,14 @@ input[type="checkbox"].form-check-input + .dia-check { margin-left: 0; }
 /* ------------------------------------------------------------------ ventas */
 .estado-dami { font-weight: 600; }
 .estado-dami.estado-borrador { background: var(--bs-secondary-bg); color: var(--bs-secondary-color); }
-.estado-dami.estado-enviado, .estado-dami.estado-pendiente { background: #fff3cd; color: #664d03; }
-.estado-dami.estado-en_gestion { background: #cfe2ff; color: #052c65; }
-.estado-dami.estado-venta_cerrada { background: #d1e7dd; color: #0a3622; }
-.estado-dami.estado-no_concretada { background: #f8d7da; color: #58151c; }
+.estado-dami.estado-enviado, .estado-dami.estado-pendiente { background: var(--cf-aviso-suave); color: var(--cf-aviso-texto); }
+.estado-dami.estado-en_gestion { background: var(--cf-info-suave); color: var(--cf-info-texto); }
+.estado-dami.estado-venta_cerrada { background: var(--cf-exito-suave); color: var(--cf-exito-texto); }
+.estado-dami.estado-no_concretada { background: var(--cf-peligro-suave); color: var(--cf-peligro-texto); }
 .estado-dami.estado-anulado { background: var(--bs-secondary-bg); color: var(--bs-secondary-color); text-decoration: line-through; }
-.estado-solicitud.estado-pendiente { background: #fff3cd; color: #664d03; }
-.estado-solicitud.estado-atendida { background: #d1e7dd; color: #0a3622; }
-.estado-solicitud.estado-rechazada { background: #f8d7da; color: #58151c; }
+.estado-solicitud.estado-pendiente { background: var(--cf-aviso-suave); color: var(--cf-aviso-texto); }
+.estado-solicitud.estado-atendida { background: var(--cf-exito-suave); color: var(--cf-exito-texto); }
+.estado-solicitud.estado-rechazada { background: var(--cf-peligro-suave); color: var(--cf-peligro-texto); }
 .panel-meta .display-6 { font-size: 2.1rem; }
 
 /* DAMI: marcas de tarjeta como casillas del formato en papel */
@@ -666,7 +666,7 @@ details.card > summary { cursor: pointer; list-style: revert; }
 /* Validación de tarjetas */
 .tarjeta-vista { aspect-ratio: 1.586; max-width: 22rem; margin-inline: auto; border-radius: 1rem; padding: 1.25rem 1.4rem;
   color: #fff; display: flex; flex-direction: column; justify-content: space-between;
-  background: linear-gradient(135deg, #6c757d, #343a40); box-shadow: 0 .5rem 1.25rem rgba(0,0,0,.15); transition: background .3s; }
+  background: linear-gradient(135deg, var(--cf-neutro), #343a40); box-shadow: 0 .5rem 1.25rem rgba(0,0,0,.15); transition: background .3s; }
 .tarjeta-visa { background: linear-gradient(135deg, #1a1f71, #2b4bbf); }
 .tarjeta-mastercard, .tarjeta-maestro { background: linear-gradient(135deg, #2b2b2b, #c4361c); }
 .tarjeta-amex { background: linear-gradient(135deg, #006fcf, #00a3e0); }
@@ -675,8 +675,8 @@ details.card > summary { cursor: pointer; list-style: revert; }
 .tarjeta-jcb { background: linear-gradient(135deg, #0b4ea2, #1a9b3e); }
 .tarjeta-unionpay { background: linear-gradient(135deg, #d6001c, #01798a); }
 .veredicto-tarjeta { font-weight: 600; font-size: 1.1rem; padding: .6rem .9rem; border-radius: .5rem; }
-.veredicto-valida { background: #d1e7dd; color: #0a3622; }
-.veredicto-invalida { background: #f8d7da; color: #58151c; }
+.veredicto-valida { background: var(--cf-exito-suave); color: var(--cf-exito-texto); }
+.veredicto-invalida { background: var(--cf-peligro-suave); color: var(--cf-peligro-texto); }
 .veredicto-incompleta { background: var(--bs-secondary-bg); color: var(--bs-secondary-color); }
 .revisiones-tarjeta .revision-ok .bi { color: var(--bs-success); }
 .revisiones-tarjeta .revision-error .bi { color: var(--bs-danger); }
@@ -850,7 +850,7 @@ details.anular-caja > summary::-webkit-details-marker { display: none; }
 .barras-h .valor { font-size: .875rem; font-weight: 600; font-variant-numeric: tabular-nums; text-align: right; min-width: 4.5rem; }
 
 /* ------------------------------------------------------------------ bases comerciales: contactos y gestión */
-:root { --cf-dami: #198754; --cf-no-quiere: #c2410c; --cf-no-contesto: #d4a017; --cf-pendiente: #e3e7ee; }
+:root { --cf-dami: var(--cf-exito); --cf-no-quiere: #c2410c; --cf-no-contesto: #d4a017; --cf-pendiente: #e3e7ee; }
 .avance-base { display: flex; gap: 2px; height: 8px; border-radius: 4px; overflow: hidden; background: var(--cf-pendiente); }
 .avance-base .seg { display: block; height: 100%; }
 .seg-dami { background: var(--cf-dami); }
@@ -860,9 +860,9 @@ details.anular-caja > summary::-webkit-details-marker { display: none; }
 .clave-estado { display: inline-block; width: .65rem; height: .65rem; border-radius: 2px; margin-right: .35rem; vertical-align: baseline; }
 .badge.estado-contacto { font-weight: 600; }
 .badge.estado-contacto.estado-pendiente { background: var(--bs-secondary-bg); color: var(--bs-secondary-color); }
-.badge.estado-contacto.estado-no_contesto { background: #fff4d6; color: #7a5a00; }
+.badge.estado-contacto.estado-no_contesto { background: var(--cf-aviso-suave); color: var(--cf-aviso-texto); }
 .badge.estado-contacto.estado-no_quiere { background: #fde8de; color: #8a2e07; }
-.badge.estado-contacto.estado-dami_sacado { background: #d1e7dd; color: #0a3622; }
+.badge.estado-contacto.estado-dami_sacado { background: var(--cf-exito-suave); color: var(--cf-exito-texto); }
 
 .lista-contactos .contacto-base { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: .5rem 1.25rem; align-items: center;
   padding: .85rem 1rem; border-bottom: 1px solid var(--bs-border-color-translucent); border-left: 4px solid transparent; }
@@ -1052,7 +1052,7 @@ img.avatar.con-foto { object-fit: cover; padding: 0; background: var(--bs-second
 [data-bs-theme="dark"] .hoja-contrato { color: #212529; }
 [data-bs-theme="dark"] .logo-marca { filter: drop-shadow(0 0 1px rgba(255, 255, 255, 0.6)); }
 /* Botones pensados para fondo claro (oscuros o blancos): en modo oscuro se adaptan. */
-[data-bs-theme="dark"] .btn-outline-dark { --bs-btn-color: #dee2e6; --bs-btn-border-color: #6c757d; --bs-btn-hover-bg: #dee2e6; --bs-btn-hover-color: #212529; --bs-btn-hover-border-color: #dee2e6; --bs-btn-active-bg: #f8f9fa; --bs-btn-active-color: #212529; }
+[data-bs-theme="dark"] .btn-outline-dark { --bs-btn-color: #dee2e6; --bs-btn-border-color: var(--cf-neutro); --bs-btn-hover-bg: #dee2e6; --bs-btn-hover-color: #212529; --bs-btn-hover-border-color: #dee2e6; --bs-btn-active-bg: #f8f9fa; --bs-btn-active-color: #212529; }
 [data-bs-theme="dark"] .btn-light { --bs-btn-bg: var(--bs-tertiary-bg); --bs-btn-color: var(--bs-body-color); --bs-btn-border-color: var(--bs-border-color); --bs-btn-hover-bg: var(--bs-secondary-bg); --bs-btn-hover-color: var(--bs-body-color); --bs-btn-hover-border-color: var(--bs-border-color); }
 [data-bs-theme="dark"] { --cf-actividad: #5b9be0; }
 /* Formulario DAMI en papel: la hoja sigue blanca (como el papel); la barra de acciones se adapta. */
@@ -1266,3 +1266,298 @@ a.card:hover, a:hover .card, .tarjeta-resumen:hover { border-color: #b9d6ee; box
 [data-bs-theme="dark"] .indicador .icono-indicador, [data-bs-theme="dark"] .icono-estado { color: #9fcdf2; }
 [data-bs-theme="dark"] .dropdown-menu { box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45); }
 [data-bs-theme="dark"] a.card:hover, [data-bs-theme="dark"] a:hover .card, [data-bs-theme="dark"] .tarjeta-resumen:hover { border-color: #2f5f8f; box-shadow: none; }
+
+/* ================================================================ Rediseño UI (SCRUM-104)
+   Una sola capa de tokens de la marca Multivisa. Lo único llamativo es el menú lateral en Azul Noche
+   con el módulo activo en Azul Visa y la barra Rosa Ruta; el resto queda tranquilo: blanco, Cielo y
+   texto Azul Noche. Sin mayúsculas sostenidas en la pantalla (sí en los documentos impresos, que
+   copian el formato en papel). */
+
+/* ---------------------------------------------------------------- tokens (SCRUM-105, SCRUM-109) */
+:root, [data-bs-theme="light"] {
+  /* semánticos: éxito, aviso (Ámbar), peligro (rojo, distinto del Rosa Ruta), información (Azul Visa) y neutro */
+  --cf-exito: #0e7a55;        --cf-exito-suave: #e3f4ec;   --cf-exito-texto: #0b5a40;
+  --cf-aviso: var(--cf-ambar); --cf-aviso-suave: #fff5dc;   --cf-aviso-texto: #7a5200;
+  --cf-peligro: #c4291c;      --cf-peligro-suave: #fdecea; --cf-peligro-texto: #8e1b12;
+  --cf-info: var(--cf-azul);  --cf-info-suave: var(--cf-cielo); --cf-info-texto: #00477a;
+  --cf-neutro: var(--cf-gris); --cf-neutro-suave: #eef2f6;  --cf-neutro-texto: #3d4e5f;
+  --cf-noche-medio: #2c4d70;
+  --cf-texto-tabla: #3d5268;
+  --cf-borde-campo: #cfdceb;
+  --cf-transicion: 160ms ease;
+  --cf-menu-fondo: var(--cf-noche);
+  --cf-menu-texto: #d5e2ee;
+  --cf-menu-icono: #8fb0cf;
+  --cf-menu-seccion: #8aa6c1;
+
+  /* Bootstrap toma los mismos tonos (text-bg-*, alert-*, btn-success/danger…) */
+  --bs-success: var(--cf-exito); --bs-success-rgb: 14, 122, 85;
+  --bs-success-bg-subtle: var(--cf-exito-suave); --bs-success-border-subtle: #b5e0cc; --bs-success-text-emphasis: var(--cf-exito-texto);
+  --bs-danger: var(--cf-peligro); --bs-danger-rgb: 196, 41, 28;
+  --bs-danger-bg-subtle: var(--cf-peligro-suave); --bs-danger-border-subtle: #f6c4bf; --bs-danger-text-emphasis: var(--cf-peligro-texto);
+  --bs-secondary: var(--cf-gris); --bs-secondary-rgb: 91, 107, 122;
+
+  /* escala tipográfica: texto de 15 px con interlineado amplio */
+  --bs-body-font-size: 0.9375rem;
+  --bs-body-line-height: 1.55;
+}
+
+[data-bs-theme="dark"] {
+  --cf-exito: #1f9466;        --cf-exito-suave: rgba(63, 181, 138, 0.16);  --cf-exito-texto: #8fddbe;
+  --cf-aviso-suave: rgba(255, 184, 28, 0.14); --cf-aviso-texto: #ffd27a;
+  --cf-peligro: #d64034;      --cf-peligro-suave: rgba(240, 100, 90, 0.16); --cf-peligro-texto: #ffb4ad;
+  --cf-info-suave: rgba(47, 138, 214, 0.18);  --cf-info-texto: #9fcdf2;
+  --cf-neutro: #8da0b3;       --cf-neutro-suave: rgba(255, 255, 255, 0.07); --cf-neutro-texto: #c9d8e6;
+  --cf-noche-medio: #8fb3dc;
+  --cf-texto-tabla: #c9d8e6;
+  --cf-borde-campo: #24456a;
+
+  --bs-success-rgb: 31, 148, 102; --bs-success-border-subtle: rgba(63, 181, 138, 0.4);
+  --bs-danger-rgb: 214, 64, 52;   --bs-danger-border-subtle: rgba(240, 100, 90, 0.4);
+}
+
+/* ---------------------------------------------------------------- menú lateral y barra superior (SCRUM-106) */
+.menu-lateral {
+  --bs-body-bg: var(--cf-menu-fondo);
+  background-color: var(--cf-menu-fondo) !important;  /* offcanvas-md la deja transparente en escritorio */
+  border-right: 0 !important;
+}
+@media (min-width: 768px) {
+  .menu-lateral { scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.18) transparent; }
+}
+.menu-lateral nav { padding: 0.75rem 0.75rem 1.5rem !important; }
+.menu-lateral .offcanvas-header { border-bottom-color: rgba(255, 255, 255, 0.1) !important; color: #fff; }
+.menu-lateral .titulo-seccion {
+  text-transform: none; letter-spacing: 0.01em; font-size: 0.75rem; font-weight: 600;
+  color: var(--cf-menu-seccion); padding: 1.15rem 0.75rem 0.4rem;
+}
+.menu-lateral .enlace-menu {
+  color: var(--cf-menu-texto); font-weight: 500; padding: 0.55rem 0.75rem; min-height: 2.5rem;
+  transition: background-color var(--cf-transicion), color var(--cf-transicion);
+}
+.menu-lateral .enlace-menu i { color: var(--cf-menu-icono); transition: color var(--cf-transicion); }
+.menu-lateral .enlace-menu:hover { background: rgba(255, 255, 255, 0.07); color: #fff; }
+.menu-lateral .enlace-menu:hover i { color: #fff; }
+.menu-lateral .enlace-menu.activo { background: var(--cf-azul); color: #fff; font-weight: 600; }
+.menu-lateral .enlace-menu.activo i { color: #fff; }
+.menu-lateral .enlace-menu.activo::before { left: -0.75rem; top: 0.3rem; bottom: 0.3rem; width: 4px; background: var(--cf-rosa); }
+.menu-lateral .enlace-menu:focus-visible { outline: 2px solid #9fcdf2; outline-offset: 1px; }
+.menu-lateral .enlace-menu .badge { box-shadow: 0 0 0 2px var(--cf-menu-fondo); }
+html[data-bs-theme="dark"] .menu-lateral { --cf-menu-fondo: #061626; }
+html[data-bs-theme="dark"] .menu-lateral .enlace-menu.activo { background: #1f74bd; }
+
+.barra-superior { background: var(--bs-body-bg) !important; }
+.barra-superior .navbar-brand { font-size: 1.1rem; letter-spacing: 0.01em; }
+
+/* ---------------------------------------------------------------- tipografía y encabezados (SCRUM-107) */
+.contenido h1.h3, .contenido h1.h4 { font-size: 1.55rem; line-height: 1.25; color: var(--bs-heading-color); }
+.valor, .valor-proyeccion, .record .numero, .display-6, .hora-aprobacion-grande {
+  font-family: var(--cf-letra-titulos); font-variant-numeric: tabular-nums; letter-spacing: -0.01em;
+}
+.titulo-grupo, .dia-notificaciones, .ficha-empleado dt, .calendario-mes .cabecera-semana span {
+  text-transform: none; letter-spacing: 0.005em;
+}
+.titulo-grupo { font-size: 0.875rem; color: var(--bs-heading-color); }
+.dia-notificaciones { font-size: 0.8rem; }
+.ficha-empleado dt { font-size: 0.8125rem; }
+
+/* ---------------------------------------------------------------- tablas (SCRUM-108) */
+.table { --bs-table-hover-bg: var(--cf-fondo); font-variant-numeric: tabular-nums; }
+.table > thead th,
+.tabla-reporte-pantalla thead th {
+  text-transform: none; letter-spacing: 0; font-size: 0.8125rem; font-weight: 600;
+  color: var(--cf-texto-tabla); background: var(--cf-fondo); white-space: nowrap;
+  border-bottom: 1px solid var(--bs-border-color);
+}
+.table > tbody > tr { transition: background-color var(--cf-transicion); }
+/* Tablas que llenan una tarjeta: sin margen sobrante y alineadas con el relleno de la tarjeta */
+.card > .table, .card > .table-responsive > .table { margin-bottom: 0; }
+.card > .table > :not(caption) > * > :first-child,
+.card > .table-responsive > .table > :not(caption) > * > :first-child { padding-left: 1.25rem; }
+.card > .table > :not(caption) > * > :last-child,
+.card > .table-responsive > .table > :not(caption) > * > :last-child { padding-right: 1.25rem; }
+.card > .table:first-child > thead th:first-child,
+.card > .table-responsive:first-child > .table > thead th:first-child { border-top-left-radius: calc(var(--bs-border-radius-lg) - 1px); }
+.card > .table:first-child > thead th:last-child,
+.card > .table-responsive:first-child > .table > thead th:last-child { border-top-right-radius: calc(var(--bs-border-radius-lg) - 1px); }
+.card > .table > tbody > tr:last-child > *,
+.card > .table-responsive > .table > tbody > tr:last-child > * { border-bottom: 0; }
+
+/* ---------------------------------------------------------------- insignias y estados (SCRUM-109) */
+.badge { border-radius: 999px; padding: 0.38em 0.72em; font-weight: 600; letter-spacing: 0.005em; }
+.badge.estado-activo { background: var(--cf-exito-suave); color: var(--cf-exito-texto); }
+.badge.estado-vacaciones { background: var(--cf-info-suave); color: var(--cf-info-texto); }
+.badge.estado-licencia { background: var(--cf-neutro-suave); color: var(--cf-noche-medio); }
+.badge.estado-inactivo { background: var(--cf-neutro-suave); color: var(--cf-neutro-texto); }
+.badge.estado-desvinculado { background: var(--cf-peligro-suave); color: var(--cf-peligro-texto); }
+.tipo-observacion { background: var(--cf-neutro-suave) !important; color: var(--cf-neutro-texto); }
+.tipo-observacion.tipo-positiva { background: var(--cf-exito-suave) !important; color: var(--cf-exito-texto); }
+.tipo-observacion.tipo-llamado_atencion { background: var(--cf-peligro-suave) !important; color: var(--cf-peligro-texto); }
+.tipo-observacion.tipo-seguimiento { background: var(--cf-info-suave) !important; color: var(--cf-info-texto); }
+:root { --cf-reunion: var(--cf-noche-medio); --cf-recordatorio: #a35a00; --cf-dami: var(--cf-exito); --cf-no-contesto: var(--cf-ambar); }
+[data-bs-theme="dark"] { --cf-reunion: #4f79a8; --cf-recordatorio: #c27a1f; }
+.contacto-base .acciones .btn[value="NO_CONTESTO"].active { background: var(--cf-ambar); border-color: var(--cf-ambar); color: var(--cf-noche); }
+
+/* Alertas: fondo suave del mismo tono y un filo a la izquierda */
+.alert { border-left-width: 4px; }
+.alert-warning { border-left-color: var(--cf-ambar); }
+.alert-danger { border-left-color: var(--cf-peligro); }
+.alert-success { border-left-color: var(--cf-exito); }
+.alert-info, .alert-primary { border-left-color: var(--cf-azul); }
+
+/* ---------------------------------------------------------------- formularios, botones y tarjetas (SCRUM-110) */
+.btn { transition: color var(--cf-transicion), background-color var(--cf-transicion), border-color var(--cf-transicion), box-shadow var(--cf-transicion); }
+.btn:not(.btn-sm):not(.btn-lg):not(.btn-link) { min-height: 2.5rem; }
+.btn-sm:not(.btn-link) { min-height: 2rem; }
+.btn-acento { min-height: 2.75rem; padding-inline: 1.25rem; }
+.btn:focus-visible { box-shadow: 0 0 0 0.22rem rgba(0, 98, 168, 0.3); }
+.form-control:not(.form-control-sm):not(textarea), .form-select:not(.form-select-sm) { min-height: 2.5rem; }
+.form-control, .form-select, .input-group-text { border-color: var(--cf-borde-campo); }
+.form-control, .form-select { transition: border-color var(--cf-transicion), box-shadow var(--cf-transicion); }
+.form-label { font-size: 0.875rem; font-weight: 600; color: var(--bs-heading-color); margin-bottom: 0.35rem; }
+.invalid-feedback { font-weight: 500; }
+.dami-papel .papel-entrada .form-control { min-height: 0; }
+
+.card-header { padding: 0.85rem 1.25rem; border-bottom-color: var(--bs-border-color); }
+.card-header h2.h6, .card-header h3.h6 { font-size: 0.975rem; font-weight: 600; color: var(--bs-heading-color); }
+.card-footer { border-top-color: var(--bs-border-color); }
+a.card, a .card, .tarjeta-resumen, .tarjeta-modulo { transition: border-color var(--cf-transicion), box-shadow var(--cf-transicion), transform var(--cf-transicion); }
+
+/* ---------------------------------------------------------------- inicio (SCRUM-111) */
+.tarjeta-resumen .card-body { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.75rem; }
+.tarjeta-resumen .valor { margin: 0; font-size: 2rem; font-weight: 600; line-height: 1.05; }
+.tarjeta-resumen .etiqueta-resumen { display: block; margin-top: 0.35rem; font-size: 0.875rem; color: var(--bs-secondary-color); }
+.icono-resumen { flex-shrink: 0; width: 38px; height: 38px; border-radius: 10px; font-size: 1.05rem; background: var(--cf-cielo); color: var(--cf-azul); }
+.fila-pendiente.con-pendientes .icono-pendiente { background: var(--cf-aviso-suave); color: var(--cf-aviso-texto); }
+.cantidad-pendiente { background: var(--cf-ambar); color: var(--cf-noche); font-size: 0.8125rem; }
+@media (max-width: 575.98px) {
+  .tarjeta-resumen .valor { font-size: 1.45rem; }
+  .tarjeta-resumen .etiqueta-resumen { font-size: 0.75rem; line-height: 1.25; }
+}
+[data-bs-theme="dark"] .icono-resumen { color: #9fcdf2; }
+
+/* ---------------------------------------------------------------- pantalla de acceso (SCRUM-112) */
+.panel-marca { background: linear-gradient(160deg, var(--cf-noche) 0%, #0b3d6e 50%, var(--cf-azul) 100%); }
+.panel-marca .lema-acceso { position: absolute; left: 1.75rem; right: 1.75rem; bottom: 1.75rem; max-width: 26rem; color: rgba(255, 255, 255, 0.85); font-size: 0.9375rem; }
+.panel-marca .lema-acceso strong { display: block; margin-bottom: 0.2rem; color: #fff; font-family: var(--cf-letra-titulos); font-size: 1.15rem; font-weight: 600; }
+.panel-marca .lema-acceso::before { content: ""; display: block; width: 3rem; height: 4px; margin-bottom: 0.9rem; border-radius: 2px; background: var(--cf-rosa); }
+.formulario-acceso h1 { font-size: 1.85rem; }
+.formulario-acceso .form-control { min-height: 3rem; font-size: 1rem; }
+.formulario-acceso .btn-primary { min-height: 3rem; font-size: 1rem; font-weight: 600; }
+
+/* ---------------------------------------------------------------- accesibilidad (SCRUM-113) */
+a:focus-visible, summary:focus-visible { outline: 2px solid var(--cf-azul); outline-offset: 2px; border-radius: 4px; }
+[data-bs-theme="dark"] a:focus-visible, [data-bs-theme="dark"] summary:focus-visible { outline-color: #9fcdf2; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; }
+  a.card:hover, a.tarjeta-modulo:hover { transform: none !important; }
+}
+@media print {
+  .badge { border: 1px solid currentColor; }
+}
+
+/* ---------------------------------------------------------------- inicio reorganizado (SCRUM-111)
+   Izquierda: lo que hay que atender. Derecha: a dónde ir (acciones rápidas y directorio de módulos). */
+.cabecera-inicio { margin-bottom: 1.25rem; }
+.franja-resumen { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); overflow: hidden; }
+.celda-resumen {
+  display: flex; align-items: center; gap: 1rem; padding: 1.1rem 1.35rem;
+  color: inherit; text-decoration: none; border-left: 1px solid var(--bs-border-color);
+  transition: background-color var(--cf-transicion);
+}
+.celda-resumen:first-child { border-left: 0; }
+.celda-resumen:hover { background: var(--cf-fondo); color: inherit; }
+.celda-resumen .icono-resumen { width: 44px; height: 44px; border-radius: 12px; font-size: 1.2rem; }
+.celda-resumen .valor { font-size: 1.75rem; font-weight: 600; line-height: 1.1; color: var(--bs-emphasis-color); }
+.celda-resumen .etiqueta-resumen { display: block; margin-top: 0.15rem; font-size: 0.875rem; color: var(--bs-secondary-color); }
+@media (max-width: 575.98px) {
+  .celda-resumen { flex-direction: column; align-items: flex-start; gap: 0.4rem; padding: 0.85rem; }
+  .celda-resumen .icono-resumen { display: none; }
+  .celda-resumen .valor { font-size: 1.4rem; }
+  .celda-resumen .etiqueta-resumen { font-size: 0.75rem; line-height: 1.25; }
+}
+
+.acceso-rapido { display: flex; align-items: center; gap: 0.85rem; padding: 0.8rem 1.25rem; color: var(--bs-body-color); }
+.acceso-rapido > .bi-chevron-right { color: var(--bs-tertiary-color); transition: transform var(--cf-transicion), color var(--cf-transicion); }
+.acceso-rapido:hover > .bi-chevron-right { color: var(--cf-azul); transform: translateX(2px); }
+.icono-acceso { display: inline-grid; place-items: center; flex-shrink: 0; width: 36px; height: 36px; border-radius: 10px; background: var(--cf-cielo); color: var(--cf-azul); }
+.acceso-rapido.principal .icono-acceso { background: var(--cf-azul); color: #fff; }
+[data-bs-theme="dark"] .icono-acceso { color: #9fcdf2; }
+[data-bs-theme="dark"] .acceso-rapido.principal .icono-acceso { background: #1f74bd; color: #fff; }
+
+.directorio-modulos { padding: 0.25rem 1.25rem 1rem; }
+.directorio-modulos .titulo-grupo { margin: 0.9rem 0 0.3rem; font-size: 0.8125rem; font-weight: 600; color: var(--bs-secondary-color); }
+.enlace-modulo {
+  display: flex; align-items: center; gap: 0.75rem; margin: 0 -0.6rem; padding: 0.5rem 0.6rem;
+  border-radius: 0.6rem; color: var(--bs-body-color); text-decoration: none;
+  transition: background-color var(--cf-transicion);
+}
+a.enlace-modulo:hover { background: var(--cf-fondo); color: var(--bs-body-color); }
+.enlace-modulo .icono-modulo { width: 34px; height: 34px; border-radius: 9px; font-size: 1rem; }
+.descripcion-modulo { display: block; font-size: 0.8rem; color: var(--bs-secondary-color); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.enlace-modulo.pendiente { opacity: 0.6; }
+[data-bs-theme="dark"] .enlace-modulo .icono-modulo { color: #9fcdf2; }
+
+/* ---------------------------------------------------------------- formularios por secciones (SCRUM-110)
+   Cada grupo de campos lleva a la izquierda su título, icono y una explicación corta; a la derecha, los campos.
+   La barra de acciones queda fija abajo mientras se llena el formulario. */
+.cabecera-formulario { margin-bottom: 1.25rem; }
+.contenedor-formulario { max-width: 66rem; }
+.formulario-seccion { display: grid; gap: 0.25rem 2.25rem; padding: 1.5rem 1.5rem 0.5rem; border-top: 1px solid var(--bs-border-color); }
+.formulario > .formulario-seccion:first-of-type { border-top: 0; }
+@media (min-width: 992px) {
+  .formulario-seccion { grid-template-columns: 15rem minmax(0, 1fr); padding: 1.75rem 1.75rem 0.75rem; }
+}
+.formulario-seccion-info { margin-bottom: 0.75rem; }
+.formulario-seccion-info h2 { margin: 0.65rem 0 0.25rem; font-family: var(--cf-letra-titulos); font-size: 1rem; font-weight: 600; color: var(--bs-heading-color); }
+.formulario-seccion-info p { margin: 0; font-size: 0.8125rem; line-height: 1.5; color: var(--bs-secondary-color); }
+.formulario-icono { display: inline-grid; place-items: center; width: 38px; height: 38px; border-radius: 10px; background: var(--cf-cielo); color: var(--cf-azul); font-size: 1.1rem; }
+[data-bs-theme="dark"] .formulario-icono { color: #9fcdf2; }
+@media (max-width: 991.98px) {
+  .formulario-seccion-info { display: grid; grid-template-columns: auto 1fr; column-gap: 0.75rem; align-items: center; }
+  .formulario-seccion-info h2 { margin: 0; }
+  .formulario-seccion-info p { grid-column: 1 / -1; margin-top: 0.5rem; }
+}
+.nota-formulario { display: flex; gap: 0.5rem; align-items: baseline; margin: 0 0 1rem; padding: 0.65rem 0.85rem; border-radius: 0.6rem; background: var(--cf-fondo); font-size: 0.8125rem; color: var(--bs-secondary-color); }
+.nota-formulario .bi { color: var(--cf-azul); }
+.recuadro-formulario { margin-bottom: 1rem; padding: 1rem 1rem 0.25rem; border: 1px solid var(--bs-border-color); border-radius: 0.75rem; background: var(--cf-fondo); }
+.formulario-acciones {
+  position: sticky; bottom: 0; z-index: 3; display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem;
+  padding: 0.9rem 1.5rem; border-top: 1px solid var(--bs-border-color); background: var(--cf-fondo);
+  border-radius: 0 0 calc(var(--bs-border-radius-lg) - 1px) calc(var(--bs-border-radius-lg) - 1px);
+}
+@media (min-width: 992px) { .formulario-acciones { padding-inline: 1.75rem; } }
+.formulario-acciones .btn-primary { padding-inline: 1.25rem; font-weight: 600; }
+
+/* Secciones de formularios largos ya armados en tarjetas (p. ej. ficha del empleado) */
+.titulo-seccion-formulario { margin-bottom: 1rem; padding-bottom: 0.75rem; border-bottom: 1px solid var(--bs-border-color); font-family: var(--cf-letra-titulos); font-size: 1rem; font-weight: 600; color: var(--bs-heading-color); }
+
+/* Campos con cuerpo: fondo suave que se vuelve blanco al escribir; ayuda y obligatorios más claros */
+.form-control, .form-select { background-color: #fafcfe; }
+.form-control:focus, .form-select:focus { background-color: #fff; }
+[data-bs-theme="dark"] .form-control, [data-bs-theme="dark"] .form-select { background-color: rgba(255, 255, 255, 0.03); }
+[data-bs-theme="dark"] .form-control:focus, [data-bs-theme="dark"] .form-select:focus { background-color: rgba(255, 255, 255, 0.06); }
+.form-text { margin-top: 0.3rem; font-size: 0.8rem; line-height: 1.45; color: var(--bs-secondary-color); }
+.form-label .text-danger { color: var(--cf-peligro) !important; }
+.card-footer:has(> .btn) { background: var(--cf-fondo) !important; padding: 0.9rem 1.25rem; }
+
+/* ---------------------------------------------------------------- menú lateral plegable (escritorio)
+   Plegado queda una franja de iconos; el nombre de cada módulo sale al pasar el mouse (title) y lo
+   siguen leyendo los lectores de pantalla. En móvil el menú sigue siendo el panel que se abre con ☰. */
+.boton-plegar-menu { align-items: center; color: var(--cf-gris) !important; border-radius: 0.5rem; }
+.boton-plegar-menu:hover { background: var(--cf-fondo); color: var(--cf-azul) !important; }
+@media (min-width: 768px) {
+  .menu-lateral { transition: width 0.2s ease; overflow-x: hidden; }
+  .menu-lateral .texto-menu { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  html.menu-plegado .menu-lateral { width: 76px; }
+  html.menu-plegado .menu-lateral nav { padding-inline: 0.65rem !important; }
+  html.menu-plegado .menu-lateral .texto-menu {
+    position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+  }
+  html.menu-plegado .menu-lateral .enlace-menu { justify-content: center; gap: 0; padding-inline: 0; }
+  html.menu-plegado .menu-lateral .enlace-menu i { width: auto; font-size: 1.15rem; }
+  html.menu-plegado .menu-lateral .enlace-menu.activo::before { left: -0.65rem; }
+  html.menu-plegado .menu-lateral .titulo-seccion { height: 1px; margin: 0.75rem 0.35rem; padding: 0; overflow: hidden; font-size: 0; background: rgba(255, 255, 255, 0.14); }
+  html.menu-plegado .menu-lateral .enlace-menu .badge { position: absolute; top: 2px; right: 4px; margin: 0; padding: 0.2em 0.42em; font-size: 0.6rem; }
+}
+@media (prefers-reduced-motion: reduce) { .menu-lateral { transition: none; } }

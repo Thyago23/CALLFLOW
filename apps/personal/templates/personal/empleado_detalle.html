@@ -82,7 +82,7 @@
       <div class="col-lg-6">
         <div class="card h-100">
           <div class="card-body">
-            <h2 class="h6 text-uppercase text-body-secondary mb-3">Datos personales</h2>
+            <h2 class="titulo-seccion-formulario">Datos personales</h2>
             <dl class="row datos-ficha mb-0">
               <div class="col-sm-6"><dt>{{ empleado.get_tipo_identificacion_display }}</dt><dd>{{ empleado.identificacion }}</dd></div>
               <div class="col-sm-6"><dt>Fecha de nacimiento</dt><dd>{{ empleado.fecha_nacimiento|date:"d/m/Y"|default:"—" }}</dd></div>
@@ -96,7 +96,7 @@
       <div class="col-lg-6">
         <div class="card h-100">
           <div class="card-body">
-            <h2 class="h6 text-uppercase text-body-secondary mb-3">Datos laborales</h2>
+            <h2 class="titulo-seccion-formulario">Datos laborales</h2>
             <dl class="row datos-ficha mb-0">
               <div class="col-sm-6"><dt>Cargo</dt><dd>{{ empleado.cargo }}</dd></div>
               <div class="col-sm-6"><dt>Estado</dt><dd><span class="badge estado-{{ empleado.estado|lower }}">{{ empleado.get_estado_display }}</span></dd></div>
@@ -180,7 +180,7 @@
       <div class="col-lg-5 order-lg-2">
         <div class="card">
           <div class="card-body">
-            <h2 class="h6 text-uppercase text-body-secondary mb-3">Generar contrato</h2>
+            <h2 class="titulo-seccion-formulario">Generar contrato</h2>
             {% if contrato_form.fields.plantilla.queryset.exists %}
             <form method="post" action="{% url 'documentos:contrato_generar' empleado.pk %}" id="formulario-contrato">
               {% csrf_token %}
@@ -339,7 +339,7 @@
       <div class="col-lg-5 order-lg-2">
         <div class="card">
           <div class="card-body">
-            <h2 class="h6 text-uppercase text-body-secondary mb-3">Nueva observación</h2>
+            <h2 class="titulo-seccion-formulario">Nueva observación</h2>
             <form method="post" action="{% url 'personal:observacion_crear' empleado.pk %}">
               {% csrf_token %}
               {% include "_campo.html" with campo=observacion_form.tipo %}

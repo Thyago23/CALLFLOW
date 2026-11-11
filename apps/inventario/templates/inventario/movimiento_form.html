@@ -7,13 +7,22 @@
     <li class="breadcrumb-item active" aria-current="page">Registrar movimiento</li>
   </ol>
 </nav>
-<h1 class="h3 mb-3">Registrar movimiento</h1>
-<div class="row">
-  <div class="col-lg-7">
-    {% for error in form.non_field_errors %}<div class="alert alert-danger">{{ error }}</div>{% endfor %}
-    <form method="post" novalidate class="card">
-      <div class="card-body">
-        {% csrf_token %}
+<header class="cabecera-formulario">
+  <h1 class="h3 mb-1">Registrar movimiento</h1>
+  <p class="text-body-secondary mb-0">Cada entrada, salida o ajuste cambia el stock y queda en el historial del material.</p>
+</header>
+
+<div class="contenedor-formulario">
+  {% for error in form.non_field_errors %}<div class="alert alert-danger">{{ error }}</div>{% endfor %}
+  <form method="post" novalidate class="card formulario">
+    {% csrf_token %}
+    <section class="formulario-seccion">
+      <div class="formulario-seccion-info">
+        <span class="formulario-icono" aria-hidden="true"><i class="bi bi-arrow-left-right"></i></span>
+        <h2>Movimiento</h2>
+        <p>Entrada: compras o devoluciones. Salida: entregas para uso. Ajustes: correcciones por conteo físico, daño o pérdida.</p>
+      </div>
+      <div>
         {% include "_campo.html" with campo=form.material %}
         <fieldset class="mb-3">
           <legend class="form-label fs-6">Tipo de movimiento <span class="text-danger" aria-hidden="true">*</span></legend>
@@ -26,18 +35,27 @@
             {% endfor %}
           </div>
           {% for error in form.tipo.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
-          <div class="form-text">Entrada: compras o devoluciones · Salida: entregas para uso · Ajustes: correcciones por conteo físico, daño o pérdida.</div>
         </fieldset>
-        <div class="row">
-          <div class="col-sm-4">{% include "_campo.html" with campo=form.cantidad %}</div>
-          <div class="col-sm-8">{% include "_campo.html" with campo=form.motivo ayuda=form.motivo.help_text %}</div>
-        </div>
       </div>
-      <div class="card-footer bg-body d-flex justify-content-end gap-2">
-        <a href="{% url 'inventario:materiales' %}" class="btn btn-outline-secondary">Cancelar</a>
-        <button type="submit" class="btn btn-primary">Registrar</button>
+    </section>
+
+    <section class="formulario-seccion">
+      <div class="formulario-seccion-info">
+        <span class="formulario-icono" aria-hidden="true"><i class="bi bi-123"></i></span>
+        <h2>Detalle</h2>
+        <p>La cantidad se suma o se resta del stock según el tipo elegido.</p>
       </div>
-    </form>
-  </div>
+      <div class="row">
+        <div class="col-sm-4">{% include "_campo.html" with campo=form.cantidad %}</div>
+        <div class="col-sm-8">{% include "_campo.html" with campo=form.motivo ayuda=form.motivo.help_text %}</div>
+      </div>
+    </section>
+
+    <div class="formulario-acciones">
+      <span class="small text-body-secondary d-none d-sm-inline"><span class="text-danger">*</span> Campo obligatorio</span>
+      <a href="{% url 'inventario:materiales' %}" class="btn btn-outline-secondary ms-auto">Cancelar</a>
+      <button type="submit" class="btn btn-primary"><i class="bi bi-check2" aria-hidden="true"></i> Registrar movimiento</button>
+    </div>
+  </form>
 </div>
 {% endblock %}

@@ -8,32 +8,61 @@
     <li class="breadcrumb-item active" aria-current="page">{% if nuevo %}Nuevo material{% else %}Editar{% endif %}</li>
   </ol>
 </nav>
-<h1 class="h3 mb-3">{% if nuevo %}Nuevo material{% else %}Editar material{% endif %}</h1>
-<div class="row">
-  <div class="col-lg-8">
-    {% for error in form.non_field_errors %}<div class="alert alert-danger">{{ error }}</div>{% endfor %}
-    <form method="post" novalidate class="card">
-      <div class="card-body">
-        {% csrf_token %}
-        <div class="row">
-          <div class="col-md-8">{% include "_campo.html" with campo=form.nombre %}</div>
-          <div class="col-md-4">{% include "_campo.html" with campo=form.codigo ayuda=form.codigo.help_text %}</div>
-          <div class="col-md-6">{% include "_campo.html" with campo=form.categoria %}</div>
-          <div class="col-md-6">{% include "_campo.html" with campo=form.categoria_nueva %}</div>
-          <div class="col-sm-4">{% include "_campo.html" with campo=form.unidad_medida %}</div>
-          <div class="col-sm-4">{% include "_campo.html" with campo=form.stock_minimo ayuda=form.stock_minimo.help_text %}</div>
-          {% if form.stock_inicial %}<div class="col-sm-4">{% include "_campo.html" with campo=form.stock_inicial ayuda=form.stock_inicial.help_text %}</div>{% endif %}
-          <div class="col-12">{% include "_campo.html" with campo=form.descripcion %}</div>
-        </div>
-        {% if not nuevo %}
-        <p class="small text-body-secondary mb-0"><i class="bi bi-info-circle me-1" aria-hidden="true"></i>El stock no se edita aquí: cambia solo con movimientos (entradas, salidas o ajustes).</p>
-        {% endif %}
+<header class="cabecera-formulario">
+  <h1 class="h3 mb-1">{% if nuevo %}Nuevo material{% else %}Editar material{% endif %}</h1>
+  <p class="text-body-secondary mb-0">{% if nuevo %}Registre un material de oficina para controlar sus existencias.{% else %}Cambie los datos de {{ material.nombre }}.{% endif %}</p>
+</header>
+
+<div class="contenedor-formulario">
+  {% for error in form.non_field_errors %}<div class="alert alert-danger">{{ error }}</div>{% endfor %}
+  <form method="post" novalidate class="card formulario">
+    {% csrf_token %}
+    <section class="formulario-seccion">
+      <div class="formulario-seccion-info">
+        <span class="formulario-icono" aria-hidden="true"><i class="bi bi-tag"></i></span>
+        <h2>Identificación</h2>
+        <p>Cómo se reconoce el material en el inventario y en los reportes.</p>
       </div>
-      <div class="card-footer bg-body d-flex justify-content-end gap-2">
-        <a href="{% if nuevo %}{% url 'inventario:materiales' %}{% else %}{% url 'inventario:material_detalle' material.pk %}{% endif %}" class="btn btn-outline-secondary">Cancelar</a>
-        <button type="submit" class="btn btn-primary">Guardar</button>
+      <div class="row">
+        <div class="col-md-8">{% include "_campo.html" with campo=form.nombre %}</div>
+        <div class="col-md-4">{% include "_campo.html" with campo=form.codigo ayuda=form.codigo.help_text %}</div>
+        <div class="col-12">{% include "_campo.html" with campo=form.descripcion %}</div>
       </div>
-    </form>
-  </div>
+    </section>
+
+    <section class="formulario-seccion">
+      <div class="formulario-seccion-info">
+        <span class="formulario-icono" aria-hidden="true"><i class="bi bi-folder2"></i></span>
+        <h2>Categoría</h2>
+        <p>Agrupa materiales parecidos. Elija una existente o escriba una nueva.</p>
+      </div>
+      <div class="row">
+        <div class="col-md-6">{% include "_campo.html" with campo=form.categoria %}</div>
+        <div class="col-md-6">{% include "_campo.html" with campo=form.categoria_nueva %}</div>
+      </div>
+    </section>
+
+    <section class="formulario-seccion">
+      <div class="formulario-seccion-info">
+        <span class="formulario-icono" aria-hidden="true"><i class="bi bi-box-seam"></i></span>
+        <h2>Existencias</h2>
+        <p>Cuando el stock baja del mínimo, el sistema avisa a los administradores.</p>
+      </div>
+      <div class="row">
+        <div class="col-sm-4">{% include "_campo.html" with campo=form.unidad_medida %}</div>
+        <div class="col-sm-4">{% include "_campo.html" with campo=form.stock_minimo ayuda=form.stock_minimo.help_text %}</div>
+        {% if form.stock_inicial %}<div class="col-sm-4">{% include "_campo.html" with campo=form.stock_inicial ayuda=form.stock_inicial.help_text %}</div>{% endif %}
+      </div>
+      {% if not nuevo %}
+      <p class="nota-formulario"><i class="bi bi-info-circle" aria-hidden="true"></i>El stock no se edita aquí: cambia solo con movimientos (entradas, salidas o ajustes).</p>
+      {% endif %}
+    </section>
+
+    <div class="formulario-acciones">
+      <span class="small text-body-secondary d-none d-sm-inline"><span class="text-danger">*</span> Campo obligatorio</span>
+      <a href="{% if nuevo %}{% url 'inventario:materiales' %}{% else %}{% url 'inventario:material_detalle' material.pk %}{% endif %}" class="btn btn-outline-secondary ms-auto">Cancelar</a>
+      <button type="submit" class="btn btn-primary"><i class="bi bi-check2" aria-hidden="true"></i> Guardar material</button>
+    </div>
+  </form>
 </div>
 {% endblock %}

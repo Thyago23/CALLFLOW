@@ -8,27 +8,46 @@
     <li class="breadcrumb-item active" aria-current="page">{% if nuevo %}Nuevo chip{% else %}Editar{% endif %}</li>
   </ol>
 </nav>
-<h1 class="h3 mb-3">{% if nuevo %}Nuevo chip{% else %}Editar chip {{ chip.numero }}{% endif %}</h1>
-<div class="row">
-  <div class="col-lg-8">
-    {% for error in form.non_field_errors %}<div class="alert alert-danger">{{ error }}</div>{% endfor %}
-    <form method="post" novalidate class="card">
-      <div class="card-body">
-        {% csrf_token %}
-        <div class="row">
-          <div class="col-md-6">{% include "_campo.html" with campo=form.numero ayuda=form.numero.help_text %}</div>
-          <div class="col-md-6">{% include "_campo.html" with campo=form.operadora %}</div>
-          <div class="col-md-6">{% include "_campo.html" with campo=form.iccid ayuda=form.iccid.help_text %}</div>
-          {% if form.estado %}<div class="col-md-6">{% include "_campo.html" with campo=form.estado ayuda=form.estado.help_text %}</div>{% endif %}
-          <div class="col-md-6">{% include "_campo.html" with campo=form.asignado_a %}</div>
-          <div class="col-12">{% include "_campo.html" with campo=form.observacion %}</div>
-        </div>
+<header class="cabecera-formulario">
+  <h1 class="h3 mb-1">{% if nuevo %}Nuevo chip{% else %}Editar chip {{ chip.numero }}{% endif %}</h1>
+  <p class="text-body-secondary mb-0">{% if nuevo %}Registre una línea telefónica de la empresa y a quién está asignada.{% else %}Cambie los datos o la asignación de esta línea.{% endif %}</p>
+</header>
+
+<div class="contenedor-formulario">
+  {% for error in form.non_field_errors %}<div class="alert alert-danger">{{ error }}</div>{% endfor %}
+  <form method="post" novalidate class="card formulario">
+    {% csrf_token %}
+    <section class="formulario-seccion">
+      <div class="formulario-seccion-info">
+        <span class="formulario-icono" aria-hidden="true"><i class="bi bi-sim"></i></span>
+        <h2>Línea</h2>
+        <p>Número, operadora e ICCID impreso en el chip.</p>
       </div>
-      <div class="card-footer bg-body d-flex justify-content-end gap-2">
-        <a href="{% if nuevo %}{% url 'chips:lista' %}{% else %}{% url 'chips:detalle' chip.pk %}{% endif %}" class="btn btn-outline-secondary">Cancelar</a>
-        <button type="submit" class="btn btn-primary">Guardar</button>
+      <div class="row">
+        <div class="col-md-6">{% include "_campo.html" with campo=form.numero ayuda=form.numero.help_text %}</div>
+        <div class="col-md-6">{% include "_campo.html" with campo=form.operadora %}</div>
+        <div class="col-md-6">{% include "_campo.html" with campo=form.iccid ayuda=form.iccid.help_text %}</div>
+        {% if form.estado %}<div class="col-md-6">{% include "_campo.html" with campo=form.estado ayuda=form.estado.help_text %}</div>{% endif %}
       </div>
-    </form>
-  </div>
+    </section>
+
+    <section class="formulario-seccion">
+      <div class="formulario-seccion-info">
+        <span class="formulario-icono" aria-hidden="true"><i class="bi bi-person-check"></i></span>
+        <h2>Asignación</h2>
+        <p>Quién usa la línea y cualquier nota que convenga recordar.</p>
+      </div>
+      <div class="row">
+        <div class="col-md-6">{% include "_campo.html" with campo=form.asignado_a %}</div>
+        <div class="col-12">{% include "_campo.html" with campo=form.observacion %}</div>
+      </div>
+    </section>
+
+    <div class="formulario-acciones">
+      <span class="small text-body-secondary d-none d-sm-inline"><span class="text-danger">*</span> Campo obligatorio</span>
+      <a href="{% if nuevo %}{% url 'chips:lista' %}{% else %}{% url 'chips:detalle' chip.pk %}{% endif %}" class="btn btn-outline-secondary ms-auto">Cancelar</a>
+      <button type="submit" class="btn btn-primary"><i class="bi bi-check2" aria-hidden="true"></i> Guardar chip</button>
+    </div>
+  </form>
 </div>
 {% endblock %}

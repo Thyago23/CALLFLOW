@@ -8,19 +8,27 @@
     <li class="breadcrumb-item active" aria-current="page">Reposición</li>
   </ol>
 </nav>
-<h1 class="h3 mb-1">Registrar reposición</h1>
-<p class="text-body-secondary mb-3">Chip <strong class="font-monospace">{{ chip.numero }}</strong> · {{ chip.get_operadora_display }}{% if chip.asignado_a %} · {{ chip.asignado_a }}{% endif %}. Queda guardada en el historial y en el reporte; no se puede editar después.</p>
-<div class="row">
-  <div class="col-lg-8">
-    {% for error in form.non_field_errors %}<div class="alert alert-danger">{{ error }}</div>{% endfor %}
-    <form method="post" novalidate class="card">
-      <div class="card-body">
-        {% csrf_token %}
+<header class="cabecera-formulario">
+  <h1 class="h3 mb-1">Registrar reposición</h1>
+  <p class="text-body-secondary mb-0">Chip <strong class="font-monospace">{{ chip.numero }}</strong> · {{ chip.get_operadora_display }}{% if chip.asignado_a %} · {{ chip.asignado_a }}{% endif %}</p>
+</header>
+
+<div class="contenedor-formulario">
+  {% for error in form.non_field_errors %}<div class="alert alert-danger">{{ error }}</div>{% endfor %}
+  <form method="post" novalidate class="card formulario">
+    {% csrf_token %}
+    <section class="formulario-seccion">
+      <div class="formulario-seccion-info">
+        <span class="formulario-icono" aria-hidden="true"><i class="bi bi-arrow-repeat"></i></span>
+        <h2>Reposición</h2>
+        <p>Cuándo y por qué se repuso el chip. Queda en el historial y en el reporte, y no se puede editar después.</p>
+      </div>
+      <div>
         <div class="row">
           <div class="col-md-6">{% include "_campo.html" with campo=form.fecha %}</div>
           <div class="col-md-6">{% include "_campo.html" with campo=form.motivo %}</div>
         </div>
-        <div class="border rounded p-3 mb-3">
+        <div class="recuadro-formulario">
           <div class="form-check mb-2">
             {{ form.cambia_numero }}
             <label class="form-check-label fw-semibold" for="{{ form.cambia_numero.id_for_label }}">{{ form.cambia_numero.label }}</label>
@@ -30,19 +38,29 @@
             {% include "_campo.html" with campo=form.numero_nuevo ayuda=form.numero_nuevo.help_text %}
           </div>
         </div>
-        <div class="row">
-          <div class="col-md-6">{% include "_campo.html" with campo=form.iccid_nuevo ayuda=form.iccid_nuevo.help_text %}</div>
-          <div class="col-md-3">{% include "_campo.html" with campo=form.operadora %}</div>
-          <div class="col-md-3">{% include "_campo.html" with campo=form.costo ayuda=form.costo.help_text %}</div>
-          <div class="col-12">{% include "_campo.html" with campo=form.observacion %}</div>
-        </div>
       </div>
-      <div class="card-footer bg-body d-flex justify-content-end gap-2">
-        <a href="{% url 'chips:detalle' chip.pk %}" class="btn btn-outline-secondary">Cancelar</a>
-        <button type="submit" class="btn btn-primary"><i class="bi bi-check2 me-1" aria-hidden="true"></i>Guardar reposición</button>
+    </section>
+
+    <section class="formulario-seccion">
+      <div class="formulario-seccion-info">
+        <span class="formulario-icono" aria-hidden="true"><i class="bi bi-sim"></i></span>
+        <h2>Chip nuevo</h2>
+        <p>Datos del chip que reemplaza al anterior y lo que costó.</p>
       </div>
-    </form>
-  </div>
+      <div class="row">
+        <div class="col-md-6">{% include "_campo.html" with campo=form.iccid_nuevo ayuda=form.iccid_nuevo.help_text %}</div>
+        <div class="col-md-3">{% include "_campo.html" with campo=form.operadora %}</div>
+        <div class="col-md-3">{% include "_campo.html" with campo=form.costo ayuda=form.costo.help_text %}</div>
+        <div class="col-12">{% include "_campo.html" with campo=form.observacion %}</div>
+      </div>
+    </section>
+
+    <div class="formulario-acciones">
+      <span class="small text-body-secondary d-none d-sm-inline"><span class="text-danger">*</span> Campo obligatorio</span>
+      <a href="{% url 'chips:detalle' chip.pk %}" class="btn btn-outline-secondary ms-auto">Cancelar</a>
+      <button type="submit" class="btn btn-primary"><i class="bi bi-check2" aria-hidden="true"></i> Guardar reposición</button>
+    </div>
+  </form>
 </div>
 <script>
   (function () {

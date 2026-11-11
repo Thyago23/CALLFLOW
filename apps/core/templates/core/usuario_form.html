@@ -7,49 +7,48 @@
     <li class="breadcrumb-item active" aria-current="page">Crear usuario</li>
   </ol>
 </nav>
-<h1 class="h3 mb-1">Crear usuario</h1>
-<p class="text-body-secondary mb-4">El sistema generará el usuario y su código de acceso.</p>
+<header class="cabecera-formulario">
+  <h1 class="h3 mb-1">Crear usuario</h1>
+  <p class="text-body-secondary mb-0">El sistema generará el usuario y su código de acceso.</p>
+</header>
 
-<div class="row g-4">
-  <div class="col-lg-7">
-    {% if form.errors %}
-    <div class="alert alert-danger" role="alert">Revise los campos marcados en rojo.</div>
-    {% endif %}
-    <form method="post" novalidate class="card">
-      <div class="card-body">
-        {% csrf_token %}
-        <div class="row">
-          <div class="col-sm-6">{% include "_campo.html" with campo=form.first_name %}</div>
-          <div class="col-sm-6">{% include "_campo.html" with campo=form.last_name %}</div>
-        </div>
-        <div class="row">
-          <div class="col-sm-6">{% include "_campo.html" with campo=form.rol %}</div>
-          <div class="col-sm-6">{% include "_campo.html" with campo=form.email ayuda=form.email.help_text %}</div>
-        </div>
-        {% include "_campo.html" with campo=form.empleado ayuda=form.empleado.help_text %}
+<div class="contenedor-formulario">
+  {% if form.errors %}
+  <div class="alert alert-danger" role="alert">Revise los campos marcados en rojo.</div>
+  {% endif %}
+  <form method="post" novalidate class="card formulario">
+    {% csrf_token %}
+    <section class="formulario-seccion">
+      <div class="formulario-seccion-info">
+        <span class="formulario-icono" aria-hidden="true"><i class="bi bi-person"></i></span>
+        <h2>Persona</h2>
+        <p>Con el primer nombre y el primer apellido se arma el usuario: Lucía Mora → <span class="codigo-chip">lucia.mora</span>.</p>
       </div>
-      <div class="card-footer bg-body d-flex gap-2 justify-content-end">
-        <a href="{% url 'usuarios' %}" class="btn btn-outline-secondary">Cancelar</a>
-        <button type="submit" class="btn btn-primary">Crear y generar credenciales</button>
+      <div class="row">
+        <div class="col-sm-6">{% include "_campo.html" with campo=form.first_name %}</div>
+        <div class="col-sm-6">{% include "_campo.html" with campo=form.last_name %}</div>
+        <div class="col-12">{% include "_campo.html" with campo=form.email ayuda=form.email.help_text %}</div>
       </div>
-    </form>
-  </div>
-  <div class="col-lg-5">
-    <div class="card bg-body-tertiary border-0">
-      <div class="card-body small">
-        <h2 class="h6"><i class="bi bi-info-circle me-1" aria-hidden="true"></i>¿Qué credenciales se generan?</h2>
-        <p class="mb-1"><strong>Usuario:</strong> primer nombre y primer apellido, sin tildes.</p>
-        <ul class="mb-3 ps-3">
-          <li>Lucía Mora → <span class="codigo-chip">lucia.mora</span></li>
-          <li>Otra Lucía Mora → <span class="codigo-chip">lucia.mora2</span></li>
-        </ul>
-        <p class="mb-1"><strong>Código de acceso</strong> (es su contraseña): iniciales + 8 dígitos aleatorios.</p>
-        <ul class="mb-3 ps-3">
-          <li>Lucía Mora → <span class="codigo-chip">LM48207153</span></li>
-        </ul>
-        <p class="mb-0">El código es aleatorio, así que no se puede adivinar con la cédula ni con otro dato personal. Se muestra una sola vez.</p>
+    </section>
+
+    <section class="formulario-seccion">
+      <div class="formulario-seccion-info">
+        <span class="formulario-icono" aria-hidden="true"><i class="bi bi-shield-lock"></i></span>
+        <h2>Acceso</h2>
+        <p>El rol decide qué módulos ve. Si la persona es empleada, vincule su ficha.</p>
       </div>
+      <div class="row">
+        <div class="col-sm-6">{% include "_campo.html" with campo=form.rol %}</div>
+        <div class="col-12">{% include "_campo.html" with campo=form.empleado ayuda=form.empleado.help_text %}</div>
+      </div>
+      <p class="nota-formulario"><i class="bi bi-key" aria-hidden="true"></i><span>El código de acceso (su contraseña) son las iniciales más 8 dígitos aleatorios, p. ej. <span class="codigo-chip">LM48207153</span>. No se puede adivinar con la cédula y se muestra una sola vez.</span></p>
+    </section>
+
+    <div class="formulario-acciones">
+      <span class="small text-body-secondary d-none d-sm-inline"><span class="text-danger">*</span> Campo obligatorio</span>
+      <a href="{% url 'usuarios' %}" class="btn btn-outline-secondary ms-auto">Cancelar</a>
+      <button type="submit" class="btn btn-primary"><i class="bi bi-check2" aria-hidden="true"></i> Crear y generar credenciales</button>
     </div>
-  </div>
+  </form>
 </div>
 {% endblock %}

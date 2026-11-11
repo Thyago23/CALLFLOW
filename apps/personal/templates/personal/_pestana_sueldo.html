@@ -28,7 +28,7 @@
     <div class="col-lg-6">
       <div class="card h-100">
         <div class="card-body">
-          <h2 class="h6 text-uppercase text-body-secondary mb-2">Sueldo base</h2>
+          <h2 class="titulo-seccion-formulario">Sueldo base</h2>
           {% with actual=salarios.0 %}
           <div class="fs-4 fw-semibold mb-3">{% if actual and not actual.vigente_hasta %}$ {{ actual.salario_base }}{% else %}<span class="text-body-secondary fs-6">Sin sueldo vigente</span>{% endif %}</div>
           {% endwith %}
@@ -60,7 +60,7 @@
     <div class="col-lg-6">
       <div class="card h-100">
         <div class="card-body">
-          <h2 class="h6 text-uppercase text-body-secondary mb-2">Equipo y comisiones</h2>
+          <h2 class="titulo-seccion-formulario">Equipo y comisiones</h2>
           {% with actual=equipos.0 %}
           {% if actual and not actual.vigente_hasta %}
           <div class="fs-5 fw-semibold">{{ actual.esquema }}</div>

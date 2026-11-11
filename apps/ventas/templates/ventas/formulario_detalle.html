@@ -43,7 +43,7 @@
     <section class="card mb-4">
       <div class="card-body">
         <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-          <h2 class="h6 text-uppercase text-body-secondary mb-0">Cliente</h2>
+          <h2 class="titulo-seccion-formulario border-0 p-0 m-0">Cliente</h2>
           {% if perms.agenda.add_evento %}
           <a href="{% url 'agenda:crear' %}?cliente={{ f.cliente.pk }}&volver={{ request.get_full_path|urlencode }}" class="btn btn-sm btn-outline-primary">
             <i class="bi bi-calendar-plus me-1" aria-hidden="true"></i>Agendar llamada</a>
@@ -67,7 +67,7 @@
     </section>
     <section class="card">
       <div class="card-body">
-        <h2 class="h6 text-uppercase text-body-secondary mb-3">Tarjeta para realizar el pago</h2>
+        <h2 class="titulo-seccion-formulario">Tarjeta para realizar el pago</h2>
         <dl class="row datos-ficha mb-0">
           {% if tarjeta %}
           <div class="col-sm-6"><dt>Tarjeta</dt><dd>{{ tarjeta.get_marca_display }}</dd></div>
