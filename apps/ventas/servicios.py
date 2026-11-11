@@ -118,10 +118,12 @@ def guardar_cliente(datos: dict) -> Cliente:
 # --------------------------------------------------------------------------- formulario DAMI (SCRUM-38, 40, 41)
 @transaction.atomic
 def guardar_formulario(usuario, datos: dict, formulario: FormularioDAMI | None = None, *, enviar: bool,
-                       para=None) -> FormularioDAMI:
+                       para=None, contacto: RegistroBase | None = None) -> FormularioDAMI:
     """
     `para`: el vendedor dueño del cliente cuando el usuario llena el DAMI como ayuda (ver `ayuda_aceptada`).
     Entonces el DAMI es de `para` (su hoja de producción y sus ventas) y queda registrado quién lo llenó.
+    `contacto`: el contacto de la base desde el que se abrió «Llenar DAMI». El DAMI queda ligado a esa base
+    y el contacto pasa solo a «DAMI sacado» (antes el vendedor tenía que categorizarlo aparte).
     """
     empleado = empleado_de(usuario)
     if not es_vendedor(usuario):
@@ -134,15 +136,30 @@ def guardar_formulario(usuario, datos: dict, formulario: FormularioDAMI | None =
         ayuda = para is not None and para.pk != empleado.pk
         formulario = FormularioDAMI(vendedor=para if ayuda else empleado, ayudado_por=empleado if ayuda else None)
     formulario.cliente = cliente
-    formulario.base_comercial = datos.get("base_comercial")
+    # Ningún formulario trae «base_comercial»: sale del contacto. Al editar un borrador se conserva la que ya tenía.
+    if contacto is not None:
+        formulario.base_comercial_id = contacto.base_id
     formulario.observaciones = (datos.get("observaciones") or "").strip()
     formulario.producto = datos.get("producto") or ""
     formulario.save()
     if datos.get("tarjeta"):
         guardar_tarjeta(formulario, datos["tarjeta"])
+    if contacto is not None:
+        _marcar_dami_sacado(contacto)
     if enviar:
         enviar_formulario(usuario, formulario)
     return formulario
+
+
+def _marcar_dami_sacado(contacto: RegistroBase) -> None:
+    """El contacto con el que se llenó el DAMI queda como «DAMI sacado» (si ya lo estaba, no se toca)."""
+    registro = RegistroBase.objects.select_for_update().get(pk=contacto.pk)
+    if registro.estado == RegistroBase.Estado.DAMI_SACADO:
+        return
+    registro.estado = RegistroBase.Estado.DAMI_SACADO
+    registro.gestionado_en = timezone.now()
+    registro.intentos += 1
+    registro.save(update_fields=["estado", "gestionado_en", "intentos", "actualizado_en"])
 
 
 @transaction.atomic

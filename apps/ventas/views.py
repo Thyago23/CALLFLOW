@@ -85,10 +85,10 @@ def _form_dami(request, data=None, formulario=None):
     return FormularioDAMIForm(data, tarjeta_guardada=getattr(formulario, "tarjeta", None) if formulario else None)
 
 
-def _guardar(request, form, formulario=None, para=None):
+def _guardar(request, form, formulario=None, para=None, contacto=None):
     enviar = "enviar" in request.POST
     try:
-        f = servicios.guardar_formulario(request.user, form.cleaned_data, formulario, enviar=enviar, para=para)
+        f = servicios.guardar_formulario(request.user, form.cleaned_data, formulario, enviar=enviar, para=para, contacto=contacto)
     except ValidationError as error:
         form.add_error("numero_tarjeta" if "tarjeta" in " ".join(error.messages) else None, error)
         return None
@@ -122,7 +122,7 @@ def formulario_nuevo(request):
         form.initial.update(servicios.datos_dami_de_contacto(contacto))
     if request.method == "POST" and form.is_valid():
         # Si es una ayuda, el DAMI queda a nombre del asesor que pidió la ayuda (dueño del cliente).
-        respuesta = _guardar(request, form, para=ayuda.solicitante if ayuda else None)
+        respuesta = _guardar(request, form, para=ayuda.solicitante if ayuda else None, contacto=contacto)
         if respuesta:
             return respuesta
     return render(request, "ventas/formulario_form.html", {

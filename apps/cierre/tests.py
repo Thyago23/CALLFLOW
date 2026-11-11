@@ -5,7 +5,9 @@ from decimal import Decimal as D
 from cryptography.fernet import Fernet
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.management import call_command
+from django.db import connection
 from django.test import TestCase, override_settings
+from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from django.utils import timezone
 
@@ -312,6 +314,15 @@ class MetasTests(BaseCierre):
         self.assertEqual(MetaMensual.objects.get(vendedor=self.pedro.empleado, mes=11).monto_meta, D("700"))  # no se pisa
         self.assertEqual(servicios.copiar_metas_mes_anterior(self.ana, 2026, 1), 0)  # enero copia de diciembre
 
+    def test_solo_acepta_metas_de_vendedores_activos(self):
+        """Antes guardaba cualquier «meta-<id>»: un encargado salía en el panel y en la TV, y un id inexistente daba error 500."""
+        self.client.force_login(self.admin)
+        respuesta = self.client.post(reverse("cierre:metas"), {
+            "anio": 2026, "mes": 11, f"meta-{self.lucia.empleado.pk}": "1500", f"meta-{self.ana.empleado.pk}": "900", "meta-999999": "100"})
+        self.assertEqual(respuesta.status_code, 302)
+        self.assertEqual(list(MetaMensual.objects.values_list("vendedor_id", flat=True)), [self.lucia.empleado.pk])
+        self.assertNotIn(self.ana.empleado, [f.vendedor for f in servicios.panel_comercial(2026, 11, self.admin).filas])
+
     def test_vendedor_no_define_metas(self):
         self.client.force_login(self.lucia)
         self.assertEqual(self.client.get(reverse("cierre:metas")).status_code, 403)
@@ -455,6 +466,28 @@ class TableroVentasTests(BaseCierre):
             self.assertContains(respuesta, texto)
         self.assertEqual(respuesta.context["mejor"].vendedor, self.lucia.empleado)
         self.assertEqual([f.ancho for f in respuesta.context["filas"]], [100, 82])
+
+    def test_consultas_constantes_aunque_crezcan_los_vendedores_y_los_gestionados(self):
+        """Antes el tablero pedía el usuario de cada vendedor y «Gestionados» la tarjeta de cada fila (una consulta por fila)."""
+        self.cerrar_venta(self.lucia, "300", "1710034065")
+        self.client.force_login(self.ana)
+        url_tv, url_g = reverse("tablero:ventas"), reverse("cierre:bandeja")
+
+        def consultas(url, datos=None):
+            # La primera petición hace trabajo de una sola vez (avisos push pendientes, cachés): se descarta.
+            self.client.get(url, datos or {}, HTTP_HX_REQUEST="true")
+            with CaptureQueriesContext(connection) as c:
+                respuesta = self.client.get(url, datos or {}, HTTP_HX_REQUEST="true")
+            self.assertEqual(respuesta.status_code, 200)
+            return len(c)
+
+        antes_tv, antes_g = consultas(url_tv), consultas(url_g, {"vista": "gestionados"})
+        for i, cedula in enumerate(["0926687856", "1103000004", "1710000009"]):
+            nuevo = self.persona(f"extra.{i}", f"Extra{i}", "Prueba", Rol.VENDEDOR, ["1710000009", "0912345683", "1712345683"][i], "Vendedor telefónico")
+            self.cerrar_venta(nuevo, "100", cedula)
+        self.client.force_login(self.ana)  # cerrar_venta inicia sesión como el vendedor
+        self.assertEqual(consultas(url_tv), antes_tv)
+        self.assertEqual(consultas(url_g, {"vista": "gestionados"}), antes_g)
 
     def test_venta_mas_alta_y_sin_destacar(self):
         self.cerrar_venta(self.lucia, "300", "1710034065")

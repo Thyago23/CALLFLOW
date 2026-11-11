@@ -257,6 +257,28 @@ class GestionDelVendedorTests(BaseVentas):
         ajeno = self.client.get(reverse("ventas:formulario_nuevo"), {"contacto": self.de_pedro.pk})
         self.assertNotIn("telefono", ajeno.context["form"].initial)
 
+    def test_el_dami_desde_un_contacto_queda_ligado_a_la_base_y_marca_el_contacto(self):
+        """Antes el DAMI quedaba sin base comercial y el contacto seguía «Pendiente» hasta categorizarlo a mano."""
+        self.client.force_login(self.lucia)
+        contacto = self.de_lucia[0]
+        self.client.post(reverse("ventas:formulario_nuevo"), CLIENTE | {"contacto": contacto.pk, "enviar": ""})
+        dami = FormularioDAMI.objects.get()
+        contacto.refresh_from_db()
+        self.assertEqual((dami.estado, dami.base_comercial), ("ENVIADO", self.base))
+        self.assertEqual((contacto.estado, contacto.intentos), ("DAMI_SACADO", 1))
+        self.assertIsNotNone(contacto.gestionado_en)
+        self.assertEqual(servicios.efectividad_bases(self.base)[0]["dami_sacado"], 1)
+        # Un contacto ajeno no se marca ni presta su base.
+        self.client.post(reverse("ventas:formulario_nuevo"), CLIENTE | {"cedula": "0926687856", "contacto": self.de_pedro.pk})
+        borrador = FormularioDAMI.objects.exclude(pk=dami.pk).get()
+        self.assertIsNone(borrador.base_comercial)
+        self.assertEqual(RegistroBase.objects.get(pk=self.de_pedro.pk).estado, "PENDIENTE")
+        # Al editar el borrador (sin contacto) no se pierde la base que ya tenía.
+        FormularioDAMI.objects.filter(pk=borrador.pk).update(base_comercial=self.base)
+        self.client.post(reverse("ventas:formulario_editar", args=[borrador.pk]), CLIENTE | {"cedula": "0926687856", "observaciones": "Llamar tarde"})
+        borrador.refresh_from_db()
+        self.assertEqual((borrador.observaciones, borrador.base_comercial), ("Llamar tarde", self.base))
+
     def test_la_base_exige_vendedor_para_categorizar(self):
         libre = RegistroBase.objects.create(base=self.base, numero="0990000000")
         with self.assertRaises(IntegrityError), transaction.atomic():

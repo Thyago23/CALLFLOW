@@ -84,8 +84,9 @@ def encargados_activos():
 
 
 def vendedores_activos():
+    # Con su usuario: el tablero y el panel muestran el apodo y la foto de cada uno (sin una consulta por fila).
     return (Empleado.objects.filter(usuario__rol=Rol.VENDEDOR, estado=Empleado.Estado.ACTIVO)
-            .order_by("apellidos", "nombres"))
+            .select_related("usuario").order_by("apellidos", "nombres"))
 
 
 def url_formulario(formulario) -> str:
@@ -102,7 +103,7 @@ def bandeja():
 
 def gestionados():
     return (FormularioDAMI.objects.filter(estado__in=[Estado.VENTA_CERRADA, Estado.NO_CONCRETADA])
-            .select_related("cliente", "vendedor", "encargado_asignado", "gestion")
+            .select_related("cliente", "vendedor", "encargado_asignado", "gestion", "tarjeta")  # la tabla muestra la tarjeta
             .order_by("-gestion__gestionado_en", "-pk"))
 
 
@@ -306,9 +307,16 @@ def metas_del_mes(anio: int, mes: int) -> list[dict]:
 
 @transaction.atomic
 def guardar_metas(usuario, anio: int, mes: int, montos: dict[int, Decimal]) -> int:
-    """`montos`: {vendedor_id: monto}. Crea o cambia la meta; cada cambio lo audita la base de datos."""
+    """
+    `montos`: {vendedor_id: monto}. Crea o cambia la meta; cada cambio lo audita la base de datos.
+    Solo se aceptan vendedores activos: el id llega del formulario («meta-<id>») y podría ser de otro
+    empleado (un encargado aparecería en el panel y en la TV) o no existir (error al confirmar la transacción).
+    """
+    validos = set(vendedores_activos().filter(pk__in=montos).values_list("pk", flat=True))
     cambios = 0
     for vendedor_id, monto in montos.items():
+        if vendedor_id not in validos:
+            continue
         meta = MetaMensual.objects.filter(vendedor_id=vendedor_id, anio=anio, mes=mes).first()
         if meta and meta.monto_meta == monto:
             continue
@@ -379,7 +387,7 @@ def panel_comercial(anio: int, mes: int, usuario) -> Panel:
     """Los totales salen de la vista de PostgreSQL, la misma fuente que la hoja de producción."""
     resumen = {r.vendedor_id: r for r in ResumenVendedorMes.objects.filter(anio=anio, mes=mes)}
     vendedores = {v.pk: v for v in vendedores_activos()}
-    vendedores |= {v.pk: v for v in Empleado.objects.filter(pk__in=set(resumen) - set(vendedores))}
+    vendedores |= {v.pk: v for v in Empleado.objects.filter(pk__in=set(resumen) - set(vendedores)).select_related("usuario")}
     filas = []
     for pk, vendedor in vendedores.items():
         r = resumen.get(pk)
@@ -423,7 +431,8 @@ def cambiar_ocultar_valores(usuario, ocultar: bool) -> None:
 
 
 # --------------------------------------------------------------------------- tablero de ventas (para la TV del call)
-COLORES_TABLERO = ["#ff6b6b", "#ffa94d", "#ffd43b", "#69db7c", "#38d9a9", "#4dabf7", "#9775fa", "#f783ac", "#63e6be", "#74c0fc"]
+# Tonos fríos que combinan con el azul de CALLFLOW (fondo de las iniciales cuando no hay foto).
+COLORES_TABLERO = ["#7db8ea", "#9cc9f0", "#5fa8e0", "#8fd3e8", "#a9b8f0", "#6cc4c0", "#b7d4f2", "#82a9e6", "#9fdcd2", "#c3cff5"]
 
 
 @dataclass
