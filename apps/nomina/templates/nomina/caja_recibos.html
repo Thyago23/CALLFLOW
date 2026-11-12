@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% load humanize_cf %}
+{% block titulo %}Recibos de caja chica · Nómina{% endblock %}
+{% block contenido %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+  <div>
+    <h1 class="h3 mb-0">Nómina</h1>
+    <p class="text-body-secondary mb-0 small">Caja chica con el mismo formato del Excel: hoja «Caja chica», «Arqueo de caja» y recibos.</p>
+  </div>
+</div>
+{% include "nomina/_subnav.html" with seccion="caja" %}
+
+<div class="libro-excel" data-bs-theme="light">
+  <section class="hoja-excel" aria-labelledby="titulo-recibos">
+    <h2 class="hoja-excel-titulo" id="titulo-recibos">Recibos de caja chica</h2>
+
+    {% if perms.nomina.add_movimientocajachica %}
+    <form method="post" class="nuevo-recibo" novalidate>
+      {% csrf_token %}
+      <div class="rotulo mb-2">Nuevo recibo · dinero que se entrega a una persona para gastos</div>
+      {% for error in form.non_field_errors %}<div class="alert alert-danger small">{{ error }}</div>{% endfor %}
+      <div class="row g-2 align-items-end">
+        <div class="col-6 col-lg-2">{% include "_campo.html" with campo=form.fecha %}</div>
+        <div class="col-6 col-lg-3">{% include "_campo.html" with campo=form.entregado_a %}</div>
+        <div class="col-6 col-lg-3">{% include "_campo.html" with campo=form.area %}</div>
+        <div class="col-6 col-lg-2">{% include "_campo.html" with campo=form.autorizado_por %}</div>
+        <div class="col-lg-2 mb-3"><button type="submit" class="btn btn-primary btn-sm w-100"><i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Crear recibo</button></div>
+      </div>
+    </form>
+    {% endif %}
+
+    <div class="table-responsive">
+      <table class="tabla-excel">
+        <thead>
+          <tr>
+            <th scope="col">N.º de recibo</th><th scope="col">Fecha</th><th scope="col">Entregado a</th><th scope="col">Área</th>
+            <th scope="col">Total entregado</th><th scope="col">Total gastado</th><th scope="col">Devolver / Reembolsar</th>
+            <th scope="col">Saldo pendiente</th><th scope="col">Estado</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in recibos %}
+          <tr>
+            <td class="text-center"><a href="{% url 'nomina:caja_recibo_entrega' r.pk %}" class="fw-semibold">{{ r.numero }}</a></td>
+            <td>{{ r.fecha|date:"d/m/Y" }}</td>
+            <td>{{ r.entregado_a }}</td>
+            <td>{{ r.area }}</td>
+            <td class="text-end">${{ r.total_entregado|dinero }}</td>
+            <td class="text-end">${{ r.total_gastado|dinero }}</td>
+            <td class="text-end">{% if r.valor_a_devolver %}Devolver ${{ r.valor_a_devolver|dinero }}{% elif r.valor_a_reembolsar %}Reembolsar ${{ r.valor_a_reembolsar|dinero }}{% else %}—{% endif %}</td>
+            <td class="text-end">{% if r.saldo_pendiente %}<strong class="text-danger">${{ r.saldo_pendiente|dinero }}</strong>{% else %}$0,00{% endif %}</td>
+            <td><span class="badge {% if r.abierto %}estado-sobra{% else %}estado-cuadra{% endif %}">{{ r.get_estado_display }}</span></td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="9" class="text-center text-body-secondary py-4">Todavía no hay recibos.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="hoja-excel-pie"><span class="small text-body-secondary">Abra un recibo para registrar lo entregado y lo gastado, liquidarlo e imprimirlo. Saldo de la caja: <strong>${{ saldo_actual|dinero }}</strong>.</span></div>
+  </section>
+  {% include "nomina/_caja_pestanas.html" with pestana="recibos" %}
+</div>
+{% endblock %}

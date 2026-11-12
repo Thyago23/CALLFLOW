@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% load humanize_cf %}
+{% block titulo %}Arqueo de caja chica · Nómina{% endblock %}
+{% block contenido %}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+  <div>
+    <h1 class="h3 mb-0">Nómina</h1>
+    <p class="text-body-secondary mb-0 small">Caja chica con el mismo formato del Excel: hoja «Caja chica» y hoja «Arqueo de caja».</p>
+  </div>
+</div>
+{% include "nomina/_subnav.html" with seccion="caja" %}
+
+{# La hoja «Arqueo de caja» del Excel. Siempre en «papel» claro, también en modo oscuro. #}
+<div class="libro-excel" data-bs-theme="light">
+  <form method="post" class="hoja-excel hoja-arqueo-excel" novalidate data-arqueo data-saldo="{{ saldo_registro|stringformat:'s' }}"
+        data-url-saldo="{% url 'nomina:caja_arqueo' %}">
+    {% csrf_token %}
+    <h2 class="hoja-excel-titulo">Arqueo y cierre de caja chica</h2>
+
+    {% if form.errors %}
+    <div class="alert alert-danger small mx-3 mt-3 mb-0" role="alert">
+      <strong>No se guardó el arqueo.</strong>
+      {% for error in form.non_field_errors %} {{ error }}{% endfor %}
+      {% for campo in form %}{% for error in campo.errors %} {{ campo.label }}: {{ error }}{% endfor %}{% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="hoja-excel-cabecera">
+      <div class="campo"><label class="rotulo" for="{{ form.fecha.id_for_label }}">Fecha de arqueo:</label>{{ form.fecha }}</div>
+      <div class="campo"><span class="rotulo">Responsable:</span><span>{{ user.get_full_name|default:user.username|upper }}</span></div>
+    </div>
+
+    <div class="arqueo-cuerpo">
+      <div class="fila-dato"><span>Saldo según registro:</span><strong data-saldo-registro>${{ saldo_registro|dinero }}</strong></div>
+
+      <h3 class="rotulo-seccion">Detalle de efectivo</h3>
+      <table class="tabla-excel tabla-arqueo-excel">
+        <thead>
+          <tr><th scope="col" class="text-start">Denominación</th><th scope="col">Cantidad</th><th scope="col" class="text-end">Subtotal</th></tr>
+        </thead>
+        <tbody>
+          {% for f in filas %}
+          <tr>
+            <th scope="row" class="text-end fw-normal"><label for="cantidad-{{ forloop.counter }}">${{ f.valor|dinero }}</label></th>
+            <td class="text-center">
+              <input type="number" min="0" step="1" inputmode="numeric" id="cantidad-{{ forloop.counter }}" name="cantidad_{{ f.clave }}"
+                     value="{{ f.cantidad|default:'0' }}" class="form-control form-control-sm cantidad-arqueo" data-denominacion="{{ f.clave }}">
+            </td>
+            <td class="text-end" data-subtotal>$0,00</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+      <div class="fila-dato"><span>Total efectivo contado:</span><strong data-total>$0,00</strong></div>
+      <div class="fila-dato"><span>Diferencia (contado - registro):</span><strong data-diferencia>$0,00</strong><span class="veredicto" data-veredicto></span></div>
+
+      <div class="fila-observaciones">
+        <label class="rotulo" for="{{ form.observaciones.id_for_label }}">Observaciones:</label>
+        {{ form.observaciones }}
+      </div>
+    </div>
+
+    <div class="hoja-excel-pie">
+      <span class="text-body-secondary small">Escriba cuántos billetes y monedas hay de cada valor. Al guardar se puede imprimir para firmar.</span>
+      {% if perms.nomina.add_movimientocajachica %}<button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-check-lg me-1" aria-hidden="true"></i>Guardar arqueo</button>{% endif %}
+    </div>
+  </form>
+  {% include "nomina/_caja_pestanas.html" with pestana="arqueo" %}
+</div>
+
+<section class="card mt-4" aria-labelledby="titulo-arqueos">
+  <div class="card-header bg-body py-3"><h2 class="h6 mb-0" id="titulo-arqueos">Arqueos guardados</h2></div>
+  <ul class="list-group list-group-flush">
+    {% for a in arqueos %}
+    <li class="list-group-item d-flex flex-wrap justify-content-between align-items-center gap-2">
+      <div>
+        <a href="{% url 'nomina:caja_arqueo_detalle' a.pk %}" class="fw-semibold">{{ a.fecha|date:"d/m/Y" }}</a>
+        <span class="small text-body-secondary">· {{ a.responsable.get_full_name|default:a.responsable.username }} · contado ${{ a.total_contado|dinero }} · registro ${{ a.saldo_registro|dinero }}</span>
+      </div>
+      {% if a.cuadra %}<span class="badge estado-cuadra">Cuadra</span>
+      {% elif a.diferencia > 0 %}<span class="badge estado-sobra">Sobra ${{ a.diferencia|dinero }}</span>
+      {% else %}<span class="badge estado-falta">Falta ${{ a.diferencia|dinero|cut:"-" }}</span>{% endif %}
+    </li>
+    {% empty %}
+    <li class="list-group-item text-body-secondary small text-center py-4">Todavía no hay arqueos guardados.</li>
+    {% endfor %}
+  </ul>
+</section>
+<script>
+(function () {
+  var form = document.querySelector("[data-arqueo]");
+  if (!form) return;
+  var fmt = new Intl.NumberFormat("es-EC", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  function dinero(v) { return (v < 0 ? "-$" : "$") + fmt.format(Math.abs(v)); }
+  var saldoCentavos = Math.round((parseFloat(form.dataset.saldo) || 0) * 100);
+  function calcular() {
+    var centavos = 0;
+    form.querySelectorAll(".cantidad-arqueo").forEach(function (c) {
+      var n = Math.max(0, parseInt(c.value, 10) || 0);
+      var sub = Math.round(parseFloat(c.dataset.denominacion) * 100) * n;
+      centavos += sub;
+      c.closest("tr").querySelector("[data-subtotal]").textContent = dinero(sub / 100);
+    });
+    var dif = centavos - saldoCentavos;
+    form.querySelector("[data-saldo-registro]").textContent = dinero(saldoCentavos / 100);
+    form.querySelector("[data-total]").textContent = dinero(centavos / 100);
+    form.querySelector("[data-diferencia]").textContent = dinero(dif / 100);
+    var v = form.querySelector("[data-veredicto]");
+    v.className = "veredicto " + (dif === 0 ? "cuadra" : dif > 0 ? "sobra" : "falta");
+    v.textContent = dif === 0 ? "La caja cuadra" : dif > 0 ? "Sobra dinero" : "Falta dinero";
+  }
+  form.addEventListener("input", function (e) { if (e.target.classList.contains("cantidad-arqueo")) calcular(); });
+  // Al cambiar la fecha, el saldo según registro es el de esa fecha.
+  var fecha = form.querySelector("input[name=fecha]");
+  if (fecha) fecha.addEventListener("change", function () {
+    if (!fecha.value) return;
+    fetch(form.dataset.urlSaldo + "?saldo_al=" + encodeURIComponent(fecha.value), { headers: { "Accept": "application/json" } })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (d) { if (d && d.saldo) { saldoCentavos = Math.round(parseFloat(d.saldo) * 100); calcular(); } })
+      .catch(function () {});
+  });
+  calcular();
+})();
+</script>
+{% endblock %}

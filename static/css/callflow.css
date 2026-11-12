@@ -762,6 +762,185 @@ details.anular-caja > summary::-webkit-details-marker { display: none; }
 .tabla-rol-asistencia { margin-top: 2rem; }
 .tabla-rol-asistencia th:nth-child(2), .tabla-rol-asistencia td:nth-child(2) { text-align: right; width: 7rem; }
 .tabla-rol-asistencia th:last-child, .tabla-rol-asistencia td:last-child { width: 8rem; }
+/* Caja chica con el mismo aspecto del Excel de la empresa (hojas «Caja chica» y «Arqueo de caja»).
+   La hoja va siempre en «papel» claro (data-bs-theme="light"), también en modo oscuro. */
+.libro-excel { --excel-titulo: #203864; --excel-encabezado: #4472c4; --excel-rayado: #f3f6fa; --excel-celda: #d9eaf7;
+  --excel-saldo: #e2f0d9; --excel-rotulo: #1f3864; --excel-linea: #d5dbe5; color: #212529; }
+.hoja-excel { background: #fff; border: 1px solid var(--excel-linea); border-bottom: 0; font-size: .84rem; }
+.hoja-excel-titulo { margin: 0; padding: .55rem 1rem; background: var(--excel-titulo); color: #fff; text-align: center;
+  font-size: 1.05rem; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; }
+.hoja-excel .rotulo { font-weight: 700; color: var(--excel-rotulo); white-space: nowrap; }
+.hoja-excel-cabecera, .hoja-excel-totales { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem 2rem; padding: .75rem 1rem 0; }
+.hoja-excel-totales { justify-content: space-between; }
+.hoja-excel-cabecera { justify-content: space-between; }
+.hoja-excel-totales { padding-bottom: .9rem; border-bottom: 1px solid var(--excel-linea); }
+.hoja-excel .campo { display: flex; align-items: center; gap: .6rem; }
+.hoja-excel .campo-mes .form-control { width: 10.5rem; }
+.hoja-excel-cabecera .form-control { width: auto; }
+.celda-total { min-width: 6.5rem; padding: .15rem .6rem; background: var(--excel-celda); font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; }
+.celda-total.celda-saldo { background: var(--excel-saldo); }
+.celda-editable { display: inline-flex; align-items: center; gap: 1px; padding: 0 .35rem; outline: 1px dashed #7fa7d9; cursor: text; }
+.celda-editable:focus-within { outline: 2px solid var(--excel-encabezado); background: #fff; }
+.celda-editable input { width: 5.5rem; padding: .15rem 0; border: 0; background: transparent; font-weight: 700; text-align: right;
+  font-variant-numeric: tabular-nums; color: inherit; }
+.celda-editable input:focus { outline: 0; }
+
+.tabla-excel { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.tabla-excel thead th { background: var(--excel-encabezado); color: #fff; font-weight: 700; text-align: center; vertical-align: middle;
+  padding: .4rem .5rem; border-right: 1px solid rgba(255, 255, 255, .25); line-height: 1.15; }
+.tabla-excel td, .tabla-excel tbody th { padding: .3rem .5rem; border-bottom: 1px solid #e6eaf0; vertical-align: middle; }
+.tabla-excel tbody tr:nth-child(even) > * { background: var(--excel-rayado); }
+.tabla-excel .col-num { width: 3rem; text-align: center; color: #555; }
+.tabla-excel td { white-space: nowrap; }
+.tabla-excel td.col-descripcion { white-space: normal; min-width: 9rem; }
+.tabla-excel .col-acciones { width: 1%; white-space: nowrap; }
+.tabla-excel thead .col-fecha { width: 8.5rem; }
+.tabla-excel thead .col-tipo { width: 6rem; }
+.tabla-excel thead .col-categoria { width: 7.5rem; }
+.tabla-excel thead .col-comprobante { width: 7rem; }
+.tabla-excel thead .col-valor { width: 6rem; }
+.tabla-excel thead .col-pago { width: 7rem; }
+.tabla-excel .fila-vacia td { height: 2rem; }
+.tabla-excel .fila-anulada td { color: #8a8f98; text-decoration: line-through; }
+.tabla-excel .fila-anulada .col-acciones, .tabla-excel .fila-anulada .badge { text-decoration: none; }
+.tabla-excel .fila-recien > * { background: #fff3cd !important; }
+.tabla-excel .fila-escribir > * { background: #fffdf2 !important; border-top: 2px solid var(--excel-encabezado); padding: .3rem .25rem; }
+.tabla-excel .fila-escribir .form-control, .tabla-excel .fila-escribir .form-select { width: 100%; min-width: 4.5rem; border-radius: .2rem; padding-inline: .4rem; }
+.tabla-excel .fila-escribir .form-select { padding-right: 1.6rem; background-position: right .35rem center; }
+.tabla-excel .fila-escribir input[name="concepto"] { min-width: 9rem; }
+.tabla-excel .fila-escribir input[name="fecha"] { min-width: 8rem; }
+.tabla-excel .fila-escribir select[name="tipo"] { min-width: 6.4rem; }
+.tabla-excel .fila-escribir select[name="forma_pago"] { min-width: 7.6rem; }
+.tabla-excel .fila-escribir select[name="categoria"] { min-width: 8.5rem; }
+.tabla-excel .fila-escribir input[name="valor"] { text-align: right; }
+.tabla-excel .accion-fila { padding: .1rem .4rem; line-height: 1.2; }
+.tabla-excel .anular-caja { display: inline-block; margin-left: .25rem; }
+.tabla-excel .anular-caja[open] { display: block; margin: .25rem 0 0; }
+.tabla-excel .anular-caja[open] .form-control { min-width: 9rem; }
+.hoja-excel-pie { display: flex; flex-wrap: wrap; justify-content: flex-start; align-items: center; gap: .5rem 1rem; padding: .75rem 1rem;
+  border-top: 1px solid var(--excel-linea); background: #fafbfc; }
+
+.nuevo-recibo { padding: .9rem 1rem .1rem; border-bottom: 1px solid var(--excel-linea); background: #fafbfc; }
+
+/* Pestañas de hoja, abajo como en Excel */
+.pestanas-excel { display: flex; gap: 2px; padding: 0 .75rem; background: #f0f0f0; border: 1px solid var(--excel-linea); border-top: 0; }
+.pestanas-excel a { padding: .45rem 1.1rem; color: #444; text-decoration: none; font-size: .875rem; border-bottom: 3px solid transparent; }
+.pestanas-excel a:hover { background: #e4e4e4; color: #222; }
+.pestanas-excel a.activa { background: #fff; color: #1e7145; font-weight: 700; border-bottom-color: #1e7145; }
+
+/* Hoja «Arqueo de caja» */
+.hoja-arqueo-excel .hoja-excel-cabecera { padding-bottom: .9rem; border-bottom: 1px solid var(--excel-linea); }
+.arqueo-cuerpo { max-width: 34rem; padding: .9rem 1rem 1rem; }
+.arqueo-cuerpo .fila-dato { display: grid; grid-template-columns: 1fr 9rem auto; align-items: center; gap: .75rem; padding: .3rem 0; }
+.arqueo-cuerpo .fila-dato strong { text-align: right; font-variant-numeric: tabular-nums; }
+.rotulo-seccion { margin: .9rem 0 0; padding-bottom: .2rem; font-size: .875rem; font-weight: 700; color: var(--excel-rotulo); border-bottom: 1px solid var(--excel-linea); }
+.tabla-arqueo-excel { margin-bottom: .75rem; }
+.tabla-arqueo-excel thead th { text-align: center; }
+.tabla-arqueo-excel .cantidad-arqueo { width: 5.5rem; margin: 0 auto; text-align: center; }
+.veredicto { padding: .1rem .5rem; border-radius: .25rem; font-size: .78rem; font-weight: 700; white-space: nowrap; }
+.veredicto.cuadra { background: #e3f4ec; color: #0b5a40; }
+.veredicto.sobra { background: #fff5dc; color: #7a5200; }
+.veredicto.falta { background: #fdecea; color: #8e1b12; }
+.fila-observaciones { margin-top: .75rem; }
+.fila-observaciones .rotulo { display: block; margin-bottom: .3rem; }
+.texto-observaciones { min-height: 3.5rem; border-bottom: 1px solid var(--excel-linea); }
+.hoja-observaciones { min-height: 4.5rem; margin: .75rem 1rem 0; padding-top: .4rem; }
+.firmas-excel { padding: 0 1rem; }
+
+@media print {
+  html, body, .contenido, main { background: #fff !important; }
+  .libro-excel .hoja-excel { border: 0; font-size: 8.5pt; }
+  .hoja-observaciones { min-height: 14mm; }
+  .impresion-excel .pie-reporte { margin-top: 4mm; }
+  .impresion-excel .hoja-excel-titulo, .tabla-excel thead th, .tabla-excel tbody tr:nth-child(even) > *, .celda-total, .veredicto {
+    -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .tabla-excel .fila-vacia td { height: 6mm; }
+  .tabla-excel .col-firma { min-width: 30mm; }
+  .hoja-arqueo-excel { font-size: 10pt !important; }
+  .firmas-excel { margin-top: 10mm; }
+}
+
+.badge.estado-cuadra { background: var(--cf-exito-suave); color: var(--cf-exito-texto); }
+.badge.estado-sobra { background: var(--cf-aviso-suave); color: var(--cf-aviso-texto); }
+.badge.estado-falta { background: var(--cf-peligro-suave); color: var(--cf-peligro-texto); }
+
+/* Recibo de caja chica: copia del Excel «Recibo Caja Chica» (columnas A–F de 7, 14, 38, 17, 18 y 18). */
+.recibo-excel { --rx-navy: #17365d; --rx-azul: #4472c4; --rx-banda: #eaf0f6; --rx-raya: #f5f8fc; --rx-calc: #fff2cc; --rx-borde: #1f1f1f;
+  max-width: 62rem; margin: 0 auto; padding: 1.25rem 1.5rem 1rem; background: #fff; color: #000; border: 1px solid #d5dbe5;
+  font-family: Arial, Helvetica, sans-serif; font-size: .85rem; }
+.rx-marca { padding: .3rem; background: var(--rx-navy); color: #fff; text-align: center; font-family: Arial, sans-serif; font-size: 1.5rem; font-weight: 700; }
+.rx-titulo { padding: .35rem 0 .6rem; color: var(--rx-navy); text-align: center; font-family: Arial, sans-serif; font-size: 1.15rem; font-weight: 700; text-transform: uppercase; }
+.rx-rotulo { color: var(--rx-navy); font-weight: 700; }
+.rx-datos { display: grid; grid-template-columns: max-content 1fr max-content 1fr; align-items: end; row-gap: .15rem; padding: .35rem .5rem .5rem; background: var(--rx-banda); }
+.rx-datos .rx-rotulo { font-size: .8rem; white-space: nowrap; padding-right: .75rem; }
+.rx-datos .rx-valor { min-height: 1.35em; padding: 0 .35rem; border-bottom: 1px solid #555; margin-right: 1.5rem; }
+.rx-editar { margin: .5rem 0 0; }
+.rx-editar > summary { list-style: none; }
+.rx-editar > summary::-webkit-details-marker { display: none; }
+
+.rx-tabla { width: 100%; margin-top: 3rem; border-collapse: collapse; table-layout: fixed; font-variant-numeric: tabular-nums; }
+.rx-tabla .c-a { width: 6.25%; } .rx-tabla .c-b { width: 12.5%; } .rx-tabla .c-c { width: 33.9%; }
+.rx-tabla .c-d { width: 15.2%; } .rx-tabla .c-e { width: 16.1%; } .rx-tabla .c-f { width: 16.1%; }
+.rx-tabla thead th { height: 2.6rem; padding: .25rem .35rem; background: var(--rx-azul); color: #fff; font-size: .8rem; font-weight: 700;
+  line-height: 1.15; text-align: center; vertical-align: middle; }
+.rx-tabla td { height: 1.95rem; padding: 0 .4rem; border-bottom: 1px solid var(--rx-borde); font-size: .82rem; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.rx-tabla tbody tr:nth-child(odd) td { background: var(--rx-raya); }
+.rx-tabla .rx-ultima { position: relative; overflow: visible; }
+.rx-quitar { position: absolute; right: -1.6rem; top: 50%; transform: translateY(-50%); }
+.rx-tabla .rx-escribir td { background: #fffdf2 !important; padding: .15rem; }
+.rx-tabla .rx-escribir .form-control { height: 1.65rem; padding: 0 .3rem; border-radius: .15rem; font-size: .82rem; }
+.rx-tabla .rx-escribir input[type="number"] { text-align: right; }
+.rx-barra { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem 1rem; padding: .5rem 0 0; }
+
+.rx-resumen { width: 68.75%; margin-top: 1.1rem; }
+.rx-resumen-titulo { padding: .2rem; background: var(--rx-navy); color: #fff; text-align: center; font-size: .8rem; font-weight: 700; text-transform: uppercase; }
+.rx-fila { display: grid; grid-template-columns: 42% 38% 1fr; align-items: stretch; }
+.rx-fila .rx-et { display: flex; align-items: center; padding: 0 .4rem; min-height: 1.95rem; background: var(--rx-banda); color: var(--rx-navy);
+  font-size: .82rem; font-weight: 700; text-transform: uppercase; white-space: nowrap; }
+.rx-fila .rx-num { display: flex; align-items: flex-end; justify-content: flex-end; gap: .35rem; padding: 0 .4rem .1rem; background: var(--rx-raya);
+  border-bottom: 1px solid #b4c6e7; font-weight: 700; font-variant-numeric: tabular-nums; }
+.rx-fila .rx-calc { background: var(--rx-calc); }
+.rx-entrada input { width: 6.5rem; height: 1.6rem; padding: 0 .3rem; border: 1px dashed #7fa7d9; background: #fff; font-weight: 700; text-align: right; }
+.rx-entrada input:focus { outline: 2px solid var(--rx-azul); }
+.rx-entrada .btn { margin-left: .25rem; padding: 0 .5rem; }
+
+.rx-observaciones { margin-top: 1.1rem; }
+.rx-observaciones .rx-rotulo { font-size: .85rem; text-transform: uppercase; margin-bottom: .25rem; }
+.rx-caja-texto { min-height: 2.6rem; border-bottom: 1px solid var(--rx-borde); white-space: normal; }
+.rx-firmas { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 2rem; margin-top: 1.5rem; text-align: center; }
+.rx-firmas .rx-rotulo { font-size: .85rem; text-transform: uppercase; white-space: nowrap; }
+.rx-firmas .rx-linea { min-height: 3.6rem; display: flex; align-items: flex-end; justify-content: center; padding-bottom: .1rem; border-bottom: 1px solid #c9ced6; font-size: .82rem; }
+.rx-nota { color: #666; font-size: .72rem; font-style: italic; }
+.rx-firmas .rx-nota { margin-top: .2rem; }
+.rx-instrucciones { margin: 1rem 0 0; }
+@media screen and (max-width: 767.98px) {
+  .recibo-excel { padding: .75rem; }
+  .rx-datos { grid-template-columns: 38% 62%; }
+  .rx-datos .rx-valor { margin-right: 0; }
+  .rx-resumen { width: 100%; }
+  .rx-fila { grid-template-columns: 50% 50%; }
+  .rx-firmas { grid-template-columns: 1fr; }
+  .rx-tabla { min-width: 44rem; }
+  .recibo-excel { overflow-x: auto; }
+}
+@media print {
+  .recibo-excel { max-width: none; border: 0; padding: 0; font-size: 9pt; }
+  .recibo-excel * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .rx-marca { padding: 1mm; font-size: 15pt; }
+  .rx-titulo { padding: 1.5mm 0 2.5mm; font-size: 11.5pt; }
+  .rx-datos { padding: 1.5mm 2mm 2mm; }
+  .rx-tabla { margin-top: 8mm; }
+  .rx-tabla thead th { padding: 1.6mm 1mm; font-size: 8pt; }
+  .rx-tabla td { height: 5.3mm; font-size: 8.5pt; }
+  .rx-resumen, .rx-observaciones { margin-top: 4mm; }
+  .rx-fila .rx-et, .rx-fila .rx-num { min-height: 5.3mm; font-size: 8pt; }
+  .rx-caja-texto { min-height: 9mm; }
+  .rx-firmas { margin-top: 4mm; gap: 6mm; }
+  .rx-firmas .rx-rotulo { font-size: 9pt; }
+  .rx-firmas .rx-linea { min-height: 12mm; }
+  .rx-instrucciones { margin-top: 3mm; }
+}
+
 .rol-pago .firmas-reporte { margin-top: 5rem; }
 .rol-pago .firmas-reporte > div { flex: 0 1 19rem; }
 @media (max-width: 575.98px) { .rol-pago { padding: 1.25rem; } .tabla-rol-pago td:first-child { white-space: normal; } }

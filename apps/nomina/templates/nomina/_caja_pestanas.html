@@ -1,0 +1,6 @@
+{# Las pestañas de hoja del Excel, abajo como en Excel. Recibe `pestana` ("registro", "arqueo" o "recibos"). #}
+<nav class="pestanas-excel d-print-none" aria-label="Hojas de la caja chica">
+  <a class="{% if pestana == 'registro' %}activa{% endif %}" {% if pestana == 'registro' %}aria-current="page"{% endif %} href="{% url 'nomina:caja_chica' %}">Caja chica</a>
+  <a class="{% if pestana == 'arqueo' %}activa{% endif %}" {% if pestana == 'arqueo' %}aria-current="page"{% endif %} href="{% url 'nomina:caja_arqueo' %}">Arqueo de caja</a>
+  <a class="{% if pestana == 'recibos' %}activa{% endif %}" {% if pestana == 'recibos' %}aria-current="page"{% endif %} href="{% url 'nomina:caja_recibos' %}">Recibos</a>
+</nav>
