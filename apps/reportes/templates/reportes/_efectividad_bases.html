@@ -1,0 +1,83 @@
+{% load reportes_cf %}
+{# Vista visual del reporte «Efectividad de bases comerciales». Recibe `v` (Tabla.extra). #}
+<div class="efectividad-bases">
+  <div class="row g-3 mb-4">
+    <div class="col-12 col-lg-5">
+      <div class="card h-100 resumen-efectividad">
+        <div class="card-body">
+          <div class="small text-body-secondary">Efectividad general</div>
+          {% if v.general is not None %}
+          <div class="cifra">{{ v.general|pct }}</div>
+          <p class="mb-0">De cada <strong>100</strong> contactos llamados, <strong>{{ v.de_cada_100 }}</strong> terminaron en un DAMI.</p>
+          {% else %}
+          <div class="cifra text-body-secondary">—</div>
+          <p class="mb-0 text-body-secondary">Todavía no se ha llamado a ningún contacto.</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    <div class="col-12 col-lg-7">
+      <div class="row g-3 h-100">
+        <div class="col-4"><div class="card h-100 tarjeta-kpi"><div class="card-body py-3">
+          <div class="small text-body-secondary">Contactos</div><div class="valor">{{ v.contactos }}</div>
+          <div class="small text-body-secondary">en {{ v.bases|length }} base{{ v.bases|length|pluralize }}</div>
+        </div></div></div>
+        <div class="col-4"><div class="card h-100 tarjeta-kpi"><div class="card-body py-3">
+          <div class="small text-body-secondary">Llamados</div><div class="valor">{{ v.gestionados }}</div>
+          <div class="small text-body-secondary">{{ v.avance }} % del total</div>
+        </div></div></div>
+        <div class="col-4"><div class="card h-100 tarjeta-kpi"><div class="card-body py-3">
+          <div class="small text-body-secondary">DAMI sacados</div><div class="valor text-success-emphasis">{{ v.dami }}</div>
+          <div class="small text-body-secondary">de {{ v.gestionados }} llamados</div>
+        </div></div></div>
+      </div>
+    </div>
+  </div>
+
+  <section class="card mb-4" aria-labelledby="titulo-por-base">
+    <div class="card-header bg-body py-3 d-flex flex-wrap justify-content-between align-items-center gap-2">
+      <h2 class="h6 mb-0" id="titulo-por-base">¿Cómo le fue a cada base?</h2>
+      {% if v.media is not None %}<span class="small text-body-secondary">Media de las bases: <strong>{{ v.media|pct }}</strong></span>{% endif %}
+    </div>
+    <div class="card-body pb-2">
+      <div class="leyenda-efectividad small text-body-secondary mb-3">
+        <span><i class="clave-estado seg-dami" aria-hidden="true"></i>DAMI sacado</span>
+        <span><i class="clave-estado seg-no-quiere" aria-hidden="true"></i>No quiere</span>
+        <span><i class="clave-estado seg-no-contesto" aria-hidden="true"></i>No contestó</span>
+        <span><i class="clave-estado seg-pendiente borde-pendiente" aria-hidden="true"></i>Falta llamar</span>
+      </div>
+      <ul class="list-unstyled mb-0 lista-efectividad">
+        {% for b in v.bases %}
+        <li class="base-efectividad">
+          <div class="encabezado">
+            <div class="min-w-0">
+              <div class="fw-semibold text-truncate" title="{{ b.nombre }}">{{ b.nombre }}</div>
+              <div class="small text-body-secondary">Cargada el {{ b.cargada|date:"d/m/Y" }} · {{ b.contactos }} contacto{{ b.contactos|pluralize }}</div>
+            </div>
+            <div class="text-end">
+              {% if b.efectividad is not None %}
+              <div class="porcentaje">{{ b.efectividad|pct }}</div>
+              {% if b.nivel == "alta" %}<span class="badge nivel-alta"><i class="bi bi-arrow-up-short" aria-hidden="true"></i>Sobre la media</span>
+              {% elif b.nivel == "baja" %}<span class="badge nivel-baja"><i class="bi bi-arrow-down-short" aria-hidden="true"></i>Bajo la media</span>
+              {% elif b.nivel == "igual" %}<span class="badge nivel-baja">En la media</span>{% endif %}
+              {% else %}
+              <span class="badge text-bg-light border">Sin llamadas</span>
+              {% endif %}
+            </div>
+          </div>
+          <div class="barra-efectividad" role="img"
+               aria-label="{% for p in b.partes %}{{ p.valor }} {{ p.nombre|lower }}{% if not forloop.last %}, {% endif %}{% endfor %}">
+            {% for p in b.partes %}<span class="seg seg-{{ p.clase }}" style="width: {{ p.ancho|stringformat:'s' }}%" title="{{ p.nombre }}: {{ p.valor }}"></span>{% endfor %}
+          </div>
+          <p class="small text-body-secondary mb-0 mt-2">
+            {% if b.gestionados %}Se llamó a <strong class="text-body">{{ b.gestionados }}</strong> de {{ b.contactos }} ({{ b.avance }} %) y <strong class="text-body">{{ b.dami }}</strong> d{{ b.dami|pluralize:"io,ieron" }} DAMI.{% if b.falta %} Faltan {{ b.falta }} por llamar.{% endif %}
+            {% else %}Todavía no se ha llamado a ningún contacto de esta base.{% endif %}
+          </p>
+        </li>
+        {% empty %}
+        <li class="text-center text-body-secondary py-4">No hay bases cargadas.</li>
+        {% endfor %}
+      </ul>
+    </div>
+  </section>
+</div>

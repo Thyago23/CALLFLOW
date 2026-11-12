@@ -42,6 +42,8 @@ class Tabla:
     notas: list = field(default_factory=list)
     horizontal: bool = False
     vacio: str = "No hay datos para los filtros elegidos."
+    vista: str = ""  # plantilla con una vista visual que se muestra en pantalla antes de la tabla
+    extra: dict = field(default_factory=dict)  # datos para esa vista
 
     def celdas(self, fila, vacio="—"):
         return [(formatear(v, c.tipo, vacio), c.numerica) for v, c in zip(fila, self.columnas)]
@@ -398,7 +400,37 @@ def _efectividad_bases(f, usuario) -> Tabla:
         notas=["Efectividad = DAMI sacados ÷ contactos gestionados; % del total = DAMI sacados ÷ contactos de la base."]
         + ([f"Media de efectividad de las bases: {porcentaje(media)} ({len(con_gestion)} bases con gestión)."] if media is not None else []),
         vacio="No hay bases cargadas.",
+        vista="reportes/_efectividad_bases.html", extra=_vista_efectividad(datos, suma, media),
     )
+
+
+def _vista_efectividad(datos, suma, media) -> dict:
+    """Datos de la vista visual: resumen general y, por base, la barra de cómo terminaron sus contactos."""
+
+    def partes(x):
+        falta = max(x["contactos"] - x["gestionados"], 0)
+        total = x["contactos"] or 1
+        return [{"clase": c, "nombre": n, "valor": v, "ancho": round(v * 100 / total, 2)} for c, n, v in (
+            ("dami", "DAMI sacado", x["dami_sacado"]), ("no-quiere", "No quiere", x["no_quiere"]),
+            ("no-contesto", "No contestó", x["no_contesto"]), ("pendiente", "Falta llamar", falta)) if v]
+
+    bases = []
+    for x in datos:
+        e = x["efectividad"]
+        bases.append({
+            "nombre": x["base"].nombre, "cargada": x["base"].creado_en, "contactos": x["contactos"], "gestionados": x["gestionados"],
+            "dami": x["dami_sacado"], "efectividad": e, "falta": max(x["contactos"] - x["gestionados"], 0),
+            "avance": round(x["gestionados"] * 100 / x["contactos"]) if x["contactos"] else 0, "partes": partes(x),
+            "nivel": None if e is None or media is None or len(datos) < 2 else
+            ("igual" if round(e) == round(media) else "alta" if e > media else "baja"),
+        })
+    bases.sort(key=lambda b: (b["efectividad"] is None, -(b["efectividad"] or 0)))
+    general = Decimal(suma["dami_sacado"] * 100) / suma["gestionados"] if suma["gestionados"] else None
+    return {
+        "bases": bases, "media": media, "general": general, "contactos": suma["contactos"], "gestionados": suma["gestionados"],
+        "dami": suma["dami_sacado"], "avance": round(suma["gestionados"] * 100 / suma["contactos"]) if suma["contactos"] else 0,
+        "de_cada_100": round(general) if general is not None else None,
+    }
 
 
 def _gestion_bases(f, usuario) -> Tabla:

@@ -858,6 +858,27 @@ details.anular-caja > summary::-webkit-details-marker { display: none; }
 .seg-no-contesto { background: var(--cf-no-contesto); }
 .seg-pendiente { background: var(--cf-pendiente); }
 .clave-estado { display: inline-block; width: .65rem; height: .65rem; border-radius: 2px; margin-right: .35rem; vertical-align: baseline; }
+/* reporte de efectividad de bases: resumen y una barra por base */
+.resumen-efectividad { background: var(--cf-primario-suave); border-color: transparent; }
+.resumen-efectividad .cifra { font-size: 2.6rem; font-weight: 700; line-height: 1.1; color: var(--cf-primario); margin: .15rem 0 .35rem; font-variant-numeric: tabular-nums; }
+.leyenda-efectividad { display: flex; flex-wrap: wrap; gap: .35rem 1.25rem; }
+.leyenda-efectividad .borde-pendiente { box-shadow: inset 0 0 0 1px var(--bs-border-color); }
+.lista-efectividad .base-efectividad { padding: 1rem 0; border-top: 1px solid var(--bs-border-color-translucent); }
+.lista-efectividad .base-efectividad:first-child { border-top: 0; padding-top: .25rem; }
+.base-efectividad .encabezado { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; margin-bottom: .6rem; }
+.base-efectividad .min-w-0 { min-width: 0; }
+.base-efectividad .porcentaje { font-size: 1.5rem; font-weight: 700; line-height: 1.1; font-variant-numeric: tabular-nums; color: var(--bs-emphasis-color); }
+.base-efectividad .badge { font-weight: 600; margin-top: .2rem; }
+.badge.nivel-alta { background: var(--cf-exito-suave); color: var(--cf-exito-texto); }
+.badge.nivel-baja { background: var(--bs-secondary-bg); color: var(--bs-secondary-color); }
+.barra-efectividad { display: flex; gap: 2px; height: 14px; border-radius: 7px; overflow: hidden; background: var(--cf-pendiente); }
+.barra-efectividad .seg { display: block; height: 100%; }
+.detalle-reporte > summary { cursor: pointer; list-style: none; }
+.detalle-reporte > summary::-webkit-details-marker { display: none; }
+.detalle-reporte > summary .bi-chevron-right { display: inline-block; transition: transform .15s ease; }
+.detalle-reporte[open] > summary .bi-chevron-right { transform: rotate(90deg); }
+.detalle-reporte:not([open]) > summary { border-bottom: 0; border-radius: var(--bs-card-inner-border-radius); }
+@media (prefers-reduced-motion: reduce) { .detalle-reporte > summary .bi-chevron-right { transition: none; } }
 .badge.estado-contacto { font-weight: 600; }
 .badge.estado-contacto.estado-pendiente { background: var(--bs-secondary-bg); color: var(--bs-secondary-color); }
 .badge.estado-contacto.estado-no_contesto { background: var(--cf-aviso-suave); color: var(--cf-aviso-texto); }
