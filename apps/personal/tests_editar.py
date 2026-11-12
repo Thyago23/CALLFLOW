@@ -26,8 +26,8 @@ class EditarEmpleadoTests(TestCase):
         cls.admin = Usuario.objects.create_user("admin1", "admin1@callflow.test", "clave-segura-123", rol=Rol.ADMINISTRADOR,
                                                 first_name="Ana", last_name="Admin")
         cls.vendedor = Usuario.objects.create_user("vend1", "vend1@callflow.test", "clave-segura-123", rol=Rol.VENDEDOR)
-        cls.cargo_vendedor = Cargo.objects.get(nombre="Vendedor telefónico")
-        cls.cargo_cierre = Cargo.objects.get(nombre="Encargado de cierre")
+        cls.cargo_vendedor = Cargo.objects.get(nombre="Asesor de ventas")
+        cls.cargo_cierre = Cargo.objects.get(nombre="Supervisor")
 
     def setUp(self):
         self.client.force_login(self.admin)
@@ -117,7 +117,7 @@ class EditarEmpleadoTests(TestCase):
         self.assertEqual(historial[0]["usuario"], "Ana Admin (admin1)")
         cambios = {c["campo"]: (c["antes"], c["despues"]) for c in historial[0]["cambios"]}
         self.assertEqual(cambios["Teléfono"], ("0991234567", "0987654321"))
-        self.assertEqual(cambios["Cargo"], ("Vendedor telefónico", "Encargado de cierre"))
+        self.assertEqual(cambios["Cargo"], ("Asesor de ventas", "Supervisor"))
         self.assertContains(ficha, "Historial de cambios")
 
     # ----------------------------------------------------------- cuenta de acceso vinculada
@@ -128,7 +128,7 @@ class EditarEmpleadoTests(TestCase):
         self.assertEqual(usuario.first_name, "Luis Alberto")
         self.assertEqual(usuario.rol, Rol.ENCARGADO_CIERRE)
         self.assertEqual(usuario.username, "luis.andrade")  # el usuario de ingreso no cambia
-        self.assertTrue(usuario.groups.filter(name="Encargado de cierre").exists())
+        self.assertTrue(usuario.groups.filter(name="Supervisor").exists())
 
     def test_desvincular_desactiva_la_cuenta(self):
         usuario, _ = crear_cuenta_para_empleado(self.empleado, creado_por=self.admin)

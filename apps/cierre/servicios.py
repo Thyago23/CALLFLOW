@@ -135,7 +135,7 @@ def _marcar_avisos_atendidos(url: str) -> None:
 @transaction.atomic
 def tomar(usuario, formulario, version: int) -> FormularioDAMI:
     if not es_encargado(usuario):
-        raise PermissionDenied("Solo los encargados de cierre toman formularios.")
+        raise PermissionDenied("Solo los supervisores toman formularios.")
     if formulario.estado != Estado.ENVIADO or formulario.encargado_asignado_id:
         if formulario.encargado_asignado_id:
             raise Conflicto(f"Este formulario ya lo está gestionando {formulario.encargado_asignado}.")
@@ -183,7 +183,7 @@ def reasignar(usuario, formulario, version: int, encargado: Empleado) -> Formula
     if formulario.estado not in EN_COLA:
         raise ValidationError("Solo se reasignan formularios que siguen en la cola.")
     if not encargados_activos().filter(pk=encargado.pk).exists():
-        raise ValidationError("Elija un encargado de cierre activo.")
+        raise ValidationError("Elija un supervisor activo.")
     if encargado.pk == formulario.vendedor_id:
         raise ValidationError("No se puede asignar el formulario al mismo vendedor que lo registró.")
     anterior = formulario.encargado_asignado

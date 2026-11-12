@@ -29,7 +29,7 @@ class BaseCierre(BaseVentas):
     @classmethod
     def setUpTestData(cls):
         super().setUpTestData()
-        cls.luis = cls.persona("luis.vera", "Luis", "Vera", Rol.ENCARGADO_CIERRE, "0912345675", "Encargado de cierre")
+        cls.luis = cls.persona("luis.vera", "Luis", "Vera", Rol.ENCARGADO_CIERRE, "0912345675", "Supervisor")
 
     def enviado(self, usuario=None, **cambios) -> FormularioDAMI:
         self.crear(usuario or self.lucia, enviar=True, **cambios)
@@ -483,7 +483,7 @@ class TableroVentasTests(BaseCierre):
 
         antes_tv, antes_g = consultas(url_tv), consultas(url_g, {"vista": "gestionados"})
         for i, cedula in enumerate(["0926687856", "1103000004", "1710000009"]):
-            nuevo = self.persona(f"extra.{i}", f"Extra{i}", "Prueba", Rol.VENDEDOR, ["1710000009", "0912345683", "1712345683"][i], "Vendedor telefónico")
+            nuevo = self.persona(f"extra.{i}", f"Extra{i}", "Prueba", Rol.VENDEDOR, ["1710000009", "0912345683", "1712345683"][i], "Asesor de ventas")
             self.cerrar_venta(nuevo, "100", cedula)
         self.client.force_login(self.ana)  # cerrar_venta inicia sesión como el vendedor
         self.assertEqual(consultas(url_tv), antes_tv)

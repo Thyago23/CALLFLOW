@@ -35,7 +35,7 @@ class BaseTI(TestCase):
         cls.superusuario = Usuario.objects.create_superuser("administrador.callflow", password=CLAVE)
         cls.vendedor = Usuario.objects.create_user("lucia.mora", password=CLAVE, first_name="Lucía", last_name="Mora",
                                                    rol=Rol.VENDEDOR)
-        cargo = Cargo.objects.get(nombre="Vendedor telefónico")
+        cargo = Cargo.objects.get(nombre="Asesor de ventas")
         cls.empleado = Empleado.objects.create(usuario=cls.vendedor, tipo_identificacion="CEDULA", identificacion="1710034065",
                                                nombres="Lucía", apellidos="Mora", cargo=cargo, fecha_ingreso=timezone.localdate())
 

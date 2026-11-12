@@ -234,7 +234,7 @@ def _comisiones(f, usuario) -> Tabla:
         if not r.es_vendedor:
             continue
         pct = r.porcentaje_comision if r.esquema and r.esquema.tipo != "MONTO_FIJO" else None
-        filas.append([_nombre(r.empleado), str(r.esquema or "Sin equipo"), r.total_ventas, pct, r.comision])
+        filas.append([_nombre(r.empleado), str(r.esquema or "Administrativo"), r.total_ventas, pct, r.comision])
     return Tabla(
         columnas=[Columna("Vendedor", peso=2.6), Columna("Equipo", peso=1.4), Columna("Ventas cerradas", "dinero", 1.2),
                   Columna("Porcentaje", "porcentaje", .9), Columna("Comisión", "dinero", 1.1)],
@@ -314,7 +314,7 @@ def ventas_por_vendedor(desde: date, hasta: date, vendedor=None, equipo=None) ->
 
 def _ventas(f, usuario) -> Tabla:
     datos = ventas_por_vendedor(f["desde"], f["hasta"], f.get("vendedor"), f.get("equipo"))
-    filas = [[_nombre(x["vendedor"]), str(x["esquema"] or "Sin equipo"), x["enviados"], x["cerradas"], x["no_concretadas"],
+    filas = [[_nombre(x["vendedor"]), str(x["esquema"] or "Administrativo"), x["enviados"], x["cerradas"], x["no_concretadas"],
               x["pendientes"], x["total"], x["ticket"], x["tasa"]] for x in datos]
     tot = {k: sum(x[k] for x in datos) for k in ("enviados", "cerradas", "no_concretadas", "pendientes")}
     total = sum((x["total"] for x in datos), Decimal("0"))
@@ -349,7 +349,7 @@ def _formularios(f, usuario) -> Tabla:
                       registro.valor_venta if registro else None])
     return Tabla(
         columnas=[Columna("DAMI", peso=1.1), Columna("Enviado", "fecha", 1.3), Columna("Vendedor", peso=1.9), Columna("Cliente", peso=2),
-                  Columna("Ciudad", peso=1.1), Columna("Estado", peso=1.3), Columna("Encargado", peso=1.7), Columna("Valor", "dinero")],
+                  Columna("Ciudad", peso=1.1), Columna("Estado", peso=1.3), Columna("Supervisor", peso=1.7), Columna("Valor", "dinero")],
         filas=filas, periodo=_periodo_rango(f), horizontal=True,
         totales=[f"{len(filas)} formularios", "", "", "", "", "", "Total vendido", sum((x[7] or Decimal("0") for x in filas), Decimal("0"))],
         notas=["Sin datos de la tarjeta de pago."],
@@ -529,7 +529,7 @@ REPORTES = {r.codigo: r for r in [
             "Enviados, cerradas, total vendido, ticket promedio y tasa de cierre de cada vendedor.",
             ("desde", "hasta", "equipo", "vendedor"), (A, C), icono="graph-up"),
     Reporte("VENTAS_FORMULARIOS", "Formularios DAMI", "VENTAS",
-            "Detalle de los DAMI enviados: vendedor, cliente, estado, encargado y valor.", ("desde", "hasta", "estado", "vendedor"),
+            "Detalle de los DAMI enviados: asesor, cliente, estado, supervisor y valor.", ("desde", "hasta", "estado", "vendedor"),
             (A, C), estados=_ESTADOS_DAMI, icono="file-earmark-text"),
     Reporte("VENTAS_PRODUCCION", "Hoja de producción del vendedor", "VENTAS",
             "La hoja de producción de un vendedor en un mes, con sus totales.", ("mes", "vendedor"), (A, C),

@@ -28,7 +28,7 @@ class BreaksTests(TestCase):
     @classmethod
     def setUpTestData(cls):
         call_command("inicializar_datos", verbosity=0)
-        cargo_venta = Cargo.objects.get(nombre="Vendedor telefónico")
+        cargo_venta = Cargo.objects.get(nombre="Asesor de ventas")
         cls.coordinador = Usuario.objects.create_user("marlon.rosero", None, "clave-segura-123", rol=Rol.ENCARGADO_CIERRE,
                                                       first_name="Marlon", last_name="Rosero de Mendoza")
         cls.coordinador.user_permissions.add(Permission.objects.get(content_type__app_label="asistencia", codename="gestionar_breaks"))

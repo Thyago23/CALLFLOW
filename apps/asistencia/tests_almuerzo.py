@@ -29,7 +29,7 @@ class AlmuerzoTests(TestCase):
         cls.vendedor = Usuario.objects.create_user("luis.andrade", None, "clave-segura-123", rol=Rol.VENDEDOR)
         cls.empleado = Empleado.objects.create(
             identificacion="1710034065", nombres="Luis", apellidos="Andrade", usuario=cls.vendedor,
-            cargo=Cargo.objects.get(nombre="Vendedor telefónico"), fecha_ingreso=date(2026, 1, 1),
+            cargo=Cargo.objects.get(nombre="Asesor de ventas"), fecha_ingreso=date(2026, 1, 1),
         )
         horario = Horario.objects.create(nombre="Jornada 9 a 18", hora_entrada=time(9, 0), hora_salida=time(18, 0), minutos_tolerancia=0)
         AsignacionHorario.objects.create(empleado=cls.empleado, horario=horario, vigente_desde=date(2026, 1, 1))

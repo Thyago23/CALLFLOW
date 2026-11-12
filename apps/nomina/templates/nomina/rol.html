@@ -50,7 +50,7 @@
       <div class="fs-5 fw-semibold">$ {{ e.comision }}</div>
       <div class="small text-body-secondary">
         {% if e.esquema %}{{ e.esquema }} · Ventas cerradas: $ {{ e.total_ventas }}{% if e.porcentaje_comision %} → {{ e.porcentaje_comision|floatformat:"-2" }} %{% endif %}
-        {% else %}Sin equipo asignado: no se calculan comisiones.{% endif %}
+        {% else %}Administrativo: no se calculan comisiones.{% endif %}
       </div>
     </div>
     <div class="d-flex gap-2">

@@ -54,7 +54,7 @@
     <select id="equipo-nomina" name="equipo" class="form-select" onchange="this.form.requestSubmit()">
       <option value="">Todos los equipos</option>
       {% for eq in equipos %}<option value="{{ eq.pk }}" {% if equipo == eq.pk|stringformat:"s" %}selected{% endif %}>{{ eq }}</option>{% endfor %}
-      <option value="sin" {% if equipo == "sin" %}selected{% endif %}>Vendedores sin equipo</option>
+      <option value="administrativos" {% if equipo == "administrativos" or equipo == "sin" %}selected{% endif %}>Administrativos</option>
     </select>
   </div>
 </form>
@@ -84,7 +84,7 @@
             {% if r.pendientes %}<span class="badge text-bg-warning">{{ r.pendientes }} sin clasificar</span>{% endif %}
             {% if r.requiere_visto_bueno %}<span class="badge text-bg-danger">Visto bueno</span>{% endif %}
           </td>
-          <td class="d-none d-md-table-cell">{% if r.esquema %}{{ r.esquema }}{% elif r.es_vendedor %}<span class="text-body-secondary small">Sin equipo</span>{% else %}—{% endif %}</td>
+          <td class="d-none d-md-table-cell">{% if r.esquema %}{{ r.esquema }}{% else %}<span class="text-body-secondary small">Administrativo</span>{% endif %}</td>
           <td class="text-end text-nowrap">{% if r.sueldo_base %}$ {{ r.sueldo_base }}{% else %}<span class="text-danger small">Sin sueldo</span>{% endif %}</td>
           <td class="text-end text-nowrap d-none d-lg-table-cell">{% if r.es_vendedor %}$ {{ r.total_ventas }}{% else %}—{% endif %}</td>
           <td class="text-end text-nowrap">{% if r.es_vendedor %}$ {{ r.comision }}{% if r.porcentaje_comision %} <span class="small text-body-secondary">({{ r.porcentaje_comision|floatformat:"-2" }} %)</span>{% endif %}{% else %}—{% endif %}</td>

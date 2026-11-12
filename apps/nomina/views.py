@@ -94,8 +94,9 @@ def _respuesta_pdf(pdf: bytes, nombre: str) -> HttpResponse:
 
 
 def _roles_filtrados(roles, equipo: str):
-    if equipo == "sin":
-        return [r for r in roles if r.es_vendedor and not r.esquema]
+    # Sin equipo de comisiones = administrativo («sin» se acepta por los enlaces guardados de antes).
+    if equipo in ("administrativos", "sin"):
+        return [r for r in roles if not r.esquema]
     if equipo.isdigit():
         return [r for r in roles if r.esquema and r.esquema.pk == int(equipo)]
     return roles

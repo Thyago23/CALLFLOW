@@ -56,7 +56,7 @@ class UsuarioCrearForm(FormularioEstilizado, forms.ModelForm):
     empleado = forms.ModelChoiceField(
         label="Empleado vinculado", required=False, queryset=Empleado.objects.none(),
         empty_label="Sin vincular",
-        help_text="Une la cuenta con su ficha en Personal. Obligatorio para vendedores y encargados de cierre.",
+        help_text="Une la cuenta con su ficha en Personal. Obligatorio para asesores de ventas y supervisores.",
     )
     # Ventas y cierre registran el trabajo a nombre del empleado: sin ficha no pueden gestionar.
     ROLES_CON_FICHA = (Rol.VENDEDOR, Rol.ENCARGADO_CIERRE)

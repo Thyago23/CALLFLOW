@@ -21,7 +21,7 @@
       <select id="equipo-reporte" name="equipo" class="form-select" onchange="this.form.requestSubmit()">
         <option value="">Todos los empleados</option>
         {% for eq in equipos %}<option value="{{ eq.pk }}" {% if equipo == eq.pk|stringformat:"s" %}selected{% endif %}>{{ eq }}</option>{% endfor %}
-        <option value="sin" {% if equipo == "sin" %}selected{% endif %}>Vendedores sin equipo</option>
+        <option value="administrativos" {% if equipo == "administrativos" or equipo == "sin" %}selected{% endif %}>Administrativos</option>
       </select>
     </div>
     <div class="col-sm-12 col-md-4">

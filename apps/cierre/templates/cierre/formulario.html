@@ -28,7 +28,7 @@
     </form>
     {% endif %}
     {% if puede_liberar %}
-    <form method="post" action="{% url 'cierre:accion' f.pk %}" onsubmit="return confirm('¿Devolver el formulario a la cola para que lo tome otro encargado?');">
+    <form method="post" action="{% url 'cierre:accion' f.pk %}" onsubmit="return confirm('¿Devolver el formulario a la cola para que lo tome otro supervisor?');">
       {% csrf_token %}<input type="hidden" name="accion" value="liberar"><input type="hidden" name="version" value="{{ f.version }}">
       <button type="submit" class="btn btn-outline-secondary"><i class="bi bi-arrow-return-left me-1" aria-hidden="true"></i>Devolver a la cola</button>
     </form>
@@ -160,7 +160,7 @@
         <form method="post" action="{% url 'cierre:accion' f.pk %}" class="d-flex gap-2 align-items-end">
           {% csrf_token %}<input type="hidden" name="accion" value="reasignar">{{ form_reasignar.version }}
           <div class="flex-grow-1">
-            <label class="form-label small mb-1" for="{{ form_reasignar.encargado.id_for_label }}">Encargado de cierre</label>
+            <label class="form-label small mb-1" for="{{ form_reasignar.encargado.id_for_label }}">Supervisor</label>
             {{ form_reasignar.encargado }}
           </div>
           <button type="submit" class="btn btn-outline-primary">Asignar</button>

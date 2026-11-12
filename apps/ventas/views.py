@@ -100,7 +100,7 @@ def _guardar(request, form, formulario=None, para=None, contacto=None):
         messages.success(request, f"{f} guardado como borrador a nombre de {dueno}.")
         return redirect("ventas:formulario_detalle", pk=f.pk)
     if enviar:
-        messages.success(request, f"{f} enviado a los encargados de cierre. Quedó registrado en su hoja de producción.")
+        messages.success(request, f"{f} enviado a los supervisores. Quedó registrado en su hoja de producción.")
         return redirect("ventas:hoja")
     messages.success(request, f"{f} guardado como borrador.")
     return redirect("ventas:formulario_detalle", pk=f.pk)
@@ -201,7 +201,7 @@ def formulario_accion(request, pk):
     try:
         if accion == "enviar":
             servicios.enviar_formulario(request.user, formulario)
-            messages.success(request, f"{formulario} enviado a los encargados de cierre.")
+            messages.success(request, f"{formulario} enviado a los supervisores.")
         elif accion == "anular":
             servicios.anular_formulario(request.user, formulario)
             messages.success(request, f"{formulario} anulado.")
@@ -397,7 +397,7 @@ def _bases_vendedor(request):
             except ValidationError as error:
                 messages.error(request, " ".join(error.messages))
             else:
-                messages.success(request, "Solicitud enviada. Los encargados ya fueron notificados.")
+                messages.success(request, "Solicitud enviada. Los supervisores ya fueron notificados.")
             return redirect("ventas:bases")
     resumen = servicios.seguimiento(vendedor=empleado)
     return render(request, "ventas/bases_vendedor.html", {
@@ -467,7 +467,7 @@ def _bases_gestion(request):
 
 def _solo_gestion_bases(request):
     if servicios.es_vendedor(request.user) or not request.user.has_perm("ventas.change_solicitudbase"):
-        raise PermissionDenied("Esta sección es para encargados de cierre y administradores.")
+        raise PermissionDenied("Esta sección es para supervisores y administradores.")
 
 
 @login_required

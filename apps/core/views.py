@@ -124,7 +124,7 @@ def dashboard(request):
         indicadores.append({
             "titulo": "Formularios DAMI sin asignar", "icono": "inbox",
             "valor": FormularioDAMI.objects.filter(estado=FormularioDAMI.Estado.ENVIADO).count(),
-            "url": reverse("cierre:bandeja") + "?estado=ENVIADO", "alerta": True, "accion": "Esperan a un encargado",
+            "url": reverse("cierre:bandeja") + "?estado=ENVIADO", "alerta": True, "accion": "Esperan a un supervisor",
         })
     if usuario.has_perm("ventas.change_solicitudbase"):
         from apps.ventas.servicios import solicitudes_pendientes

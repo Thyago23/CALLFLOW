@@ -167,9 +167,9 @@ class FlujoRealTests(TestCase):
         equipo = EsquemaComision.objects.filter(activo=True).first() if hasattr(EsquemaComision, "activo") else EsquemaComision.objects.first()
 
         self.credenciales = {}  # pk empleado -> (usuario, clave, rol)
-        personas = [(f"{NOMBRES[i]}", APELLIDOS[i], "Vendedor telefónico") for i in range(40)]
-        personas += [("Luis", "Vera", "Encargado de cierre"), ("Ana", "Torres Cevallos", "Encargado de cierre"),
-                     ("Ricardo", "Mena", "Encargado de cierre")]
+        personas = [(f"{NOMBRES[i]}", APELLIDOS[i], "Asesor de ventas") for i in range(40)]
+        personas += [("Luis", "Vera", "Supervisor"), ("Ana", "Torres Cevallos", "Supervisor"),
+                     ("Ricardo", "Mena", "Supervisor")]
         for n, (nombres, apellidos, cargo) in enumerate(personas):
             datos = {
                 "tipo_identificacion": "CEDULA", "identificacion": cedula(1000 + n), "nombres": nombres, "apellidos": apellidos,

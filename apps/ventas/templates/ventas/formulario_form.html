@@ -108,7 +108,7 @@
       </div>
       <datalist id="entidades-emisoras">{% for nombre in form.entidades %}<option value="{{ nombre }}">{% endfor %}</datalist>
       {% include "ventas/_linea_dami.html" with campo=form.numero_tarjeta clase="papel-completo" %}
-      <p class="papel-seguridad"><i class="bi bi-shield-lock-fill" aria-hidden="true"></i> El número se guarda cifrado: después solo se ven los últimos 4 dígitos y únicamente el encargado de cierre a cargo lo ve completo. Una vez enviado, el DAMI ya no se puede abrir.</p>
+      <p class="papel-seguridad"><i class="bi bi-shield-lock-fill" aria-hidden="true"></i> El número se guarda cifrado: después solo se ven los últimos 4 dígitos y únicamente el supervisor a cargo lo ve completo. Una vez enviado, el DAMI ya no se puede abrir.</p>
     </section>
 
     {# Observación #}

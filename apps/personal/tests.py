@@ -37,7 +37,7 @@ def datos_validos(**cambios):
         "telefono": "099 123 4567",
         "email": "Maria.Perez@Correo.com",
         "direccion": "Av. Amazonas   y Colón",
-        "cargo": Cargo.objects.get(nombre="Vendedor telefónico").pk,
+        "cargo": Cargo.objects.get(nombre="Asesor de ventas").pk,
         "tipo_contrato": "INDEFINIDO",
         "fecha_ingreso": date.today().isoformat(),
     }
@@ -85,7 +85,7 @@ class EmpleadoFormTests(TestCase):
         self.assertEqual(empleado.telefono, "0991234567")
         self.assertEqual(empleado.email, "maria.perez@correo.com")
         self.assertEqual(empleado.direccion, "Av. Amazonas y Colón")
-        self.assertEqual(empleado.cargo.nombre, "Vendedor telefónico")
+        self.assertEqual(empleado.cargo.nombre, "Asesor de ventas")
         self.assertEqual(empleado.estado, Empleado.Estado.ACTIVO)
 
     def test_criterio2_campos_obligatorios(self):
@@ -166,7 +166,7 @@ class EmpleadoVistasTests(TestCase):
         formulario = self.client.get(reverse("personal:empleado_crear"))
         self.assertContains(formulario, "marlon.prue")
         datos = datos_registro(nombres="Marlon", apellidos="Prue", cuenta_existente=marlon.pk,
-                               cargo=Cargo.objects.get(nombre="Encargado de cierre").pk)
+                               cargo=Cargo.objects.get(nombre="Supervisor").pk)
         respuesta = self.client.post(reverse("personal:empleado_crear"), datos)
         empleado = Empleado.objects.get(identificacion=CEDULA_VALIDA)
         self.assertRedirects(respuesta, reverse("personal:empleado_detalle", args=[empleado.pk]), fetch_redirect_response=False)

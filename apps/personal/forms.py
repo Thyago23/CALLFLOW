@@ -49,8 +49,8 @@ class EmpleadoForm(forms.ModelForm):
         help_text="Se puede cambiar después en la ficha; el cambio queda en el historial.",
     )
     equipo = forms.ModelChoiceField(
-        EsquemaComision.objects.none(), label="Equipo", required=False, empty_label="Sin equipo",
-        help_text="Define las comisiones del vendedor (Visas o Baymont Travel).",
+        EsquemaComision.objects.none(), label="Equipo", required=False, empty_label="Administrativo",
+        help_text="Vendedores: Visas o Baymont Travel (define sus comisiones). Administrativo: no lleva comisiones.",
     )
     cuenta_existente = forms.ModelChoiceField(
         queryset=None, label="Cuenta de acceso", required=False, empty_label="Crear una cuenta nueva",

@@ -546,7 +546,7 @@ def comprobante_comision_pdf(e: Estimacion) -> bytes:
         else:
             _pdf_fila(pdf, ancho, "Porcentaje aplicado", f"{_porcentaje(e.porcentaje_comision)} %")
     else:
-        _pdf_fila(pdf, ancho, "Sin equipo asignado: no se calculan comisiones", "")
+        _pdf_fila(pdf, ancho, "Administrativo: no se calculan comisiones", "")
     _pdf_total(pdf, ancho, "COMISIÓN A RECIBIR", dinero(e.comision))
     _pdf_firmas_y_pie(pdf, ancho, e, "La comisión se calcula sobre las ventas cerradas del mes.")
     return bytes(pdf.output())

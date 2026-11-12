@@ -32,9 +32,9 @@ class BaseVentas(TestCase):
     @classmethod
     def setUpTestData(cls):
         call_command("inicializar_datos", verbosity=0)
-        cls.lucia = cls.persona("lucia.mora", "Lucía", "Mora", Rol.VENDEDOR, "1712345675", "Vendedor telefónico")
-        cls.pedro = cls.persona("pedro.paz", "Pedro", "Paz", Rol.VENDEDOR, "0102030405", "Vendedor telefónico")
-        cls.ana = cls.persona("ana.torres", "Ana", "Torres", Rol.ENCARGADO_CIERRE, "1804567893", "Encargado de cierre")
+        cls.lucia = cls.persona("lucia.mora", "Lucía", "Mora", Rol.VENDEDOR, "1712345675", "Asesor de ventas")
+        cls.pedro = cls.persona("pedro.paz", "Pedro", "Paz", Rol.VENDEDOR, "0102030405", "Asesor de ventas")
+        cls.ana = cls.persona("ana.torres", "Ana", "Torres", Rol.ENCARGADO_CIERRE, "1804567893", "Supervisor")
         cls.admin = Usuario.objects.create_user("diego.mendoza", None, "x", first_name="Diego", last_name="Mendoza", rol=Rol.ADMINISTRADOR)
 
     @classmethod
@@ -104,7 +104,7 @@ class FormularioDAMITests(BaseVentas):
         self.assertEqual(f.estado, "ENVIADO")
         self.assertIsNotNone(f.enviado_en)
         self.assertRedirects(respuesta, reverse("ventas:hoja"))  # el vendedor termina en su hoja
-        self.assertContains(respuesta, "enviado a los encargados de cierre")
+        self.assertContains(respuesta, "enviado a los supervisores")
         aviso = Notificacion.objects.get(destinatario=self.ana, tipo="FORMULARIO_DAMI")
         self.assertNotIn("1111", aviso.titulo + aviso.mensaje)  # sin datos del número de tarjeta
         self.assertFalse(Notificacion.objects.filter(destinatario=self.pedro).exists())
