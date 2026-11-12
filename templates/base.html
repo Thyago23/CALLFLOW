@@ -217,6 +217,8 @@
           if (resta > 0) {
             const m = Math.floor(resta / 60), s = Math.floor(resta % 60);
             texto.textContent = (el.dataset.prefijo || "Quedan ") + m + ":" + String(s).padStart(2, "0");
+          } else if (el.dataset.textoVencido) {
+            texto.textContent = el.dataset.textoVencido;  // p. ej. «¡Empieza tu break!» mientras llega el aviso del break
           } else {
             const n = Math.ceil(-resta / 60);
             texto.textContent = (el.dataset.vencido || "Terminó hace ") + n + (n === 1 ? " minuto" : " minutos") + (el.dataset.sufijoVencido || "");

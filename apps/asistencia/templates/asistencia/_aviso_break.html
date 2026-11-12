@@ -18,4 +18,16 @@
     <button type="submit" class="btn btn-success btn-lg"><i class="bi bi-check2-circle me-1" aria-hidden="true"></i>Volví del break</button>
   </form>
 </div>
+{% endwith %}{% elif break_proximo %}{% with p=break_proximo %}
+{# Break programado: ya llegó el recordatorio; cuenta atrás hasta la hora en que empieza. #}
+<div class="alert alert-warning aviso-break d-flex flex-wrap align-items-center gap-3" role="status" aria-live="polite"
+     data-cuenta-atras data-fin="{{ p.programado_para|date:'c' }}" data-ahora="{% now 'c' %}"
+     data-prefijo="Empieza en " data-texto-vencido="¡Empieza tu break!">
+  <i class="bi bi-alarm fs-2" aria-hidden="true"></i>
+  <div class="flex-grow-1 min-w-0">
+    <div class="fw-semibold">Tu break de {{ p.duracion_minutos }} min empieza a las {{ p.programado_para|time:"H:i" }}{% if p.mensaje %} · {{ p.mensaje }}{% endif %}</div>
+    <div class="small">Ve cerrando lo que estás haciendo. Cuando empiece te aparecerá el botón «Volví del break».</div>
+  </div>
+  <div class="fs-5 fw-semibold text-nowrap" data-texto>Empieza pronto</div>
+</div>
 {% endwith %}{% endif %}

@@ -21,10 +21,13 @@ def contadores(usuario) -> dict:
         datos["solicitudes_base_pendientes"] = solicitudes_pendientes()
     if usuario.rol == Rol.VENDEDOR:
         # Aviso del break en curso (con «Volví del break»): llega con el sondeo de la campana.
-        from apps.asistencia.breaks import pendiente_de
+        from apps.asistencia.breaks import pendiente_de, proximo_para
 
+        empleado = getattr(usuario, "empleado", None)
         datos["avisa_breaks"] = True
-        datos["break_pendiente"] = pendiente_de(getattr(usuario, "empleado", None))
+        datos["break_pendiente"] = pendiente_de(empleado)
+        # Break programado por empezar (ya se envió el recordatorio): cuenta atrás hasta que empiece.
+        datos["break_proximo"] = None if datos["break_pendiente"] else proximo_para(empleado)
     return datos
 
 

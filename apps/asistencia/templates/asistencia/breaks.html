@@ -3,7 +3,7 @@
 {% block contenido %}
 <div class="mb-3">
   <h1 class="h3 mb-0">Breaks</h1>
-  <p class="text-body-secondary small mb-0">Da un break a los vendedores: les llega un aviso, el tiempo corre desde que lo envía y cada uno marca «Volví del break».</p>
+  <p class="text-body-secondary small mb-0">Da un break ahora o prográmalo para una hora: les llega un aviso, el tiempo corre desde que empieza y cada uno marca «Volví del break».</p>
 </div>
 
 <div class="row g-4">
@@ -40,6 +40,46 @@
         {% endif %}
       </div>
     </section>
+
+    <section class="card mt-4" aria-labelledby="titulo-programar-break">
+      <div class="card-body">
+        <h2 class="h6 mb-1" id="titulo-programar-break"><i class="bi bi-alarm me-1" aria-hidden="true"></i>Programar un break</h2>
+        <p class="small text-body-secondary mb-3">Elija la hora: a los vendedores con la jornada abierta les llega un recordatorio antes y el break empieza solo a esa hora.</p>
+        <form method="post" action="{% url 'asistencia:programar_break' %}">
+          {% csrf_token %}
+          <div class="row g-2 mb-3">
+            <div class="col-7">
+              <label class="form-label" for="fecha-programada">Día</label>
+              <input type="date" class="form-control" id="fecha-programada" name="fecha" value="{{ hoy|date:'Y-m-d' }}" min="{{ hoy|date:'Y-m-d' }}" required>
+            </div>
+            <div class="col-5">
+              <label class="form-label" for="hora-programada">Hora</label>
+              <input type="time" class="form-control" id="hora-programada" name="hora" value="{{ hora_sugerida|time:'H:i' }}" required>
+            </div>
+          </div>
+          <label class="form-label" for="minutos-programado">Duración</label>
+          <div class="d-flex flex-wrap gap-2 mb-2" role="group" aria-label="Duraciones rápidas del break programado">
+            {% for m in rapidas %}<button type="button" class="btn btn-outline-primary btn-sm" data-minutos-programado="{{ m }}">{{ m }} min</button>{% endfor %}
+          </div>
+          <div class="input-group mb-3">
+            <input type="number" class="form-control" id="minutos-programado" name="minutos" min="1" max="120" value="15" required>
+            <span class="input-group-text">minutos</span>
+          </div>
+          <fieldset class="mb-3">
+            <legend class="form-label fs-6 mb-1">Recordar a los vendedores</legend>
+            <div class="btn-group w-100" role="group">
+              {% for a in avisos %}
+              <input type="radio" class="btn-check" name="aviso" id="aviso-{{ a }}" value="{{ a }}" autocomplete="off" {% if forloop.first %}checked{% endif %}>
+              <label class="btn btn-outline-primary" for="aviso-{{ a }}"><i class="bi bi-bell me-1" aria-hidden="true"></i>{{ a }} min antes</label>
+              {% endfor %}
+            </div>
+          </fieldset>
+          <label class="form-label" for="mensaje-programado">Mensaje <span class="text-body-secondary small">(opcional)</span></label>
+          <input type="text" class="form-control mb-3" id="mensaje-programado" name="mensaje" maxlength="150" placeholder="Ej.: Break de media mañana">
+          <button type="submit" class="btn btn-primary w-100"><i class="bi bi-calendar-plus me-1" aria-hidden="true"></i>Programar break</button>
+        </form>
+      </div>
+    </section>
   </div>
   <div class="col-lg-7">
     <div id="panel-breaks" hx-get="{% url 'asistencia:breaks_panel' %}" hx-trigger="every 5s" hx-swap="innerHTML">
@@ -50,6 +90,9 @@
 <script>
   document.querySelectorAll("[data-minutos]").forEach(function (b) {
     b.addEventListener("click", function () { document.getElementById("minutos-break").value = b.dataset.minutos; });
+  });
+  document.querySelectorAll("[data-minutos-programado]").forEach(function (b) {
+    b.addEventListener("click", function () { document.getElementById("minutos-programado").value = b.dataset.minutosProgramado; });
   });
 </script>
 {% endblock %}

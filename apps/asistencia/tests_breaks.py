@@ -24,7 +24,7 @@ def a_las(h, m, s=0):
 
 
 @override_settings(ASISTENCIA_BREAK_TOLERANCIA_MINUTOS=0)
-class BreaksTests(TestCase):
+class BaseBreaks(TestCase):
     @classmethod
     def setUpTestData(cls):
         call_command("inicializar_datos", verbosity=0)
@@ -58,6 +58,8 @@ class BreaksTests(TestCase):
     def volver(self, empleado, momento):
         return self.en(momento, empleado.usuario, "post", reverse("asistencia:volvi_break"))
 
+
+class BreaksTests(BaseBreaks):
     # ------------------------------------------------------------------ acceso
     def test_solo_el_coordinador_da_breaks(self):
         self.assertContains(self.en(a_las(10, 0), self.coordinador, "get", reverse("inicio")), reverse("asistencia:breaks"))
@@ -155,3 +157,106 @@ class BreaksTests(TestCase):
             breaks.dar_break(self.admin, 15, ahora=a_las(10, 0))
         self.assertEqual(breaks.minutos_tarde(a_las(10, 45), a_las(10, 45)), 0)
         self.assertEqual(breaks.minutos_tarde(a_las(10, 45), a_las(10, 45) + timedelta(seconds=1)), 1)
+
+
+class BreaksProgramadosTests(BaseBreaks):
+    """Break a una hora específica: recordatorio 10 o 5 min antes y empieza solo (los breaks de siempre siguen igual)."""
+
+    def programar(self, h, m, minutos=15, aviso=10, ahora=None, mensaje=""):
+        return breaks.programar_break(self.coordinador, a_las(h, m), minutos, aviso, mensaje, ahora=ahora or a_las(9, 30))
+
+    def avisos(self, empleado):
+        return list(Notificacion.objects.filter(destinatario=empleado.usuario).order_by("pk").values_list("titulo", flat=True))
+
+    def test_recordatorio_y_arranque_a_la_hora(self):
+        p = self.programar(10, 30, 15, aviso=10, mensaje="Media mañana")
+        self.assertEqual(breaks.procesar_programados(a_las(10, 19)), 0)  # todavía no toca
+        self.assertEqual(self.avisos(self.luis), [])
+        self.assertEqual(breaks.procesar_programados(a_las(10, 20)), 1)
+        p.refresh_from_db()
+        self.assertEqual((p.estado, p.avisados), ("AVISADO", 2))  # Luis y Ana (Pedro está almorzando)
+        self.assertEqual(self.avisos(self.luis), ["Tu break empieza en 10 minutos"])
+        self.assertEqual(self.avisos(self.pedro), [])
+        self.assertEqual(breaks.procesar_programados(a_las(10, 25)), 0)  # el recordatorio sale una sola vez
+        self.assertEqual(breaks.proximo_para(self.luis, a_las(10, 25)), p)
+
+        breaks.procesar_programados(a_las(10, 30, 4))
+        p.refresh_from_db()
+        d = p.descanso
+        self.assertEqual((p.estado, d.duracion_minutos, d.mensaje), ("INICIADO", 15, "Media mañana"))
+        # El tiempo corre desde la hora programada, no desde que se procesó.
+        self.assertEqual((timezone.localtime(d.inicio), timezone.localtime(d.fin)), (a_las(10, 30), a_las(10, 45)))
+        self.assertEqual(self.avisos(self.luis)[-1], "¡Break de 15 minutos!")
+        # Desde aquí es el mismo flujo de siempre: marca su regreso.
+        self.volver(self.luis, a_las(10, 44))
+        self.assertEqual(RegresoDescanso.objects.get(empleado=self.luis).minutos_tarde, 0)
+
+    def test_aviso_de_5_minutos(self):
+        self.programar(11, 0, 10, aviso=5)
+        breaks.procesar_programados(a_las(10, 54))
+        self.assertEqual(self.avisos(self.ana), [])
+        breaks.procesar_programados(a_las(10, 55))
+        self.assertEqual(self.avisos(self.ana), ["Tu break empieza en 5 minutos"])
+
+    def test_el_vendedor_ve_la_cuenta_atras_antes_de_que_empiece(self):
+        self.programar(10, 30)
+        pagina = self.en(a_las(10, 22), self.luis.usuario, "get", reverse("contadores"))  # la campana procesa y avisa
+        self.assertContains(pagina, "Tu break de 15 min empieza a las 10:30")
+        self.assertContains(pagina, "data-texto-vencido")
+        self.assertNotContains(pagina, "Volví del break")
+        empezado = self.en(a_las(10, 30, 2), self.luis.usuario, "get", reverse("contadores"))
+        self.assertContains(empezado, "Volví del break")
+
+    def test_validaciones_al_programar(self):
+        with self.assertRaises(ValidationError):
+            self.programar(9, 0)  # ya pasó
+        with self.assertRaises(ValidationError):
+            self.programar(10, 30, aviso=7)
+        with self.assertRaises(ValidationError):
+            self.programar(10, 30, minutos=0)
+        with self.assertRaises(ValidationError):
+            breaks.programar_break(self.admin, a_las(10, 30), 15, ahora=a_las(9, 30))  # sin el permiso de coordinador
+        self.programar(10, 30, 15)
+        with self.assertRaises(ValidationError):
+            self.programar(10, 40, 10)  # se cruza con el de 10:30 a 10:45
+        self.programar(10, 45, 10)  # justo al terminar: se puede
+
+    def test_cancelar_avisa_si_ya_habia_recordatorio(self):
+        p = self.programar(10, 30)
+        breaks.procesar_programados(a_las(10, 21))
+        breaks.cancelar_programado(self.coordinador, p.pk, ahora=a_las(10, 22))
+        p.refresh_from_db()
+        self.assertEqual(p.estado, "CANCELADO")
+        self.assertEqual(self.avisos(self.luis)[-1], "Se canceló el break de las 10:30")
+        breaks.procesar_programados(a_las(10, 31))
+        self.assertFalse(Descanso.objects.exists())
+        with self.assertRaises(ValidationError):
+            breaks.cancelar_programado(self.coordinador, p.pk)
+
+    def test_se_omite_si_hay_un_break_en_curso_y_avisa_al_coordinador(self):
+        p = self.programar(10, 30)
+        self.dar(a_las(10, 25), 15)  # el coordinador dio uno a mano que sigue a las 10:30
+        breaks.procesar_programados(a_las(10, 30))
+        p.refresh_from_db()
+        self.assertEqual(p.estado, "OMITIDO")
+        self.assertEqual(Descanso.objects.count(), 1)
+        self.assertTrue(Notificacion.objects.filter(destinatario=self.coordinador, titulo__contains="no empezó").exists())
+
+    def test_se_omite_si_paso_su_horario_sin_procesar(self):
+        p = self.programar(10, 30, 15)
+        breaks.procesar_programados(a_las(11, 0))
+        p.refresh_from_db()
+        self.assertEqual(p.estado, "OMITIDO")
+        self.assertFalse(Descanso.objects.exists())
+
+    def test_pantalla_del_coordinador(self):
+        r = self.en(a_las(9, 30), self.coordinador, "post", reverse("asistencia:programar_break"),
+                    {"fecha": "2026-11-04", "hora": "10:30", "minutos": "20", "aviso": "5", "mensaje": ""})
+        self.assertContains(r, "Break de 20 min programado para hoy a las 10:30")
+        self.assertContains(r, "Se recordará 5 min antes (10:25)")
+        self.assertContains(r, "Programar un break")
+        p = breaks.programados(a_las(9, 30))["pendientes"][0]
+        r = self.en(a_las(9, 31), self.coordinador, "post", reverse("asistencia:cancelar_break_programado", args=[p.pk]))
+        self.assertContains(r, "Se canceló el break programado de las 10:30")
+        self.client.force_login(self.luis.usuario)
+        self.assertEqual(self.client.post(reverse("asistencia:programar_break"), {}).status_code, 403)

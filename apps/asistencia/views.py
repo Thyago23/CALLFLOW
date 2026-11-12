@@ -18,7 +18,7 @@ from apps.personal.models import Empleado
 from . import breaks as breaks_servicio
 from . import servicios
 from .forms import DIAS, AsignarHorarioForm, ClasificarNovedadForm, HistorialFiltroForm, HorarioForm, RegistroManualForm
-from .models import Descanso, Horario, NovedadAsistencia
+from .models import Descanso, DescansoProgramado, Horario, NovedadAsistencia
 
 
 def _es_htmx(request) -> bool:
@@ -326,13 +326,14 @@ DURACIONES_RAPIDAS = (10, 15, 20, 30)
 
 def _panel_breaks(request) -> dict:
     ahora = timezone.now()
+    breaks_servicio.procesar_programados(ahora)
     actual = breaks_servicio.en_curso(ahora)
     hace_una_semana = ahora - timedelta(days=7)
     recientes = [breaks_servicio.detalle(d, ahora) for d in
                  Descanso.objects.filter(inicio__gte=hace_una_semana).exclude(pk=getattr(actual, "pk", None))
                  .select_related("enviado_por").order_by("-inicio")[:15]]
     return {"actual": breaks_servicio.detalle(actual, ahora) if actual else None, "recientes": recientes,
-            "ahora": ahora, "tolerancia": breaks_servicio.tolerancia()}
+            "ahora": ahora, "tolerancia": breaks_servicio.tolerancia(), "programados": breaks_servicio.programados(ahora)}
 
 
 @requiere_breaks
@@ -353,8 +354,49 @@ def breaks(request):
                 messages.success(request, f"Break de {minutos} min enviado a {n} vendedor{'es' if n != 1 else ''}: "
                                           f"vuelven a las {timezone.localtime(descanso.fin):%H:%M}.")
         return redirect("asistencia:breaks")
-    contexto = _panel_breaks(request) | {"participantes": breaks_servicio.participantes(), "rapidas": DURACIONES_RAPIDAS}
+    hoy = timezone.localtime()
+    contexto = _panel_breaks(request) | {"participantes": breaks_servicio.participantes(), "rapidas": DURACIONES_RAPIDAS,
+                                         "hoy": hoy.date(), "hora_sugerida": (hoy + timedelta(minutes=30)).replace(minute=0 if hoy.minute >= 30 else 30),
+                                         "avisos": DescansoProgramado.AVISOS}
     return render(request, "asistencia/breaks.html", contexto)
+
+
+@requiere_breaks
+@require_POST
+def programar_break(request):
+    """El coordinador programa un break para una hora: se recuerda 10 o 5 minutos antes y empieza solo."""
+    from datetime import date, datetime, time
+
+    try:
+        fecha = date.fromisoformat(request.POST.get("fecha", ""))
+        hora = time.fromisoformat(request.POST.get("hora", ""))
+        minutos, aviso = int(request.POST.get("minutos", "")), int(request.POST.get("aviso", "10"))
+    except ValueError:
+        messages.error(request, "Indique la fecha, la hora y cuántos minutos dura el break.")
+        return redirect("asistencia:breaks")
+    inicio = timezone.make_aware(datetime.combine(fecha, hora))
+    try:
+        p = breaks_servicio.programar_break(request.user, inicio, minutos, aviso, request.POST.get("mensaje", ""))
+    except ValidationError as error:
+        messages.error(request, _mensaje_error(error))
+    else:
+        cuando = timezone.localtime(p.programado_para)
+        dia = "hoy" if cuando.date() == timezone.localdate() else f"el {cuando:%d/%m/%Y}"
+        messages.success(request, f"Break de {p.duracion_minutos} min programado para {dia} a las {cuando:%H:%M}. "
+                                  f"Se les recordará a los vendedores {p.aviso_minutos} minutos antes.")
+    return redirect("asistencia:breaks")
+
+
+@requiere_breaks
+@require_POST
+def cancelar_break_programado(request, pk):
+    try:
+        p = breaks_servicio.cancelar_programado(request.user, pk)
+    except ValidationError as error:
+        messages.error(request, _mensaje_error(error))
+    else:
+        messages.success(request, f"Se canceló el break programado de las {timezone.localtime(p.programado_para):%H:%M}.")
+    return redirect("asistencia:breaks")
 
 
 @requiere_breaks

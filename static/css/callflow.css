@@ -1988,3 +1988,6 @@ a.enlace-modulo:hover { background: var(--cf-fondo); color: var(--bs-body-color)
 .tabla-desglose td, .tabla-desglose th { white-space: nowrap; }
 .tabla-desglose .barra-mini { display: flex; height: 6px; border-radius: 3px; overflow: hidden; background: var(--cf-pendiente); min-width: 5rem; }
 .tabla-desglose .barra-mini .seg { display: block; height: 100%; }
+
+/* Breaks programados */
+.break-programado .hora-programada { min-width: 4.25rem; padding: .35rem .5rem; border-radius: var(--bs-border-radius); background: var(--cf-primario-suave); color: var(--cf-primario); }

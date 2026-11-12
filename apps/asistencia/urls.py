@@ -20,5 +20,7 @@ urlpatterns = [
     path("salir-almuerzo/", views.salir_almuerzo, name="salir_almuerzo"),
     path("breaks/", views.breaks, name="breaks"),
     path("breaks/panel/", views.breaks_panel, name="breaks_panel"),
+    path("breaks/programar/", views.programar_break, name="programar_break"),
+    path("breaks/programados/<int:pk>/cancelar/", views.cancelar_break_programado, name="cancelar_break_programado"),
     path("breaks/volvi/", views.volvi_del_break, name="volvi_break"),
 ]
