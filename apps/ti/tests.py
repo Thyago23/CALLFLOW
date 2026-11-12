@@ -3,10 +3,14 @@ from datetime import timedelta
 from io import StringIO
 
 from django.contrib.sessions.models import Session
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management import call_command
 from django.db import IntegrityError, transaction
 from django.db.utils import InternalError
-from django.test import TestCase
+import shutil
+import tempfile
+
+from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
@@ -15,7 +19,7 @@ from apps.core.models import CUENTAS_TI, Rol, Usuario
 from apps.personal.models import Cargo, Empleado
 
 from . import servicios
-from .models import Equipo, EventoEquipo, SesionEquipo
+from .models import ActaEquipo, Equipo, EventoEquipo, SesionEquipo
 
 CLAVE = "Clave-Segura-2026"
 
@@ -133,34 +137,35 @@ class EquiposTests(BaseTI):
         return {"codigo": "", "tipo": "ESCRITORIO", "marca": "Dell", "modelo": "OptiPlex 3080", "numero_serie": "abc123",
                 "procesador": "Core i5", "memoria_ram_gb": 8, "almacenamiento": "SSD 256 GB", "sistema_operativo": "Windows 11",
                 "hostname": "call-pc-01", "direccion_ip": "192.168.1.21", "direccion_mac": "aa-bb-cc-dd-ee-01", "ubicacion": "Puesto 1",
-                "asignado_a": "", "estado": "OPERATIVO", "fecha_compra": "2026-01-10", "proveedor": "Compu", "costo": "650.00",
+                "estado": "OPERATIVO", "fecha_compra": "2026-01-10", "proveedor": "Compu", "costo": "650.00",
                 "garantia_hasta": "2027-01-10", "observacion": ""} | extra
 
     def test_registrar_equipo_asigna_codigo_y_anota_el_alta(self):
-        respuesta = self.client.post(reverse("ti:crear"), self.datos(asignado_a=self.empleado.pk))
+        respuesta = self.client.post(reverse("ti:crear"), self.datos(asignado_a=self.empleado.pk))  # se ignora
         equipo = Equipo.objects.get()
         self.assertRedirects(respuesta, reverse("ti:detalle", args=[equipo.pk]))
+        self.assertIsNone(equipo.asignado_a)
         self.assertEqual(equipo.codigo, "EQ-0001")
         self.assertEqual(equipo.numero_serie, "ABC123")
         self.assertEqual(equipo.direccion_mac, "AA:BB:CC:DD:EE:01")
         self.assertEqual(equipo.hostname, "CALL-PC-01")
-        self.assertEqual(list(equipo.eventos.order_by("pk").values_list("tipo", flat=True)), ["ALTA", "ASIGNACION"])
+        self.assertEqual(list(equipo.eventos.order_by("pk").values_list("tipo", flat=True)), ["ALTA"])
         self.client.post(reverse("ti:crear"), self.datos(numero_serie="XYZ", direccion_ip="192.168.1.22", direccion_mac=""))
         self.assertTrue(Equipo.objects.filter(codigo="EQ-0002").exists())
 
-    def test_cambiar_asignacion_y_estado_queda_en_la_hoja_de_vida(self):
-        self.client.post(reverse("ti:crear"), self.datos(asignado_a=self.empleado.pk))
+    def test_cambiar_estado_queda_en_la_hoja_de_vida(self):
+        self.client.post(reverse("ti:crear"), self.datos())
         equipo = Equipo.objects.get()
         self.client.post(reverse("ti:editar", args=[equipo.pk]), self.datos(codigo=equipo.codigo, estado="REPARACION"))
         tipos = list(equipo.eventos.order_by("pk").values_list("tipo", flat=True))
-        self.assertEqual(tipos, ["ALTA", "ASIGNACION", "DEVOLUCION", "CAMBIO_ESTADO"])
+        self.assertEqual(tipos, ["ALTA", "CAMBIO_ESTADO"])
 
     def test_validaciones_del_formulario(self):
         Equipo.objects.create(codigo="EQ-0001", tipo="LAPTOP", numero_serie="ABC123")
         respuesta = self.client.post(reverse("ti:crear"), self.datos(direccion_mac="zz", garantia_hasta="2025-01-01",
-                                                                     estado="BAJA", asignado_a=self.empleado.pk))
+                                                                     estado="BAJA"))
         form = respuesta.context["form"]
-        for campo in ("numero_serie", "direccion_mac", "garantia_hasta", "asignado_a"):
+        for campo in ("numero_serie", "direccion_mac", "garantia_hasta"):
             self.assertIn(campo, form.errors, campo)
 
     def test_mantenimiento_queda_en_la_hoja_de_vida_y_no_se_puede_borrar(self):
@@ -238,3 +243,124 @@ class ReportesTITests(BaseTI):
             self.assertEqual(pdf["Content-Type"], "application/pdf", codigo)
         filtrado = self.client.get(reverse("reportes:reporte", args=["TI_EQUIPOS"]), {"tipo_equipo": "IMPRESORA"})
         self.assertNotContains(filtrado, "EQ-0001")
+
+
+MEDIA_PRUEBAS = tempfile.mkdtemp(prefix="callflow-ti-actas-")
+
+
+@override_settings(MEDIA_ROOT=MEDIA_PRUEBAS)
+class ActasTests(BaseTI):
+    """Préstamos y actas de entrega: PDF para firmar al entregar o recibir un equipo."""
+
+    @classmethod
+    def tearDownClass(cls):
+        super().tearDownClass()
+        shutil.rmtree(MEDIA_PRUEBAS, ignore_errors=True)
+
+    def setUp(self):
+        super().setUp()
+        self.equipo = Equipo.objects.create(codigo="EQ-0001", tipo="LAPTOP", marca="Lenovo", modelo="ThinkPad E14",
+                                            numero_serie="PF1234", estado="BODEGA")
+        self.hoy = timezone.localdate()
+
+    def entregar(self, **extra):
+        datos = {"empleado": self.empleado.pk, "modalidad": "ASIGNACION", "devolucion_prevista": "",
+                 "fecha": self.hoy.isoformat(), "condicion": "BUENO", "accesorios": "Cargador,  mouse", "observacion": ""} | extra
+        return self.client.post(reverse("ti:entregar", args=[self.equipo.pk]), datos)
+
+    def devolver(self, **extra):
+        datos = {"fecha": self.hoy.isoformat(), "condicion": "BUENO", "accesorios": "Cargador", "observacion": "",
+                 "estado_destino": "BODEGA"} | extra
+        return self.client.post(reverse("ti:devolver", args=[self.equipo.pk]), datos)
+
+    def test_entregar_asigna_anota_y_emite_el_acta_en_pdf(self):
+        self.assertContains(self.client.get(reverse("ti:entregar", args=[self.equipo.pk])), "Entregar y generar acta")
+        respuesta = self.entregar()
+        acta = ActaEquipo.objects.get()
+        self.assertRedirects(respuesta, reverse("ti:detalle", args=[self.equipo.pk]) + "#actas")
+        self.equipo.refresh_from_db()
+        self.assertEqual((self.equipo.asignado_a, self.equipo.estado), (self.empleado, "OPERATIVO"))
+        self.assertEqual((acta.tipo, acta.modalidad, acta.accesorios), ("ENTREGA", "ASIGNACION", "Cargador, mouse"))
+        self.assertEqual(acta.evento.tipo, "ASIGNACION")
+        self.assertEqual(acta.numero, f"ACT-{acta.pk:05d}")
+        pdf = self.client.get(reverse("ti:acta_pdf", args=[acta.pk]))
+        self.assertEqual(pdf["Content-Type"], "application/pdf")
+        self.assertTrue(pdf.content.startswith(b"%PDF-"))
+        self.assertIn(acta.numero, pdf["Content-Disposition"])
+        self.assertContains(self.client.get(reverse("ti:detalle", args=[self.equipo.pk])), acta.numero)
+
+    def test_prestamo_exige_fecha_y_aparece_vencido(self):
+        respuesta = self.entregar(modalidad="PRESTAMO")
+        self.assertIn("devolucion_prevista", respuesta.context["form"].errors)
+        ayer = self.hoy - timedelta(days=1)
+        self.entregar(modalidad="PRESTAMO", fecha=(self.hoy - timedelta(days=5)).isoformat(), devolucion_prevista=ayer.isoformat())
+        acta = ActaEquipo.objects.get()
+        self.assertTrue(acta.es_prestamo)
+        self.assertEqual(acta.devolucion_prevista, ayer)
+        pagina = self.client.get(reverse("ti:prestamos"))
+        self.assertEqual(pagina.context["n_vencidos"], 1)
+        self.assertContains(pagina, "Vencido")
+        self.assertTrue(self.client.get(reverse("ti:acta_pdf", args=[acta.pk])).content.startswith(b"%PDF-"))
+
+    def test_devolver_libera_el_equipo_y_cierra_la_entrega(self):
+        self.entregar(modalidad="PRESTAMO", devolucion_prevista=(self.hoy + timedelta(days=7)).isoformat())
+        entrega = ActaEquipo.objects.get()
+        self.assertContains(self.client.get(reverse("ti:devolver", args=[self.equipo.pk])), entrega.numero)
+        respuesta = self.devolver(condicion="DANADO")
+        self.assertIn("observacion", respuesta.context["form"].errors)  # los daños se describen
+        self.devolver(condicion="DANADO", observacion="Pantalla rayada", estado_destino="REPARACION")
+        devolucion = ActaEquipo.objects.get(tipo="DEVOLUCION")
+        self.assertEqual(devolucion.entrega_acta, entrega)
+        self.assertEqual(devolucion.empleado, self.empleado)
+        self.equipo.refresh_from_db()
+        self.assertEqual((self.equipo.asignado_a, self.equipo.estado), (None, "REPARACION"))
+        self.assertEqual(list(servicios.prestamos_abiertos()), [])
+        self.assertEqual(list(self.equipo.eventos.order_by("pk").values_list("tipo", flat=True)), ["ASIGNACION", "DEVOLUCION"])
+        self.assertTrue(self.client.get(reverse("ti:acta_pdf", args=[devolucion.pk])).content.startswith(b"%PDF-"))
+
+    def test_no_se_entrega_dos_veces_ni_se_devuelve_lo_no_entregado(self):
+        self.assertRedirects(self.devolver(), reverse("ti:detalle", args=[self.equipo.pk]))
+        self.entregar()
+        self.entregar()
+        self.assertEqual(ActaEquipo.objects.count(), 1)
+        with self.assertRaises(servicios.OperacionNoPermitida):
+            servicios.entregar_equipo(self.equipo, empleado=self.empleado, fecha=self.hoy, modalidad="ASIGNACION",
+                                      devolucion_prevista=None, condicion="BUENO", usuario=self.santiago)
+
+    def test_equipo_entregado_no_pasa_a_bodega_ni_baja_sin_devolucion(self):
+        self.entregar()
+        datos = {"codigo": "EQ-0001", "tipo": "LAPTOP", "estado": "BAJA"}
+        respuesta = self.client.post(reverse("ti:editar", args=[self.equipo.pk]), datos)
+        self.assertIn("estado", respuesta.context["form"].errors)
+
+    def test_acta_firmada_se_sube_y_solo_la_ve_ti(self):
+        self.entregar()
+        acta = ActaEquipo.objects.get()
+        falso = SimpleUploadedFile("acta.exe", b"MZ no es pdf", content_type="application/pdf")
+        self.client.post(reverse("ti:acta_firmada_subir", args=[acta.pk]), {"archivo": falso})
+        acta.refresh_from_db()
+        self.assertFalse(acta.firmada)
+        pdf = SimpleUploadedFile("firmada.pdf", b"%PDF-1.4\n% firmada\n%%EOF\n", content_type="application/pdf")
+        self.client.post(reverse("ti:acta_firmada_subir", args=[acta.pk]), {"archivo": pdf})
+        acta.refresh_from_db()
+        self.assertTrue(acta.firmada)
+        self.assertEqual((acta.firmada_mime, acta.firmada_subida_por), ("application/pdf", self.santiago))
+        self.assertEqual(self.client.get(reverse("ti:acta_firmada", args=[acta.pk])).status_code, 200)
+        self.assertEqual(self.client.get(reverse("ti:prestamos"), {"firma": "pendiente"}).context["n_sin_firma"], 0)
+        otro = self.client_class()
+        otro.force_login(self.admin)
+        self.assertEqual(otro.get(reverse("ti:acta_firmada", args=[acta.pk])).status_code, 403)
+        self.assertEqual(otro.get(reverse("ti:acta_pdf", args=[acta.pk])).status_code, 403)
+
+    def test_la_base_impide_modificar_o_borrar_un_acta(self):
+        self.entregar()
+        acta = ActaEquipo.objects.get()
+        for cambio in ({"condicion": "NUEVO"}, {"empleado": None}, {"observacion": "otra cosa"}):
+            with self.assertRaises((IntegrityError, InternalError)), transaction.atomic():
+                ActaEquipo.objects.filter(pk=acta.pk).update(**cambio)
+        with self.assertRaises((IntegrityError, InternalError)), transaction.atomic():
+            ActaEquipo.objects.filter(pk=acta.pk).delete()
+        # Un préstamo sin fecha de devolución tampoco entra por SQL directo.
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            ActaEquipo.objects.create(equipo=self.equipo, tipo="ENTREGA", empleado=self.empleado, fecha=self.hoy,
+                                      modalidad="PRESTAMO", condicion="BUENO", evento=acta.evento, registrado_por=self.santiago)

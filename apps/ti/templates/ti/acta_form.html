@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block titulo %}{% if es_entrega %}Entregar{% else %}Recibir{% endif %} {{ equipo.codigo }} · TI{% endblock %}
+{% block contenido %}
+<nav aria-label="Ruta" class="mb-2">
+  <ol class="breadcrumb small mb-0">
+    <li class="breadcrumb-item"><a href="{% url 'ti:equipos' %}">Equipos</a></li>
+    <li class="breadcrumb-item"><a href="{% url 'ti:detalle' equipo.pk %}">{{ equipo.codigo }}</a></li>
+    <li class="breadcrumb-item active" aria-current="page">{% if es_entrega %}Entregar{% else %}Recibir devolución{% endif %}</li>
+  </ol>
+</nav>
+<header class="cabecera-formulario">
+  <h1 class="h3 mb-1">{% if es_entrega %}Entregar equipo{% else %}Recibir devolución{% endif %}</h1>
+  <p class="text-body-secondary mb-0">
+    {{ equipo }}{% if equipo.numero_serie %} · S/N {{ equipo.numero_serie }}{% endif %}.
+    {% if es_entrega %}Al guardar se genera el acta de entrega en PDF para que la firmen usted y quien recibe el equipo.
+    {% else %}Lo devuelve <strong>{{ equipo.asignado_a.nombres }} {{ equipo.asignado_a.apellidos }}</strong>{% if abierta %}, que lo recibió el {{ abierta.fecha|date:"d/m/Y" }} con el acta {{ abierta.numero }}{% if abierta.es_prestamo %} (préstamo hasta el {{ abierta.devolucion_prevista|date:"d/m/Y" }}){% endif %}{% endif %}. Al guardar se genera el acta de devolución en PDF.{% endif %}
+  </p>
+</header>
+
+<div class="contenedor-formulario">
+  {% for error in form.non_field_errors %}<div class="alert alert-danger">{{ error }}</div>{% endfor %}
+  <form method="post" novalidate class="card formulario">
+    {% csrf_token %}
+    {% if es_entrega %}
+    <section class="formulario-seccion">
+      <div class="formulario-seccion-info">
+        <span class="formulario-icono" aria-hidden="true"><i class="bi bi-person-check"></i></span>
+        <h2>A quién y cómo</h2>
+        <p>Una asignación es de uso permanente; un préstamo tiene fecha de devolución y aparece como vencido si no vuelve a tiempo.</p>
+      </div>
+      <div class="row">
+        <div class="col-12">{% include "_campo.html" with campo=form.empleado %}</div>
+        <div class="col-md-7">
+          <fieldset class="mb-3">
+            <legend class="form-label fs-6">{{ form.modalidad.label }} <span class="text-danger" aria-hidden="true">*</span></legend>
+            {% for opcion in form.modalidad %}
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="{{ opcion.data.name }}" value="{{ opcion.data.value }}" id="{{ opcion.id_for_label }}" {% if opcion.data.selected %}checked{% endif %} data-modalidad>
+              <label class="form-check-label" for="{{ opcion.id_for_label }}">{{ opcion.choice_label }}</label>
+            </div>
+            {% endfor %}
+            {% for error in form.modalidad.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+          </fieldset>
+        </div>
+        <div class="col-md-5" data-solo-prestamo>{% include "_campo.html" with campo=form.devolucion_prevista ayuda=form.devolucion_prevista.help_text %}</div>
+      </div>
+    </section>
+    {% endif %}
+    <section class="formulario-seccion">
+      <div class="formulario-seccion-info">
+        <span class="formulario-icono" aria-hidden="true"><i class="bi bi-clipboard-check"></i></span>
+        <h2>Estado del equipo</h2>
+        <p>Lo que se anote aquí queda en el acta firmada y sirve de respaldo si hay daños o faltantes.</p>
+      </div>
+      <div class="row">
+        <div class="col-md-6">{% include "_campo.html" with campo=form.fecha %}</div>
+        <div class="col-md-6">{% include "_campo.html" with campo=form.condicion %}</div>
+        <div class="col-12">{% include "_campo.html" with campo=form.accesorios ayuda=form.accesorios.help_text %}</div>
+        <div class="col-12">{% include "_campo.html" with campo=form.observacion ayuda=form.observacion.help_text %}</div>
+        {% if not es_entrega %}<div class="col-md-8">{% include "_campo.html" with campo=form.estado_destino %}</div>{% endif %}
+      </div>
+    </section>
+    <div class="formulario-acciones">
+      <a href="{% url 'ti:detalle' equipo.pk %}" class="btn btn-outline-secondary ms-auto">Cancelar</a>
+      <button type="submit" class="btn btn-primary"><i class="bi bi-file-earmark-text" aria-hidden="true"></i> {% if es_entrega %}Entregar y generar acta{% else %}Recibir y generar acta{% endif %}</button>
+    </div>
+  </form>
+</div>
+{% if es_entrega %}
+<script>
+  (function () {
+    var bloque = document.querySelector("[data-solo-prestamo]");
+    function actualizar() {
+      var elegido = document.querySelector("[data-modalidad]:checked");
+      bloque.hidden = !(elegido && elegido.value === "PRESTAMO");
+    }
+    document.querySelectorAll("[data-modalidad]").forEach(function (r) { r.addEventListener("change", actualizar); });
+    actualizar();
+  })();
+</script>
+{% endif %}
+{% endblock %}

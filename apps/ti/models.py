@@ -166,3 +166,87 @@ class SesionEquipo(models.Model):
 
     def __str__(self):
         return f"{self.usuario} · {self.ip or 'IP desconocida'} · {self.inicio:%d/%m/%Y %H:%M}"
+
+
+def ruta_acta_firmada(instancia, nombre):
+    """Nombre aleatorio: la ruta no expone a quién se entregó el equipo."""
+    import uuid
+
+    extension = nombre.rsplit(".", 1)[-1].lower() if "." in nombre else "pdf"
+    return f"ti/actas/{uuid.uuid4().hex}.{extension}"
+
+
+class ActaEquipo(models.Model):
+    """
+    Acta de entrega o devolución de un equipo, para imprimir y firmar.
+
+    Es un documento: sus datos no se modifican ni se borran (lo impide un trigger). Lo único que se
+    completa después es la copia escaneada del acta firmada.
+    """
+
+    class Tipo(models.TextChoices):
+        ENTREGA = "ENTREGA", "Entrega"
+        DEVOLUCION = "DEVOLUCION", "Devolución"
+
+    class Modalidad(models.TextChoices):
+        ASIGNACION = "ASIGNACION", "Asignación (uso permanente)"
+        PRESTAMO = "PRESTAMO", "Préstamo (con fecha de devolución)"
+
+    class Condicion(models.TextChoices):
+        NUEVO = "NUEVO", "Nuevo"
+        BUENO = "BUENO", "Buen estado"
+        REGULAR = "REGULAR", "Estado regular (desgaste normal)"
+        DANADO = "DANADO", "Con daños"
+
+    equipo = models.ForeignKey(Equipo, on_delete=models.PROTECT, related_name="actas")
+    tipo = models.CharField(max_length=10, choices=Tipo.choices)
+    empleado = models.ForeignKey("personal.Empleado", on_delete=models.PROTECT, related_name="actas_equipos",
+                                 help_text="Quien recibe el equipo (entrega) o lo devuelve (devolución).")
+    fecha = models.DateField()
+    modalidad = models.CharField(max_length=10, choices=Modalidad.choices, blank=True, default="",
+                                 help_text="Solo en las entregas.")
+    devolucion_prevista = models.DateField("devolución prevista", null=True, blank=True,
+                                           help_text="Obligatoria en los préstamos.")
+    condicion = models.CharField("estado físico", max_length=10, choices=Condicion.choices)
+    accesorios = models.CharField(max_length=255, blank=True, default="", help_text="Ej.: cargador, mouse, maletín.")
+    observacion = models.TextField("observación", blank=True, default="")
+    entrega_acta = models.ForeignKey("self", on_delete=models.PROTECT, null=True, blank=True, related_name="devoluciones",
+                                     help_text="En una devolución, el acta de entrega que cierra.")
+    evento = models.OneToOneField(EventoEquipo, on_delete=models.PROTECT, related_name="acta")
+    registrado_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+")
+    creado_en = models.DateTimeField(auto_now_add=True)
+    # Acta firmada (escaneada). Lo único que se completa después de emitirla.
+    firmada = models.FileField("acta firmada", upload_to=ruta_acta_firmada, max_length=255, blank=True, default="")
+    firmada_mime = models.CharField(max_length=50, blank=True, default="")
+    firmada_en = models.DateTimeField(null=True, blank=True)
+    firmada_subida_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+                                           related_name="+")
+
+    class Meta:
+        verbose_name = "acta de equipo"
+        verbose_name_plural = "actas de equipos"
+        ordering = ["-fecha", "-pk"]
+        indexes = [models.Index(fields=["fecha"], name="acta_equipo_fecha_idx")]
+        constraints = [
+            models.CheckConstraint(condition=Q(tipo__in=["ENTREGA", "DEVOLUCION"]), name="acta_tipo_valido"),
+            models.CheckConstraint(condition=Q(condicion__in=["NUEVO", "BUENO", "REGULAR", "DANADO"]), name="acta_condicion_valida"),
+            # Entrega: con modalidad; préstamo: con fecha de devolución posterior a la entrega.
+            models.CheckConstraint(
+                condition=Q(tipo="DEVOLUCION", modalidad="", devolucion_prevista__isnull=True)
+                | Q(tipo="ENTREGA", modalidad="ASIGNACION", devolucion_prevista__isnull=True)
+                | Q(tipo="ENTREGA", modalidad="PRESTAMO", devolucion_prevista__gte=F("fecha")),
+                name="acta_modalidad_coherente"),
+            models.CheckConstraint(condition=Q(tipo="DEVOLUCION") | Q(entrega_acta__isnull=True), name="acta_entrega_sin_origen"),
+            models.CheckConstraint(condition=Q(firmada="") | Q(firmada_en__isnull=False), name="acta_firmada_con_fecha"),
+        ]
+
+    def __str__(self):
+        return f"{self.numero} · {self.get_tipo_display()} de {self.equipo.codigo}"
+
+    @property
+    def numero(self) -> str:
+        return f"ACT-{self.pk:05d}" if self.pk else "ACT-(sin emitir)"
+
+    @property
+    def es_prestamo(self) -> bool:
+        return self.modalidad == self.Modalidad.PRESTAMO

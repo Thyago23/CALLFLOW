@@ -4,10 +4,10 @@ from datetime import timedelta
 
 from django.conf import settings
 from django.db import transaction
-from django.db.models import Count, Max, Q
+from django.db.models import Count, F, Max, Q
 from django.utils import timezone
 
-from .models import Equipo, EventoEquipo, SesionEquipo
+from .models import ActaEquipo, Equipo, EventoEquipo, SesionEquipo
 
 # Cuántos minutos sin actividad para dejar de considerar a alguien «conectado».
 MINUTOS_CONECTADO = getattr(settings, "TI_MINUTOS_CONECTADO", 5)
@@ -201,3 +201,78 @@ def conexiones_por_usuario(desde, hasta):
             .annotate(sesiones=Count("pk"), ips=Count("ip", distinct=True), ultima=Max("ultima_actividad"),
                       cerradas_ti=Count("pk", filter=Q(motivo_fin=SesionEquipo.Fin.CERRADA_TI)))
             .order_by("usuario__first_name", "usuario__last_name"))
+
+
+# --------------------------------------------------------------------------- préstamos y actas de entrega
+class OperacionNoPermitida(Exception):
+    """El equipo no está en condiciones de entregarse o devolverse (p. ej., otro usuario se adelantó)."""
+
+
+def entrega_abierta(equipo: Equipo) -> ActaEquipo | None:
+    """El acta de entrega vigente del equipo (la que todavía no tiene devolución)."""
+    return (equipo.actas.filter(tipo=ActaEquipo.Tipo.ENTREGA, devoluciones__isnull=True, empleado_id=equipo.asignado_a_id)
+            .order_by("-fecha", "-pk").first()) if equipo.asignado_a_id else None
+
+
+@transaction.atomic
+def entregar_equipo(equipo: Equipo, *, empleado, fecha, modalidad, devolucion_prevista, condicion, accesorios="",
+                    observacion="", usuario) -> ActaEquipo:
+    """Entrega el equipo a un empleado (asignación o préstamo): lo asigna, lo anota en la hoja de vida y emite el acta."""
+    equipo = Equipo.objects.select_for_update().get(pk=equipo.pk)
+    if equipo.asignado_a_id:
+        raise OperacionNoPermitida(f"El equipo {equipo.codigo} ya está entregado a {equipo.asignado_a}: registre primero la devolución.")
+    if equipo.estado in (Equipo.Estado.BAJA, Equipo.Estado.REPARACION):
+        raise OperacionNoPermitida(f"El equipo {equipo.codigo} está {equipo.get_estado_display().lower()}: no se puede entregar.")
+    prestamo = modalidad == ActaEquipo.Modalidad.PRESTAMO
+    detalle = f"en préstamo hasta el {devolucion_prevista:%d/%m/%Y}" if prestamo else "como asignación"
+    evento = EventoEquipo.objects.create(
+        equipo=equipo, fecha=fecha, tipo=EventoEquipo.Tipo.ASIGNACION, empleado=empleado, registrado_por=usuario,
+        descripcion=f"Entregado a {_empleado_texto(empleado)} {detalle}, con acta de entrega.")
+    equipo.asignado_a = empleado
+    equipo.estado = Equipo.Estado.OPERATIVO
+    equipo.save(update_fields=["asignado_a", "estado", "actualizado_en"])
+    return ActaEquipo.objects.create(
+        equipo=equipo, tipo=ActaEquipo.Tipo.ENTREGA, empleado=empleado, fecha=fecha, modalidad=modalidad,
+        devolucion_prevista=devolucion_prevista if prestamo else None, condicion=condicion, accesorios=accesorios,
+        observacion=observacion, evento=evento, registrado_por=usuario)
+
+
+@transaction.atomic
+def devolver_equipo(equipo: Equipo, *, fecha, condicion, estado_destino, accesorios="", observacion="", usuario) -> ActaEquipo:
+    """Recibe el equipo de quien lo tiene: lo libera, lo anota en la hoja de vida y emite el acta de devolución."""
+    equipo = Equipo.objects.select_for_update(of=("self",)).select_related("asignado_a").get(pk=equipo.pk)
+    empleado = equipo.asignado_a
+    if empleado is None:
+        raise OperacionNoPermitida(f"El equipo {equipo.codigo} no está entregado a nadie.")
+    entrega = entrega_abierta(equipo)
+    descripcion = f"Devuelto por {_empleado_texto(empleado)}, con acta de devolución."
+    if estado_destino != equipo.estado:
+        descripcion += f" Pasa a: {Equipo.Estado(estado_destino).label.lower()}."
+    evento = EventoEquipo.objects.create(equipo=equipo, fecha=fecha, tipo=EventoEquipo.Tipo.DEVOLUCION, empleado=empleado,
+                                         registrado_por=usuario, descripcion=descripcion)
+    equipo.asignado_a = None
+    equipo.estado = estado_destino
+    equipo.save(update_fields=["asignado_a", "estado", "actualizado_en"])
+    return ActaEquipo.objects.create(
+        equipo=equipo, tipo=ActaEquipo.Tipo.DEVOLUCION, empleado=empleado, fecha=fecha, condicion=condicion,
+        accesorios=accesorios, observacion=observacion, entrega_acta=entrega, evento=evento, registrado_por=usuario)
+
+
+@transaction.atomic
+def adjuntar_acta_firmada(acta: ActaEquipo, archivo, *, mime: str, usuario) -> ActaEquipo:
+    anterior = acta.firmada.name if acta.firmada else ""
+    acta.firmada.save(archivo.name, archivo, save=False)
+    acta.firmada_mime, acta.firmada_en, acta.firmada_subida_por = mime, timezone.now(), usuario
+    acta.save(update_fields=["firmada", "firmada_mime", "firmada_en", "firmada_subida_por"])
+    if anterior:
+        # La copia reemplazada se borra del disco solo si la transacción se confirma.
+        transaction.on_commit(lambda: acta.firmada.storage.delete(anterior))
+    return acta
+
+
+def prestamos_abiertos():
+    """Equipos entregados con acta que todavía no se devuelven (asignaciones y préstamos)."""
+    return (ActaEquipo.objects.filter(tipo=ActaEquipo.Tipo.ENTREGA, devoluciones__isnull=True,
+                                      equipo__asignado_a=F("empleado"))
+            .select_related("equipo", "empleado", "empleado__cargo")
+            .order_by("devolucion_prevista", "-fecha"))

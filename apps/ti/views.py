@@ -1,19 +1,23 @@
 from datetime import timedelta
 
 from django.contrib import messages
+from django.http import FileResponse, Http404, HttpResponse
 from django.core.paginator import Paginator
 from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 from django.utils.dateparse import parse_date
+from django.utils.html import format_html
+from django.utils.http import content_disposition_header
 from django.views.decorators.http import require_POST
 
 from apps.core.models import Usuario
 
-from . import servicios
+from . import actas_pdf, servicios
 from .acceso import requiere_ti
-from .forms import EquipoForm, EventoForm
-from .models import Equipo, SesionEquipo
+from .forms import ActaFirmadaForm, DevolucionForm, EntregaForm, EquipoForm, EventoForm
+from .models import ActaEquipo, Equipo, SesionEquipo
 
 
 @requiere_ti
@@ -72,8 +76,9 @@ def equipo_detalle(request, pk):
     conexiones = (SesionEquipo.objects.filter(ip=equipo.direccion_ip).select_related("usuario")[:15]
                   if equipo.direccion_ip else [])
     return render(request, "ti/equipo_detalle.html", {
-        "equipo": equipo, "eventos": equipo.eventos.select_related("empleado", "registrado_por"),
-        "conexiones": conexiones, "hoy": timezone.localdate(),
+        "equipo": equipo, "eventos": equipo.eventos.select_related("empleado", "registrado_por", "acta"),
+        "conexiones": conexiones, "hoy": timezone.localdate(), "entrega": servicios.entrega_abierta(equipo),
+        "actas": equipo.actas.select_related("empleado", "registrado_por"), "form_firmada": ActaFirmadaForm(),
     })
 
 
@@ -130,3 +135,108 @@ def cerrar_sesion(request, pk):
         messages.success(request, f"Se cerró la sesión de {sesion.usuario.get_full_name() or sesion.usuario.username} "
                                   f"({sesion.ip or 'IP desconocida'}). Tendrá que volver a ingresar en ese equipo.")
     return redirect("ti:conectados")
+
+
+# --------------------------------------------------------------------------- préstamos y actas de entrega
+def _acta_emitida(request, acta: ActaEquipo):
+    messages.success(request, format_html(
+        '{} registrada con el acta {}. <a href="{}" target="_blank" class="alert-link">Descargar el acta para firmar</a>.',
+        acta.get_tipo_display(), acta.numero, reverse("ti:acta_pdf", args=[acta.pk])))
+    return redirect(reverse("ti:detalle", args=[acta.equipo_id]) + "#actas")
+
+
+@requiere_ti
+def entregar(request, pk):
+    equipo = get_object_or_404(Equipo.objects.select_related("asignado_a"), pk=pk)
+    if equipo.asignado_a_id:
+        messages.error(request, f"El equipo {equipo.codigo} ya está entregado a {equipo.asignado_a}: registre primero la devolución.")
+        return redirect("ti:detalle", pk=pk)
+    if equipo.estado in (Equipo.Estado.BAJA, Equipo.Estado.REPARACION):
+        messages.error(request, f"El equipo {equipo.codigo} está {equipo.get_estado_display().lower()}: no se puede entregar.")
+        return redirect("ti:detalle", pk=pk)
+    form = EntregaForm(request.POST or None, equipo=equipo)
+    if request.method == "POST" and form.is_valid():
+        try:
+            acta = servicios.entregar_equipo(equipo, **form.cleaned_data, usuario=request.user)
+        except servicios.OperacionNoPermitida as error:
+            messages.error(request, str(error))
+            return redirect("ti:detalle", pk=pk)
+        return _acta_emitida(request, acta)
+    return render(request, "ti/acta_form.html", {"form": form, "equipo": equipo, "es_entrega": True})
+
+
+@requiere_ti
+def devolver(request, pk):
+    equipo = get_object_or_404(Equipo.objects.select_related("asignado_a"), pk=pk)
+    if not equipo.asignado_a_id:
+        messages.error(request, f"El equipo {equipo.codigo} no está entregado a nadie.")
+        return redirect("ti:detalle", pk=pk)
+    abierta = servicios.entrega_abierta(equipo)
+    form = DevolucionForm(request.POST or None, equipo=equipo, entrega=abierta)
+    if request.method == "POST" and form.is_valid():
+        try:
+            acta = servicios.devolver_equipo(equipo, **form.cleaned_data, usuario=request.user)
+        except servicios.OperacionNoPermitida as error:
+            messages.error(request, str(error))
+            return redirect("ti:detalle", pk=pk)
+        return _acta_emitida(request, acta)
+    return render(request, "ti/acta_form.html", {"form": form, "equipo": equipo, "es_entrega": False, "abierta": abierta})
+
+
+@requiere_ti
+def acta_pdf(request, pk):
+    acta = get_object_or_404(ActaEquipo.objects.select_related(
+        "equipo", "empleado", "empleado__cargo", "registrado_por", "entrega_acta"), pk=pk)
+    respuesta = HttpResponse(actas_pdf.generar_pdf_acta(acta), content_type="application/pdf")
+    respuesta["Content-Disposition"] = content_disposition_header(False, actas_pdf.nombre_archivo(acta))
+    return respuesta
+
+
+@requiere_ti
+@require_POST
+def acta_firmada_subir(request, pk):
+    acta = get_object_or_404(ActaEquipo, pk=pk)
+    form = ActaFirmadaForm(request.POST, request.FILES)
+    if form.is_valid():
+        reemplazo = bool(acta.firmada)
+        servicios.adjuntar_acta_firmada(acta, form.cleaned_data["archivo"], mime=form.mime, usuario=request.user)
+        messages.success(request, f"Acta firmada {acta.numero} {'reemplazada' if reemplazo else 'guardada'}.")
+    else:
+        messages.error(request, " ".join(form.errors.get("archivo", ["No se pudo guardar el archivo."])))
+    if request.POST.get("volver") == "prestamos":
+        return redirect("ti:prestamos")
+    return redirect(reverse("ti:detalle", args=[acta.equipo_id]) + "#actas")
+
+
+@requiere_ti
+def acta_firmada_ver(request, pk):
+    """El acta firmada solo la ve TI: el archivo no es público."""
+    acta = get_object_or_404(ActaEquipo.objects.select_related("equipo", "empleado"), pk=pk)
+    if not acta.firmada:
+        raise Http404("Esta acta todavía no tiene la copia firmada.")
+    extension = acta.firmada.name.rsplit(".", 1)[-1]
+    respuesta = FileResponse(acta.firmada.open("rb"), content_type=acta.firmada_mime or "application/octet-stream")
+    respuesta["Content-Disposition"] = content_disposition_header(
+        False, f"{acta.numero} firmada {acta.equipo.codigo} {acta.empleado.apellidos}.{extension}")
+    return respuesta
+
+
+@requiere_ti
+def prestamos(request):
+    hoy = timezone.localdate()
+    abiertos = list(servicios.prestamos_abiertos())
+    for a in abiertos:
+        a.vencido = bool(a.es_prestamo and a.devolucion_prevista < hoy)
+        a.por_vencer = bool(a.es_prestamo and not a.vencido and a.devolucion_prevista <= hoy + timedelta(days=3))
+    actas = ActaEquipo.objects.select_related("equipo", "empleado", "registrado_por")
+    firma = request.GET.get("firma", "")
+    if firma == "pendiente":
+        actas = actas.filter(firmada="")
+    elif firma == "firmada":
+        actas = actas.exclude(firmada="")
+    pagina = Paginator(actas.order_by("-fecha", "-pk"), 30).get_page(request.GET.get("pagina"))
+    return render(request, "ti/prestamos.html", {
+        "abiertos": abiertos, "pagina": pagina, "firma": firma, "hoy": hoy,
+        "n_prestamos": sum(1 for a in abiertos if a.es_prestamo), "n_vencidos": sum(1 for a in abiertos if a.vencido),
+        "n_sin_firma": ActaEquipo.objects.filter(firmada="").count(),
+    })

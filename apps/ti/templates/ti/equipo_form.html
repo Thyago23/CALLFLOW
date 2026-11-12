@@ -10,7 +10,7 @@
 </nav>
 <header class="cabecera-formulario">
   <h1 class="h3 mb-1">{% if nuevo %}Registrar equipo{% else %}Editar equipo {{ equipo.codigo }}{% endif %}</h1>
-  <p class="text-body-secondary mb-0">{% if nuevo %}Agregue un equipo físico al inventario de TI.{% else %}Cambie la ficha, la asignación o el estado. Los cambios de asignación y estado quedan en la hoja de vida.{% endif %}</p>
+  <p class="text-body-secondary mb-0">{% if nuevo %}Agregue un equipo físico al inventario de TI.{% else %}Cambie la ficha o el estado. Los cambios de estado quedan en la hoja de vida.{% endif %}</p>
 </header>
 
 <div class="contenedor-formulario">
@@ -62,12 +62,11 @@
     <section class="formulario-seccion">
       <div class="formulario-seccion-info">
         <span class="formulario-icono" aria-hidden="true"><i class="bi bi-person-workspace"></i></span>
-        <h2>Ubicación y asignación</h2>
-        <p>Dónde está, quién lo usa y en qué estado se encuentra.</p>
+        <h2>Ubicación y estado</h2>
+        <p>Dónde está y en qué estado se encuentra. A quién se entrega se registra con un acta, desde la ficha del equipo.</p>
       </div>
       <div class="row">
         <div class="col-md-6">{% include "_campo.html" with campo=form.ubicacion %}</div>
-        <div class="col-md-6">{% include "_campo.html" with campo=form.asignado_a %}</div>
         <div class="col-md-6">{% include "_campo.html" with campo=form.estado ayuda=form.estado.help_text %}</div>
       </div>
     </section>

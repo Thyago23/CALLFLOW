@@ -1,0 +1,6 @@
+<script>
+  // Al elegir el archivo del acta firmada, se sube de inmediato.
+  document.querySelectorAll("[data-subir-firmada] input[type=file]").forEach(function (entrada) {
+    entrada.addEventListener("change", function () { if (entrada.files.length) { entrada.form.submit(); } });
+  });
+</script>

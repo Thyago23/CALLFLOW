@@ -1,0 +1,20 @@
+<tr>
+  <td class="text-nowrap"><span class="font-monospace fw-semibold">{{ a.numero }}</span><div class="small text-body-secondary">{{ a.fecha|date:"d/m/Y" }}</div></td>
+  <td>{% if a.tipo == "ENTREGA" %}<span class="badge bg-primary-subtle text-primary-emphasis border border-primary-subtle">{% if a.es_prestamo %}Préstamo{% else %}Entrega{% endif %}</span>{% else %}<span class="badge bg-secondary-subtle text-secondary-emphasis border border-secondary-subtle">Devolución</span>{% endif %}
+    {% if con_equipo %}<div class="small"><a href="{% url 'ti:detalle' a.equipo_id %}" class="font-monospace">{{ a.equipo.codigo }}</a> {{ a.equipo.get_tipo_display }}</div>{% endif %}</td>
+  <td>{{ a.empleado.nombres }} {{ a.empleado.apellidos }}<div class="small text-body-secondary">{{ a.get_condicion_display }}{% if a.es_prestamo %} · hasta {{ a.devolucion_prevista|date:"d/m/Y" }}{% endif %}</div></td>
+  <td>{% if a.firmada %}<a href="{% url 'ti:acta_firmada' a.pk %}" target="_blank" class="badge bg-success-subtle text-success-emphasis border border-success-subtle text-decoration-none"><i class="bi bi-patch-check me-1" aria-hidden="true"></i>Firmada</a><div class="small text-body-secondary">{{ a.firmada_en|date:"d/m/Y" }}</div>
+    {% else %}<span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle">Sin firmar</span>{% endif %}</td>
+  <td class="text-end">
+    <div class="d-inline-flex flex-wrap justify-content-end gap-1">
+      <a href="{% url 'ti:acta_pdf' a.pk %}" target="_blank" class="btn btn-sm btn-outline-secondary" title="Descargar el acta en PDF para imprimir y firmar"><i class="bi bi-file-earmark-pdf" aria-hidden="true"></i><span class="d-none d-xl-inline ms-1">PDF</span></a>
+      <form method="post" action="{% url 'ti:acta_firmada_subir' a.pk %}" enctype="multipart/form-data" class="d-inline" data-subir-firmada>
+        {% csrf_token %}{% if volver %}<input type="hidden" name="volver" value="{{ volver }}">{% endif %}
+        <label class="btn btn-sm {% if a.firmada %}btn-outline-secondary{% else %}btn-outline-primary{% endif %} mb-0" title="{% if a.firmada %}Reemplazar la copia firmada{% else %}Subir el acta firmada (PDF, JPG o PNG){% endif %}">
+          <i class="bi bi-upload" aria-hidden="true"></i><span class="d-none d-xl-inline ms-1">{% if a.firmada %}Reemplazar{% else %}Subir firmada{% endif %}</span>
+          <input type="file" name="archivo" accept=".pdf,.jpg,.jpeg,.png" class="visually-hidden" aria-label="Acta firmada de {{ a.numero }}">
+        </label>
+      </form>
+    </div>
+  </td>
+</tr>
