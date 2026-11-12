@@ -1,0 +1,23 @@
+{# Lista de conversaciones. Recibe `conversaciones` (con titulo, otro, no_leidos y el último mensaje) y `actual_id`. #}
+{% for c in conversaciones %}
+<a href="{% url 'mensajes:conversacion' c.pk %}" class="item-conversacion{% if c.pk|stringformat:'s' == actual_id|stringformat:'s' %} activa{% endif %}{% if c.no_leidos %} con-no-leidos{% endif %}"
+   {% if c.pk|stringformat:'s' == actual_id|stringformat:'s' %}aria-current="page"{% endif %}>
+  {% if c.es_grupo %}<span class="avatar avatar-grupo" aria-hidden="true"><i class="bi bi-people-fill"></i></span>
+  {% elif c.otro %}{% include "_avatar.html" with u=c.otro %}{% endif %}
+  <span class="min-w-0 flex-grow-1">
+    <span class="d-flex justify-content-between gap-2">
+      <span class="nombre text-truncate">{{ c.titulo }}</span>
+      {% if c.ultimo_mensaje_en %}<span class="hora">{{ c.ultimo_mensaje_en|date:"d/m H:i" }}</span>{% endif %}
+    </span>
+    <span class="d-flex justify-content-between gap-2">
+      <span class="vista-previa text-truncate">
+        {% if c.ultimo_mensaje_en %}{% if c.ultimo_autor == user.pk %}Tú: {% endif %}{% if c.ultimo_eliminado %}<em>Mensaje eliminado</em>{% elif c.ultimo_texto %}{{ c.ultimo_texto|truncatechars:70 }}{% else %}<i class="bi bi-paperclip" aria-hidden="true"></i> {{ c.ultimo_adjunto }}{% endif %}
+        {% else %}<em>Sin mensajes todavía</em>{% endif %}
+      </span>
+      {% if c.no_leidos %}<span class="badge rounded-pill bg-primary" title="{{ c.no_leidos }} sin leer">{{ c.no_leidos }}</span>{% endif %}
+    </span>
+  </span>
+</a>
+{% empty %}
+<p class="text-body-secondary small px-3 py-4 mb-0">Todavía no tiene conversaciones. Empiece una con «Nuevo mensaje».</p>
+{% endfor %}

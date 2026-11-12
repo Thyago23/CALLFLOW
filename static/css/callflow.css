@@ -978,6 +978,64 @@ details.anular-caja > summary::-webkit-details-marker { display: none; }
   .rol-pago .firmas-reporte { flex-direction: row; }
 }
 
+/* Mensajería interna (TI, administradores y supervisores) */
+.mensajeria { display: grid; grid-template-columns: 320px 1fr; height: calc(100vh - var(--cf-alto-barra) - 9.5rem); min-height: 28rem;
+  border: 1px solid var(--bs-border-color); border-radius: .75rem; overflow: hidden; background: var(--bs-body-bg); }
+.panel-conversaciones { display: flex; flex-direction: column; min-height: 0; border-right: 1px solid var(--bs-border-color); }
+.acciones-conversaciones { display: flex; gap: .5rem; padding: .75rem; border-bottom: 1px solid var(--bs-border-color); }
+.nueva-conversacion { position: relative; }
+.nueva-conversacion > summary, .opciones-grupo > summary { list-style: none; }
+.nueva-conversacion > summary::-webkit-details-marker, .opciones-grupo > summary::-webkit-details-marker { display: none; }
+.formulario-flotante { position: absolute; z-index: 20; top: calc(100% + .4rem); left: 0; width: 280px; padding: .85rem;
+  background: var(--bs-body-bg); border: 1px solid var(--bs-border-color); border-radius: .5rem; box-shadow: 0 10px 28px rgba(0, 0, 0, .14); }
+.formulario-flotante.derecha { left: auto; right: 0; }
+.lista-miembros { max-height: 190px; overflow-y: auto; }
+.lista-conversaciones { flex: 1; overflow-y: auto; }
+.item-conversacion { display: flex; gap: .65rem; align-items: center; padding: .7rem .85rem; color: inherit; text-decoration: none;
+  border-bottom: 1px solid var(--bs-border-color-translucent); border-left: 3px solid transparent; }
+.item-conversacion:hover { background: var(--bs-tertiary-bg); color: inherit; }
+.item-conversacion.activa { background: var(--cf-primario-suave); border-left-color: var(--cf-primario); }
+.item-conversacion .nombre { font-weight: 600; font-size: .9rem; }
+.item-conversacion.con-no-leidos .vista-previa { color: var(--bs-emphasis-color); font-weight: 600; }
+.item-conversacion .hora { flex: none; font-size: .72rem; color: var(--bs-secondary-color); }
+.item-conversacion .vista-previa { font-size: .8rem; color: var(--bs-secondary-color); }
+.avatar.avatar-grupo { background: var(--cf-primario-suave); color: var(--cf-primario); display: inline-grid; place-items: center; }
+.panel-chat { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
+.cabecera-chat { display: flex; align-items: center; gap: .65rem; padding: .7rem 1rem; border-bottom: 1px solid var(--bs-border-color); position: relative; }
+.opciones-grupo { position: relative; }
+.hilo { flex: 1; overflow-y: auto; padding: 1rem; display: flex; flex-direction: column; gap: .45rem; background: var(--bs-tertiary-bg); }
+.hilo-vacio { margin: 0; padding: 0 1rem 1rem; background: var(--bs-tertiary-bg); text-align: center; }
+.mensaje { display: flex; }
+.mensaje.mio { justify-content: flex-end; }
+.mensaje .burbuja { max-width: min(70%, 34rem); padding: .5rem .75rem .35rem; border-radius: .85rem; border-top-left-radius: .25rem;
+  background: var(--bs-body-bg); box-shadow: 0 1px 2px rgba(0, 0, 0, .06); overflow-wrap: anywhere; }
+.mensaje.mio .burbuja { background: var(--cf-primario); color: #fff; border-top-left-radius: .85rem; border-top-right-radius: .25rem; }
+.mensaje.mio .burbuja a { color: #fff; }
+.mensaje .autor { font-size: .75rem; font-weight: 700; color: var(--cf-primario); margin-bottom: .1rem; }
+.mensaje .texto { font-size: .92rem; white-space: normal; }
+.mensaje .pie { display: flex; justify-content: flex-end; align-items: center; gap: .4rem; font-size: .68rem; opacity: .75; margin-top: .15rem; }
+.mensaje.mio .eliminar-mensaje { color: #fff; }
+.mensaje .eliminar-mensaje { font-size: .72rem; line-height: 1; opacity: 0; transition: opacity .15s; }
+.mensaje:hover .eliminar-mensaje, .mensaje .eliminar-mensaje:focus { opacity: 1; }
+.mensaje.eliminado .burbuja { font-style: italic; opacity: .7; }
+.adjunto-imagen img { display: block; max-width: 100%; max-height: 260px; border-radius: .5rem; margin-bottom: .3rem; }
+.adjunto-archivo { display: flex; align-items: center; gap: .4rem; max-width: 100%; padding: .4rem .55rem; margin-bottom: .3rem;
+  border-radius: .45rem; background: rgba(0, 0, 0, .06); text-decoration: none; font-size: .85rem; }
+.mensaje.mio .adjunto-archivo { background: rgba(255, 255, 255, .18); }
+.escribir-mensaje { padding: .75rem; border-top: 1px solid var(--bs-border-color); }
+.escribir-mensaje textarea { resize: none; max-height: 160px; }
+.escribir-mensaje .adjuntar { position: relative; }
+.chat-vacio { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 2rem;
+  color: var(--bs-secondary-color); background: var(--bs-tertiary-bg); }
+.chat-vacio .bi { font-size: 2.5rem; margin-bottom: .5rem; color: var(--cf-primario); }
+@media (max-width: 991.98px) {
+  .mensajeria { grid-template-columns: 1fr; height: calc(100vh - var(--cf-alto-barra) - 8rem); }
+  .mensajeria.con-conversacion .panel-conversaciones { display: none; }
+  .mensajeria:not(.con-conversacion) .panel-chat { display: none; }
+  .panel-conversaciones { border-right: 0; }
+  .mensaje .burbuja { max-width: 85%; }
+}
+
 /* Agenda · agregado rápido y "+" por día */
 .agregar-rapido #rapido-titulo { min-width: 14rem; }
 .celda-dia { position: relative; }

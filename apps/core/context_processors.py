@@ -5,6 +5,12 @@ from .models import Notificacion, Rol
 def contadores(usuario) -> dict:
     """Contadores del menú y la campana. Se refrescan solos cada 30 s (vista core.contadores)."""
     datos = {"notificaciones_sin_leer": Notificacion.objects.filter(destinatario=usuario, leida=False).count()}
+    from apps.mensajes.acceso import puede_usar
+
+    if puede_usar(usuario):  # los asesores de ventas no tienen mensajería
+        from apps.mensajes.servicios import sin_leer
+
+        datos["mensajes_sin_leer"] = sin_leer(usuario)
     if usuario.has_perm("cierre.add_gestioncierre"):
         from apps.ventas.models import FormularioDAMI
 

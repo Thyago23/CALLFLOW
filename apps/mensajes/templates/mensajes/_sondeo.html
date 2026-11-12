@@ -1,0 +1,2 @@
+{# Cada 3 s pide los mensajes nuevos de la conversación abierta (después del último que se ve). #}
+<div id="sondeo-mensajes" hx-get="{% url 'mensajes:nuevos' actual.pk %}?despues={{ ultimo_id }}" hx-trigger="every 3s" hx-swap="none"{% if oob %} hx-swap-oob="true"{% endif %}></div>

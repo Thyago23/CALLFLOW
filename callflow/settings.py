@@ -63,6 +63,8 @@ INSTALLED_APPS = [
     "apps.reportes",
     # Departamento de TI: equipos, hoja de vida y equipos conectados
     "apps.ti",
+    # Mensajería interna entre TI, administradores y supervisores
+    "apps.mensajes",
 ]
 
 MIDDLEWARE = [
