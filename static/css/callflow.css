@@ -605,6 +605,24 @@ input[type="checkbox"].form-check-input + .dia-check { margin-left: 0; }
 }
 .hoja-contrato .titulo-contrato { font-size: 1.05rem; font-weight: 700; text-align: center; margin-bottom: 1rem; }
 .hoja-contrato .firma-contrato { margin-top: 2.5rem; text-align: left; }
+.hoja-contrato .clausula-contrato { margin: 1.1rem 0 .5rem; font-size: .95rem; font-weight: 700; }
+.hoja-contrato .numeral-contrato { display: flex; gap: .5rem; }
+.hoja-contrato .numeral-contrato .numero { flex: 0 0 2.2rem; font-family: Helvetica, Arial, sans-serif; font-weight: 700; }
+.hoja-contrato .tabla-contrato { width: 80%; margin: .5rem auto 1rem; border-collapse: collapse; text-align: center; }
+.hoja-contrato .tabla-contrato th, .hoja-contrato .tabla-contrato td { padding: .1rem .5rem; border: 1px solid #000; }
+.hoja-contrato .espacio-contrato { height: 3.5rem; }
+/* Estilo «formal»: como el Word de la empresa */
+.hoja-contrato.estilo-formal { font-family: "Times New Roman", Times, serif; font-size: 1rem; }
+.hoja-contrato.estilo-formal .titulo-contrato { font-size: 1.3rem; font-weight: 400; color: #2f5496; line-height: 1.3; }
+.hoja-contrato.estilo-formal .clausula-contrato { font-size: 1.05rem; color: #2f5496; font-family: inherit; }
+.hoja-contrato.estilo-formal .numeral-contrato { padding-left: 1.75rem; }
+/* Estilo «oficio»: como el contrato de imagen corporativa (Calibri en negro, numerales en línea) */
+.hoja-contrato.estilo-oficio { font-family: Calibri, Carlito, "Segoe UI", Arial, sans-serif; font-size: .95rem; }
+.hoja-contrato.estilo-oficio .titulo-contrato { font-size: .95rem; }
+.hoja-contrato.estilo-oficio .clausula-contrato { font-size: .95rem; margin-top: .9rem; }
+.hoja-contrato.estilo-oficio .numeral-contrato { display: block; }
+.hoja-contrato.estilo-oficio .numeral-contrato .numero { font-family: inherit; font-weight: 400; margin-right: .3rem; }
+.hoja-contrato.estilo-oficio .numeral-contrato.letra { padding-left: 2rem; }
 @media (max-width: 576px) { .hoja-contrato { padding: 1.25rem 1rem; } }
 
 /* Días no laborables en la agenda */
@@ -744,24 +762,6 @@ details.anular-caja > summary::-webkit-details-marker { display: none; }
   .firmas-reporte { break-inside: avoid; }
 }
 
-/* Rol de pagos individual y comprobante de comisión */
-.rol-pago { background: var(--bs-body-bg); border: 1px solid var(--bs-border-color); border-radius: .5rem; padding: 2.25rem; max-width: 54rem; margin: 0 auto 1.5rem; }
-.rol-pago .encabezado-reporte { align-items: center; padding-bottom: 1rem; margin-bottom: 1.25rem; }
-.rol-pago .titulo-reporte { font-size: 1.5rem; letter-spacing: .06em; color: var(--cf-primario); }
-.rol-pago .logo-reporte { width: 4.5rem; }
-.rol-pago .datos-rol { margin-bottom: 1.75rem; }
-.rol-pago .datos-rol dt { font-weight: 600; color: var(--bs-secondary-color); min-width: 5.5rem; }
-.tabla-rol-pago { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
-.tabla-rol-pago td, .tabla-rol-pago th { padding: .5rem .75rem; }
-.tabla-rol-pago td { border-bottom: 1px solid var(--bs-border-color-translucent); }
-.tabla-rol-pago td:last-child, .tabla-rol-pago th:last-child { text-align: right; white-space: nowrap; }
-.tabla-rol-pago th[colspan] { text-align: left; }
-.tabla-rol-pago .fila-seccion th { background: var(--cf-primario-suave); color: var(--cf-primario); font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; }
-.tabla-rol-pago .fila-subtotal td { font-weight: 600; }
-.tabla-rol-pago .fila-neto td { padding-block: .8rem; font-size: 1.2rem; font-weight: 700; color: var(--cf-primario); text-transform: uppercase; letter-spacing: .02em; border-top: 2px solid var(--cf-primario); border-bottom: 2px solid var(--cf-primario); }
-.tabla-rol-asistencia { margin-top: 2rem; }
-.tabla-rol-asistencia th:nth-child(2), .tabla-rol-asistencia td:nth-child(2) { text-align: right; width: 7rem; }
-.tabla-rol-asistencia th:last-child, .tabla-rol-asistencia td:last-child { width: 8rem; }
 /* Caja chica con el mismo aspecto del Excel de la empresa (hojas «Caja chica» y «Arqueo de caja»).
    La hoja va siempre en «papel» claro (data-bs-theme="light"), también en modo oscuro. */
 .libro-excel { --excel-titulo: #203864; --excel-encabezado: #4472c4; --excel-rayado: #f3f6fa; --excel-celda: #d9eaf7;
@@ -941,6 +941,24 @@ details.anular-caja > summary::-webkit-details-marker { display: none; }
   .rx-instrucciones { margin-top: 3mm; }
 }
 
+/* Rol de pagos individual y comprobante de comisión */
+.rol-pago { background: var(--bs-body-bg); border: 1px solid var(--bs-border-color); border-radius: .5rem; padding: 2.25rem; max-width: 54rem; margin: 0 auto 1.5rem; }
+.rol-pago .encabezado-reporte { align-items: center; padding-bottom: 1rem; margin-bottom: 1.25rem; }
+.rol-pago .titulo-reporte { font-size: 1.5rem; letter-spacing: .06em; color: var(--cf-primario); }
+.rol-pago .logo-reporte { width: 4.5rem; }
+.rol-pago .datos-rol { margin-bottom: 1.75rem; }
+.rol-pago .datos-rol dt { font-weight: 600; color: var(--bs-secondary-color); min-width: 5.5rem; }
+.tabla-rol-pago { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.tabla-rol-pago td, .tabla-rol-pago th { padding: .5rem .75rem; }
+.tabla-rol-pago td { border-bottom: 1px solid var(--bs-border-color-translucent); }
+.tabla-rol-pago td:last-child, .tabla-rol-pago th:last-child { text-align: right; white-space: nowrap; }
+.tabla-rol-pago th[colspan] { text-align: left; }
+.tabla-rol-pago .fila-seccion th { background: var(--cf-primario-suave); color: var(--cf-primario); font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; }
+.tabla-rol-pago .fila-subtotal td { font-weight: 600; }
+.tabla-rol-pago .fila-neto td { padding-block: .8rem; font-size: 1.2rem; font-weight: 700; color: var(--cf-primario); text-transform: uppercase; letter-spacing: .02em; border-top: 2px solid var(--cf-primario); border-bottom: 2px solid var(--cf-primario); }
+.tabla-rol-asistencia { margin-top: 2rem; }
+.tabla-rol-asistencia th:nth-child(2), .tabla-rol-asistencia td:nth-child(2) { text-align: right; width: 7rem; }
+.tabla-rol-asistencia th:last-child, .tabla-rol-asistencia td:last-child { width: 8rem; }
 .rol-pago .firmas-reporte { margin-top: 5rem; }
 .rol-pago .firmas-reporte > div { flex: 0 1 19rem; }
 @media (max-width: 575.98px) { .rol-pago { padding: 1.25rem; } .tabla-rol-pago td:first-child { white-space: normal; } }

@@ -24,13 +24,17 @@
           <div class="row">
             <div class="col-md-7">{% include "_campo.html" with campo=form.nombre %}</div>
             <div class="col-md-5">{% include "_campo.html" with campo=form.tipo_contrato %}</div>
+            <div class="col-md-5">{% include "_campo.html" with campo=form.cargo %}</div>
+            <div class="col-md-7">{% include "_campo.html" with campo=form.estilo %}</div>
           </div>
           <div class="mb-2">
             <label class="form-label" for="{{ form.contenido.id_for_label }}">{{ form.contenido.label }} <span class="text-danger" aria-hidden="true">*</span></label>
             {{ form.contenido }}
             {% for error in form.contenido.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
             <div class="form-text">
-              <strong># Título</strong> al inicio de una línea = título centrado · <strong>**texto**</strong> = negrita ·
+              <strong># Título</strong> = título centrado · <strong>## Cláusula…</strong> = encabezado de cláusula ·
+              <strong>1.1 texto</strong> o <strong>A. texto</strong> = numeral con sangría · <strong>| celda | celda |</strong> = tabla ·
+              <strong>[[espacio]]</strong> = espacio para firmar · <strong>**texto**</strong> = negrita ·
               una línea en blanco separa párrafos · <strong>______</strong> = línea de firma.
             </div>
           </div>
@@ -41,13 +45,13 @@
         <div class="card-header bg-body d-flex justify-content-between align-items-center">
           <h2 class="h6 mb-0">Vista previa con datos de ejemplo</h2>
           <button type="button" class="btn btn-sm btn-outline-secondary"
-                  hx-post="{% url 'documentos:plantilla_vista_previa' %}" hx-include="[name='contenido']" hx-target="#vista-previa">
+                  hx-post="{% url 'documentos:plantilla_vista_previa' %}" hx-include="[name='contenido'],[name='estilo']" hx-target="#vista-previa">
             <i class="bi bi-arrow-repeat me-1" aria-hidden="true"></i>Actualizar
           </button>
         </div>
         <div class="card-body" id="vista-previa"
-             hx-post="{% url 'documentos:plantilla_vista_previa' %}" hx-include="[name='contenido']"
-             hx-trigger="load, keyup changed delay:800ms from:[name='contenido']">
+             hx-post="{% url 'documentos:plantilla_vista_previa' %}" hx-include="[name='contenido'],[name='estilo']"
+             hx-trigger="load, keyup changed delay:800ms from:[name='contenido'], change from:[name='estilo']">
         </div>
       </div>
     </div>

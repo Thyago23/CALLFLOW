@@ -16,5 +16,5 @@
   </div>
   {% endif %}
   {% if ejemplo %}<p class="small text-body-secondary mb-2">Así se verá con los datos de un empleado de ejemplo.</p>{% endif %}
-  <div class="hoja-contrato">{{ texto|formato_contrato }}</div>
+  <div class="hoja-contrato{% if estilo == 'FORMAL' %} estilo-formal{% elif estilo == 'OFICIO' %} estilo-oficio{% endif %}">{{ texto|formato_contrato }}</div>
 {% endif %}

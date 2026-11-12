@@ -74,6 +74,7 @@ def plantilla_editar(request, pk):
     anterior = get_object_or_404(PlantillaContrato, pk=pk, activa=True)
     form = PlantillaForm(request.POST or None, instance=PlantillaContrato(
         nombre=anterior.nombre, tipo_contrato=anterior.tipo_contrato, contenido=anterior.contenido, version=anterior.version,
+        estilo=anterior.estilo, cargo=anterior.cargo,
     ))
     form.instance.pk = anterior.pk  # para que la validación del nombre la reconozca
     if request.method == "POST" and form.is_valid():
@@ -90,6 +91,7 @@ def plantilla_vista_previa(request):
     contenido = request.POST.get("contenido", "")
     return render(request, "documentos/_vista_previa.html", {
         "texto": contratos.llenar(contenido, contratos.datos_de_ejemplo()),
+        "estilo": request.POST.get("estilo", "SIMPLE"),
         "desconocidas": sorted(contratos.variables_desconocidas(contenido)),
         "ejemplo": True,
     })
@@ -116,6 +118,7 @@ def contrato_vista_previa(request, empleado_pk):
     )
     return render(request, "documentos/_vista_previa.html", {
         "texto": contratos.llenar(plantilla.contenido, datos),
+        "estilo": plantilla.estilo,
         "faltantes": contratos.faltantes(plantilla.contenido, datos),
     })
 

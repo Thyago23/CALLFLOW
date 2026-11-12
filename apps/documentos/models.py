@@ -84,6 +84,16 @@ class PlantillaContrato(ModeloBase):
     campos_variables = ArrayField(models.CharField(max_length=50), default=list, blank=True)
     activa = models.BooleanField(default=True)
 
+    class Estilo(models.TextChoices):
+        SIMPLE = "SIMPLE", "Simple (Helvetica, con logo)"
+        FORMAL = "FORMAL", "Formal (Times New Roman y títulos en azul, como el contrato de asesores de ventas)"
+        OFICIO = "OFICIO", "Oficio (Calibri en negro, como el contrato de imagen corporativa)"
+
+    estilo = models.CharField("estilo del PDF", max_length=10, choices=Estilo.choices, default=Estilo.SIMPLE)
+    cargo = models.ForeignKey("personal.Cargo", on_delete=models.SET_NULL, null=True, blank=True, related_name="+",
+                              verbose_name="se propone para el cargo",
+                              help_text="Al generar el contrato de alguien con este cargo, se elige esta plantilla.")
+
     class Meta:
         verbose_name = "plantilla de contrato"
         verbose_name_plural = "plantillas de contrato"
