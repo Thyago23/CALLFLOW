@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+{% block titulo %}Servidor · TI{% endblock %}
+{% block contenido %}
+{% include "ti/_subnav.html" with seccion="servidor" %}
+
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <p class="text-body-secondary small mb-0">Datos leídos el {{ ahora|date:"d/m/Y" }} a las {{ ahora|date:"H:i:s" }} en <span class="font-monospace">{{ sistema.equipo }}</span> · {{ sistema.sistema }} · Python {{ sistema.python }} · Django {{ sistema.django }}{% if sistema.depuracion %} · <span class="badge text-bg-warning">Modo depuración activo</span>{% endif %}</p>
+  <a href="{{ request.get_full_path }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-clockwise me-1" aria-hidden="true"></i>Actualizar</a>
+</div>
+
+{# ------------------------------------------------------------ resumen #}
+<div class="row g-3 mb-4">
+  {% for d in discos %}
+  <div class="col-sm-6 col-xl-3">
+    <div class="card h-100 {% if d.nivel == 'critico' %}border-danger{% elif d.nivel == 'bajo' %}border-warning{% endif %}">
+      <div class="card-body">
+        <div class="small text-body-secondary">Disco <span class="font-monospace">{{ d.unidad }}</span> · libre</div>
+        <div class="fs-3 fw-semibold {% if d.nivel == 'critico' %}text-danger{% elif d.nivel == 'bajo' %}text-warning-emphasis{% endif %}">{{ d.libre|filesizeformat }}</div>
+        <div class="progress mt-1" role="progressbar" aria-label="Espacio usado en {{ d.unidad }}" aria-valuenow="{{ d.porcentaje_usado|floatformat:0 }}" aria-valuemin="0" aria-valuemax="100" style="height: 6px">
+          <div class="progress-bar {% if d.nivel == 'critico' %}bg-danger{% elif d.nivel == 'bajo' %}bg-warning{% endif %}" style="width: {{ d.porcentaje_usado|stringformat:'.1f' }}%"></div>
+        </div>
+        <div class="small text-body-secondary mt-1">{{ d.porcentaje_usado|floatformat:1 }} % usado de {{ d.total|filesizeformat }}</div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+  <div class="col-sm-6 col-xl-3">
+    <div class="card h-100"><div class="card-body">
+      <div class="small text-body-secondary">Base de datos</div>
+      <div class="fs-3 fw-semibold">{% if base.error %}<span class="text-danger fs-5">Sin respuesta</span>{% else %}{{ base.tamano|filesizeformat }}{% endif %}</div>
+      {% if not base.error %}<div class="small text-body-secondary">{{ base.conexiones }} conexión{{ base.conexiones|pluralize:"es" }} de {{ base.max_conexiones }}</div>{% endif %}
+    </div></div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <div class="card h-100 {% if errores_24h %}border-danger-subtle{% endif %}"><div class="card-body">
+      <div class="small text-body-secondary">Errores en las últimas 24 h</div>
+      <div class="fs-3 fw-semibold {% if errores_24h %}text-danger{% endif %}">{{ errores_24h }}</div>
+      <div class="small text-body-secondary">{% if errores_24h %}<a href="#errores">Ver detalle</a>{% else %}Sin errores registrados{% endif %}</div>
+    </div></div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <div class="card h-100 {% if not respaldo.existe or respaldo.atrasado %}border-warning{% endif %}"><div class="card-body">
+      <div class="small text-body-secondary">Último respaldo</div>
+      {% if respaldo.existe %}
+      <div class="fs-5 fw-semibold {% if respaldo.atrasado %}text-warning-emphasis{% endif %}">{% if respaldo.dias == 0 %}Hoy{% elif respaldo.dias == 1 %}Ayer{% else %}Hace {{ respaldo.dias }} días{% endif %}</div>
+      <div class="small text-body-secondary">{{ respaldo.fecha|date:"d/m/Y H:i" }} · {{ respaldo.tamano|filesizeformat }}</div>
+      {% else %}
+      <div class="fs-5 fw-semibold text-warning-emphasis">No hay respaldos</div>
+      <div class="small text-body-secondary">Programe <span class="font-monospace">scripts\respaldar_bd.ps1</span></div>
+      {% endif %}
+    </div></div>
+  </div>
+</div>
+
+<div class="row g-4">
+  {# ------------------------------------------------------------ disco #}
+  <div class="col-lg-5">
+    <section class="card mb-4">
+      <div class="card-header bg-body"><h2 class="h6 mb-0">Espacio en disco</h2></div>
+      <div class="card-body">
+        {% for d in discos %}
+        <div class="{% if not forloop.last %}mb-3 pb-3 border-bottom{% endif %}">
+          <div class="d-flex justify-content-between align-items-baseline">
+            <span class="fw-semibold font-monospace">{{ d.unidad }}</span>
+            {% if d.nivel == "critico" %}<span class="badge text-bg-danger">Espacio crítico</span>{% elif d.nivel == "bajo" %}<span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle">Poco espacio</span>{% else %}<span class="badge bg-success-subtle text-success-emphasis border border-success-subtle">Bien</span>{% endif %}
+          </div>
+          <div class="small text-body-secondary mb-2">{{ d.usos|join:", " }}</div>
+          <dl class="row small mb-0">
+            <dt class="col-5 fw-normal text-body-secondary">Total</dt><dd class="col-7 mb-1">{{ d.total|filesizeformat }}</dd>
+            <dt class="col-5 fw-normal text-body-secondary">Usado</dt><dd class="col-7 mb-1">{{ d.usado|filesizeformat }} ({{ d.porcentaje_usado|floatformat:1 }} %)</dd>
+            <dt class="col-5 fw-normal text-body-secondary">Libre</dt><dd class="col-7 mb-0">{{ d.libre|filesizeformat }} ({{ d.porcentaje_libre|floatformat:1 }} %)</dd>
+          </dl>
+        </div>
+        {% empty %}
+        <p class="text-body-secondary small mb-0">No se pudo leer el espacio en disco.</p>
+        {% endfor %}
+        <p class="small text-body-secondary mt-3 mb-0">Alerta cuando queda menos del {{ libre_bajo }} % libre; crítico bajo el {{ libre_critico }} %.</p>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-header bg-body"><h2 class="h6 mb-0">Lo que ocupa CALLFLOW</h2></div>
+      <div class="card-body">
+        <dl class="row small mb-0">
+          <dt class="col-6 fw-normal text-body-secondary">Base de datos</dt><dd class="col-6">{% if base.error %}—{% else %}{{ base.tamano|filesizeformat }}{% endif %}</dd>
+          <dt class="col-6 fw-normal text-body-secondary">Archivos subidos</dt><dd class="col-6">{{ archivos|filesizeformat }} <span class="text-body-secondary">({{ n_archivos }} archivo{{ n_archivos|pluralize }})</span></dd>
+          <dt class="col-6 fw-normal text-body-secondary">Respaldos</dt><dd class="col-6">{% if respaldo.existe %}{{ respaldo.total|filesizeformat }} <span class="text-body-secondary">({{ respaldo.cantidad }} copia{{ respaldo.cantidad|pluralize }})</span>{% else %}—{% endif %}</dd>
+        </dl>
+        <p class="small text-body-secondary mb-0 mt-2">Respaldos en <span class="font-monospace text-break">{{ respaldo.carpeta }}</span>.</p>
+      </div>
+    </section>
+  </div>
+
+  {# ------------------------------------------------------------ base de datos #}
+  <div class="col-lg-7">
+    <section class="card">
+      <div class="card-header bg-body"><h2 class="h6 mb-0">Base de datos</h2></div>
+      {% if base.error %}
+      <div class="card-body"><div class="alert alert-danger mb-0"><strong>La base de datos no respondió:</strong> {{ base.error }}</div></div>
+      {% else %}
+      <div class="card-body pb-2">
+        <dl class="row small mb-0">
+          <dt class="col-sm-4 fw-normal text-body-secondary">Nombre</dt><dd class="col-sm-8 font-monospace">{{ base.nombre }}</dd>
+          <dt class="col-sm-4 fw-normal text-body-secondary">Tamaño total</dt><dd class="col-sm-8">{{ base.tamano|filesizeformat }}</dd>
+          <dt class="col-sm-4 fw-normal text-body-secondary">PostgreSQL</dt><dd class="col-sm-8">{{ base.version }}</dd>
+          <dt class="col-sm-4 fw-normal text-body-secondary">Encendida hace</dt><dd class="col-sm-8">{{ base.encendida.days }} día{{ base.encendida.days|pluralize }}</dd>
+          <dt class="col-sm-4 fw-normal text-body-secondary">Conexiones</dt>
+          <dd class="col-sm-8">{{ base.conexiones }} abiertas ({{ base.activas }} trabajando) de {{ base.max_conexiones }} permitidas
+            {% if base.porcentaje_conexiones >= 80 %} <span class="badge text-bg-danger">Cerca del límite</span>{% endif %}</dd>
+        </dl>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-sm align-middle mb-0 small">
+          <caption class="px-3 small">Las {{ base.tablas|length }} tablas más grandes. Las filas son una estimación de PostgreSQL.</caption>
+          <thead><tr><th scope="col" class="ps-3">Tabla</th><th scope="col" class="text-end">Filas</th><th scope="col" class="text-end">Datos</th><th scope="col" class="text-end">Índices</th><th scope="col" class="text-end pe-3">Total</th></tr></thead>
+          <tbody>
+            {% for t in base.tablas %}
+            <tr><td class="ps-3 font-monospace">{{ t.nombre }}</td><td class="text-end">{{ t.filas }}</td><td class="text-end">{{ t.datos|filesizeformat }}</td><td class="text-end">{{ t.indices|filesizeformat }}</td><td class="text-end pe-3 fw-semibold">{{ t.total|filesizeformat }}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% endif %}
+    </section>
+  </div>
+</div>
+
+{# ------------------------------------------------------------ errores #}
+<section class="card mt-4" id="errores">
+  <div class="card-header bg-body d-flex flex-wrap justify-content-between align-items-center gap-2">
+    <h2 class="h6 mb-0">Errores recientes del sistema</h2>
+    <ul class="nav nav-pills small">
+      <li class="nav-item"><a class="nav-link py-1 {% if dias == 1 %}active{% endif %}" href="?dias=1#errores">Último día</a></li>
+      <li class="nav-item"><a class="nav-link py-1 {% if dias == 7 %}active{% endif %}" href="?dias=7#errores">7 días</a></li>
+      <li class="nav-item"><a class="nav-link py-1 {% if dias == 30 %}active{% endif %}" href="?dias=30#errores">30 días</a></li>
+    </ul>
+  </div>
+  {% if errores %}
+  <p class="small text-body-secondary px-3 pt-3 mb-2">{{ n_ocurrencias }} error{{ n_ocurrencias|pluralize:"es" }} en {{ n_grupos }} tipo{{ n_grupos|pluralize }} distinto{{ n_grupos|pluralize }}. Los errores iguales se agrupan; se muestra la última vez que ocurrieron.</p>
+  <div class="list-group list-group-flush">
+    {% for e in errores %}
+    <details class="list-group-item">
+      <summary class="d-flex flex-wrap align-items-baseline gap-2" style="cursor: pointer">
+        <span class="badge {% if e.nivel == 'CRITICAL' %}text-bg-danger{% else %}bg-danger-subtle text-danger-emphasis border border-danger-subtle{% endif %}">{% if e.estado_http %}HTTP {{ e.estado_http }}{% else %}{{ e.nivel }}{% endif %}</span>
+        <span class="fw-semibold">{{ e.excepcion|default:e.origen }}</span>
+        {% if e.ruta %}<span class="font-monospace small">{{ e.metodo }} {{ e.ruta }}</span>{% endif %}
+        <span class="small text-body-secondary ms-auto text-nowrap">{% if e.veces > 1 %}<span class="badge text-bg-secondary me-1">×{{ e.veces }}</span>{% endif %}{{ e.ultima|date:"d/m/Y H:i:s" }}</span>
+      </summary>
+      <div class="mt-2 small">
+        <p class="mb-1 text-break">{{ e.mensaje }}</p>
+        <p class="text-body-secondary mb-2">Origen: <span class="font-monospace">{{ e.origen }}</span>{% if e.veces > 1 %} · primera vez {{ e.primera|date:"d/m/Y H:i" }}{% endif %}{% if e.usuarios %} · usuario{{ e.usuarios|length|pluralize }}: {{ e.usuarios|join:", " }}{% endif %}</p>
+        {% if e.traza %}<pre class="bg-body-tertiary border rounded p-2 small mb-0" style="max-height: 22rem; overflow: auto; white-space: pre-wrap">{{ e.traza }}</pre>{% endif %}
+      </div>
+    </details>
+    {% endfor %}
+  </div>
+  {% if n_grupos > 100 %}<p class="small text-body-secondary px-3 py-2 mb-0">Se muestran los 100 más recientes.</p>{% endif %}
+  {% else %}
+  <div class="card-body text-center text-body-secondary py-4"><i class="bi bi-check-circle fs-3 d-block mb-1 text-success" aria-hidden="true"></i>No se registraron errores {% if dias == 1 %}en el último día{% else %}en los últimos {{ dias }} días{% endif %}.</div>
+  {% endif %}
+</section>
+{% endblock %}

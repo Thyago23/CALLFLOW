@@ -9,3 +9,4 @@ respaldos/
 .venv/
 venv/
 documentacion/confidencial/
+logs/

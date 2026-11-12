@@ -80,7 +80,13 @@ body {
   height: var(--cf-alto-barra);
   z-index: 1030;
   border-top: 3px solid var(--cf-primario);
+  flex-wrap: nowrap; /* la barra tiene alto fijo: si se partiera en dos líneas, la segunda tapa la página */
 }
+.barra-acciones { min-width: 0; flex-wrap: nowrap; }
+.barra-acciones form { flex-shrink: 0; }
+.boton-usuario { min-width: 0; }
+/* Los nombres largos (p. ej. «Marlon Rosero de Mendoza») se recortan; el completo sale al pasar el mouse. */
+.nombre-usuario { max-width: 11rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .marca-logo {
   display: inline-grid;

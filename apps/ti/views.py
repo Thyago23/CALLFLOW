@@ -1,4 +1,5 @@
 from datetime import timedelta
+from pathlib import Path
 
 from django.contrib import messages
 from django.http import FileResponse, Http404, HttpResponse
@@ -239,4 +240,28 @@ def prestamos(request):
         "abiertos": abiertos, "pagina": pagina, "firma": firma, "hoy": hoy,
         "n_prestamos": sum(1 for a in abiertos if a.es_prestamo), "n_vencidos": sum(1 for a in abiertos if a.vencido),
         "n_sin_firma": ActaEquipo.objects.filter(firmada="").count(),
+    })
+
+
+# --------------------------------------------------------------------------- estado del servidor
+@requiere_ti
+def servidor(request):
+    from django.conf import settings
+    from django.db import DatabaseError
+
+    from . import registro_errores
+    from . import servidor as estado
+
+    dias = int(request.GET["dias"]) if request.GET.get("dias") in ("1", "7", "30") else 7
+    try:
+        base = estado.base_de_datos()
+    except DatabaseError as error:  # la página debe mostrarse aunque la base responda mal
+        base = {"error": str(error).strip().splitlines()[0] if str(error).strip() else error.__class__.__name__}
+    archivos, n_archivos = estado.tamano_carpeta(Path(settings.MEDIA_ROOT))
+    errores = registro_errores.errores_recientes(dias)
+    return render(request, "ti/servidor.html", {
+        "discos": estado.discos(), "base": base, "respaldo": estado.ultimo_respaldo(), "sistema": estado.sistema(),
+        "archivos": archivos, "n_archivos": n_archivos, "errores": errores[:100], "n_grupos": len(errores),
+        "n_ocurrencias": sum(e["veces"] for e in errores), "errores_24h": registro_errores.contar_desde(24),
+        "dias": dias, "ahora": timezone.localtime(), "libre_critico": estado.LIBRE_CRITICO, "libre_bajo": estado.LIBRE_BAJO,
     })

@@ -17,5 +17,6 @@ urlpatterns = [
     path("actas/<int:pk>/firmada/", views.acta_firmada_ver, name="acta_firmada"),
     path("actas/<int:pk>/firmada/subir/", views.acta_firmada_subir, name="acta_firmada_subir"),
     path("conectados/", views.conectados, name="conectados"),
+    path("servidor/", views.servidor, name="servidor"),
     path("conectados/<int:pk>/cerrar/", views.cerrar_sesion, name="cerrar_sesion"),
 ]

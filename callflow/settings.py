@@ -191,3 +191,35 @@ CSRF_COOKIE_SECURE = not DEBUG
 VAPID_PUBLIC_KEY = env("VAPID_PUBLIC_KEY", "")
 VAPID_PRIVATE_KEY = env("VAPID_PRIVATE_KEY", "")
 VAPID_CONTACTO = env("VAPID_CONTACTO", "mailto:soporte@callflow.local")
+
+# --------------------------------------------------------------------------- registro de errores (TI › Servidor)
+# Los errores (nivel ERROR o más) van a LOGS_DIR/errores.jsonl, una línea JSON por error, con rotación:
+# 5 archivos de 5 MB. TI los ve en «Servidor». Durante las pruebas se escriben en una carpeta temporal.
+import sys  # noqa: E402
+import tempfile  # noqa: E402
+
+PROBANDO = len(sys.argv) > 1 and sys.argv[1] == "test"
+LOGS_DIR = Path(tempfile.mkdtemp(prefix="callflow-logs-")) if PROBANDO else Path(env("LOGS_DIR", str(BASE_DIR / "logs")))
+LOGS_DIR.mkdir(parents=True, exist_ok=True)
+# Carpeta de las copias de seguridad (scripts/respaldar_bd.ps1), para mostrar el último respaldo.
+CARPETA_RESPALDOS = Path(env("CARPETA_RESPALDOS", str(BASE_DIR / "respaldos")))
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "json": {"()": "apps.ti.registro_errores.FormatoJSON"},
+        "simple": {"format": "{asctime} {levelname} {name}: {message}", "style": "{"},
+    },
+    "handlers": {
+        "consola": {"class": "logging.StreamHandler", "formatter": "simple", "level": "WARNING"},
+        "errores": {
+            "class": "logging.handlers.RotatingFileHandler", "filename": str(LOGS_DIR / "errores.jsonl"),
+            "maxBytes": 5 * 1024 * 1024, "backupCount": 5, "encoding": "utf-8", "delay": True,
+            "formatter": "json", "level": "ERROR",
+        },
+    },
+    "root": {"handlers": ["consola", "errores"], "level": "WARNING"},
+    # Sin manejadores propios: lo de Django sube a la raíz (sin esto, en depuración cada aviso sale dos veces).
+    "loggers": {"django": {"handlers": [], "level": "INFO", "propagate": True}},
+}
