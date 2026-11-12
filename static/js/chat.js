@@ -158,6 +158,53 @@
     }
   });
 
+  // ------------------------------------------------------------------ editar mensajes
+  function ajustar(caja) { caja.style.height = "auto"; caja.style.height = Math.min(caja.scrollHeight, 160) + "px"; }
+  function editarMensaje(mensaje) {
+    var form = mensaje && mensaje.querySelector("form.editar-mensaje");
+    if (!form) return false;
+    mensaje.classList.add("editando");
+    form.hidden = false;
+    var caja = form.querySelector("textarea");
+    caja.focus();
+    caja.selectionStart = caja.selectionEnd = caja.value.length;
+    ajustar(caja);
+    return true;
+  }
+  function cancelarEdicion(mensaje) {
+    var form = mensaje.querySelector("form.editar-mensaje");
+    var caja = form.querySelector("textarea");
+    caja.value = caja.defaultValue;
+    form.hidden = true;
+    mensaje.classList.remove("editando");
+    var alerta = form.querySelector(".alert"); if (alerta) alerta.remove();
+  }
+  document.addEventListener("click", function (e) {
+    var lapiz = e.target.closest("[data-editar-mensaje]");
+    if (lapiz) { editarMensaje(lapiz.closest(".mensaje")); return; }
+    var cancelar = e.target.closest("[data-cancelar-edicion]");
+    if (cancelar) cancelarEdicion(cancelar.closest(".mensaje"));
+  });
+  document.addEventListener("keydown", function (e) {
+    var caja = e.target;
+    if (caja.matches && caja.matches("form.editar-mensaje textarea")) {
+      if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); cancelarEdicion(caja.closest(".mensaje")); }
+      else if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); caja.form.requestSubmit(); }
+      return;
+    }
+    // Como en Messenger: ↑ con la caja vacía edita mi último mensaje de texto.
+    if (e.key === "ArrowUp" && caja.matches && caja.matches("form.escribir textarea") && caja.value === "") {
+      var hilo = caja.closest(".ventana-chat").querySelector(".hilo");
+      var mios = hilo.querySelectorAll(".mensaje.mio:not(.eliminado)");
+      for (var i = mios.length - 1; i >= 0; i--) {
+        if (mios[i].querySelector(".texto-mensaje")) { e.preventDefault(); editarMensaje(mios[i]); break; }
+      }
+    }
+  });
+  document.addEventListener("input", function (e) { if (e.target.matches("form.editar-mensaje textarea")) ajustar(e.target); });
+  // Un mensaje editado o eliminado (por mí o por el sondeo) se reemplaza: se vuelven a agrupar las burbujas.
+  document.body.addEventListener("htmx:afterSettle", function () { document.querySelectorAll(".hilo").forEach(agrupar); });
+
   // ------------------------------------------------------------------ buscar en el panel de chats
   function filtrar(panel) {
     var campo = panel.querySelector("[data-buscar-chats]");

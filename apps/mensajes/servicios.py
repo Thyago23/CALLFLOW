@@ -235,3 +235,33 @@ def visto(conversacion, usuario) -> str:
     if not conversacion.es_grupo or leyeron == len(otros):
         return "Visto" if not conversacion.es_grupo else "Visto por todos"
     return f"Visto por {leyeron}"
+
+
+# --------------------------------------------------------------------------- editar
+def editar(usuario, mensaje, texto: str) -> Mensaje:
+    """Corrige el texto de un mensaje propio. Queda «Editado» y la base guarda la versión anterior."""
+    texto = (texto or "").strip()
+    if mensaje.autor_id != usuario.pk:
+        raise ValidationError("Solo quien escribió el mensaje puede editarlo.")
+    if mensaje.eliminado:
+        raise ValidationError("Un mensaje eliminado no se edita.")
+    if not texto and not mensaje.adjunto:
+        raise ValidationError("El mensaje no puede quedar vacío; si no lo quiere, elimínelo.")
+    if len(texto) > MAX_TEXTO:
+        raise ValidationError(f"El mensaje es muy largo (máximo {MAX_TEXTO} caracteres).")
+    if texto == mensaje.texto:
+        return mensaje
+    mensaje.texto, mensaje.editado_en = texto, timezone.now()
+    try:
+        with transaction.atomic():
+            mensaje.save(update_fields=["texto", "editado_en"])
+    except DatabaseError as error:
+        mensaje.refresh_from_db()
+        raise ValidationError(_mensaje_bd(error)) from error
+    return mensaje
+
+
+def cambiados(conversacion, desde, hasta_id: int):
+    """Mensajes ya mostrados que se editaron o eliminaron después de `desde` (para actualizarlos en pantalla)."""
+    return list(conversacion.mensajes.select_related("autor")
+                .filter(pk__lte=hasta_id).filter(Q(editado_en__gt=desde) | Q(eliminado_en__gt=desde)))

@@ -1,6 +1,6 @@
-{# Un mensaje (burbuja). Recibe `m` y `actual`. El agrupado de burbujas y las fechas los pone chat.js. #}
+{# Un mensaje (burbuja). Recibe `m`, `actual` y, opcional, `oob` (reemplazarlo en pantalla) y `error_edicion`. #}
 <div class="mensaje{% if m.autor_id == user.pk %} mio{% endif %}{% if m.eliminado %} eliminado{% endif %}" id="m-{{ m.pk }}"
-     data-id="{{ m.pk }}" data-autor="{{ m.autor_id|default:'0' }}" data-ts="{{ m.creado_en|date:'c' }}">
+     data-id="{{ m.pk }}" data-autor="{{ m.autor_id|default:'0' }}" data-ts="{{ m.creado_en|date:'c' }}"{% if oob %} hx-swap-oob="true"{% endif %}>
   {% if m.autor_id != user.pk %}<span class="foto-mensaje" title="{{ m.autor.get_full_name|default:m.autor.username }}">{% if m.autor %}{% include "_avatar.html" with u=m.autor %}{% endif %}</span>{% endif %}
   <div class="contenido-mensaje">
     {% if actual.es_grupo and m.autor_id != user.pk %}<div class="autor">{{ m.autor.first_name|default:m.autor.username|default:"Cuenta eliminada" }}</div>{% endif %}
@@ -14,14 +14,30 @@
       <a href="{% url 'mensajes:adjunto' m.pk %}" target="_blank" rel="noopener" class="burbuja adjunto-archivo"><i class="bi bi-file-earmark-pdf-fill" aria-hidden="true"></i><span class="text-truncate">{{ m.adjunto_nombre }}</span></a>
       {% endif %}
     {% endif %}
-    {% if m.texto %}<div class="burbuja{% if m.texto == '👍' %} solo-emoji{% endif %}">{{ m.texto|urlize|linebreaksbr }}</div>{% endif %}
+    {% if m.texto %}<div class="burbuja texto-mensaje{% if m.texto == '👍' %} solo-emoji{% endif %}">{{ m.texto|urlize|linebreaksbr }}</div>{% endif %}
+    {% if m.autor_id == user.pk %}
+    <form class="editar-mensaje" method="post" action="{% url 'mensajes:editar' m.pk %}" hx-post="{% url 'mensajes:editar' m.pk %}"
+          hx-target="#m-{{ m.pk }}" hx-swap="outerHTML"{% if not error_edicion %} hidden{% endif %}>
+      {% csrf_token %}
+      {% if error_edicion %}<div class="alert alert-danger small py-1 px-2 mb-1">{{ error_edicion }}</div>{% endif %}
+      <label class="visually-hidden" for="editar-{{ m.pk }}">Editar mensaje</label>
+      <textarea id="editar-{{ m.pk }}" name="texto" rows="1" maxlength="4000">{{ m.texto }}</textarea>
+      <div class="acciones-edicion">
+        <span>Esc para cancelar · Enter para guardar</span>
+        <button type="button" class="btn btn-sm btn-light" data-cancelar-edicion>Cancelar</button>
+        <button type="submit" class="btn btn-sm btn-primary">Guardar</button>
+      </div>
+    </form>
+    {% endif %}
+    {% if m.editado_en %}<span class="marca-editado" title="Editado el {{ m.editado_en|date:'d/m/Y H:i' }}">Editado</span>{% endif %}
     {% endif %}
   </div>
   <div class="acciones-mensaje">
     <time datetime="{{ m.creado_en|date:'c' }}" title="{{ m.creado_en|date:'d/m/Y H:i' }}">{{ m.creado_en|date:"H:i" }}</time>
     {% if m.autor_id == user.pk and not m.eliminado %}
+    <button type="button" class="accion-mensaje" data-editar-mensaje title="Editar"><i class="bi bi-pencil" aria-hidden="true"></i><span class="visually-hidden">Editar mensaje</span></button>
     <form method="post" action="{% url 'mensajes:eliminar' m.pk %}" hx-post="{% url 'mensajes:eliminar' m.pk %}" hx-target="#m-{{ m.pk }}" hx-swap="outerHTML" hx-confirm="¿Eliminar este mensaje para todos?">
-      {% csrf_token %}<button type="submit" class="eliminar-mensaje" title="Eliminar"><i class="bi bi-trash3" aria-hidden="true"></i><span class="visually-hidden">Eliminar mensaje</span></button>
+      {% csrf_token %}<button type="submit" class="accion-mensaje eliminar-mensaje" title="Eliminar"><i class="bi bi-trash3" aria-hidden="true"></i><span class="visually-hidden">Eliminar mensaje</span></button>
     </form>
     {% endif %}
   </div>

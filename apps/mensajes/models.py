@@ -1,9 +1,9 @@
 """
 Mensajería interna entre TI, administradores y supervisores (los asesores de ventas no tienen acceso).
 
-Conversaciones directas (dos personas) o grupos con nombre. Los mensajes no se editan: quien los escribió
-puede eliminarlos y quedan como «mensaje eliminado». Las reglas las garantiza la base de datos
-(migración mensajes/0002).
+Conversaciones directas (dos personas) o grupos con nombre. Quien escribió un mensaje puede corregir su texto
+(queda «Editado» y la base guarda cada versión anterior en MensajeEdicion) o eliminarlo («mensaje eliminado»).
+Las reglas las garantiza la base de datos (migraciones mensajes/0002 y 0004).
 """
 import uuid
 
@@ -78,6 +78,7 @@ class Mensaje(models.Model):
     creado_en = models.DateTimeField(db_default=Now())
     eliminado = models.BooleanField(default=False)
     eliminado_en = models.DateTimeField(null=True, blank=True)
+    editado_en = models.DateTimeField(null=True, blank=True, help_text="Última vez que su autor corrigió el texto.")
 
     class Meta:
         verbose_name = "mensaje"
@@ -94,3 +95,17 @@ class Mensaje(models.Model):
     @property
     def es_imagen(self) -> bool:
         return self.adjunto_tipo.startswith("image/")
+
+
+class MensajeEdicion(models.Model):
+    """Versión anterior de un mensaje editado. La escribe la base de datos (trigger), no la aplicación."""
+
+    mensaje = models.ForeignKey(Mensaje, on_delete=models.CASCADE, related_name="ediciones")
+    texto_anterior = models.TextField()
+    editado_en = models.DateTimeField(db_default=Now())
+
+    class Meta:
+        verbose_name = "edición de mensaje"
+        verbose_name_plural = "ediciones de mensajes"
+        ordering = ["editado_en", "pk"]
+

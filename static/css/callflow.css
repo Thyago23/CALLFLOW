@@ -1075,8 +1075,18 @@ details.anular-caja > summary::-webkit-details-marker { display: none; }
 .adjunto-archivo { display: flex !important; align-items: center; gap: .4rem; max-width: 100%; text-decoration: none; margin-bottom: 2px; }
 .acciones-mensaje { display: flex; align-items: center; gap: .3rem; align-self: center; opacity: 0; transition: opacity .15s; font-size: .68rem; color: var(--bs-secondary-color); }
 .mensaje:hover .acciones-mensaje, .acciones-mensaje:focus-within { opacity: 1; }
-.eliminar-mensaje { border: 0; background: transparent; padding: .15rem; color: var(--bs-secondary-color); line-height: 1; }
+.accion-mensaje { border: 0; background: transparent; padding: .15rem; color: var(--bs-secondary-color); line-height: 1; border-radius: 50%; }
+.accion-mensaje:hover { color: var(--bs-emphasis-color); background: var(--chat-gris); }
 .eliminar-mensaje:hover { color: var(--bs-danger); }
+.marca-editado { font-size: .68rem; color: var(--bs-secondary-color); margin: 1px .6rem 0; }
+.editar-mensaje { width: min(420px, 100%); }
+.editar-mensaje textarea { display: block; width: 100%; max-height: 160px; padding: .45rem .8rem; border: 2px solid var(--chat-azul);
+  border-radius: 14px; background: var(--bs-body-bg); color: var(--bs-body-color); resize: none; font-size: .92rem; }
+.editar-mensaje textarea:focus { outline: none; }
+.acciones-edicion { display: flex; align-items: center; justify-content: flex-end; gap: .35rem; margin-top: .25rem; flex-wrap: wrap; }
+.acciones-edicion span { font-size: .68rem; color: var(--bs-secondary-color); margin-right: auto; }
+.mensaje.editando .texto-mensaje, .mensaje.editando .acciones-mensaje, .mensaje.editando .marca-editado { display: none; }
+.mensaje.editando .contenido-mensaje { max-width: 85%; width: 100%; }
 .visto { text-align: right; padding: 0 .9rem; font-size: .7rem; color: var(--bs-secondary-color); min-height: .2rem; }
 .escribiendo { display: flex; align-items: center; gap: .5rem; padding: .1rem .9rem .4rem; font-size: .75rem; color: var(--bs-secondary-color); }
 .escribiendo .puntos { display: inline-flex; gap: 3px; padding: .45rem .6rem; border-radius: 18px; background: var(--chat-burbuja-otro); }

@@ -6,6 +6,8 @@ abren desde cualquier pantalla (abajo a la derecha). Todo lo de una conversació
 (hilo-5, sondeo-5…), así pueden convivir varias abiertas a la vez.
 """
 import json
+import time
+from datetime import datetime, timezone as tz
 
 from django.contrib import messages
 from django.core.exceptions import ValidationError
@@ -64,10 +66,16 @@ def _estado(request, conversacion) -> dict:
             "visto": servicios.visto(conversacion, request.user), "otro": otro}
 
 
+def _marca(margen: float = 0) -> str:
+    """Momento de la última consulta: el sondeo trae lo editado o eliminado después (con margen, por si acaso)."""
+    return f"{time.time() - margen:.3f}"
+
+
 def _ventana(request, conversacion, modo) -> dict:
     servicios.marcar_leida(request.user, conversacion)
     lista = servicios.mensajes(conversacion)
     return {
+        "marca": _marca(),
         "actual": conversacion, "titulo": servicios.titulo_para(conversacion, request.user), "modo": modo,
         "miembros": [p.usuario for p in conversacion.participantes.all() if p.activo],
         "mensajes": lista, "ultimo_id": lista[-1].pk if lista else 0,
@@ -111,11 +119,18 @@ def nuevos(request, pk):
         despues = int(request.GET.get("despues", 0))
     except ValueError:
         despues = 0
+    marca = _marca()
     lista = servicios.mensajes(actual, despues_de=despues)
     if lista and request.GET.get("leer") != "0":  # una ventanita minimizada no marca como leído
         servicios.marcar_leida(request.user, actual)
+    try:
+        desde = datetime.fromtimestamp(float(request.GET.get("cambios", "")), tz=tz.utc)
+    except (TypeError, ValueError, OverflowError):
+        desde = None
+    cambiados = servicios.cambiados(actual, desde, despues) if desde and despues else []
     return render(request, "mensajes/_nuevos.html", {
-        "mensajes": lista, "actual": actual, "ultimo_id": lista[-1].pk if lista else despues,
+        "mensajes": lista, "cambiados": cambiados, "actual": actual, "ultimo_id": lista[-1].pk if lista else despues,
+        "marca": marca,
     } | _estado(request, actual))
 
 
@@ -138,8 +153,8 @@ def enviar(request, pk):
         messages.error(request, " ".join(error.messages))
         return redirect("mensajes:conversacion", pk=actual.pk)
     if _es_htmx(request):
-        return render(request, "mensajes/_nuevos.html", {"mensajes": [mensaje], "actual": actual, "ultimo_id": mensaje.pk}
-                      | _estado(request, actual))
+        return render(request, "mensajes/_nuevos.html", {"mensajes": [mensaje], "actual": actual, "ultimo_id": mensaje.pk,
+                                                         "marca": _marca(margen=10)} | _estado(request, actual))
     return redirect("mensajes:conversacion", pk=actual.pk)
 
 
@@ -154,6 +169,24 @@ def eliminar(request, pk):
         messages.error(request, " ".join(error.messages))
     if _es_htmx(request):
         return render(request, "mensajes/_mensaje.html", {"m": mensaje, "actual": mensaje.conversacion})
+    return redirect("mensajes:conversacion", pk=mensaje.conversacion_id)
+
+
+@requiere_mensajeria
+@require_POST
+def editar(request, pk):
+    """Corrige el texto de un mensaje propio (queda «Editado»; la base guarda la versión anterior)."""
+    mensaje = get_object_or_404(Mensaje.objects.select_related("conversacion", "autor"), pk=pk)
+    _conversacion(request, mensaje.conversacion_id)
+    error = ""
+    try:
+        servicios.editar(request.user, mensaje, request.POST.get("texto", ""))
+    except ValidationError as e:
+        error = " ".join(e.messages)
+    if _es_htmx(request):
+        return render(request, "mensajes/_mensaje.html", {"m": mensaje, "actual": mensaje.conversacion, "error_edicion": error})
+    if error:
+        messages.error(request, error)
     return redirect("mensajes:conversacion", pk=mensaje.conversacion_id)
 
 

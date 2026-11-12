@@ -17,5 +17,6 @@ urlpatterns = [
     path("<int:pk>/agregar/", views.agregar, name="agregar"),
     path("<int:pk>/salir/", views.salir, name="salir"),
     path("mensaje/<int:pk>/eliminar/", views.eliminar, name="eliminar"),
+    path("mensaje/<int:pk>/editar/", views.editar, name="editar"),
     path("mensaje/<int:pk>/adjunto/", views.adjunto, name="adjunto"),
 ]

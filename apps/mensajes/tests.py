@@ -8,6 +8,7 @@ import tempfile
 
 from django.conf import settings
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.core.exceptions import ValidationError
 from django.db import DatabaseError, transaction
 from django.test import TestCase, override_settings
 from django.urls import reverse
@@ -149,3 +150,51 @@ class MensajeriaTests(TestCase):
         self.assertNotContains(self.client.get(reverse("inicio")), 'id="dock-chats"')
         self.assertEqual(self.client.get(reverse("mensajes:panel")).status_code, 403)
 
+
+    # ----------------------------------------------------------- editar
+    def test_editar_mensaje_propio_con_historial(self):
+        from .models import MensajeEdicion
+
+        directa = servicios.conversacion_directa(self.admin, self.ti)
+        mensaje = servicios.enviar(self.admin, directa, "La reunión es a las 3")
+        self.client.force_login(self.admin)
+        respuesta = self.client.post(reverse("mensajes:editar", args=[mensaje.pk]), {"texto": "La reunión es a las 4"}, HTTP_HX_REQUEST="true")
+        self.assertContains(respuesta, "La reunión es a las 4")
+        self.assertContains(respuesta, "Editado")
+        mensaje.refresh_from_db()
+        self.assertIsNotNone(mensaje.editado_en)
+        self.assertEqual(list(MensajeEdicion.objects.filter(mensaje=mensaje).values_list("texto_anterior", flat=True)),
+                         ["La reunión es a las 3"])  # lo guarda la base, no la aplicación
+        # El otro lo ve corregido con el sondeo.
+        self.client.force_login(self.ti)
+        sondeo = self.client.get(reverse("mensajes:nuevos", args=[directa.pk]), {"despues": mensaje.pk, "cambios": "0"})
+        self.assertContains(sondeo, "La reunión es a las 4")
+        self.assertContains(sondeo, f'id="m-{mensaje.pk}"')
+
+    def test_solo_el_autor_edita_y_no_queda_vacio(self):
+        directa = servicios.conversacion_directa(self.admin, self.ti)
+        mensaje = servicios.enviar(self.admin, directa, "hola")
+        self.client.force_login(self.ti)
+        self.client.post(reverse("mensajes:editar", args=[mensaje.pk]), {"texto": "cambiado por otro"})
+        mensaje.refresh_from_db()
+        self.assertEqual(mensaje.texto, "hola")
+        with self.assertRaises(ValidationError):
+            servicios.editar(self.admin, mensaje, "   ")
+        servicios.eliminar(self.admin, mensaje)
+        with self.assertRaises(ValidationError):
+            servicios.editar(self.admin, mensaje, "otra cosa")
+
+    def test_la_base_exige_marca_de_edicion_y_protege_el_historial(self):
+        from django.utils import timezone
+
+        from .models import MensajeEdicion
+
+        directa = servicios.conversacion_directa(self.admin, self.ti)
+        mensaje = servicios.enviar(self.admin, directa, "original")
+        with self.assertRaises(DatabaseError), transaction.atomic():
+            Mensaje.objects.filter(pk=mensaje.pk).update(texto="sin marca")  # editar a escondidas
+        with self.assertRaises(DatabaseError), transaction.atomic():
+            Mensaje.objects.filter(pk=mensaje.pk).update(autor=self.ti, editado_en=timezone.now())
+        servicios.editar(self.admin, mensaje, "corregido")
+        with self.assertRaises(DatabaseError), transaction.atomic():
+            MensajeEdicion.objects.filter(mensaje=mensaje).delete()
