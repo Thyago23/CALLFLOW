@@ -526,6 +526,15 @@ class BasesComercialesTests(BaseVentas):
         self.assertEqual(solicitud.estado, "RECHAZADA")
         self.assertTrue(Notificacion.objects.filter(destinatario=self.lucia, titulo__contains="rechazada").exists())
 
+    def test_la_pantalla_carga_si_quien_respondio_ya_no_existe(self):
+        solicitud = servicios.solicitar_base(self.lucia, "")
+        servicios.rechazar_solicitud(solicitud, self.ana, "No hay bases nuevas")
+        SolicitudBase.objects.filter(pk=solicitud.pk).update(atendida_por=None)  # como al borrar la cuenta (SET_NULL)
+        self.client.force_login(self.admin)
+        respuesta = self.client.get(reverse("ventas:bases"))
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertContains(respuesta, "por un usuario eliminado")
+
     def test_registrar_y_asignar_bases_desde_la_pantalla(self):
         self.client.force_login(self.ana)
         self.client.post(reverse("ventas:bases"), {"crear_base": "", "b-nombre": "Guayaquil sur", "b-descripcion": "",
