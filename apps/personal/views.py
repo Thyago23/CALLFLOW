@@ -183,7 +183,12 @@ class EmpleadoEditarView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView
         if "cargo" in cambiados:
             usuario.rol = rol_para_cargo(self.object.cargo.nombre)
             campos.append("rol")
-        if "estado" in cambiados and self.object.estado == Empleado.Estado.DESVINCULADO and usuario.is_active:
+        if ("estado" in cambiados and self.object.estado == Empleado.Estado.DESVINCULADO and usuario.is_active
+                and usuario.protegida):
+            # La base de datos no permite desactivar las cuentas fijas de TI.
+            messages.warning(self.request, f"La cuenta {usuario.username} es una cuenta fija de TI: sigue activa "
+                                           "aunque el empleado esté desvinculado. Cambie su código de acceso si es necesario.")
+        elif "estado" in cambiados and self.object.estado == Empleado.Estado.DESVINCULADO and usuario.is_active:
             usuario.is_active = False  # un empleado desvinculado ya no puede ingresar
             campos.append("is_active")
             messages.warning(self.request, f"Se desactivó la cuenta {usuario.username}: el empleado está desvinculado.")

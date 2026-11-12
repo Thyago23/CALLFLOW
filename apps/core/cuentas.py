@@ -4,6 +4,8 @@ Creación de cuentas de acceso y entrega de credenciales.
 Lo usan Usuarios (cuenta creada a mano) y Personal (cuenta creada al registrar un empleado).
 El código de acceso solo se conoce al generarse: se guarda cifrado y se muestra una vez.
 """
+import re
+
 from django.utils.http import url_has_allowed_host_and_scheme
 
 from .codigos import generar_codigo_acceso, generar_usuario
@@ -16,6 +18,9 @@ CLAVE_SESION_CREDENCIALES = "credenciales_generadas"
 def rol_para_cargo(nombre_cargo: str) -> str:
     """Rol de acceso según el cargo. Un cargo desconocido recibe el rol con menos permisos (vendedor)."""
     cargo = _ascii(nombre_cargo or "").lower()
+    # Antes que «administr»: un «Administrador de TI» es del departamento de TI, no administrador del sistema.
+    if "tecnolog" in cargo or re.search(r"\bti\b", cargo):
+        return Rol.TI
     if "administr" in cargo:
         return Rol.ADMINISTRADOR
     if "cierre" in cargo:

@@ -8,6 +8,8 @@ from django.db.models import Q
 from django.urls import reverse
 
 from apps.core import validadores
+from apps.core.cuentas import rol_para_cargo
+from apps.core.models import Rol
 from apps.documentos import archivos
 
 from .models import Cargo, Empleado, EsquemaComision, ObservacionEmpleado
@@ -161,6 +163,13 @@ class EmpleadoForm(forms.ModelForm):
         nacimiento, ingreso = datos.get("fecha_nacimiento"), datos.get("fecha_ingreso")
         if nacimiento and ingreso and ingreso <= nacimiento:
             self.add_error("fecha_ingreso", "La fecha de ingreso debe ser posterior a la fecha de nacimiento.")
+
+        # Las cuentas fijas de TI no pueden cambiar de rol (la base lo impide): el cargo debe ser de TI.
+        cuenta = datos.get("cuenta_existente") or (self.instance.usuario if self.instance.pk else None)
+        cargo = datos.get("cargo")
+        if cuenta is not None and cuenta.protegida and cargo and rol_para_cargo(cargo.nombre) != Rol.TI:
+            self.add_error("cargo", f"La cuenta {cuenta.username} es una cuenta fija del departamento de TI: "
+                                    "el empleado debe tener un cargo de TI, como «Tecnología (TI)».")
         return datos
 
 

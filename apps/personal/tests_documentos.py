@@ -224,6 +224,9 @@ class RegistroConDocumentosTests(TestCase):
         self.assertEqual(rol_para_cargo("Encargado de cierre"), Rol.ENCARGADO_CIERRE)
         self.assertEqual(rol_para_cargo("Vendedor telefónico"), Rol.VENDEDOR)
         self.assertEqual(rol_para_cargo("Cargo nuevo"), Rol.VENDEDOR)
+        self.assertEqual(rol_para_cargo("Tecnología (TI)"), Rol.TI)
+        self.assertEqual(rol_para_cargo("Administrador de TI"), Rol.TI)
+        self.assertEqual(rol_para_cargo("Asistente administrativo"), Rol.ADMINISTRADOR)  # «ti» solo como palabra
         cierre = Cargo.objects.get(nombre="Encargado de cierre")
         self.registrar(cargo=cierre.pk)
         self.assertEqual(Empleado.objects.get().usuario.rol, Rol.ENCARGADO_CIERRE)
@@ -373,3 +376,27 @@ class FichaPestanasTests(TestCase):
         self.client.force_login(self.vendedor)
         respuesta = self.client.post(reverse("personal:observacion_crear", args=[self.empleado.pk]), {"tipo": "GENERAL", "texto": "x"})
         self.assertEqual(respuesta.status_code, 403)
+
+
+class PersonalTITests(TestCase):
+    """El personal del departamento de TI se registra en Personal vinculando su cuenta fija."""
+
+    @classmethod
+    def setUpTestData(cls):
+        call_command("inicializar_datos", verbosity=0)
+
+    def test_cuenta_ti_se_vincula_con_cargo_de_ti(self):
+        from .forms import EmpleadoForm
+        from .tests import datos_validos
+        cuenta = Usuario.objects.get(username="santiago.cedeno")
+        ti = Cargo.objects.get(nombre="Tecnología (TI)")
+        form = EmpleadoForm(data=datos_validos(cargo=ti.pk, cuenta_existente=cuenta.pk))
+        self.assertTrue(form.is_valid(), form.errors)
+
+    def test_cuenta_ti_rechaza_cargo_que_no_es_de_ti(self):
+        from .forms import EmpleadoForm
+        from .tests import datos_validos
+        cuenta = Usuario.objects.get(username="santiago.cedeno")
+        form = EmpleadoForm(data=datos_validos(cuenta_existente=cuenta.pk))  # vendedor telefónico
+        self.assertFalse(form.is_valid())
+        self.assertIn("cargo", form.errors)
