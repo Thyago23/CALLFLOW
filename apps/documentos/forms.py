@@ -25,8 +25,9 @@ def _estilizar(form):
 class PlantillaForm(forms.ModelForm):
     class Meta:
         model = PlantillaContrato
-        fields = ["nombre", "tipo_contrato", "contenido"]
-        labels = {"nombre": "Nombre de la plantilla", "tipo_contrato": "Se usa para", "contenido": "Texto del contrato"}
+        fields = ["nombre", "tipo_contrato", "cargo", "estilo", "contenido"]
+        labels = {"nombre": "Nombre de la plantilla", "tipo_contrato": "Se usa para", "contenido": "Texto del contrato",
+                  "cargo": "Se propone para el cargo", "estilo": "Estilo del PDF"}
         widgets = {
             "tipo_contrato": forms.Select(choices=TIPOS_CONTRATO),
             "contenido": forms.Textarea(attrs={"rows": 22, "spellcheck": "true", "class": "font-monospace"}),
@@ -34,8 +35,13 @@ class PlantillaForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields["cargo"].empty_label = "Cualquier cargo"
+        self.fields["estilo"].required = False  # si no se elige, el estilo simple de siempre
         _estilizar(self)
         self.fields["contenido"].widget.attrs["class"] = "form-control font-monospace texto-plantilla"
+
+    def clean_estilo(self):
+        return self.cleaned_data.get("estilo") or PlantillaContrato.Estilo.SIMPLE
 
     def clean_nombre(self):
         nombre = " ".join(self.cleaned_data["nombre"].split())
@@ -77,7 +83,7 @@ class GenerarContratoForm(forms.Form):
         plantillas = PlantillaContrato.objects.filter(activa=True).order_by("nombre")
         self.fields["plantilla"].queryset = plantillas
         if not self.is_bound:
-            preferida = plantillas.filter(tipo_contrato=empleado.tipo_contrato).first() or plantillas.first()
+            preferida = contratos.plantilla_para(empleado) or plantillas.first()
             self.initial.update({
                 "plantilla": preferida, "fecha_inicio": empleado.fecha_ingreso,
                 "salario": contratos.salario_vigente(empleado, empleado.fecha_ingreso),

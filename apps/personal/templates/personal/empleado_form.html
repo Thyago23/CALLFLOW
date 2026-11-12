@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load estaticos %}
 {% block titulo %}{% if editando %}Editar {{ object.nombres }} {{ object.apellidos }}{% else %}Registrar empleado{% endif %}{% endblock %}
 {% block contenido %}
 <nav aria-label="Ruta" class="mb-2">
@@ -38,6 +39,8 @@
     </div>
     <div>
       {% include "_campo.html" with campo=documentos_form.hoja_vida ayuda=documentos_form.hoja_vida.help_text %}
+      <p class="small mt-n2 mb-2"><a href="{% estatico 'documentos/hoja-de-vida-multivisa.pdf' %}" download="Hoja de vida - MULTIVISA.pdf"><i class="bi bi-file-earmark-arrow-down me-1" aria-hidden="true"></i>Descargar la plantilla de hoja de vida</a>
+        <span class="text-body-secondary">· el candidato la llena en PDF y sus datos personales se pasan solos a este formulario.</span></p>
       <div id="estado-cv" class="estado-cv mb-3" aria-live="polite">
         <span class="cargando small text-body-secondary"><span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>Leyendo el CV…</span>
       </div>

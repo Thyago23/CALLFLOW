@@ -8,7 +8,7 @@
         <th scope="col">Vendedor</th>{% if not sin_base %}<th scope="col">Base</th>{% endif %}
         <th scope="col" class="text-end">Enviados</th><th scope="col" style="min-width: 9rem">Gestionados</th>
         <th scope="col" class="text-end">Faltan</th><th scope="col" class="text-end">No contestó</th>
-        <th scope="col" class="text-end">No quiere</th><th scope="col" class="text-end">DAMI sacado</th>
+        <th scope="col" class="text-end">No quiere</th><th scope="col" class="text-end">Tarjeta no entregada</th><th scope="col" class="text-end">DAMI efectivo</th>
         <th scope="col"><span class="visually-hidden">Detalle</span></th>
       </tr>
     </thead>
@@ -22,6 +22,7 @@
         <td class="text-end">{% if f.pendientes %}<span class="badge text-bg-warning" title="Contactos que aún no gestionó">{{ f.pendientes }}</span>{% else %}<i class="bi bi-check-circle-fill text-success" aria-label="Gestionó todos"></i>{% endif %}</td>
         <td class="text-end">{{ f.no_contesto }}</td>
         <td class="text-end">{{ f.no_quiere }}</td>
+        <td class="text-end">{{ f.no_entregada }}</td>
         <td class="text-end fw-semibold">{{ f.dami_sacado }}</td>
         <td class="text-end"><a href="{% url 'ventas:bases_contactos' %}?vendedor={{ f.vendedor.pk }}&base={{ f.base.pk }}" class="btn btn-sm btn-outline-secondary text-nowrap">Ver contactos</a></td>
       </tr>

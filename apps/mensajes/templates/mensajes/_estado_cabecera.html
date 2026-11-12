@@ -1,0 +1,2 @@
+{# Debajo del nombre del chat: «En línea», «Activo hace X min» o las personas del grupo. #}
+{% if actual.es_grupo %}{{ miembros|length|default:actual.participantes.count }} personas{% elif otro %}{% if otro.en_linea %}<span class="punto-en-linea en-texto"></span>{% endif %}{{ otro.estado_conexion }}{% endif %}

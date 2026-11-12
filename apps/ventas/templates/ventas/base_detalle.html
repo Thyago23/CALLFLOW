@@ -54,8 +54,8 @@
     <div class="row g-3">
       <div class="col-6 col-md-3"><div class="card h-100 tarjeta-kpi"><div class="card-body py-3"><div class="small text-body-secondary">Contactos</div><div class="valor">{{ e.contactos }}</div><div class="small text-body-secondary">{{ e.sin_asignar }} sin enviar</div></div></div></div>
       <div class="col-6 col-md-3"><div class="card h-100 tarjeta-kpi"><div class="card-body py-3"><div class="small text-body-secondary">Gestionados</div><div class="valor">{{ e.gestionados }}</div><div class="small text-body-secondary">de {{ e.enviados }} enviados</div></div></div></div>
-      <div class="col-6 col-md-3"><div class="card h-100 tarjeta-kpi"><div class="card-body py-3"><div class="small text-body-secondary">DAMI sacados</div><div class="valor">{{ e.dami_sacado }}</div><div class="small text-body-secondary">{{ e.no_quiere }} no quieren · {{ e.no_contesto }} no contestaron</div></div></div></div>
-      <div class="col-6 col-md-3"><div class="card h-100 tarjeta-kpi"><div class="card-body py-3"><div class="small text-body-secondary">Efectividad</div><div class="valor">{{ e.efectividad|pct }}</div><div class="small text-body-secondary">{{ e.efectividad_total|pct }} del total</div></div></div></div>
+      <div class="col-6 col-md-3"><div class="card h-100 tarjeta-kpi"><div class="card-body py-3"><div class="small text-body-secondary">DAMI efectivos</div><div class="valor">{{ e.dami_sacado }}</div><div class="small text-body-secondary">{{ e.contestaron }} contestaron · {{ e.no_contesto }} no contestaron</div></div></div></div>
+      <div class="col-6 col-md-3"><div class="card h-100 tarjeta-kpi"><div class="card-body py-3"><div class="small text-body-secondary">Efectividad</div><div class="valor">{{ e.efectividad|pct }}</div><div class="small text-body-secondary">Conexión {{ e.conexion|pct }} · {{ e.efectividad_total|pct }} del total</div></div></div></div>
     </div>
     {% endif %}
 

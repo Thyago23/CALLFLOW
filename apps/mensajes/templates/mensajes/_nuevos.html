@@ -1,0 +1,8 @@
+{# Respuesta del sondeo y del envío: mensajes nuevos al final del hilo y lo que cambia del chat. #}
+{% if mensajes %}<div hx-swap-oob="beforeend:#hilo-{{ actual.pk }}">{% for m in mensajes %}{% include "mensajes/_mensaje.html" %}{% endfor %}</div>{% endif %}
+{% for m in cambiados %}{% include "mensajes/_mensaje.html" with oob=True %}{% endfor %}
+{% include "mensajes/_sondeo.html" with oob=True %}
+<div id="escribiendo-{{ actual.pk }}" hx-swap-oob="true">{% include "mensajes/_escribiendo.html" %}</div>
+<div class="visto" id="visto-{{ actual.pk }}" hx-swap-oob="true">{{ visto }}</div>
+<div class="estado-chat text-truncate" id="estado-{{ actual.pk }}" hx-swap-oob="true">{% include "mensajes/_estado_cabecera.html" %}</div>
+<div class="error-envio" id="error-{{ actual.pk }}" hx-swap-oob="true"></div>

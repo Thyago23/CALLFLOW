@@ -1,0 +1,2 @@
+{# Foto o iniciales con el punto verde de en línea. Recibe `u` (usuario con .en_linea) o `grupo`=True, y `clase` opcional. #}
+<span class="avatar-chat {{ clase }}">{% if grupo %}<span class="avatar avatar-grupo" aria-hidden="true"><i class="bi bi-people-fill"></i></span>{% else %}{% include "_avatar.html" with u=u %}{% if u.en_linea %}<span class="punto-en-linea" title="En línea"></span>{% endif %}{% endif %}</span>

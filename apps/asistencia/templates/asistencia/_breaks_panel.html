@@ -1,4 +1,5 @@
-{# Cómo va el break en curso y los de la última semana. Se recarga solo cada 5 s. #}
+{# Cómo va el break en curso, los programados y los de la última semana. Se recarga solo cada 5 s. #}
+{% include "asistencia/_breaks_programados.html" %}
 {% if actual %}{% with d=actual.descanso c=actual.cuenta %}
 <section class="card mb-4 border-primary" aria-labelledby="titulo-break-actual">
   <div class="card-body">

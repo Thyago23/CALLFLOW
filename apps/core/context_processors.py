@@ -5,6 +5,12 @@ from .models import Notificacion, Rol
 def contadores(usuario) -> dict:
     """Contadores del menú y la campana. Se refrescan solos cada 30 s (vista core.contadores)."""
     datos = {"notificaciones_sin_leer": Notificacion.objects.filter(destinatario=usuario, leida=False).count()}
+    from apps.mensajes.acceso import puede_usar
+
+    if puede_usar(usuario):  # los asesores de ventas no tienen mensajería
+        from apps.mensajes.servicios import sin_leer
+
+        datos["mensajes_sin_leer"] = sin_leer(usuario)
     if usuario.has_perm("cierre.add_gestioncierre"):
         from apps.ventas.models import FormularioDAMI
 
@@ -15,10 +21,13 @@ def contadores(usuario) -> dict:
         datos["solicitudes_base_pendientes"] = solicitudes_pendientes()
     if usuario.rol == Rol.VENDEDOR:
         # Aviso del break en curso (con «Volví del break»): llega con el sondeo de la campana.
-        from apps.asistencia.breaks import pendiente_de
+        from apps.asistencia.breaks import pendiente_de, proximo_para
 
+        empleado = getattr(usuario, "empleado", None)
         datos["avisa_breaks"] = True
-        datos["break_pendiente"] = pendiente_de(getattr(usuario, "empleado", None))
+        datos["break_pendiente"] = pendiente_de(empleado)
+        # Break programado por empezar (ya se envió el recordatorio): cuenta atrás hasta que empiece.
+        datos["break_proximo"] = None if datos["break_pendiente"] else proximo_para(empleado)
     return datos
 
 

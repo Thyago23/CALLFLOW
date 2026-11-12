@@ -49,6 +49,12 @@
         </button>
       </form>
       {% endif %}
+      {% if mensajes_sin_leer is not None %}
+      <a href="{% url 'mensajes:bandeja' %}" class="btn btn-link text-body position-relative p-2" aria-label="Chats" title="Chats"{% if request.resolver_match.app_name != 'mensajes' %} data-abrir-dock{% endif %}>
+        <i class="bi bi-chat-dots fs-5" aria-hidden="true"></i>
+        <span id="contador-mensajes" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger contador {% if not mensajes_sin_leer %}d-none{% endif %}">{{ mensajes_sin_leer }}</span>
+      </a>
+      {% endif %}
       <div class="dropdown">
         <button type="button" class="btn btn-link text-body position-relative p-2" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false"
                 aria-label="Notificaciones" hx-get="{% url 'notificaciones_panel' %}" hx-trigger="show.bs.dropdown" hx-target="#panel-campana">
@@ -101,6 +107,7 @@
         {% for m in grupo.modulos %}
           <a class="enlace-menu {% if request.resolver_match.app_name == m.clave %}activo{% endif %}" href="{{ m.href }}" {% if request.resolver_match.app_name == m.clave %}aria-current="page"{% endif %}>
             <i class="bi bi-{{ m.icono }}" aria-hidden="true"></i><span class="texto-menu">{{ m.nombre }}</span>
+            {% if m.clave == "mensajes" and mensajes_sin_leer is not None %}<span id="pendientes-mensajes" class="badge rounded-pill text-bg-danger ms-auto {% if not mensajes_sin_leer %}d-none{% endif %}" title="Mensajes sin leer">{{ mensajes_sin_leer }}</span>{% endif %}
             {% if m.clave == "cierre" and dami_sin_asignar is not None %}<span id="pendientes-cierre" class="badge rounded-pill text-bg-danger ms-auto {% if not dami_sin_asignar %}d-none{% endif %}" title="Formularios DAMI sin asignar">{{ dami_sin_asignar }}</span>{% endif %}
             {% if m.clave == "ventas" and solicitudes_base_pendientes is not None %}<span id="pendientes-bases-menu" class="badge rounded-pill text-bg-danger ms-auto {% if not solicitudes_base_pendientes %}d-none{% endif %}" title="Solicitudes de bases pendientes">{{ solicitudes_base_pendientes }}</span>{% endif %}
           </a>
@@ -164,6 +171,20 @@
   </script>
   <script src="{% static 'vendor/bootstrap.bundle.min.js' %}"></script>
   <script src="{% static 'vendor/htmx.min.js' %}"></script>
+  {% if mensajes_sin_leer is not None %}
+  {% if request.resolver_match.app_name != 'mensajes' %}
+  {# Chat tipo Messenger desde cualquier pantalla (solo TI, administradores y supervisores). #}
+  <div class="dock-chats" id="dock-chats" data-url-panel="{% url 'mensajes:panel' %}?modo=dock" data-url-ventana="{% url 'mensajes:ventana' 0 %}">
+    <div class="dock-ventanas" id="dock-ventanas"></div>
+    <div class="dock-panel" id="dock-panel" hidden></div>
+    <button type="button" class="dock-boton" id="dock-boton" aria-expanded="false" aria-controls="dock-panel" title="Chats">
+      <i class="bi bi-chat-dots-fill" aria-hidden="true"></i><span class="visually-hidden">Chats</span>
+      <span id="contador-dock" class="badge rounded-pill bg-danger {% if not mensajes_sin_leer %}d-none{% endif %}">{{ mensajes_sin_leer }}</span>
+    </button>
+  </div>
+  {% endif %}
+  <script src="{% estatico 'js/chat.js' %}" defer></script>
+  {% endif %}
   {% if user.is_authenticated %}
   {% include "_modal_confirmar.html" %}
   {# Avisos flotantes de notificaciones nuevas (esquina inferior izquierda). #}
@@ -196,6 +217,8 @@
           if (resta > 0) {
             const m = Math.floor(resta / 60), s = Math.floor(resta % 60);
             texto.textContent = (el.dataset.prefijo || "Quedan ") + m + ":" + String(s).padStart(2, "0");
+          } else if (el.dataset.textoVencido) {
+            texto.textContent = el.dataset.textoVencido;  // p. ej. «¡Empieza tu break!» mientras llega el aviso del break
           } else {
             const n = Math.ceil(-resta / 60);
             texto.textContent = (el.dataset.vencido || "Terminó hace ") + n + (n === 1 ? " minuto" : " minutos") + (el.dataset.sufijoVencido || "");

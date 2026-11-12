@@ -42,6 +42,7 @@
       <button class="nav-link" id="tab-contratos" data-bs-toggle="tab" data-bs-target="#contratos" data-pestana="contratos" type="button" role="tab" aria-controls="contratos" aria-selected="false">
         <i class="bi bi-file-earmark-text" aria-hidden="true"></i> Contratos
         <span class="badge rounded-pill text-bg-light">{{ contratos|length }}</span>
+        {% if contratos_por_revisar %}<span class="badge rounded-pill estado-contrato-pendiente" title="Contratos generados con los datos del CV que falta revisar">{{ contratos_por_revisar }} por revisar</span>{% endif %}
       </button>
     </li>
     {% if estimacion %}
@@ -215,18 +216,38 @@
           {% if contratos %}
           <ul class="list-group list-group-flush">
             {% for c in contratos %}
-            <li class="list-group-item d-flex align-items-center gap-3">
+            <li class="list-group-item d-flex flex-wrap align-items-center gap-3{% if c.pendiente_revision %} contrato-por-revisar{% endif %}">
               <i class="bi bi-file-earmark-pdf text-danger fs-4" aria-hidden="true"></i>
               <div class="min-w-0 flex-grow-1">
                 <div class="fw-semibold">{{ c.plantilla.nombre }} <span class="text-body-secondary small">v{{ c.plantilla.version }}</span></div>
                 <div class="small text-body-secondary">
                   Desde {{ c.fecha_inicio|date:"d/m/Y" }}{% if c.fecha_fin %} hasta {{ c.fecha_fin|date:"d/m/Y" }}{% endif %}
-                  · generado el {{ c.creado_en|date:"d/m/Y H:i" }}{% if c.generado_por %} por {{ c.generado_por.get_full_name|default:c.generado_por }}{% endif %}
+                  · generado el {{ c.creado_en|date:"d/m/Y H:i" }}{% if c.automatico %} al registrar al empleado, con los datos de su CV{% elif c.generado_por %} por {{ c.generado_por.get_full_name|default:c.generado_por }}{% endif %}
                 </div>
+                {% if c.automatico %}
+                <div class="mt-1">
+                  {% if c.pendiente_revision %}
+                  <span class="badge estado-contrato-pendiente"><i class="bi bi-exclamation-circle me-1" aria-hidden="true"></i>Pendiente de revisión</span>
+                  <span class="small text-body-secondary ms-1">Revise que los datos estén bien antes de imprimirlo. Si algo está mal, corrija la ficha y genérelo de nuevo.</span>
+                  {% else %}
+                  <span class="badge estado-contrato-revisado"><i class="bi bi-check2-circle me-1" aria-hidden="true"></i>Revisado</span>
+                  <span class="small text-body-secondary ms-1">el {{ c.revisado_en|date:"d/m/Y H:i" }}{% if c.revisado_por %} por {{ c.revisado_por.get_full_name|default:c.revisado_por }}{% endif %}</span>
+                  {% endif %}
+                </div>
+                {% endif %}
               </div>
-              {% if perms.documentos.view_documento %}
-              <a href="{% url 'documentos:ver' c.documento.pk %}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary"><i class="bi bi-eye me-1" aria-hidden="true"></i>Ver PDF</a>
-              {% endif %}
+              <div class="d-flex flex-wrap gap-2">
+                {% if perms.documentos.view_documento %}
+                <a href="{% url 'documentos:ver' c.documento.pk %}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary"><i class="bi bi-eye me-1" aria-hidden="true"></i>Ver</a>
+                <a href="{% url 'documentos:ver' c.documento.pk %}?descargar=1" class="btn btn-sm btn-outline-primary"><i class="bi bi-download me-1" aria-hidden="true"></i>Descargar</a>
+                {% endif %}
+                {% if c.pendiente_revision and perms.documentos.add_contratogenerado %}
+                <form method="post" action="{% url 'documentos:contrato_revisado' c.pk %}">
+                  {% csrf_token %}
+                  <button type="submit" class="btn btn-sm btn-success"><i class="bi bi-check2 me-1" aria-hidden="true"></i>Marcar como revisado</button>
+                </form>
+                {% endif %}
+              </div>
             </li>
             {% endfor %}
           </ul>

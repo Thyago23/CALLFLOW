@@ -37,6 +37,13 @@ def generar_pendientes(usuario) -> None:
     except Exception:  # la revisión de asistencia nunca debe romper la campana
         logger.exception("No se pudieron revisar las jornadas sin salida")
 
+    from apps.asistencia.breaks import procesar_programados
+
+    try:  # breaks programados: recordatorio 10 o 5 min antes y arranque a la hora
+        procesar_programados()
+    except Exception:
+        logger.exception("No se pudieron procesar los breaks programados")
+
 
 def nuevas_para_mostrar(request) -> list[Notificacion]:
     """Notificaciones sin leer que todavía no aparecieron en pantalla en esta sesión (las más antiguas primero)."""

@@ -1,0 +1,37 @@
+{# Personas (fila con fotos y punto verde) y la lista de chats. Se refresca sola cada 10 s. #}
+{% if personas %}
+<div class="fila-personas" aria-label="Personas">
+  {% for p in personas %}
+  <form method="post" action="{% url 'mensajes:nueva_directa' %}" {% if modo == "dock" %}hx-post="{% url 'mensajes:nueva_directa' %}"{% endif %}
+        class="persona" data-buscar="{{ p.get_full_name|default:p.username|lower }}">
+    {% csrf_token %}<input type="hidden" name="usuario" value="{{ p.pk }}">
+    <button type="submit" title="Escribirle a {{ p.get_full_name|default:p.username }} · {{ p.estado_conexion }}">
+      {% include "mensajes/_avatar_chat.html" with u=p clase="grande" %}
+      <span class="nombre-persona">{{ p.first_name|default:p.username }}</span>
+    </button>
+  </form>
+  {% endfor %}
+</div>
+{% endif %}
+<div class="lista-chats">
+  {% for c in conversaciones %}
+  {% if modo == "dock" %}<button type="button" data-abrir-chat="{{ c.pk }}"{% else %}<a href="{% url 'mensajes:conversacion' c.pk %}"{% endif %}
+     class="item-chat{% if c.pk|stringformat:'s' == actual_id|stringformat:'s' %} activo{% endif %}{% if c.no_leidos %} no-leido{% endif %}"
+     data-buscar="{{ c.titulo|lower }}"{% if c.pk|stringformat:'s' == actual_id|stringformat:'s' %} aria-current="page"{% endif %}>
+    {% if c.es_grupo %}{% include "mensajes/_avatar_chat.html" with grupo=True clase="grande" %}{% else %}{% include "mensajes/_avatar_chat.html" with u=c.otro clase="grande" %}{% endif %}
+    <span class="min-w-0 flex-grow-1 text-start">
+      <span class="nombre text-truncate d-block">{{ c.titulo }}</span>
+      <span class="vista-previa d-flex gap-1">
+        <span class="text-truncate">
+          {% if c.ultimo_mensaje_en %}{% if c.ultimo_autor == user.pk %}Tú: {% endif %}{% if c.ultimo_eliminado %}Mensaje eliminado{% elif c.ultimo_texto %}{{ c.ultimo_texto|truncatechars:60 }}{% else %}📎 {{ c.ultimo_adjunto }}{% endif %}{% else %}Empiecen a conversar{% endif %}
+        </span>
+        {% if c.ultimo_mensaje_en %}<span class="flex-none">· {{ c.ultimo_mensaje_en|timesince|cut:","|truncatewords:2|cut:"…" }}</span>{% endif %}
+      </span>
+    </span>
+    {% if c.no_leidos %}<span class="punto-no-leido" title="{{ c.no_leidos }} sin leer"></span>{% endif %}
+  {% if modo == "dock" %}</button>{% else %}</a>{% endif %}
+  {% empty %}
+  <p class="sin-chats">Todavía no tiene chats. Toque a una persona de arriba para escribirle.</p>
+  {% endfor %}
+  <p class="sin-resultados" hidden>No hay personas ni chats con ese nombre.</p>
+</div>

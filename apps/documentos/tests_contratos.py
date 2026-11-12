@@ -163,3 +163,58 @@ class ContratosVistasTests(TestCase):
         self.client.force_login(self.vendedor)
         self.assertEqual(self.client.post(reverse("documentos:contrato_generar", args=[self.empleado.pk]), self.datos()).status_code, 403)
         self.assertEqual(self.client.get(reverse("documentos:plantillas")).status_code, 403)
+
+
+class PlantillasDeLaEmpresaTests(TestCase):
+    """Contratos de servicios profesionales (asesores de ventas) e imagen corporativa, con el formato de sus Word."""
+
+    @classmethod
+    def setUpTestData(cls):
+        from apps.documentos.models import PlantillaContrato
+        from apps.personal.models import Cargo, Empleado
+
+        call_command("inicializar_datos", verbosity=0)
+        cls.asesor = Empleado.objects.create(identificacion="1721129789", nombres="Jonathan Rodrigo", apellidos="Quintana Chamba",
+                                             cargo=Cargo.objects.get(nombre="Asesor de ventas"), fecha_ingreso=date(2026, 11, 5))
+        cls.imagen = Empleado.objects.create(identificacion="0930556048", nombres="María José", apellidos="Pérez Ñañez",
+                                             cargo=Cargo.objects.get(nombre="Imagen corporativa"), fecha_ingreso=date(2026, 11, 9))
+        cls.servicios = PlantillaContrato.objects.get(nombre="Contrato de servicios profesionales bajo comisiones")
+        cls.imagen_corporativa = PlantillaContrato.objects.get(nombre="Contrato de servicios profesionales de imagen corporativa y visual")
+
+    def test_cada_cargo_propone_su_plantilla(self):
+        from apps.documentos.forms import GenerarContratoForm
+
+        self.assertEqual(GenerarContratoForm(empleado=self.asesor).initial["plantilla"], self.servicios)
+        self.assertEqual(GenerarContratoForm(empleado=self.imagen).initial["plantilla"], self.imagen_corporativa)
+
+    def test_servicios_profesionales_se_llena_con_la_ficha(self):
+        datos = contratos.datos_del_empleado(self.asesor, fecha_inicio=date(2026, 11, 5), fecha_fin=None, salario=Decimal("400"))
+        texto = contratos.llenar(self.servicios.contenido, datos)
+        self.assertEqual(contratos.faltantes(self.servicios.contenido, datos), [])
+        for esperado in ("**QUINTANA CHAMBA JONATHAN RODRIGO**", "pasaporte Nº **1721129789**", "retribución económica de $400,",
+                         "| Pago Base $400 |", "Quito D.M., 05 de noviembre del 2026.", "**CÉDULA Nº 1721129789**"):
+            self.assertIn(esperado, texto)
+        pdf = PdfReader(io.BytesIO(contratos.generar_pdf(texto, estilo=self.servicios.estilo)))
+        self.assertIn("QUINTANA CHAMBA JONATHAN", pdf.pages[0].extract_text())
+
+    def test_imagen_corporativa_se_llena_con_la_ficha(self):
+        datos = contratos.datos_del_empleado(self.imagen, fecha_inicio=date(2026, 11, 9), fecha_fin=date(2027, 2, 8), salario=Decimal("300"))
+        texto = contratos.llenar(self.imagen_corporativa.contenido, datos)
+        self.assertEqual(contratos.faltantes(self.imagen_corporativa.contenido, datos), [])
+        for esperado in ("a los 09 días del mes de noviembre del año dos mil veintiséis", "la señorita PÉREZ ÑAÑEZ MARÍA JOSÉ portadora",
+                         "pasaporte Nº 093055604-8", "duración de 3 meses", "$300 trescientos dólares de los Estados Unidos de América",
+                         "del año 2026."):
+            self.assertIn(esperado, texto)
+        pdf = PdfReader(io.BytesIO(contratos.generar_pdf(texto, estilo=self.imagen_corporativa.estilo)))
+        self.assertIn("093055604-8", "".join(p.extract_text() for p in pdf.pages))
+
+    def test_formatos_y_bloques(self):
+        self.assertEqual(contratos.con_guion("1721129789"), "172112978-9")
+        self.assertEqual(contratos.plazo_en_meses(date(2026, 11, 9), date(2027, 2, 8)), "3")
+        self.assertEqual(contratos.plazo_en_meses(date(2026, 11, 9), None), "")
+        self.assertEqual(contratos.dinero_corto(Decimal("1300")), "$1.300")
+        self.assertEqual(contratos.dinero_en_letras_texto(Decimal("300.50")), "trescientos dólares con 50/100 de los Estados Unidos de América")
+        texto = "# A\n# B\n\n## Cláusula\n\n1.1 Texto\n\n| a | b |\n| 1 | 2 |\n\n[[espacio]]\n\nFin"
+        tipos = [t for t, _ in contratos.bloques(texto)]
+        self.assertEqual(tipos, ["titulo", "clausula", "numeral", "tabla", "espacio", "parrafo"])
+

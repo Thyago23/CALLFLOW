@@ -1,4 +1,6 @@
 """4.2 Módulo de nómina (incluye las novedades de nómina de 4.1 › Gestión del personal)."""
+from decimal import Decimal
+
 from django.conf import settings
 from django.db import models
 from django.db.models import F, Q
@@ -7,6 +9,7 @@ from apps.core.db import sin_solapamiento
 from apps.core.models import ModeloBase
 
 DINERO = {"max_digits": 12, "decimal_places": 2}
+DINERO_CERO = Decimal("0.00")
 
 
 class Naturaleza(models.TextChoices):
@@ -242,16 +245,37 @@ class MovimientoCajaChica(ModeloBase):
     """
 
     class Tipo(models.TextChoices):
-        INGRESO = "INGRESO", "Ingreso (reposición del fondo)"
-        EGRESO = "EGRESO", "Egreso (gasto)"
+        EGRESO = "EGRESO", "Egreso"
+        INGRESO = "INGRESO", "Ingreso"
+        FONDO = "FONDO", "Fondo"  # asignación o reposición del fondo: suma al «Fondo inicial» de la hoja, no a ingresos
+
+    class Categoria(models.TextChoices):
+        ALIMENTACION = "ALIMENTACION", "Alimentación"
+        TRANSPORTE = "TRANSPORTE", "Transporte"
+        UTILES = "UTILES", "Útiles de oficina"
+        LIMPIEZA = "LIMPIEZA", "Limpieza"
+        MANTENIMIENTO = "MANTENIMIENTO", "Mantenimiento"
+        MENSAJERIA = "MENSAJERIA", "Mensajería"
+        SERVICIOS = "SERVICIOS", "Servicios"
+        OTROS = "OTROS", "Otros"
+
+    class FormaPago(models.TextChoices):
+        EFECTIVO = "EFECTIVO", "Efectivo"
+        TRANSFERENCIA = "TRANSFERENCIA", "Transferencia"
+        TARJETA = "TARJETA", "Tarjeta"
+        OTRO = "OTRO", "Otro"
 
     fecha = models.DateField()
     tipo = models.CharField(max_length=7, choices=Tipo.choices)
-    concepto = models.CharField(max_length=200)
+    categoria = models.CharField("categoría", max_length=15, choices=Categoria.choices, default=Categoria.OTROS)
+    concepto = models.CharField("descripción / motivo", max_length=200)
     beneficiario = models.CharField("pagado a / entregado por", max_length=150, blank=True, default="")
     comprobante = models.CharField("N.° de comprobante", max_length=50, blank=True, default="",
                                    help_text="Factura, nota de venta o recibo.")
     valor = models.DecimalField(**DINERO)
+    forma_pago = models.CharField("forma de pago", max_length=15, choices=FormaPago.choices, default=FormaPago.EFECTIVO)
+    recibo = models.ForeignKey("ReciboCaja", on_delete=models.PROTECT, null=True, blank=True, related_name="movimientos",
+                               help_text="Entrega, devolución o reembolso de un recibo de caja chica.")
     registrado_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
     anulado = models.BooleanField(default=False)
     motivo_anulacion = models.CharField(max_length=255, blank=True, default="")
@@ -264,9 +288,13 @@ class MovimientoCajaChica(ModeloBase):
         ordering = ["fecha", "pk"]
         indexes = [models.Index(fields=["fecha"], name="caja_fecha_idx")]
         constraints = [
-            models.CheckConstraint(condition=Q(tipo__in=["INGRESO", "EGRESO"]), name="caja_tipo_valido"),
+            models.CheckConstraint(condition=Q(tipo__in=["INGRESO", "EGRESO", "FONDO"]), name="caja_tipo_valido"),
             models.CheckConstraint(condition=Q(valor__gt=0), name="caja_valor_positivo"),
             models.CheckConstraint(condition=~Q(concepto=""), name="caja_concepto_obligatorio"),
+            models.CheckConstraint(condition=Q(categoria__in=["ALIMENTACION", "TRANSPORTE", "UTILES", "LIMPIEZA", "MANTENIMIENTO",
+                                                              "MENSAJERIA", "SERVICIOS", "OTROS"]), name="caja_categoria_valida"),
+            models.CheckConstraint(condition=Q(forma_pago__in=["EFECTIVO", "TRANSFERENCIA", "TARJETA", "OTRO"]),
+                                   name="caja_forma_pago_valida"),
             models.CheckConstraint(
                 condition=Q(anulado=False) | (Q(anulado_en__isnull=False) & ~Q(motivo_anulacion="")),
                 name="caja_anulado_con_motivo",
@@ -275,3 +303,162 @@ class MovimientoCajaChica(ModeloBase):
 
     def __str__(self):
         return f"{self.get_tipo_display()} · {self.concepto}"
+
+    @property
+    def entra(self) -> bool:
+        """Ingresos y fondo suman a la caja; los egresos restan."""
+        return self.tipo != self.Tipo.EGRESO
+
+    @property
+    def numero_recibo(self) -> str:
+        return f"{self.pk:06d}"
+
+
+# Billetes y monedas de dólar que se cuentan en el arqueo (en el orden de la hoja «Arqueo de caja»).
+DENOMINACIONES = ["100", "50", "20", "10", "5", "1", "0.50", "0.25", "0.10", "0.05", "0.01"]
+
+
+class ArqueoCaja(ModeloBase):
+    """
+    Arqueo y cierre de caja chica: se cuenta el efectivo por denominación y se compara con el saldo del registro.
+    La base de datos calcula el saldo según registro, el total contado y la diferencia (no se pueden escribir a mano)
+    y no deja modificar ni borrar un arqueo (ver migración nomina/0006).
+    """
+
+    fecha = models.DateField("fecha de arqueo")
+    responsable = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+",
+                                    verbose_name="responsable de caja")
+    conteo = models.JSONField(default=dict, help_text='Cantidad por denominación: {"20": 3, "0.25": 5}.')
+    saldo_registro = models.DecimalField("saldo según registro", **DINERO, default=0)
+    total_contado = models.DecimalField("total efectivo contado", **DINERO, default=0)
+    diferencia = models.DecimalField("diferencia (contado − registro)", max_digits=12, decimal_places=2, default=0)
+    observaciones = models.TextField(blank=True, default="")
+    registrado_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+
+    class Meta:
+        verbose_name = "arqueo de caja chica"
+        verbose_name_plural = "arqueos de caja chica"
+        ordering = ["-fecha", "-pk"]
+        constraints = [
+            models.CheckConstraint(condition=Q(total_contado__gte=0), name="arqueo_total_no_negativo"),
+            models.CheckConstraint(condition=Q(diferencia=F("total_contado") - F("saldo_registro")), name="arqueo_diferencia_cuadra"),
+        ]
+
+    def __str__(self):
+        return f"Arqueo del {self.fecha:%d/%m/%Y}"
+
+    @property
+    def detalle(self) -> list[dict]:
+        """[{denominacion, cantidad, subtotal}] en el orden de la hoja, con las que no se contaron en 0."""
+
+        return [{"denominacion": Decimal(d), "cantidad": int(self.conteo.get(d, 0)),
+                 "subtotal": Decimal(d) * int(self.conteo.get(d, 0))} for d in DENOMINACIONES]
+
+    @property
+    def cuadra(self) -> bool:
+        return self.diferencia == 0
+
+
+class ReciboCaja(ModeloBase):
+    """
+    Recibo y control de caja chica (formato de la empresa, Excel «Recibo Caja Chica»): se le entrega dinero a una
+    persona, ella detalla lo que gastó y el resumen dice cuánto devuelve o cuánto hay que reembolsarle.
+
+    Mueve la caja: cada «valor entregado» sale como egreso; al liquidar, lo devuelto entra como ingreso y el valor
+    adicional a reembolsar sale como egreso. Las reglas las cuida la base de datos (migración nomina/0010).
+    """
+
+    class Estado(models.TextChoices):
+        ABIERTO = "ABIERTO", "Abierto"  # se registran entregas y gastos
+        LIQUIDADO = "LIQUIDADO", "Liquidado"  # ya no se agregan filas; puede quedar saldo pendiente de devolución
+
+    fecha = models.DateField()
+    entregado_a = models.CharField("entregado a", max_length=150)
+    area = models.CharField("área / departamento", max_length=100, blank=True, default="")
+    autorizado_por = models.CharField("autorizado por", max_length=150, blank=True, default="")
+    responsable = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+",
+                                    verbose_name="responsable de caja")
+    observaciones = models.TextField(blank=True, default="")
+    estado = models.CharField(max_length=10, choices=Estado.choices, default=Estado.ABIERTO)
+    valor_devuelto = models.DecimalField("valor devuelto", **DINERO, default=0)
+    valor_reembolsado = models.DecimalField("valor reembolsado", **DINERO, default=0)
+    liquidado_en = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = "recibo de caja chica"
+        verbose_name_plural = "recibos de caja chica"
+        ordering = ["-fecha", "-pk"]
+        constraints = [
+            models.CheckConstraint(condition=~Q(entregado_a=""), name="recibo_entregado_a_obligatorio"),
+            models.CheckConstraint(condition=Q(estado__in=["ABIERTO", "LIQUIDADO"]), name="recibo_estado_valido"),
+            models.CheckConstraint(condition=Q(valor_devuelto__gte=0) & Q(valor_reembolsado__gte=0), name="recibo_valores_no_negativos"),
+            models.CheckConstraint(condition=Q(estado="ABIERTO") | Q(liquidado_en__isnull=False), name="recibo_liquidado_con_fecha"),
+        ]
+
+    def __str__(self):
+        return f"Recibo N.º {self.numero} · {self.entregado_a}"
+
+    @property
+    def numero(self) -> str:
+        return f"{self.pk:05d}"
+
+    @property
+    def abierto(self) -> bool:
+        return self.estado == self.Estado.ABIERTO
+
+    # --- resumen y liquidación (las fórmulas del Excel)
+    def _lineas_vigentes(self):
+        return [l for l in self.lineas.all() if not l.anulada]
+
+    @property
+    def total_entregado(self):
+        return sum((l.valor_entregado for l in self._lineas_vigentes()), DINERO_CERO)
+
+    @property
+    def total_gastado(self):
+        return sum((l.valor_gastado for l in self._lineas_vigentes()), DINERO_CERO)
+
+    @property
+    def valor_a_devolver(self):
+        return max(self.total_entregado - self.total_gastado, DINERO_CERO)
+
+    @property
+    def valor_a_reembolsar(self):
+        return max(self.total_gastado - self.total_entregado, DINERO_CERO)
+
+    @property
+    def saldo_pendiente(self):
+        """Saldo pendiente de devolución."""
+        return max(self.valor_a_devolver - self.valor_devuelto, DINERO_CERO)
+
+    @property
+    def reembolso_pendiente(self):
+        return max(self.valor_a_reembolsar - self.valor_reembolsado, DINERO_CERO)
+
+
+class LineaRecibo(ModeloBase):
+    """Una fila de la tabla del recibo: lo entregado y/o lo gastado, con su comprobante."""
+
+    recibo = models.ForeignKey(ReciboCaja, on_delete=models.PROTECT, related_name="lineas")
+    fecha = models.DateField()
+    concepto = models.CharField("concepto / detalle del gasto", max_length=200)
+    comprobante = models.CharField(max_length=50, blank=True, default="")
+    valor_entregado = models.DecimalField("valor entregado", **DINERO, default=0)
+    valor_gastado = models.DecimalField("valor gastado", **DINERO, default=0)
+    movimiento = models.OneToOneField(MovimientoCajaChica, on_delete=models.PROTECT, null=True, blank=True, related_name="linea_recibo",
+                                      help_text="Egreso de caja de lo entregado.")
+    anulada = models.BooleanField(default=False)
+
+    class Meta:
+        verbose_name = "fila de recibo de caja chica"
+        verbose_name_plural = "filas de recibos de caja chica"
+        ordering = ["fecha", "pk"]
+        constraints = [
+            models.CheckConstraint(condition=Q(valor_entregado__gte=0) & Q(valor_gastado__gte=0), name="linea_recibo_no_negativa"),
+            models.CheckConstraint(condition=Q(valor_entregado__gt=0) | Q(valor_gastado__gt=0), name="linea_recibo_con_valor"),
+            models.CheckConstraint(condition=~Q(concepto=""), name="linea_recibo_concepto_obligatorio"),
+            models.CheckConstraint(condition=Q(valor_entregado=0) | Q(movimiento__isnull=False), name="linea_recibo_entrega_con_egreso"),
+        ]
+
+    def __str__(self):
+        return self.concepto

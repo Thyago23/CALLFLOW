@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% load humanize_cf reportes_cf %}
+{% block titulo %}Arqueo de caja chica del {{ a.fecha|date:"d/m/Y" }}{% endblock %}
+{% block contenido %}
+<div class="d-print-none d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <nav aria-label="Ruta">
+    <ol class="breadcrumb small mb-0">
+      <li class="breadcrumb-item"><a href="{% url 'nomina:caja_chica' %}">Caja chica</a></li>
+      <li class="breadcrumb-item"><a href="{% url 'nomina:caja_arqueo' %}">Arqueo de caja</a></li>
+      <li class="breadcrumb-item active" aria-current="page">{{ a.fecha|date:"d/m/Y" }}</li>
+    </ol>
+  </nav>
+  <button type="button" class="btn btn-primary" onclick="window.print()"><i class="bi bi-printer me-1" aria-hidden="true"></i>Imprimir arqueo</button>
+</div>
+
+<div class="libro-excel impresion-excel pagina-vertical" data-bs-theme="light">
+  <section class="hoja-excel hoja-arqueo-excel">
+    <h1 class="hoja-excel-titulo">Arqueo y cierre de caja chica</h1>
+    <div class="hoja-excel-cabecera">
+      <div class="campo"><span class="rotulo">Fecha de arqueo:</span><span>{{ a.fecha|date:"d/m/Y" }}</span></div>
+      <div class="campo"><span class="rotulo">Responsable:</span><span>{{ a.responsable.get_full_name|default:a.responsable.username|upper }}</span></div>
+    </div>
+    <div class="arqueo-cuerpo">
+      <div class="fila-dato"><span>Saldo según registro:</span><strong>${{ a.saldo_registro|dinero }}</strong></div>
+      <h2 class="rotulo-seccion">Detalle de efectivo</h2>
+      <table class="tabla-excel tabla-arqueo-excel">
+        <thead><tr><th scope="col" class="text-start">Denominación</th><th scope="col">Cantidad</th><th scope="col" class="text-end">Subtotal</th></tr></thead>
+        <tbody>
+          {% for d in a.detalle %}
+          <tr><td class="text-end">${{ d.denominacion|dinero }}</td><td class="text-center">{{ d.cantidad }}</td><td class="text-end">${{ d.subtotal|dinero }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <div class="fila-dato"><span>Total efectivo contado:</span><strong>${{ a.total_contado|dinero }}</strong></div>
+      <div class="fila-dato"><span>Diferencia (contado - registro):</span><strong>{{ a.diferencia|usd }}</strong>
+        <span class="veredicto {% if a.cuadra %}cuadra{% elif a.diferencia > 0 %}sobra{% else %}falta{% endif %}">{% if a.cuadra %}La caja cuadra{% elif a.diferencia > 0 %}Sobra dinero{% else %}Falta dinero{% endif %}</span></div>
+      <div class="fila-observaciones"><span class="rotulo">Observaciones:</span><div class="texto-observaciones">{{ a.observaciones|linebreaksbr }}</div></div>
+    </div>
+    <div class="firmas-reporte firmas-excel">
+      <div><span class="linea-firma"></span>Responsable de caja<br><strong>{{ a.responsable.get_full_name|default:a.responsable.username }}</strong></div>
+      <div><span class="linea-firma"></span>Revisado por</div>
+    </div>
+    <p class="pie-reporte px-3 pb-2">Arqueo guardado en CALLFLOW el {{ a.creado_en|date:"d/m/Y H:i" }}. El saldo según registro incluye los movimientos hasta el {{ a.fecha|date:"d/m/Y" }}.</p>
+  </section>
+</div>
+{% endblock %}

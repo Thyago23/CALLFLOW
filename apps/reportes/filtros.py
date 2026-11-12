@@ -8,7 +8,8 @@ from apps.core.models import Rol
 
 ETIQUETAS = {"desde": "Desde", "hasta": "Hasta", "mes": "Mes", "empleado": "Empleado", "vendedor": "Vendedor",
              "equipo": "Equipo", "estado": "Estado", "cargo": "Cargo", "categoria": "Categoría", "base": "Base comercial",
-             "tipo_equipo": "Tipo de equipo", "usuario": "Usuario"}
+             "tipo_equipo": "Tipo de equipo", "usuario": "Usuario", "ciudad": "Ciudad", "tarjeta": "Categoría de tarjeta",
+             "llamado_desde": "Llamados desde", "llamado_hasta": "Llamados hasta"}
 
 
 def _mes_actual() -> str:
@@ -73,6 +74,15 @@ class FiltrosForm(forms.Form):
 
             return forms.ModelChoiceField(Usuario.objects.order_by("first_name", "last_name"), required=False,
                                           empty_label="Todos los usuarios", widget=forms.Select(attrs=lista))
+        if nombre in ("ciudad", "tarjeta"):
+            from apps.ventas.servicios import opciones_contactos
+
+            opciones = opciones_contactos("ciudad" if nombre == "ciudad" else "categoria_tarjeta")
+            vacio = "Todas las ciudades" if nombre == "ciudad" else "Todas las categorías"
+            return forms.ChoiceField(choices=[("", vacio)] + [(o, o) for o in opciones], required=False,
+                                     widget=forms.Select(attrs=lista))
+        if nombre in ("llamado_desde", "llamado_hasta"):  # opcionales: vacíos = desde siempre / hasta hoy
+            return forms.DateField(required=False, widget=fecha)
         if nombre == "estado":
             return forms.ChoiceField(choices=[("", "Todos")] + list(self.reporte.estados), required=False,
                                      widget=forms.Select(attrs=lista))
@@ -93,6 +103,9 @@ class FiltrosForm(forms.Form):
         if "desde" in self.fields:
             desde, hasta = datos.get("desde") or hoy.replace(day=1), datos.get("hasta") or hoy
             datos["desde"], datos["hasta"] = (desde, hasta) if desde <= hasta else (hasta, desde)
+        desde, hasta = datos.get("llamado_desde"), datos.get("llamado_hasta")
+        if desde and hasta and desde > hasta:
+            datos["llamado_desde"], datos["llamado_hasta"] = hasta, desde
         if "vendedor" in self.reporte.filtros and self.usuario.rol == Rol.VENDEDOR:
             datos["vendedor"] = getattr(self.usuario, "empleado", None)
         return datos
@@ -105,12 +118,14 @@ class FiltrosForm(forms.Form):
         """'Equipo: Visas · Vendedor: Mora Lucía' (para el PDF; las fechas ya van en el periodo)."""
         partes = []
         for nombre in self.reporte.filtros:
-            if nombre in ("desde", "hasta", "mes"):
+            if nombre in ("desde", "hasta", "mes", "llamado_desde", "llamado_hasta"):  # van en el periodo
                 continue
             valor = self.cleaned_data.get(nombre)
             if valor:
                 if nombre == "estado":
                     valor = dict(self.reporte.estados).get(valor, valor)
+                elif isinstance(valor, date):
+                    valor = f"{valor:%d/%m/%Y}"
                 elif nombre == "tipo_equipo":
                     from apps.ti.models import TipoEquipo
 

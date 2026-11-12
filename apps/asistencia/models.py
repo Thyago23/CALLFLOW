@@ -183,6 +183,74 @@ class Descanso(ModeloBase):
         return f"Break de {self.duracion_minutos} min · {self.inicio:%d/%m/%Y %H:%M}"
 
 
+class DescansoProgramado(ModeloBase):
+    """
+    Break programado por el coordinador para una hora específica. `aviso_minutos` antes (10 o 5) se les
+    recuerda a los vendedores con la jornada abierta; a la hora, se convierte en un Descanso normal (el
+    mismo flujo de «Volví del break»). Si a esa hora ya hay otro break o no hay vendedores, queda omitido.
+    """
+
+    class Estado(models.TextChoices):
+        PROGRAMADO = "PROGRAMADO", "Programado"
+        AVISADO = "AVISADO", "Recordatorio enviado"
+        INICIADO = "INICIADO", "Iniciado"
+        OMITIDO = "OMITIDO", "No se pudo iniciar"
+        CANCELADO = "CANCELADO", "Cancelado"
+
+    ACTIVOS = (Estado.PROGRAMADO, Estado.AVISADO)
+    AVISOS = (10, 5)
+
+    programado_para = models.DateTimeField("hora de inicio")
+    duracion_minutos = models.PositiveSmallIntegerField("duración (minutos)")
+    aviso_minutos = models.PositiveSmallIntegerField("recordar antes (minutos)", default=10)
+    mensaje = models.CharField(max_length=150, blank=True, default="")
+    estado = models.CharField(max_length=10, choices=Estado.choices, default=Estado.PROGRAMADO)
+    avisado_en = models.DateTimeField(null=True, blank=True)
+    avisados = models.PositiveSmallIntegerField(default=0)  # vendedores a los que les llegó el recordatorio
+    descanso = models.OneToOneField(Descanso, on_delete=models.PROTECT, null=True, blank=True, related_name="programacion")
+    motivo = models.CharField(max_length=200, blank=True, default="")  # por qué se omitió o se canceló
+    creado_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    cancelado_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+
+    class Meta:
+        verbose_name = "break programado"
+        verbose_name_plural = "breaks programados"
+        ordering = ["programado_para"]
+        indexes = [models.Index(fields=["estado", "programado_para"], name="descanso_prog_estado_idx")]
+        constraints = [
+            models.CheckConstraint(condition=Q(duracion_minutos__gte=1, duracion_minutos__lte=120), name="descanso_prog_duracion_valida"),
+            models.CheckConstraint(condition=Q(aviso_minutos__in=[5, 10]), name="descanso_prog_aviso_valido"),
+            models.CheckConstraint(condition=Q(estado__in=["PROGRAMADO", "AVISADO", "INICIADO", "OMITIDO", "CANCELADO"]),
+                                   name="descanso_prog_estado_valido"),
+            # Iniciado ⇔ tiene su break; el recordatorio enviado deja la hora en que salió.
+            models.CheckConstraint(condition=Q(estado="INICIADO", descanso__isnull=False) | (~Q(estado="INICIADO") & Q(descanso__isnull=True)),
+                                   name="descanso_prog_iniciado_con_break"),
+            models.CheckConstraint(condition=~Q(estado="AVISADO") | Q(avisado_en__isnull=False), name="descanso_prog_avisado_con_hora"),
+            # Dos breaks pendientes no pueden empezar a la misma hora.
+            models.UniqueConstraint(fields=["programado_para"], condition=Q(estado__in=["PROGRAMADO", "AVISADO"]),
+                                    name="descanso_prog_hora_unica"),
+        ]
+
+    def __str__(self):
+        return f"Break programado de {self.duracion_minutos} min · {self.programado_para:%d/%m/%Y %H:%M}"
+
+    @property
+    def fin(self):
+        from datetime import timedelta
+
+        return self.programado_para + timedelta(minutes=self.duracion_minutos)
+
+    @property
+    def avisar_en(self):
+        from datetime import timedelta
+
+        return self.programado_para - timedelta(minutes=self.aviso_minutos)
+
+    @property
+    def activo(self) -> bool:
+        return self.estado in self.ACTIVOS
+
+
 class RegresoDescanso(models.Model):
     """Un vendedor en un break: cuándo marcó que volvió y con cuántos minutos de retraso."""
 

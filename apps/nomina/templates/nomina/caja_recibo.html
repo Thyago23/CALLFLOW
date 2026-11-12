@@ -1,0 +1,173 @@
+{% extends "base.html" %}
+{% load humanize_cf %}
+{% block titulo %}Recibo de caja chica N.º {{ r.numero }}{% endblock %}
+{% block contenido %}
+<div class="d-print-none d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <nav aria-label="Ruta">
+    <ol class="breadcrumb small mb-0">
+      <li class="breadcrumb-item"><a href="{% url 'nomina:caja_chica' %}">Caja chica</a></li>
+      <li class="breadcrumb-item"><a href="{{ volver }}">{% if m %}Hoja del mes{% else %}Recibos{% endif %}</a></li>
+      <li class="breadcrumb-item active" aria-current="page">Recibo N.º {{ r.numero }}</li>
+    </ol>
+  </nav>
+  <div class="d-flex gap-2 align-items-center">
+    {% if not m %}<span class="badge {% if r.abierto %}estado-sobra{% else %}estado-cuadra{% endif %}">{{ r.get_estado_display }}</span>{% endif %}
+    <button type="button" class="btn btn-primary" onclick="window.print()"><i class="bi bi-printer me-1" aria-hidden="true"></i>Imprimir recibo</button>
+  </div>
+</div>
+{% if m and m.anulado %}<div class="alert alert-warning d-print-none">Este gasto está <strong>anulado</strong> ({{ m.motivo_anulacion }}).</div>{% endif %}
+
+{# Copia del Excel «Recibo Caja Chica». Siempre en papel claro. #}
+<div class="recibo-excel pagina-vertical" data-bs-theme="light">
+  <div class="rx-marca">MULTIVISA</div>
+  <div class="rx-titulo">Recibo y control de caja chica</div>
+
+  <div class="rx-datos">
+    <span class="rx-rotulo">N.º de recibo:</span><span class="rx-valor">{{ r.numero }}</span>
+    <span class="rx-rotulo">Fecha:</span><span class="rx-valor">{{ r.fecha|date:"d/m/Y" }}</span>
+    <span class="rx-rotulo">Entregado a:</span><span class="rx-valor">{{ r.entregado_a }}</span>
+    <span class="rx-rotulo">Responsable:</span><span class="rx-valor">{{ r.responsable.get_full_name|default:r.responsable.username|default:"" }}</span>
+    <span class="rx-rotulo">Área / Departamento:</span><span class="rx-valor">{{ r.area }}</span>
+    <span class="rx-rotulo">Autorizado por:</span><span class="rx-valor">{{ r.autorizado_por }}</span>
+  </div>
+  {% if editable %}
+  <details class="rx-editar d-print-none" {% if form_datos.errors %}open{% endif %}>
+    <summary class="btn btn-sm btn-light border"><i class="bi bi-pencil me-1" aria-hidden="true"></i>Editar datos del recibo</summary>
+    <form method="post" class="row g-2 align-items-end mt-1" novalidate>
+      {% csrf_token %}<input type="hidden" name="accion" value="datos">
+      <input type="hidden" name="datos-observaciones" value="{{ r.observaciones }}">
+      {% for error in form_datos.non_field_errors %}<div class="col-12 alert alert-danger small mb-0">{{ error }}</div>{% endfor %}
+      <div class="col-6 col-md-2">{% include "_campo.html" with campo=form_datos.fecha %}</div>
+      <div class="col-6 col-md-3">{% include "_campo.html" with campo=form_datos.entregado_a %}</div>
+      <div class="col-6 col-md-3">{% include "_campo.html" with campo=form_datos.area %}</div>
+      <div class="col-6 col-md-3">{% include "_campo.html" with campo=form_datos.autorizado_por %}</div>
+      <div class="col-md-1 mb-3"><button type="submit" class="btn btn-primary btn-sm w-100">Guardar</button></div>
+    </form>
+  </details>
+  {% endif %}
+
+  {% if editable %}<form method="post" id="fila-recibo" novalidate>{% csrf_token %}<input type="hidden" name="accion" value="linea"></form>{% endif %}
+  <table class="rx-tabla">
+    <colgroup><col class="c-a"><col class="c-b"><col class="c-c"><col class="c-d"><col class="c-e"><col class="c-f"></colgroup>
+    <thead>
+      <tr><th scope="col">N.º</th><th scope="col">Fecha</th><th scope="col">Concepto / Detalle del gasto</th><th scope="col">Comprobante</th><th scope="col">Valor entregado</th><th scope="col">Valor gastado</th></tr>
+    </thead>
+    <tbody>
+      {% for l in r.lineas_vista %}
+      <tr{% if l.anulada %} class="rx-anulada"{% endif %}>
+        <td class="text-center">{{ forloop.counter }}</td>
+        <td>{{ l.fecha|date:"d/m/Y" }}</td>
+        <td>{{ l.concepto }}</td>
+        <td>{{ l.comprobante }}</td>
+        <td class="text-end">{% if l.valor_entregado %}${{ l.valor_entregado|dinero }}{% endif %}</td>
+        <td class="text-end rx-ultima">{% if l.valor_gastado %}${{ l.valor_gastado|dinero }}{% endif %}
+          {% if editable %}
+          <form method="post" class="rx-quitar d-print-none">
+            {% csrf_token %}<input type="hidden" name="accion" value="quitar"><input type="hidden" name="linea" value="{{ l.pk }}">
+            <button type="submit" class="btn btn-sm btn-link text-danger p-0" title="Quitar esta fila{% if l.valor_entregado %}: lo entregado vuelve a la caja{% endif %}"
+                    onclick="return confirm('¿Quitar la fila {{ forloop.counter }} del recibo?')"><i class="bi bi-x-circle" aria-hidden="true"></i><span class="visually-hidden">Quitar la fila {{ forloop.counter }}</span></button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+      {% if editable %}
+      <tr class="rx-escribir d-print-none">
+        <td class="text-center">{{ r.lineas_vista|length|add:1 }}</td>
+        <td><label class="visually-hidden" for="{{ form_linea.fecha.id_for_label }}">Fecha</label>{{ form_linea.fecha }}</td>
+        <td><label class="visually-hidden" for="{{ form_linea.concepto.id_for_label }}">Concepto / Detalle del gasto</label>{{ form_linea.concepto }}</td>
+        <td><label class="visually-hidden" for="{{ form_linea.comprobante.id_for_label }}">Comprobante</label>{{ form_linea.comprobante }}</td>
+        <td><label class="visually-hidden" for="{{ form_linea.valor_entregado.id_for_label }}">Valor entregado</label>{{ form_linea.valor_entregado }}</td>
+        <td><label class="visually-hidden" for="{{ form_linea.valor_gastado.id_for_label }}">Valor gastado</label>{{ form_linea.valor_gastado }}</td>
+      </tr>
+      {% endif %}
+      {% for _ in filas_vacias %}<tr><td class="text-center">{{ r.lineas_vista|length|add:forloop.counter|add:primera_vacia }}</td><td></td><td></td><td></td><td></td><td></td></tr>{% endfor %}
+    </tbody>
+  </table>
+  {% if editable %}
+  <div class="rx-barra d-print-none">
+    <button type="submit" form="fila-recibo" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Agregar fila</button>
+    {% if form_linea.errors %}<span class="text-danger small">{% for e in form_linea.non_field_errors %}{{ e }} {% endfor %}{% for c in form_linea %}{% for e in c.errors %}{{ c.label }}: {{ e }} {% endfor %}{% endfor %}</span>
+    {% else %}<span class="small text-body-secondary">Escriba en la fila amarilla. Lo <strong>entregado</strong> sale de la caja al agregar la fila; lo <strong>gastado</strong> es lo que la persona rinde con su comprobante.</span>{% endif %}
+  </div>
+  {% endif %}
+
+  <div class="rx-resumen">
+    <div class="rx-resumen-titulo">Resumen y liquidación</div>
+    <div class="rx-fila"><span class="rx-et">Total entregado</span><span class="rx-num">${{ r.total_entregado|dinero }}</span></div>
+    <div class="rx-fila"><span class="rx-et">Total gastado</span><span class="rx-num">${{ r.total_gastado|dinero }}</span></div>
+    <div class="rx-fila"><span class="rx-et">Valor a devolver</span><span class="rx-num rx-calc">${{ r.valor_a_devolver|dinero }}</span></div>
+    <div class="rx-fila"><span class="rx-et">Valor adicional a reembolsar</span><span class="rx-num rx-calc">${{ r.valor_a_reembolsar|dinero }}</span></div>
+    <div class="rx-fila"><span class="rx-et">Valor devuelto</span>
+      {% if editable %}
+      <form method="post" class="rx-num rx-entrada" data-liquidar>
+        {% csrf_token %}<input type="hidden" name="accion" value="liquidar">
+        <label class="visually-hidden" for="valor-devuelto">Valor devuelto</label>
+        <span aria-hidden="true">$</span><input id="valor-devuelto" name="valor_devuelto" inputmode="decimal" value="{{ r.valor_a_devolver|dinero }}" autocomplete="off">
+        <button type="submit" class="btn btn-sm btn-success d-print-none"
+                onclick="return confirm('Al liquidar ya no se pueden agregar filas.{% if r.valor_a_reembolsar %} Se pagará el valor adicional de ${{ r.valor_a_reembolsar|dinero }} desde la caja.{% endif %} ¿Liquidar el recibo?')">Liquidar</button>
+      </form>
+      {% elif puede_devolver %}
+      <form method="post" class="rx-num rx-entrada">
+        {% csrf_token %}<input type="hidden" name="accion" value="devolucion">
+        <span class="me-2">${{ r.valor_devuelto|dinero }}</span>
+        <span class="d-print-none d-inline-flex align-items-center gap-1">+ $<input name="valor_devuelto" inputmode="decimal" value="{{ r.saldo_pendiente|dinero }}" aria-label="Devolución pendiente que entrega ahora" autocomplete="off">
+          <button type="submit" class="btn btn-sm btn-success">Registrar</button></span>
+      </form>
+      {% else %}
+      <span class="rx-num">${{ r.valor_devuelto|dinero }}</span>
+      {% endif %}
+    </div>
+    <div class="rx-fila"><span class="rx-et">Saldo pendiente de devolución</span><span class="rx-num rx-calc" data-saldo-pendiente>${{ r.saldo_pendiente|dinero }}</span></div>
+  </div>
+
+  <div class="rx-observaciones">
+    <div class="rx-rotulo">Observaciones:</div>
+    {% if editable %}
+    <form method="post" class="d-print-none">
+      {% csrf_token %}<input type="hidden" name="accion" value="datos">
+      <input type="hidden" name="datos-fecha" value="{{ r.fecha|date:'Y-m-d' }}"><input type="hidden" name="datos-entregado_a" value="{{ r.entregado_a }}">
+      <input type="hidden" name="datos-area" value="{{ r.area }}"><input type="hidden" name="datos-autorizado_por" value="{{ r.autorizado_por }}">
+      <textarea name="datos-observaciones" rows="2" class="form-control form-control-sm" aria-label="Observaciones">{{ r.observaciones }}</textarea>
+      <button type="submit" class="btn btn-sm btn-light border mt-1">Guardar observaciones</button>
+    </form>
+    <div class="rx-caja-texto d-none d-print-block">{{ r.observaciones|linebreaksbr }}</div>
+    {% else %}
+    <div class="rx-caja-texto">{{ r.observaciones|linebreaksbr }}</div>
+    {% endif %}
+  </div>
+
+  <div class="rx-firmas">
+    <div><div class="rx-rotulo">Entregado por</div><div class="rx-linea">{{ r.responsable.get_full_name|default:"" }}</div><div class="rx-nota">Nombre y firma</div></div>
+    <div><div class="rx-rotulo">Recibido por</div><div class="rx-linea">{{ r.entregado_a }}</div><div class="rx-nota">Nombre y firma</div></div>
+    <div><div class="rx-rotulo">Revisado / Autorizado por</div><div class="rx-linea">{{ r.autorizado_por }}</div><div class="rx-nota">Nombre y firma</div></div>
+  </div>
+  <p class="rx-nota rx-instrucciones">Instrucciones: Registre cada entrega y gasto en la tabla. El resumen calcula automáticamente cuánto se debe devolver o reembolsar. Ingrese el valor efectivamente devuelto al liquidar.</p>
+</div>
+
+{% if anuladas %}
+<section class="card mt-3 d-print-none">
+  <div class="card-header bg-body py-2 small fw-semibold">Filas quitadas de este recibo</div>
+  <ul class="list-group list-group-flush small">
+    {% for l in anuladas %}<li class="list-group-item text-body-secondary"><s>{{ l.fecha|date:"d/m/Y" }} · {{ l.concepto }}{% if l.valor_entregado %} · entregado ${{ l.valor_entregado|dinero }}{% endif %}{% if l.valor_gastado %} · gastado ${{ l.valor_gastado|dinero }}{% endif %}</s></li>{% endfor %}
+  </ul>
+</section>
+{% endif %}
+{% if not m %}<div class="mt-3 d-print-none">{% include "nomina/_caja_pestanas.html" with pestana="recibos" %}</div>{% endif %}
+{% if editable %}
+<script>
+  // El saldo pendiente se recalcula mientras se escribe el valor devuelto (la base vuelve a verificar al liquidar).
+  (function () {
+    var f = document.querySelector("[data-liquidar]");
+    if (!f) return;
+    var campo = f.querySelector("input[name=valor_devuelto]"), salida = document.querySelector("[data-saldo-pendiente]");
+    var devolver = parseFloat("{{ r.valor_a_devolver|stringformat:'s' }}") || 0;
+    var fmt = new Intl.NumberFormat("es-EC", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    campo.addEventListener("input", function () {
+      var v = parseFloat(campo.value.replace(/\./g, "").replace(",", ".")) || 0;
+      salida.textContent = "$" + fmt.format(Math.max(devolver - v, 0));
+    });
+  })();
+</script>
+{% endif %}
+{% endblock %}

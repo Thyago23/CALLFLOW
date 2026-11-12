@@ -1,0 +1,45 @@
+{# Breaks programados: los pendientes (con «Cancelar») y lo que pasó con los de hoy. Va dentro del panel que se recarga cada 5 s. #}
+{% with pendientes=programados.pendientes resueltos=programados.resueltos_hoy %}
+{% if pendientes or resueltos %}
+<section class="card mb-4" aria-labelledby="titulo-programados">
+  <div class="card-header bg-body py-3 d-flex justify-content-between align-items-center">
+    <h2 class="h6 mb-0" id="titulo-programados"><i class="bi bi-calendar-event me-1" aria-hidden="true"></i>Breaks programados</h2>
+    {% if pendientes %}<span class="badge rounded-pill text-bg-primary">{{ pendientes|length }} pendiente{{ pendientes|length|pluralize }}</span>{% endif %}
+  </div>
+  <ul class="list-group list-group-flush">
+    {% for p in pendientes %}
+    <li class="list-group-item d-flex flex-wrap align-items-center gap-2 break-programado">
+      <div class="hora-programada text-center">
+        <div class="fw-bold fs-5 lh-1">{{ p.programado_para|time:"H:i" }}</div>
+        <div class="small text-body-secondary">{% if p.programado_para|date:"Y-m-d" == ahora|date:"Y-m-d" %}hoy{% else %}{{ p.programado_para|date:"D d/m" }}{% endif %}</div>
+      </div>
+      <div class="flex-grow-1 min-w-0">
+        <div class="fw-semibold">{{ p.duracion_minutos }} min · hasta las {{ p.fin|time:"H:i" }}{% if p.mensaje %} <span class="fw-normal text-body-secondary">· «{{ p.mensaje }}»</span>{% endif %}</div>
+        <div class="small text-body-secondary">
+          {% if p.estado == "AVISADO" %}
+          <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle"><i class="bi bi-bell-fill me-1" aria-hidden="true"></i>Recordatorio enviado</span>
+          a {{ p.avisados }} vendedor{{ p.avisados|pluralize:"es" }} a las {{ p.avisado_en|time:"H:i" }}
+          {% else %}
+          <i class="bi bi-bell me-1" aria-hidden="true"></i>Se recordará {{ p.aviso_minutos }} min antes ({{ p.avisar_en|time:"H:i" }})
+          {% endif %}
+        </div>
+      </div>
+      <form method="post" action="{% url 'asistencia:cancelar_break_programado' p.pk %}"
+            data-confirmar="{% if p.estado == 'AVISADO' %}Los vendedores ya recibieron el recordatorio: se les avisará que se canceló.{% else %}No se enviará el recordatorio ni empezará el break.{% endif %}"
+            data-confirmar-titulo="¿Cancelar el break de las {{ p.programado_para|time:'H:i' }}?" data-confirmar-boton="Cancelar break" data-confirmar-tono="danger">
+        {% csrf_token %}<button type="submit" class="btn btn-sm btn-outline-danger">Cancelar</button>
+      </form>
+    </li>
+    {% endfor %}
+    {% for p in resueltos %}
+    <li class="list-group-item d-flex flex-wrap align-items-center gap-2 small text-body-secondary">
+      <span class="fw-semibold text-body">{{ p.programado_para|time:"H:i" }}</span> · {{ p.duracion_minutos }} min
+      {% if p.estado == "INICIADO" %}<span class="badge bg-success-subtle text-success-emphasis border border-success-subtle">Empezó a su hora</span>
+      {% elif p.estado == "OMITIDO" %}<span class="badge bg-danger-subtle text-danger-emphasis border border-danger-subtle">No empezó</span> {{ p.motivo }}
+      {% else %}<span class="badge text-bg-light border">Cancelado</span> {{ p.motivo }}{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+{% endwith %}

@@ -20,7 +20,7 @@ from apps.personal.models import Cargo
 from apps.reportes.catalogo import TIPOS_REPORTE  # tipos de reporte y sus roles (4.5)
 from apps.reportes.models import TipoReporte
 
-CARGOS = ["Administrador", "Asesor de ventas", "Supervisor", "Tecnología (TI)"]
+CARGOS = ["Administrador", "Asesor de ventas", "Supervisor", "Imagen corporativa", "Tecnología (TI)"]
 
 TIPOS_DOCUMENTO = [
     ("CEDULA", "Copia de cédula", True),

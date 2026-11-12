@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% load estaticos %}
+{% block titulo %}{% if actual %}{{ titulo }} · {% endif %}Mensajes{% endblock %}
+{% block contenido %}
+<div class="mensajeria{% if actual %} con-chat{% endif %}">
+  <aside class="columna-chats" aria-label="Chats">
+    {% include "mensajes/_panel.html" with modo="pagina" %}
+  </aside>
+  <div class="columna-chat">
+    {% if actual %}
+    {% include "mensajes/_ventana.html" %}
+    {% else %}
+    <div class="chat-vacio">
+      <span class="icono-vacio"><i class="bi bi-chat-dots-fill" aria-hidden="true"></i></span>
+      <p class="fw-semibold mb-1">Sus mensajes</p>
+      <p class="small text-body-secondary mb-0">Elija un chat o toque a una persona para escribirle.<br>También puede chatear desde cualquier pantalla con el botón de abajo a la derecha.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

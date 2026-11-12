@@ -1,4 +1,5 @@
 import json
+import logging
 from datetime import timedelta
 
 from django.contrib import messages
@@ -25,6 +26,8 @@ from . import cv
 from . import historial
 from .forms import DocumentosIngresoForm, EmpleadoEditarForm, EmpleadoForm, EquipoForm, ObservacionForm, SalarioForm
 from .models import AsignacionComision, Empleado, HistorialSalario
+
+registro = logging.getLogger(__name__)
 
 # Campos que el lector de CV puede llenar, con el nombre que ve el usuario.
 CAMPOS_CV = (
@@ -119,6 +122,7 @@ class EmpleadoCrearView(LoginRequiredMixin, PermissionRequiredMixin, CreateView)
                 else:
                     usuario, clave = crear_cuenta_para_empleado(self.object, creado_por=self.request.user)
                 configurar_ingreso(self.object, form.cleaned_data, self.request.user)
+                contrato, error_contrato = generar_contrato_de_ingreso(self.object, self.request.user)
         except IntegrityError:
             # Otro usuario registró la misma identificación entre la validación y el guardado.
             self.object = None
@@ -131,6 +135,7 @@ class EmpleadoCrearView(LoginRequiredMixin, PermissionRequiredMixin, CreateView)
             return self.render_to_response(self.get_context_data(form=form, documentos_form=documentos_form))
 
         messages.success(self.request, f"Empleado {self.object.nombres} {self.object.apellidos} registrado con sus documentos.")
+        avisar_contrato_de_ingreso(self.request, self.object, contrato, error_contrato)
         if clave is None:
             messages.info(self.request, f"Se vinculó la cuenta existente {usuario.username}: conserva su código de acceso.")
             return redirect("personal:empleado_detalle", pk=self.object.pk)
@@ -197,6 +202,33 @@ class EmpleadoEditarView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView
 
     def get_success_url(self):
         return reverse("personal:empleado_detalle", args=[self.object.pk]) + "#datos"
+
+
+def generar_contrato_de_ingreso(empleado, usuario):
+    """
+    El contrato del empleado nuevo, con la plantilla de su cargo y los datos de su CV. Un error aquí no impide
+    registrarlo: se avisa y el contrato se puede generar a mano desde su perfil.
+    """
+    from apps.documentos import contratos
+
+    try:
+        with transaction.atomic():  # si falla, se deshace solo el contrato
+            return contratos.generar_contrato_de_ingreso(empleado, usuario), None
+    except Exception as error:  # noqa: BLE001 — el registro del empleado no debe perderse por el contrato
+        registro.exception("No se pudo generar el contrato de ingreso del empleado %s", empleado.pk)
+        return None, error
+
+
+def avisar_contrato_de_ingreso(request, empleado, contrato, error):
+    if contrato is not None:
+        messages.info(request, f"Se generó su contrato «{contrato.plantilla.nombre}» con los datos del CV. "
+                               "Revíselo en su perfil, pestaña Contratos, antes de imprimirlo.")
+    elif error is not None:
+        messages.warning(request, "El empleado quedó registrado, pero no se pudo generar su contrato automáticamente. "
+                                  "Genérelo desde su perfil, pestaña Contratos.")
+    else:
+        messages.info(request, f"No hay una plantilla de contrato para el cargo «{empleado.cargo}»: "
+                               "genere el contrato desde su perfil cuando la tenga.")
 
 
 def configurar_ingreso(empleado, datos, usuario):
@@ -275,7 +307,8 @@ class EmpleadoDetalleView(LoginRequiredMixin, PermissionRequiredMixin, DetailVie
         ctx["observaciones"] = self.object.observaciones.select_related("autor")
         ctx["observacion_form"] = ObservacionForm()
 
-        ctx["contratos"] = self.object.contratos.select_related("plantilla", "documento", "generado_por").order_by("-creado_en")
+        ctx["contratos"] = self.object.contratos.select_related("plantilla", "documento", "generado_por", "revisado_por").order_by("-creado_en")
+        ctx["contratos_por_revisar"] = sum(1 for c in ctx["contratos"] if c.pendiente_revision)
         if self.request.user.has_perm("documentos.add_contratogenerado"):
             ctx["contrato_form"] = GenerarContratoForm(empleado=self.object)
         return ctx

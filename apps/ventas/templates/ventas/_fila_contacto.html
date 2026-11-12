@@ -20,7 +20,8 @@
     <div class="btn-group btn-group-sm" role="group" aria-label="Categoría de {{ r.nombre|default:r.numero }}">
       <button type="submit" name="estado" value="NO_CONTESTO" class="btn btn-outline-secondary {% if r.estado == 'NO_CONTESTO' %}active{% endif %}" {% if r.estado == 'NO_CONTESTO' %}aria-pressed="true"{% endif %}><i class="bi bi-telephone-x me-1" aria-hidden="true"></i>No contestó</button>
       <button type="submit" name="estado" value="NO_QUIERE" class="btn btn-outline-secondary {% if r.estado == 'NO_QUIERE' %}active{% endif %}" {% if r.estado == 'NO_QUIERE' %}aria-pressed="true"{% endif %}><i class="bi bi-hand-thumbs-down me-1" aria-hidden="true"></i>No quiere</button>
-      <button type="submit" name="estado" value="DAMI_SACADO" class="btn btn-outline-secondary {% if r.estado == 'DAMI_SACADO' %}active{% endif %}" {% if r.estado == 'DAMI_SACADO' %}aria-pressed="true"{% endif %}><i class="bi bi-check2-circle me-1" aria-hidden="true"></i>DAMI sacado</button>
+      <button type="submit" name="estado" value="NO_ENTREGADA" class="btn btn-outline-secondary {% if r.estado == 'NO_ENTREGADA' %}active{% endif %}" {% if r.estado == 'NO_ENTREGADA' %}aria-pressed="true"{% endif %}><i class="bi bi-credit-card-2-back me-1" aria-hidden="true"></i>Tarjeta no entregada</button>
+      <button type="submit" name="estado" value="DAMI_SACADO" class="btn btn-outline-secondary {% if r.estado == 'DAMI_SACADO' %}active{% endif %}" {% if r.estado == 'DAMI_SACADO' %}aria-pressed="true"{% endif %}><i class="bi bi-check2-circle me-1" aria-hidden="true"></i>DAMI efectivo</button>
     </div>
     <div class="small mt-1 d-flex gap-3 justify-content-end">
       <a href="{% url 'ventas:formulario_nuevo' %}?contacto={{ r.pk }}" class="text-decoration-none"><i class="bi bi-file-earmark-plus me-1" aria-hidden="true"></i>Llenar DAMI</a>

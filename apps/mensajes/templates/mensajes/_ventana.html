@@ -1,0 +1,74 @@
+{# Un chat, igual en la página Mensajes (modo "pagina") y en la ventanita flotante (modo "flotante"). #}
+<section class="ventana-chat {{ modo }}" data-chat="{{ actual.pk }}" aria-label="Chat con {{ titulo }}">
+  <header class="cabecera-chat">
+    {% if modo == "pagina" %}<a href="{% url 'mensajes:bandeja' %}" class="boton-redondo d-lg-none" aria-label="Volver a los chats"><i class="bi bi-arrow-left" aria-hidden="true"></i></a>{% endif %}
+    {% if actual.es_grupo %}{% include "mensajes/_avatar_chat.html" with grupo=True %}{% else %}{% include "mensajes/_avatar_chat.html" with u=otro %}{% endif %}
+    <div class="min-w-0 flex-grow-1">
+      <div class="nombre-chat text-truncate">{{ titulo }}</div>
+      <div class="estado-chat text-truncate" id="estado-{{ actual.pk }}">{% include "mensajes/_estado_cabecera.html" %}</div>
+    </div>
+    {% if modo == "flotante" %}
+    <a href="{% url 'mensajes:conversacion' actual.pk %}" class="boton-redondo" title="Abrir en pantalla completa"><i class="bi bi-arrows-angle-expand" aria-hidden="true"></i><span class="visually-hidden">Pantalla completa</span></a>
+    <button type="button" class="boton-redondo" data-accion="minimizar" title="Minimizar"><i class="bi bi-dash-lg" aria-hidden="true"></i><span class="visually-hidden">Minimizar</span></button>
+    <button type="button" class="boton-redondo" data-accion="cerrar" title="Cerrar"><i class="bi bi-x-lg" aria-hidden="true"></i><span class="visually-hidden">Cerrar</span></button>
+    {% elif actual.es_grupo %}
+    <details class="opciones-grupo">
+      <summary class="boton-redondo" title="Opciones del grupo"><i class="bi bi-three-dots" aria-hidden="true"></i><span class="visually-hidden">Opciones del grupo</span></summary>
+      <div class="menu-grupo">
+        <form method="post" action="{% url 'mensajes:agregar' actual.pk %}">
+          {% csrf_token %}
+          <div class="small fw-semibold mb-1">Agregar personas</div>
+          <div class="lista-elegir corta">
+            {% for u in contactos %}{% if u not in miembros %}
+            <label class="elegir-persona"><input type="checkbox" name="miembros" value="{{ u.pk }}" class="form-check-input">{% include "_avatar.html" with u=u %}<span class="text-truncate">{{ u.get_full_name|default:u.username }}</span></label>
+            {% endif %}{% endfor %}
+          </div>
+          <button type="submit" class="btn btn-sm btn-primary w-100 mt-2">Agregar</button>
+        </form>
+        <hr class="my-2">
+        <form method="post" action="{% url 'mensajes:salir' actual.pk %}" onsubmit="return confirm('¿Salir del grupo «{{ actual.nombre|escapejs }}»?')">
+          {% csrf_token %}<button type="submit" class="btn btn-sm btn-outline-danger w-100"><i class="bi bi-box-arrow-right me-1" aria-hidden="true"></i>Salir del grupo</button>
+        </form>
+      </div>
+    </details>
+    {% endif %}
+  </header>
+
+  <div class="cuerpo-chat">
+    <div class="hilo" id="hilo-{{ actual.pk }}" aria-live="polite">
+      {% if not mensajes %}<div class="inicio-chat">{% if actual.es_grupo %}{% include "mensajes/_avatar_chat.html" with grupo=True clase="enorme" %}{% else %}{% include "mensajes/_avatar_chat.html" with u=otro clase="enorme" %}{% endif %}<div class="fw-semibold mt-2">{{ titulo }}</div><div class="small text-body-secondary">Escriban el primer mensaje.</div></div>{% endif %}
+      {% for m in mensajes %}{% include "mensajes/_mensaje.html" %}{% endfor %}
+    </div>
+    <div class="visto" id="visto-{{ actual.pk }}">{{ visto }}</div>
+    <div id="escribiendo-{{ actual.pk }}">{% include "mensajes/_escribiendo.html" %}</div>
+  </div>
+  {% include "mensajes/_sondeo.html" %}
+
+  <form class="escribir" method="post" action="{% url 'mensajes:enviar' actual.pk %}" enctype="multipart/form-data"
+        hx-post="{% url 'mensajes:enviar' actual.pk %}" hx-encoding="multipart/form-data" hx-swap="none"
+        data-url-escribiendo="{% url 'mensajes:escribiendo' actual.pk %}">
+    {% csrf_token %}
+    <div class="error-envio" id="error-{{ actual.pk }}"></div>
+    <div class="vista-previa-adjunto" hidden>
+      <img alt="" hidden><i class="bi bi-file-earmark-pdf icono-archivo" aria-hidden="true"></i>
+      <span class="nombre text-truncate"></span>
+      <button type="button" class="quitar" title="Quitar el adjunto"><i class="bi bi-x-circle-fill" aria-hidden="true"></i><span class="visually-hidden">Quitar el adjunto</span></button>
+    </div>
+    <div class="selector-emojis" hidden>
+      {% for e in emojis %}<button type="button" data-emoji="{{ e }}">{{ e }}</button>{% endfor %}
+    </div>
+    <div class="fila-escribir">
+      <label class="boton-redondo azul" title="Adjuntar una imagen o PDF (también puede pegar o arrastrar una imagen)">
+        <i class="bi bi-plus-circle-fill" aria-hidden="true"></i><span class="visually-hidden">Adjuntar archivo</span>
+        <input type="file" name="adjunto" accept="application/pdf,image/jpeg,image/png" class="visually-hidden">
+      </label>
+      <div class="caja-texto">
+        <label class="visually-hidden" for="texto-{{ actual.pk }}-{{ modo }}">Mensaje</label>
+        <textarea id="texto-{{ actual.pk }}-{{ modo }}" name="texto" rows="1" maxlength="4000" placeholder="Aa"></textarea>
+        <button type="button" class="boton-emoji" title="Emojis"><i class="bi bi-emoji-smile-fill" aria-hidden="true"></i><span class="visually-hidden">Emojis</span></button>
+      </div>
+      <button type="submit" class="boton-redondo azul enviar" title="Enviar (Enter)"><i class="bi bi-send-fill" aria-hidden="true"></i><span class="visually-hidden">Enviar</span></button>
+      <button type="button" class="boton-redondo me-gusta" title="Enviar 👍">👍</button>
+    </div>
+  </form>
+</section>

@@ -123,7 +123,7 @@ def guardar_formulario(usuario, datos: dict, formulario: FormularioDAMI | None =
     `para`: el vendedor dueño del cliente cuando el usuario llena el DAMI como ayuda (ver `ayuda_aceptada`).
     Entonces el DAMI es de `para` (su hoja de producción y sus ventas) y queda registrado quién lo llenó.
     `contacto`: el contacto de la base desde el que se abrió «Llenar DAMI». El DAMI queda ligado a esa base
-    y el contacto pasa solo a «DAMI sacado» (antes el vendedor tenía que categorizarlo aparte).
+    y el contacto pasa solo a «DAMI efectivo» (antes el vendedor tenía que categorizarlo aparte).
     """
     empleado = empleado_de(usuario)
     if not es_vendedor(usuario):
@@ -152,7 +152,7 @@ def guardar_formulario(usuario, datos: dict, formulario: FormularioDAMI | None =
 
 
 def _marcar_dami_sacado(contacto: RegistroBase) -> None:
-    """El contacto con el que se llenó el DAMI queda como «DAMI sacado» (si ya lo estaba, no se toca)."""
+    """El contacto con el que se llenó el DAMI queda como «DAMI efectivo» (si ya lo estaba, no se toca)."""
     registro = RegistroBase.objects.select_for_update().get(pk=contacto.pk)
     if registro.estado == RegistroBase.Estado.DAMI_SACADO:
         return
@@ -658,7 +658,8 @@ def repartir(base: BaseComercial, vendedores: list, cantidad: int | None = None)
     return recibidos
 
 
-ESTADOS_GESTION = [RegistroBase.Estado.NO_CONTESTO, RegistroBase.Estado.NO_QUIERE, RegistroBase.Estado.DAMI_SACADO]
+ESTADOS_GESTION = [RegistroBase.Estado.NO_CONTESTO, RegistroBase.Estado.NO_QUIERE, RegistroBase.Estado.NO_ENTREGADA,
+                   RegistroBase.Estado.DAMI_SACADO]
 
 
 def datos_dami_de_contacto(contacto: RegistroBase) -> dict:
@@ -700,38 +701,79 @@ def categorizar(usuario, registro_id: int, estado: str) -> RegistroBase:
     return registro
 
 
-def _conteos(prefijo: str = "") -> dict:
-    """Agregados de contactos: enviados, pendientes y cada categoría."""
+def _conteos(prefijo: str = "", filtros: dict | None = None, gestion: tuple | None = None) -> dict:
+    """
+    Agregados de contactos: enviados, pendientes y cada categoría. `filtros` (vendedor, ciudad, tarjeta…)
+    se aplican a todo; `gestion` = (desde, hasta) solo a los contactos ya categorizados, por su fecha de gestión.
+    """
     from django.db.models import Count
 
+    def q(**kw):
+        return Q(**{f"{prefijo}{k}": v for k, v in kw.items()})
+
     E = RegistroBase.Estado
-    filtro = {f"{prefijo}vendedor__isnull": False} if prefijo else {"vendedor__isnull": False}
+    comun = q(**(filtros or {}))
+    enviados = comun & q(vendedor__isnull=False)
+    gestionados = comun & (q(gestionado_en__date__range=gestion) if gestion else Q())
     return {
-        "enviados": Count("pk", filter=Q(**filtro)),
-        "pendientes": Count("pk", filter=Q(**{f"{prefijo}estado": E.PENDIENTE}) & Q(**filtro)),
-        "no_contesto": Count("pk", filter=Q(**{f"{prefijo}estado": E.NO_CONTESTO})),
-        "no_quiere": Count("pk", filter=Q(**{f"{prefijo}estado": E.NO_QUIERE})),
-        "dami_sacado": Count("pk", filter=Q(**{f"{prefijo}estado": E.DAMI_SACADO})),
+        "enviados": Count("pk", filter=enviados),
+        "pendientes": Count("pk", filter=enviados & q(estado=E.PENDIENTE)),
+        "no_contesto": Count("pk", filter=gestionados & q(estado=E.NO_CONTESTO)),
+        "no_quiere": Count("pk", filter=gestionados & q(estado=E.NO_QUIERE)),
+        "no_entregada": Count("pk", filter=gestionados & q(estado=E.NO_ENTREGADA)),
+        "dami_sacado": Count("pk", filter=gestionados & q(estado=E.DAMI_SACADO)),
     }
 
 
+CAMPOS_CONTEO = ("enviados", "pendientes", "no_contesto", "no_quiere", "no_entregada", "dami_sacado")
+
+
+def _pct(parte, total):
+    return Decimal(parte * 100) / total if total else None
+
+
 def _completar(fila: dict) -> dict:
-    fila["gestionados"] = fila["no_contesto"] + fila["no_quiere"] + fila["dami_sacado"]
+    """
+    Gestionados = los que ya se llamaron (cualquier categoría menos pendiente).
+    Conexión: contestaron = no quiere + tarjeta no entregada + DAMI efectivo; no contestaron = no contestó.
+    """
+    fila["contestaron"] = fila["no_quiere"] + fila["no_entregada"] + fila["dami_sacado"]
+    fila["gestionados"] = fila["contestaron"] + fila["no_contesto"]
     fila["avance"] = round(fila["gestionados"] * 100 / fila["enviados"]) if fila["enviados"] else None
-    fila["efectividad"] = Decimal(fila["dami_sacado"] * 100) / fila["gestionados"] if fila["gestionados"] else None
+    fila["conexion"] = _pct(fila["contestaron"], fila["gestionados"])  # tasa de contacto
+    fila["efectividad"] = _pct(fila["dami_sacado"], fila["gestionados"])  # DAMI ÷ llamados
+    fila["efectividad_contestaron"] = _pct(fila["dami_sacado"], fila["contestaron"])  # DAMI ÷ los que contestaron
     return fila
 
 
-def seguimiento(base=None, vendedor=None) -> list[dict]:
+def filtros_contactos(vendedor=None, ciudad=None, tarjeta=None) -> dict:
+    """Filtros comunes de los reportes de bases sobre los contactos."""
+    filtros = {}
+    if vendedor:
+        filtros["vendedor"] = vendedor
+    if ciudad:
+        filtros["ciudad__iexact"] = ciudad
+    if tarjeta:
+        filtros["categoria_tarjeta__iexact"] = tarjeta
+    return filtros
+
+
+def opciones_contactos(campo: str) -> list[str]:
+    """Valores distintos de `ciudad` o `categoria_tarjeta` en las bases (para los filtros de reportes)."""
+    from django.db.models.functions import Upper
+
+    return sorted({v.strip() for v in RegistroBase.objects.exclude(**{campo: ""}).annotate(v=Upper(campo))
+                   .values_list("v", flat=True).distinct() if v and v.strip()})
+
+
+def seguimiento(base=None, vendedor=None, ciudad=None, tarjeta=None, gestion=None) -> list[dict]:
     """Por vendedor y base (SCRUM-96): enviados, gestionados, pendientes («faltan») y cada categoría."""
     from apps.personal.models import Empleado
 
-    qs = RegistroBase.objects.filter(vendedor__isnull=False)
+    qs = RegistroBase.objects.filter(vendedor__isnull=False, **filtros_contactos(vendedor, ciudad, tarjeta))
     if base:
         qs = qs.filter(base=base)
-    if vendedor:
-        qs = qs.filter(vendedor=vendedor)
-    filas = [_completar(f) for f in qs.values("vendedor", "base").annotate(**_conteos())]
+    filas = [_completar(f) for f in qs.values("vendedor", "base").annotate(**_conteos(gestion=gestion))]
     vendedores = {e.pk: e for e in Empleado.objects.filter(pk__in={f["vendedor"] for f in filas})}
     bases = {b.pk: b for b in BaseComercial.objects.filter(pk__in={f["base"] for f in filas})}
     for f in filas:
@@ -739,21 +781,57 @@ def seguimiento(base=None, vendedor=None) -> list[dict]:
     return sorted(filas, key=lambda f: (-f["pendientes"], str(f["vendedor"]), f["base"].nombre))
 
 
-def efectividad_bases(base=None) -> list[dict]:
-    """Por base (SCRUM-97): contactos, asignados, gestionados, categorías y efectividad."""
+def efectividad_bases(base=None, vendedor=None, ciudad=None, tarjeta=None, gestion=None, cargada=None) -> list[dict]:
+    """
+    Por base (SCRUM-97): contactos, asignados, gestionados, conexión (contestaron / no contestaron),
+    cada categoría y efectividad. Con vendedor, ciudad o tarjeta cuenta solo esos contactos (y omite las
+    bases sin ninguno); `gestion` = (desde, hasta) de la llamada; `cargada` = (desde, hasta) de la carga de la base.
+    """
     from django.db.models import Count
 
+    filtros = filtros_contactos(vendedor, ciudad, tarjeta)
     qs = BaseComercial.objects.all()
     if base:
         qs = qs.filter(pk=base.pk)
+    if cargada:
+        qs = qs.filter(creado_en__date__range=cargada)
+    contactos = Count("registros", filter=Q(**{f"registros__{k}": v for k, v in filtros.items()}))
     filas = []
-    for b in qs.annotate(contactos=Count("registros"), **_conteos("registros__")).order_by("-creado_en"):
-        fila = _completar({"base": b, "contactos": b.contactos, "enviados": b.enviados, "pendientes": b.pendientes,
-                           "no_contesto": b.no_contesto, "no_quiere": b.no_quiere, "dami_sacado": b.dami_sacado})
+    for b in qs.annotate(contactos=contactos, **_conteos("registros__", filtros, gestion)).order_by("-creado_en"):
+        if filtros and not b.contactos:
+            continue
+        fila = _completar({"base": b, "contactos": b.contactos, **{k: getattr(b, k) for k in CAMPOS_CONTEO}})
         fila["sin_asignar"] = b.contactos - b.enviados
-        fila["efectividad_total"] = Decimal(b.dami_sacado * 100) / b.contactos if b.contactos else None
+        fila["efectividad_total"] = _pct(b.dami_sacado, b.contactos)
         filas.append(fila)
     return filas
+
+
+def efectividad_por(campo: str, base=None, vendedor=None, ciudad=None, tarjeta=None, gestion=None, cargada=None) -> list[dict]:
+    """
+    Los mismos indicadores agrupados por `ciudad`, `categoria_tarjeta` o `vendedor` (solo contactos enviados),
+    ordenados por DAMI efectivos.
+    """
+    from apps.personal.models import Empleado
+
+    qs = RegistroBase.objects.filter(vendedor__isnull=False, **filtros_contactos(vendedor, ciudad, tarjeta))
+    if base:
+        qs = qs.filter(base=base)
+    if cargada:
+        qs = qs.filter(base__creado_en__date__range=cargada)
+    if campo == "vendedor":
+        filas = list(qs.values("vendedor").annotate(**_conteos(gestion=gestion)))
+        nombres = {e.pk: f"{e.apellidos} {e.nombres}".strip() for e in Empleado.objects.filter(pk__in={f["vendedor"] for f in filas})}
+        for f in filas:
+            f["nombre"] = nombres.get(f["vendedor"], "—")
+    else:
+        from django.db.models.functions import Trim, Upper
+
+        filas = list(qs.annotate(grupo=Upper(Trim(campo))).values("grupo").annotate(**_conteos(gestion=gestion)))
+        for f in filas:
+            f["nombre"] = f.pop("grupo") or "Sin dato"
+    filas = [_completar(f) for f in filas]
+    return sorted(filas, key=lambda f: (-f["dami_sacado"], -f["gestionados"], f["nombre"]))
 
 
 # --------------------------------------------------------------------------- mis estadísticas (vendedor)
@@ -861,7 +939,7 @@ def pedir_ayuda(usuario, contacto_id: int, ayudante_id, mensaje: str = "") -> So
     if contacto is None:
         raise PermissionDenied("Ese contacto no es suyo.")
     if contacto.estado == RegistroBase.Estado.DAMI_SACADO:
-        raise ValidationError("Ese cliente ya tiene el DAMI sacado.")
+        raise ValidationError("Ese cliente ya tiene el DAMI efectivo.")
     ayudante = asesores_para_ayuda(empleado).filter(pk=ayudante_id if str(ayudante_id).isdigit() else 0).first()
     if ayudante is None:
         raise ValidationError("Elija el asesor al que le pide ayuda.")
