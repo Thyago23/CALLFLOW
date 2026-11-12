@@ -4,6 +4,7 @@ Lectura de la hoja de vida (CV) para prellenar el registro de un empleado.
 Usa reglas locales (sin servicios externos ni IA): los datos personales no salen del servidor.
 Solo funciona con PDF que contengan texto; un CV escaneado o una foto no tiene texto que leer.
 Lo extraído es una sugerencia: el formulario lo muestra resaltado para que el administrador lo revise.
+Si el PDF es un formulario para llenar (la plantilla de la empresa), se leen los valores de sus casillas.
 """
 import re
 import unicodedata
@@ -68,26 +69,53 @@ def _valor_de_etiqueta(lineas: list[str], etiquetas: tuple[str, ...]) -> str | N
             if not m:
                 continue
             inicio = len(linea) - len(m.group(1))
-            valor = linea[inicio:].strip(" :-\t")
+            valor = linea[inicio:].strip(" :-*\t")
             if valor:
                 return valor
-            if i + 1 < len(lineas):
+            # El valor en la línea siguiente, salvo que esa línea sea otro rótulo (termina en ':'), como en un
+            # formulario con la casilla vacía.
+            # Tampoco una ayuda de la plantilla de la empresa (empieza con '»').
+            if i + 1 < len(lineas) and not lineas[i + 1].rstrip().endswith(":") and not lineas[i + 1].startswith("»"):
                 return lineas[i + 1]
+            break  # el rótulo de esta línea ya coincidió (vacío): no probar uno más corto ('direccion' en 'direccion domiciliaria')
     return None
 
 
 # --------------------------------------------------------------------------- lectura del PDF
+def _texto_de_casillas(lector: PdfReader) -> str:
+    """
+    PDF para llenar (como la plantilla de hoja de vida de la empresa, apps/personal/plantilla_cv.py): lo que
+    escribe el candidato está en las casillas, no en el texto de la página. Se devuelve como 'Casilla: valor',
+    que es justo lo que buscan las reglas de abajo. Las referencias se ignoran: su teléfono o cédula no son
+    los del candidato. La fecha de nacimiento en tres casillas (Día / Mes / Año) se une en una sola.
+    """
+    lineas, fecha = [], {}
+    for nombre, campo in (lector.get_fields() or {}).items():
+        valor = campo.get("/V")
+        nombre = nombre.split(".")[-1]
+        if not isinstance(valor, str) or not valor.strip() or "referencia" in _sin_tildes(nombre):
+            continue
+        if m := re.fullmatch(r"fecha de nacimiento\s*-\s*(dia|mes|ano)", _sin_tildes(nombre)):
+            fecha[m.group(1)] = re.sub(r"\D", "", valor)
+            continue
+        lineas.append(f"{nombre}: {valor.strip()}")
+    if all(fecha.get(p) for p in ("dia", "mes", "ano")):
+        lineas.append(f"Fecha de nacimiento: {fecha['dia']}/{fecha['mes']}/{fecha['ano']}")
+    return "\n".join(lineas)
+
+
 def texto_de_pdf(archivo) -> str:
     try:
         archivo.seek(0)
         lector = PdfReader(archivo)
-        paginas = lector.pages[:MAX_PAGINAS]
-        texto = "\n".join((pagina.extract_text() or "") for pagina in paginas)
+        casillas = _texto_de_casillas(lector)
+        # Si el PDF trae casillas llenas, se leen solo ellas: el texto impreso del formulario son rótulos vacíos.
+        texto = casillas or "\n".join((pagina.extract_text() or "") for pagina in lector.pages[:MAX_PAGINAS])
     except Exception as error:  # pypdf lanza varios tipos según el daño del archivo
         raise CVIlegible("No se pudo abrir el PDF.") from error
     finally:
         archivo.seek(0)
-    if len(re.sub(r"\s", "", texto)) < 30:
+    if not casillas and len(re.sub(r"\s", "", texto)) < 30:
         raise CVIlegible("El PDF no tiene texto (parece escaneado).")
     return texto
 
