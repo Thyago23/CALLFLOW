@@ -6,11 +6,13 @@ app_name = "mensajes"
 
 urlpatterns = [
     path("", views.bandeja, name="bandeja"),
-    path("lista/", views.lista, name="lista"),
+    path("panel/", views.panel, name="panel"),
     path("directo/", views.nueva_directa, name="nueva_directa"),
     path("grupo/", views.nuevo_grupo, name="nuevo_grupo"),
     path("<int:pk>/", views.conversacion, name="conversacion"),
+    path("<int:pk>/ventana/", views.ventana, name="ventana"),
     path("<int:pk>/nuevos/", views.nuevos, name="nuevos"),
+    path("<int:pk>/escribiendo/", views.escribiendo, name="escribiendo"),
     path("<int:pk>/enviar/", views.enviar, name="enviar"),
     path("<int:pk>/agregar/", views.agregar, name="agregar"),
     path("<int:pk>/salir/", views.salir, name="salir"),

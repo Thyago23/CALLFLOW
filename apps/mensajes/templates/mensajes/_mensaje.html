@@ -1,31 +1,28 @@
-{# Un mensaje. Recibe `m` y `actual` (la conversación). #}
-<div class="mensaje{% if m.autor_id == user.pk %} mio{% endif %}{% if m.eliminado %} eliminado{% endif %}" id="m-{{ m.pk }}" data-id="{{ m.pk }}">
-  <div class="burbuja">
-    {% if actual.es_grupo and m.autor_id != user.pk %}<div class="autor">{{ m.autor.get_full_name|default:m.autor.username|default:"Cuenta eliminada" }}</div>{% endif %}
+{# Un mensaje (burbuja). Recibe `m` y `actual`. El agrupado de burbujas y las fechas los pone chat.js. #}
+<div class="mensaje{% if m.autor_id == user.pk %} mio{% endif %}{% if m.eliminado %} eliminado{% endif %}" id="m-{{ m.pk }}"
+     data-id="{{ m.pk }}" data-autor="{{ m.autor_id|default:'0' }}" data-ts="{{ m.creado_en|date:'c' }}">
+  {% if m.autor_id != user.pk %}<span class="foto-mensaje" title="{{ m.autor.get_full_name|default:m.autor.username }}">{% if m.autor %}{% include "_avatar.html" with u=m.autor %}{% endif %}</span>{% endif %}
+  <div class="contenido-mensaje">
+    {% if actual.es_grupo and m.autor_id != user.pk %}<div class="autor">{{ m.autor.first_name|default:m.autor.username|default:"Cuenta eliminada" }}</div>{% endif %}
     {% if m.eliminado %}
-    <div class="texto"><i class="bi bi-slash-circle me-1" aria-hidden="true"></i>Mensaje eliminado</div>
+    <div class="burbuja"><i class="bi bi-slash-circle me-1" aria-hidden="true"></i>Mensaje eliminado</div>
     {% else %}
     {% if m.adjunto %}
       {% if m.es_imagen %}
-      <a href="{% url 'mensajes:adjunto' m.pk %}" target="_blank" rel="noopener" class="adjunto-imagen">
-        <img src="{% url 'mensajes:adjunto' m.pk %}" alt="{{ m.adjunto_nombre }}" loading="lazy">
-      </a>
+      <a href="{% url 'mensajes:adjunto' m.pk %}" target="_blank" rel="noopener" class="adjunto-imagen"><img src="{% url 'mensajes:adjunto' m.pk %}" alt="{{ m.adjunto_nombre }}" loading="lazy"></a>
       {% else %}
-      <a href="{% url 'mensajes:adjunto' m.pk %}" target="_blank" rel="noopener" class="adjunto-archivo">
-        <i class="bi bi-file-earmark-pdf" aria-hidden="true"></i><span class="text-truncate">{{ m.adjunto_nombre }}</span>
-      </a>
+      <a href="{% url 'mensajes:adjunto' m.pk %}" target="_blank" rel="noopener" class="burbuja adjunto-archivo"><i class="bi bi-file-earmark-pdf-fill" aria-hidden="true"></i><span class="text-truncate">{{ m.adjunto_nombre }}</span></a>
       {% endif %}
     {% endif %}
-    {% if m.texto %}<div class="texto">{{ m.texto|urlize|linebreaksbr }}</div>{% endif %}
+    {% if m.texto %}<div class="burbuja{% if m.texto == '👍' %} solo-emoji{% endif %}">{{ m.texto|urlize|linebreaksbr }}</div>{% endif %}
     {% endif %}
-    <div class="pie">
-      <time datetime="{{ m.creado_en|date:'c' }}">{{ m.creado_en|date:"d/m H:i" }}</time>
-      {% if m.autor_id == user.pk and not m.eliminado %}
-      <form method="post" action="{% url 'mensajes:eliminar' m.pk %}" class="d-inline" hx-post="{% url 'mensajes:eliminar' m.pk %}"
-            hx-target="#m-{{ m.pk }}" hx-swap="outerHTML" hx-confirm="¿Eliminar este mensaje para todos?">
-        {% csrf_token %}<button type="submit" class="btn btn-link btn-sm p-0 eliminar-mensaje" title="Eliminar mensaje"><i class="bi bi-trash3" aria-hidden="true"></i><span class="visually-hidden">Eliminar mensaje</span></button>
-      </form>
-      {% endif %}
-    </div>
+  </div>
+  <div class="acciones-mensaje">
+    <time datetime="{{ m.creado_en|date:'c' }}" title="{{ m.creado_en|date:'d/m/Y H:i' }}">{{ m.creado_en|date:"H:i" }}</time>
+    {% if m.autor_id == user.pk and not m.eliminado %}
+    <form method="post" action="{% url 'mensajes:eliminar' m.pk %}" hx-post="{% url 'mensajes:eliminar' m.pk %}" hx-target="#m-{{ m.pk }}" hx-swap="outerHTML" hx-confirm="¿Eliminar este mensaje para todos?">
+      {% csrf_token %}<button type="submit" class="eliminar-mensaje" title="Eliminar"><i class="bi bi-trash3" aria-hidden="true"></i><span class="visually-hidden">Eliminar mensaje</span></button>
+    </form>
+    {% endif %}
   </div>
 </div>

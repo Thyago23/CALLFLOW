@@ -1,0 +1,41 @@
+{# Chats y personas, como la columna de Messenger. `modo`: "dock" (ventanita flotante) o "pagina". #}
+<div class="panel-chats" data-modo="{{ modo }}">
+  <div class="panel-chats-cabecera">
+    <h2 class="h5 mb-0">Chats</h2>
+    <div class="d-flex gap-1">
+      <button type="button" class="boton-redondo" data-nuevo-grupo title="Nuevo grupo"><i class="bi bi-people" aria-hidden="true"></i><span class="visually-hidden">Nuevo grupo</span></button>
+      {% if modo == "dock" %}<a href="{% url 'mensajes:bandeja' %}" class="boton-redondo" title="Abrir Mensajes en pantalla completa"><i class="bi bi-arrows-angle-expand" aria-hidden="true"></i><span class="visually-hidden">Pantalla completa</span></a>{% endif %}
+    </div>
+  </div>
+  <div class="buscar-chats">
+    <i class="bi bi-search" aria-hidden="true"></i>
+    <input type="search" placeholder="Buscar en Mensajes" aria-label="Buscar personas o chats" data-buscar-chats autocomplete="off">
+  </div>
+  <div class="panel-chats-contenido" hx-get="{% url 'mensajes:panel' %}?modo={{ modo }}&solo=contenido&actual={{ actual_id|default:'' }}"
+       hx-trigger="every 10s" hx-swap="innerHTML">
+    {% include "mensajes/_panel_contenido.html" %}
+  </div>
+
+  <dialog class="dialogo-grupo" aria-labelledby="titulo-grupo-{{ modo }}">
+    <form method="post" action="{% url 'mensajes:nuevo_grupo' %}" {% if modo == "dock" %}hx-post="{% url 'mensajes:nuevo_grupo' %}" hx-target="find .error-grupo"{% endif %}>
+      {% csrf_token %}
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <h3 class="h6 mb-0" id="titulo-grupo-{{ modo }}">Nuevo grupo</h3>
+        <button type="button" class="btn-close" data-cerrar-dialogo aria-label="Cerrar"></button>
+      </div>
+      <div class="error-grupo"></div>
+      <input name="nombre" class="form-control mb-2" maxlength="80" required placeholder="Nombre del grupo (ej.: Soporte TI)" aria-label="Nombre del grupo">
+      <div class="buscar-chats mb-2"><i class="bi bi-search" aria-hidden="true"></i><input type="search" placeholder="Buscar personas" aria-label="Buscar personas" data-buscar-miembros autocomplete="off"></div>
+      <div class="lista-elegir">
+        {% for p in personas %}
+        <label class="elegir-persona" data-buscar="{{ p.get_full_name|default:p.username|lower }}">
+          <input type="checkbox" name="miembros" value="{{ p.pk }}" class="form-check-input">
+          {% include "mensajes/_avatar_chat.html" with u=p %}
+          <span class="min-w-0"><span class="d-block text-truncate">{{ p.get_full_name|default:p.username }}</span><span class="d-block small text-body-secondary">{{ p.get_rol_display }}</span></span>
+        </label>
+        {% empty %}<p class="small text-body-secondary mb-0">No hay otras personas en la mensajería.</p>{% endfor %}
+      </div>
+      <button type="submit" class="btn btn-primary w-100 mt-2">Crear grupo</button>
+    </form>
+  </dialog>
+</div>

@@ -53,7 +53,7 @@ class MensajeriaTests(TestCase):
         self.client.force_login(self.admin)
         self.client.post(reverse("mensajes:nueva_directa"), {"usuario": self.ti.pk})
         self.client.post(reverse("mensajes:nueva_directa"), {"usuario": self.ti.pk})
-        conversacion = Conversacion.objects.get()
+        conversacion = Conversacion.objects.get(participantes__usuario=self.admin, tipo="DIRECTA")  # una sola, aunque se pidió dos veces
         self.assertContains(self.enviar(self.admin, conversacion, texto="La PC de caja no enciende"), 'class="mensaje mio')
         self.assertEqual(servicios.sin_leer(self.ti), 1)
         self.client.force_login(self.ti)
@@ -61,7 +61,8 @@ class MensajeriaTests(TestCase):
         self.assertContains(nuevos, "La PC de caja no enciende")
         self.assertEqual(servicios.sin_leer(self.ti), 0)
         ultimo = Mensaje.objects.latest("pk").pk
-        self.assertEqual(self.client.get(reverse("mensajes:nuevos", args=[conversacion.pk]), {"despues": ultimo}).status_code, 204)
+        sin_nuevos = self.client.get(reverse("mensajes:nuevos", args=[conversacion.pk]), {"despues": ultimo})
+        self.assertNotContains(sin_nuevos, "La PC de caja no enciende")  # solo trae el estado del chat
         self.client.force_login(self.supervisor)  # no participa
         self.assertEqual(self.client.get(reverse("mensajes:conversacion", args=[conversacion.pk])).status_code, 404)
 
@@ -109,3 +110,42 @@ class MensajeriaTests(TestCase):
         self.client.force_login(self.ti)
         self.client.post(reverse("mensajes:salir", args=[grupo.pk]))
         self.assertEqual(self.client.get(reverse("mensajes:conversacion", args=[grupo.pk])).status_code, 404)
+
+    # ----------------------------------------------------------- tipo Messenger
+    def test_escribiendo_y_visto(self):
+        directa = servicios.conversacion_directa(self.admin, self.ti)
+        servicios.enviar(self.admin, directa, "¿Ya revisaste la impresora?")
+        self.assertEqual(servicios.visto(directa, self.admin), "Enviado")
+        self.client.force_login(self.ti)
+        self.client.post(reverse("mensajes:escribiendo", args=[directa.pk]))
+        self.assertEqual(servicios.escribiendo(directa, self.admin), [self.ti])
+        self.client.get(reverse("mensajes:conversacion", args=[directa.pk]))  # la abre: la lee
+        self.assertEqual(servicios.visto(directa, self.admin), "Visto")
+        self.client.force_login(self.admin)
+        estado = self.client.get(reverse("mensajes:nuevos", args=[directa.pk]), {"despues": 0})
+        self.assertContains(estado, "está escribiendo")
+        self.assertContains(estado, "Visto")
+        servicios.enviar(self.ti, directa, "Sí, ya quedó")
+        self.assertEqual(servicios.escribiendo(directa, self.admin), [])  # al enviar deja de «escribir»
+
+    def test_minimizado_no_marca_como_leido(self):
+        directa = servicios.conversacion_directa(self.admin, self.ti)
+        servicios.enviar(self.admin, directa, "hola")
+        self.client.force_login(self.ti)
+        self.client.get(reverse("mensajes:nuevos", args=[directa.pk]), {"despues": 0, "leer": "0"})
+        self.assertEqual(servicios.sin_leer(self.ti), 1)
+
+    def test_chat_flotante_desde_cualquier_pantalla(self):
+        self.client.force_login(self.admin)
+        inicio = self.client.get(reverse("inicio"))
+        self.assertContains(inicio, 'id="dock-chats"')
+        self.assertContains(self.client.get(reverse("mensajes:panel"), {"modo": "dock"}), "Buscar en Mensajes")
+        respuesta = self.client.post(reverse("mensajes:nueva_directa"), {"usuario": self.supervisor.pk}, HTTP_HX_REQUEST="true")
+        conversacion = Conversacion.objects.get(participantes__usuario=self.supervisor)
+        self.assertEqual(respuesta.status_code, 204)
+        self.assertIn(f'"pk": {conversacion.pk}', respuesta["HX-Trigger"])
+        self.assertContains(self.client.get(reverse("mensajes:ventana", args=[conversacion.pk])), 'class="ventana-chat flotante"')
+        self.client.force_login(self.asesor)
+        self.assertNotContains(self.client.get(reverse("inicio")), 'id="dock-chats"')
+        self.assertEqual(self.client.get(reverse("mensajes:panel")).status_code, 403)
+

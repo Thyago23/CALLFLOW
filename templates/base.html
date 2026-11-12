@@ -50,7 +50,7 @@
       </form>
       {% endif %}
       {% if mensajes_sin_leer is not None %}
-      <a href="{% url 'mensajes:bandeja' %}" class="btn btn-link text-body position-relative p-2" aria-label="Mensajes" title="Mensajes">
+      <a href="{% url 'mensajes:bandeja' %}" class="btn btn-link text-body position-relative p-2" aria-label="Chats" title="Chats"{% if request.resolver_match.app_name != 'mensajes' %} data-abrir-dock{% endif %}>
         <i class="bi bi-chat-dots fs-5" aria-hidden="true"></i>
         <span id="contador-mensajes" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger contador {% if not mensajes_sin_leer %}d-none{% endif %}">{{ mensajes_sin_leer }}</span>
       </a>
@@ -171,6 +171,20 @@
   </script>
   <script src="{% static 'vendor/bootstrap.bundle.min.js' %}"></script>
   <script src="{% static 'vendor/htmx.min.js' %}"></script>
+  {% if mensajes_sin_leer is not None %}
+  {% if request.resolver_match.app_name != 'mensajes' %}
+  {# Chat tipo Messenger desde cualquier pantalla (solo TI, administradores y supervisores). #}
+  <div class="dock-chats" id="dock-chats" data-url-panel="{% url 'mensajes:panel' %}?modo=dock" data-url-ventana="{% url 'mensajes:ventana' 0 %}">
+    <div class="dock-ventanas" id="dock-ventanas"></div>
+    <div class="dock-panel" id="dock-panel" hidden></div>
+    <button type="button" class="dock-boton" id="dock-boton" aria-expanded="false" aria-controls="dock-panel" title="Chats">
+      <i class="bi bi-chat-dots-fill" aria-hidden="true"></i><span class="visually-hidden">Chats</span>
+      <span id="contador-dock" class="badge rounded-pill bg-danger {% if not mensajes_sin_leer %}d-none{% endif %}">{{ mensajes_sin_leer }}</span>
+    </button>
+  </div>
+  {% endif %}
+  <script src="{% estatico 'js/chat.js' %}" defer></script>
+  {% endif %}
   {% if user.is_authenticated %}
   {% include "_modal_confirmar.html" %}
   {# Avisos flotantes de notificaciones nuevas (esquina inferior izquierda). #}

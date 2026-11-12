@@ -1,0 +1,2 @@
+{# «Fulano está escribiendo…» con los tres puntos animados. #}
+{% if escriben %}<div class="escribiendo"><span class="puntos" aria-hidden="true"><i></i><i></i><i></i></span><span>{% for u in escriben %}{{ u.first_name|default:u.username }}{% if not forloop.last %}, {% endif %}{% endfor %} {% if escriben|length > 1 %}están{% else %}está{% endif %} escribiendo…</span></div>{% endif %}

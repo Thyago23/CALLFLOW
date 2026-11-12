@@ -1,151 +1,21 @@
 {% extends "base.html" %}
+{% load estaticos %}
 {% block titulo %}{% if actual %}{{ titulo }} · {% endif %}Mensajes{% endblock %}
 {% block contenido %}
-<div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
-  <div>
-    <h1 class="h3 mb-0">Mensajes</h1>
-    <p class="text-body-secondary small mb-0">Mensajería interna entre TI, administradores y supervisores. Los mensajes son privados: solo los ven quienes participan.</p>
-  </div>
-</div>
-
-<div class="mensajeria{% if actual %} con-conversacion{% endif %}">
-  {# ------------------------------------------------------------------ conversaciones #}
-  <aside class="panel-conversaciones" aria-label="Conversaciones">
-    <div class="acciones-conversaciones">
-      <details class="nueva-conversacion">
-        <summary class="btn btn-primary btn-sm"><i class="bi bi-pencil-square me-1" aria-hidden="true"></i>Nuevo mensaje</summary>
-        <form method="post" action="{% url 'mensajes:nueva_directa' %}" class="formulario-flotante">
-          {% csrf_token %}
-          <label class="form-label small fw-semibold" for="nuevo-contacto">¿A quién le escribe?</label>
-          <select id="nuevo-contacto" name="usuario" class="form-select form-select-sm mb-2" required>
-            <option value="">Elija a una persona…</option>
-            {% regroup contactos by get_rol_display as por_rol %}
-            {% for grupo in por_rol %}<optgroup label="{{ grupo.grouper }}">{% for u in grupo.list %}<option value="{{ u.pk }}">{{ u.get_full_name|default:u.username }}</option>{% endfor %}</optgroup>{% endfor %}
-          </select>
-          <button type="submit" class="btn btn-primary btn-sm w-100">Abrir conversación</button>
-        </form>
-      </details>
-      <details class="nueva-conversacion">
-        <summary class="btn btn-outline-primary btn-sm"><i class="bi bi-people me-1" aria-hidden="true"></i>Nuevo grupo</summary>
-        <form method="post" action="{% url 'mensajes:nuevo_grupo' %}" class="formulario-flotante">
-          {% csrf_token %}
-          <label class="form-label small fw-semibold" for="nombre-grupo">Nombre del grupo</label>
-          <input id="nombre-grupo" name="nombre" class="form-control form-control-sm mb-2" maxlength="80" required placeholder="Ej.: Soporte TI">
-          <fieldset>
-            <legend class="form-label small fw-semibold mb-1">Personas</legend>
-            <div class="lista-miembros">
-              {% for u in contactos %}
-              <div class="form-check"><input class="form-check-input" type="checkbox" name="miembros" value="{{ u.pk }}" id="miembro-{{ u.pk }}">
-                <label class="form-check-label small" for="miembro-{{ u.pk }}">{{ u.get_full_name|default:u.username }} <span class="text-body-secondary">· {{ u.get_rol_display }}</span></label></div>
-              {% empty %}<p class="small text-body-secondary mb-0">No hay otras personas en la mensajería.</p>{% endfor %}
-            </div>
-          </fieldset>
-          <button type="submit" class="btn btn-primary btn-sm w-100 mt-2">Crear grupo</button>
-        </form>
-      </details>
-    </div>
-    <nav class="lista-conversaciones" id="lista-conversaciones"
-         hx-get="{% url 'mensajes:lista' %}?actual={{ actual.pk|default:'' }}" hx-trigger="every 10s" hx-swap="innerHTML">
-      {% include "mensajes/_conversaciones.html" with actual_id=actual.pk %}
-    </nav>
+<div class="mensajeria{% if actual %} con-chat{% endif %}">
+  <aside class="columna-chats" aria-label="Chats">
+    {% include "mensajes/_panel.html" with modo="pagina" %}
   </aside>
-
-  {# ------------------------------------------------------------------ conversación abierta #}
-  <section class="panel-chat" aria-label="Conversación">
+  <div class="columna-chat">
     {% if actual %}
-    <header class="cabecera-chat">
-      <a href="{% url 'mensajes:bandeja' %}" class="btn btn-sm btn-link volver-conversaciones d-lg-none" aria-label="Volver a las conversaciones"><i class="bi bi-arrow-left" aria-hidden="true"></i></a>
-      {% if actual.es_grupo %}<span class="avatar avatar-grupo" aria-hidden="true"><i class="bi bi-people-fill"></i></span>{% elif otro %}{% include "_avatar.html" with u=otro %}{% endif %}
-      <div class="min-w-0 flex-grow-1">
-        <h2 class="h6 mb-0 text-truncate">{{ titulo }}</h2>
-        <div class="small text-body-secondary text-truncate">
-          {% if actual.es_grupo %}{% for u in miembros %}{% if u.pk == user.pk %}Tú{% else %}{{ u.get_full_name|default:u.username }}{% endif %}{% if not forloop.last %}, {% endif %}{% endfor %}
-          {% elif otro %}{{ otro.get_rol_display }}{% endif %}
-        </div>
-      </div>
-      {% if actual.es_grupo %}
-      <details class="opciones-grupo">
-        <summary class="btn btn-sm btn-outline-secondary"><i class="bi bi-three-dots" aria-hidden="true"></i><span class="visually-hidden">Opciones del grupo</span></summary>
-        <div class="formulario-flotante derecha">
-          <form method="post" action="{% url 'mensajes:agregar' actual.pk %}">
-            {% csrf_token %}
-            <div class="form-label small fw-semibold">Agregar personas</div>
-            <div class="lista-miembros">
-              {% for u in contactos %}{% if u not in miembros %}
-              <div class="form-check"><input class="form-check-input" type="checkbox" name="miembros" value="{{ u.pk }}" id="agregar-{{ u.pk }}">
-                <label class="form-check-label small" for="agregar-{{ u.pk }}">{{ u.get_full_name|default:u.username }}</label></div>
-              {% endif %}{% endfor %}
-            </div>
-            <button type="submit" class="btn btn-sm btn-primary w-100 mt-2">Agregar</button>
-          </form>
-          <hr>
-          <form method="post" action="{% url 'mensajes:salir' actual.pk %}" onsubmit="return confirm('¿Salir del grupo «{{ actual.nombre|escapejs }}»?')">
-            {% csrf_token %}<button type="submit" class="btn btn-sm btn-outline-danger w-100"><i class="bi bi-box-arrow-right me-1" aria-hidden="true"></i>Salir del grupo</button>
-          </form>
-        </div>
-      </details>
-      {% endif %}
-    </header>
-
-    <div class="hilo" id="hilo" aria-live="polite">
-      {% for m in mensajes %}{% include "mensajes/_mensaje.html" %}{% empty %}{% endfor %}
-    </div>
-    {% if not mensajes %}<p class="hilo-vacio text-body-secondary small" id="hilo-vacio">Todavía no hay mensajes. Escriba el primero.</p>{% endif %}
-    {% include "mensajes/_sondeo.html" %}
-
-    <form class="escribir-mensaje" method="post" action="{% url 'mensajes:enviar' actual.pk %}" enctype="multipart/form-data"
-          hx-post="{% url 'mensajes:enviar' actual.pk %}" hx-encoding="multipart/form-data" hx-swap="none"
-          hx-on::after-request="if (event.detail.successful && !document.querySelector('#error-envio.alert')) { this.reset(); document.getElementById('nombre-adjunto').textContent = ''; }">
-      {% csrf_token %}
-      <div id="error-envio"></div>
-      <div class="d-flex align-items-end gap-2">
-        <label class="btn btn-outline-secondary adjuntar" title="Adjuntar una imagen o PDF (máx. 10 MB)">
-          <i class="bi bi-paperclip" aria-hidden="true"></i><span class="visually-hidden">Adjuntar archivo</span>
-          <input type="file" name="adjunto" accept="application/pdf,image/jpeg,image/png" class="visually-hidden"
-                 onchange="document.getElementById('nombre-adjunto').textContent = this.files[0] ? this.files[0].name : ''">
-        </label>
-        <div class="flex-grow-1">
-          <label class="visually-hidden" for="texto-mensaje">Mensaje</label>
-          <textarea id="texto-mensaje" name="texto" rows="1" maxlength="4000" class="form-control" placeholder="Escriba un mensaje… (Enter envía, Shift+Enter cambia de línea)"></textarea>
-          <div class="small text-body-secondary" id="nombre-adjunto"></div>
-        </div>
-        <button type="submit" class="btn btn-primary"><i class="bi bi-send" aria-hidden="true"></i><span class="visually-hidden">Enviar</span></button>
-      </div>
-    </form>
+    {% include "mensajes/_ventana.html" %}
     {% else %}
     <div class="chat-vacio">
-      <i class="bi bi-chat-dots" aria-hidden="true"></i>
-      <p class="mb-1 fw-semibold">Elija una conversación</p>
-      <p class="small text-body-secondary mb-0">o empiece una con «Nuevo mensaje» o «Nuevo grupo».</p>
+      <span class="icono-vacio"><i class="bi bi-chat-dots-fill" aria-hidden="true"></i></span>
+      <p class="fw-semibold mb-1">Sus mensajes</p>
+      <p class="small text-body-secondary mb-0">Elija un chat o toque a una persona para escribirle.<br>También puede chatear desde cualquier pantalla con el botón de abajo a la derecha.</p>
     </div>
     {% endif %}
-  </section>
+  </div>
 </div>
-
-<script>
-(function () {
-  var hilo = document.getElementById("hilo");
-  if (!hilo) return;
-  function alFinal() { hilo.scrollTop = hilo.scrollHeight; }
-  alFinal();
-  // Mensajes nuevos (al enviar o al llegar): sin repetidos y bajando al último.
-  document.body.addEventListener("htmx:oobAfterSwap", function (e) {
-    if (e.detail.target !== hilo) return;
-    var vistos = {};
-    hilo.querySelectorAll(".mensaje[data-id]").forEach(function (m) {
-      if (vistos[m.dataset.id]) m.remove(); else vistos[m.dataset.id] = true;
-    });
-    var vacio = document.getElementById("hilo-vacio");
-    if (vacio) vacio.remove();
-    alFinal();
-  });
-  // Enter envía; Shift+Enter hace un salto de línea. La caja crece con el texto.
-  var caja = document.getElementById("texto-mensaje");
-  caja.focus();
-  caja.addEventListener("keydown", function (e) {
-    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); caja.form.requestSubmit(); }
-  });
-  caja.addEventListener("input", function () { caja.style.height = "auto"; caja.style.height = Math.min(caja.scrollHeight, 160) + "px"; });
-})();
-</script>
 {% endblock %}

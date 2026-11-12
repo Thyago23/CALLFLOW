@@ -1,4 +1,0 @@
-{# Mensajes nuevos que se agregan al final del hilo (envío y sondeo) y el sondeo actualizado con el último mensaje. #}
-<div hx-swap-oob="beforeend:#hilo">{% for m in mensajes %}{% include "mensajes/_mensaje.html" %}{% endfor %}</div>
-{% include "mensajes/_sondeo.html" with oob=True %}
-<div id="error-envio" hx-swap-oob="true"></div>

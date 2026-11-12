@@ -139,6 +139,7 @@ def enviar(usuario, conversacion, texto: str = "", archivo=None) -> Mensaje:
         with transaction.atomic():
             mensaje = Mensaje.objects.create(conversacion=conversacion, autor=usuario, **datos)
             marcar_leida(usuario, conversacion)
+            Participante.objects.filter(conversacion=conversacion, usuario=usuario).update(escribiendo_hasta=None)
     except DatabaseError as error:
         raise ValidationError(_mensaje_bd(error)) from error
     mensaje.refresh_from_db(fields=["creado_en"])
@@ -169,3 +170,68 @@ def mensajes(conversacion, despues_de: int | None = None, limite: int = 200):
     ultimos = list(qs.order_by("-creado_en", "-pk")[:limite])
     return ultimos[::-1]
 
+
+
+# --------------------------------------------------------------------------- tipo Messenger: en línea, escribiendo y visto
+MINUTOS_EN_LINEA = 3
+SEGUNDOS_ESCRIBIENDO = 6
+
+
+def actividad(usuarios) -> dict:
+    """{id: última actividad} según las sesiones abiertas que registra el módulo de TI."""
+    from django.db.models import Max
+
+    from apps.ti.models import SesionEquipo
+
+    ids = [u.pk for u in usuarios]
+    filas = (SesionEquipo.objects.filter(usuario_id__in=ids, fin__isnull=True)
+             .values("usuario_id").annotate(ultima=Max("ultima_actividad")))
+    return {f["usuario_id"]: f["ultima"] for f in filas}
+
+
+def presencia(ultima) -> tuple[bool, str]:
+    """(en línea, texto): «En línea», «Activo hace 12 min», «Activo hace 2 h» o «Desconectado»."""
+    if ultima is None:
+        return False, "Desconectado"
+    minutos = int((timezone.now() - ultima).total_seconds() // 60)
+    if minutos < MINUTOS_EN_LINEA:
+        return True, "En línea"
+    if minutos < 60:
+        return False, f"Activo hace {minutos} min"
+    if minutos < 24 * 60:
+        return False, f"Activo hace {minutos // 60} h"
+    return False, "Desconectado"
+
+
+def anotar_presencia(usuarios):
+    """Agrega .en_linea y .estado_conexion a cada usuario."""
+    usuarios = list(usuarios)
+    ultimas = actividad(usuarios)
+    for u in usuarios:
+        u.en_linea, u.estado_conexion = presencia(ultimas.get(u.pk))
+    return usuarios
+
+
+def marcar_escribiendo(usuario, conversacion):
+    Participante.objects.filter(conversacion=conversacion, usuario=usuario).update(
+        escribiendo_hasta=timezone.now() + timezone.timedelta(seconds=SEGUNDOS_ESCRIBIENDO))
+
+
+def escribiendo(conversacion, usuario) -> list:
+    """Quiénes (otros) están escribiendo ahora en la conversación."""
+    return [p.usuario for p in conversacion.participantes.select_related("usuario")
+            .filter(activo=True, escribiendo_hasta__gt=timezone.now()).exclude(usuario=usuario)]
+
+
+def visto(conversacion, usuario) -> str:
+    """Debajo de mi último mensaje: «Visto», «Visto por N», «Enviado» o nada si el último no es mío."""
+    ultimo = conversacion.mensajes.order_by("-creado_en", "-pk").first()
+    if ultimo is None or ultimo.autor_id != usuario.pk or ultimo.eliminado:
+        return ""
+    otros = [p for p in conversacion.participantes.all() if p.activo and p.usuario_id != usuario.pk]
+    leyeron = sum(1 for p in otros if p.ultimo_leido_en and p.ultimo_leido_en >= ultimo.creado_en)
+    if not leyeron:
+        return "Enviado"
+    if not conversacion.es_grupo or leyeron == len(otros):
+        return "Visto" if not conversacion.es_grupo else "Visto por todos"
+    return f"Visto por {leyeron}"
