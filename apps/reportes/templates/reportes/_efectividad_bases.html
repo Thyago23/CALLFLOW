@@ -1,47 +1,88 @@
 {% load reportes_cf %}
 {# Vista visual del reporte «Efectividad de bases comerciales». Recibe `v` (Tabla.extra). #}
 <div class="efectividad-bases">
-  <div class="row g-3 mb-4">
-    <div class="col-12 col-lg-5">
-      <div class="card h-100 resumen-efectividad">
+  {# 1. Las dos preguntas principales: cuántos DAMI salieron y si los clientes contestaron #}
+  <div class="row g-3 mb-3">
+    <div class="col-12 col-lg-6">
+      <section class="card h-100 resumen-efectividad" aria-labelledby="titulo-dami">
         <div class="card-body">
-          <div class="small text-body-secondary">Efectividad general</div>
+          <h2 class="small text-body-secondary fw-normal mb-0" id="titulo-dami"><i class="clave-estado seg-dami" aria-hidden="true"></i>DAMI efectivos que salieron de las bases</h2>
+          <div class="d-flex align-items-baseline gap-3 flex-wrap">
+            <div class="cifra">{{ v.dami }}</div>
+            {% if v.general is not None %}<div class="fs-5 fw-semibold text-body-secondary">{{ v.general|pct }} de efectividad</div>{% endif %}
+          </div>
           {% if v.general is not None %}
-          <div class="cifra">{{ v.general|pct }}</div>
-          <p class="mb-0">De cada <strong>100</strong> contactos llamados, <strong>{{ v.de_cada_100 }}</strong> terminaron en un DAMI.</p>
+          <p class="mb-0">De cada <strong>100</strong> clientes llamados, <strong>{{ v.de_cada_100 }}</strong> terminaron en un DAMI efectivo.
+            {% if v.t.efectividad_contestaron is not None %}De los que <strong>contestaron</strong>, el <strong>{{ v.t.efectividad_contestaron|pct }}</strong>.{% endif %}</p>
           {% else %}
-          <div class="cifra text-body-secondary">—</div>
           <p class="mb-0 text-body-secondary">Todavía no se ha llamado a ningún contacto.</p>
           {% endif %}
         </div>
-      </div>
+      </section>
     </div>
-    <div class="col-12 col-lg-7">
-      <div class="row g-3 h-100">
-        <div class="col-4"><div class="card h-100 tarjeta-kpi"><div class="card-body py-3">
-          <div class="small text-body-secondary">Contactos</div><div class="valor">{{ v.contactos }}</div>
-          <div class="small text-body-secondary">en {{ v.bases|length }} base{{ v.bases|length|pluralize }}</div>
-        </div></div></div>
-        <div class="col-4"><div class="card h-100 tarjeta-kpi"><div class="card-body py-3">
-          <div class="small text-body-secondary">Llamados</div><div class="valor">{{ v.gestionados }}</div>
-          <div class="small text-body-secondary">{{ v.avance }} % del total</div>
-        </div></div></div>
-        <div class="col-4"><div class="card h-100 tarjeta-kpi"><div class="card-body py-3">
-          <div class="small text-body-secondary">DAMI sacados</div><div class="valor text-success-emphasis">{{ v.dami }}</div>
-          <div class="small text-body-secondary">de {{ v.gestionados }} llamados</div>
-        </div></div></div>
-      </div>
+    <div class="col-12 col-lg-6">
+      <section class="card h-100" aria-labelledby="titulo-conexion">
+        <div class="card-body">
+          <h2 class="small text-body-secondary fw-normal mb-1" id="titulo-conexion"><i class="bi bi-telephone-inbound me-1" aria-hidden="true"></i>Conexión con los clientes</h2>
+          {% if v.gestionados %}
+          <div class="d-flex align-items-baseline gap-3 flex-wrap mb-2">
+            <div class="fs-2 fw-bold lh-1">{{ v.t.conexion|pct }}</div>
+            <div class="text-body-secondary">de los clientes llamados contestó</div>
+          </div>
+          <div class="conexion-barra mb-2" role="img" aria-label="{{ v.t.contestaron }} contestaron y {{ v.t.no_contesto }} no contestaron">
+            {% if v.t.contestaron %}<span class="seg seg-contestaron" style="width: {{ v.contestaron_ancho|stringformat:'s' }}%">{{ v.t.contestaron }}</span>{% endif %}
+            {% if v.t.no_contesto %}<span class="seg seg-no-contesto" style="width: {{ v.no_contesto_ancho|stringformat:'s' }}%">{{ v.t.no_contesto }}</span>{% endif %}
+          </div>
+          <div class="d-flex flex-wrap gap-3 small">
+            <span><i class="clave-estado" style="background: var(--cf-primario)" aria-hidden="true"></i>Contestaron <strong>{{ v.t.contestaron }}</strong></span>
+            <span><i class="clave-estado seg-no-contesto" aria-hidden="true"></i>No contestaron <strong>{{ v.t.no_contesto }}</strong></span>
+          </div>
+          {% else %}
+          <p class="mb-0 text-body-secondary">Sin llamadas todavía.</p>
+          {% endif %}
+        </div>
+      </section>
     </div>
   </div>
 
+  {# 2. De los que contestaron, qué pasó; y el avance de las llamadas #}
+  <div class="row g-3 mb-4 indicadores-efectividad">
+    <div class="col-6 col-md-4 col-xl"><div class="indicador">
+      <div class="small text-body-secondary">Contactos</div><div class="valor">{{ v.contactos }}</div>
+      <div class="ayuda">en {{ v.bases|length }} base{{ v.bases|length|pluralize }}</div>
+    </div></div>
+    <div class="col-6 col-md-4 col-xl"><div class="indicador">
+      <div class="small text-body-secondary">Llamados</div><div class="valor">{{ v.gestionados }}</div>
+      <div class="ayuda">{{ v.avance }} %{% if v.falta %} · faltan {{ v.falta }}{% endif %}</div>
+    </div></div>
+    <div class="col-6 col-md-4 col-xl"><div class="indicador">
+      <div class="small text-body-secondary"><i class="clave-estado seg-dami" aria-hidden="true"></i>DAMI efectivo</div><div class="valor text-success-emphasis">{{ v.t.dami_sacado }}</div>
+      <div class="ayuda">{% if v.t.contestaron %}{% widthratio v.t.dami_sacado v.t.contestaron 100 %} % de los que contestaron{% else %}—{% endif %}</div>
+    </div></div>
+    <div class="col-6 col-md-4 col-xl"><div class="indicador">
+      <div class="small text-body-secondary"><i class="clave-estado seg-no-entregada" aria-hidden="true"></i>Tarjeta no entregada</div><div class="valor">{{ v.t.no_entregada }}</div>
+      <div class="ayuda">{% if v.t.contestaron %}{% widthratio v.t.no_entregada v.t.contestaron 100 %} % de los que contestaron{% else %}—{% endif %}</div>
+    </div></div>
+    <div class="col-6 col-md-4 col-xl"><div class="indicador">
+      <div class="small text-body-secondary"><i class="clave-estado seg-no-quiere" aria-hidden="true"></i>No quiere</div><div class="valor">{{ v.t.no_quiere }}</div>
+      <div class="ayuda">{% if v.t.contestaron %}{% widthratio v.t.no_quiere v.t.contestaron 100 %} % de los que contestaron{% else %}—{% endif %}</div>
+    </div></div>
+    <div class="col-6 col-md-4 col-xl"><div class="indicador">
+      <div class="small text-body-secondary"><i class="clave-estado seg-no-contesto" aria-hidden="true"></i>No contestó</div><div class="valor">{{ v.t.no_contesto }}</div>
+      <div class="ayuda">{% if v.gestionados %}{% widthratio v.t.no_contesto v.gestionados 100 %} % de los llamados{% else %}—{% endif %}</div>
+    </div></div>
+  </div>
+
+  {# 3. Cada base #}
   <section class="card mb-4" aria-labelledby="titulo-por-base">
     <div class="card-header bg-body py-3 d-flex flex-wrap justify-content-between align-items-center gap-2">
       <h2 class="h6 mb-0" id="titulo-por-base">¿Cómo le fue a cada base?</h2>
-      {% if v.media is not None %}<span class="small text-body-secondary">Media de las bases: <strong>{{ v.media|pct }}</strong></span>{% endif %}
+      {% if v.media is not None %}<span class="small text-body-secondary">Media de efectividad de las bases: <strong>{{ v.media|pct }}</strong></span>{% endif %}
     </div>
     <div class="card-body pb-2">
       <div class="leyenda-efectividad small text-body-secondary mb-3">
-        <span><i class="clave-estado seg-dami" aria-hidden="true"></i>DAMI sacado</span>
+        <span><i class="clave-estado seg-dami" aria-hidden="true"></i>DAMI efectivo</span>
+        <span><i class="clave-estado seg-no-entregada" aria-hidden="true"></i>Tarjeta no entregada</span>
         <span><i class="clave-estado seg-no-quiere" aria-hidden="true"></i>No quiere</span>
         <span><i class="clave-estado seg-no-contesto" aria-hidden="true"></i>No contestó</span>
         <span><i class="clave-estado seg-pendiente borde-pendiente" aria-hidden="true"></i>Falta llamar</span>
@@ -69,15 +110,77 @@
                aria-label="{% for p in b.partes %}{{ p.valor }} {{ p.nombre|lower }}{% if not forloop.last %}, {% endif %}{% endfor %}">
             {% for p in b.partes %}<span class="seg seg-{{ p.clase }}" style="width: {{ p.ancho|stringformat:'s' }}%" title="{{ p.nombre }}: {{ p.valor }}"></span>{% endfor %}
           </div>
-          <p class="small text-body-secondary mb-0 mt-2">
-            {% if b.gestionados %}Se llamó a <strong class="text-body">{{ b.gestionados }}</strong> de {{ b.contactos }} ({{ b.avance }} %) y <strong class="text-body">{{ b.dami }}</strong> d{{ b.dami|pluralize:"io,ieron" }} DAMI.{% if b.falta %} Faltan {{ b.falta }} por llamar.{% endif %}
-            {% else %}Todavía no se ha llamado a ningún contacto de esta base.{% endif %}
-          </p>
+          {% if b.gestionados %}
+          <div class="datos-base">
+            <span>DAMI efectivos <strong>{{ b.dami }}</strong></span>
+            <span>Llamados <strong>{{ b.gestionados }}</strong> ({{ b.avance }} %)</span>
+            <span>Contestaron <strong>{{ b.contestaron }}</strong> · conexión <strong>{{ b.conexion|pct }}</strong></span>
+            <span>No contestaron <strong>{{ b.no_contesto }}</strong></span>
+            {% if b.no_entregada %}<span>Tarjeta no entregada <strong>{{ b.no_entregada }}</strong></span>{% endif %}
+            {% if b.falta %}<span>Faltan <strong>{{ b.falta }}</strong></span>{% endif %}
+          </div>
+          {% else %}
+          <p class="small text-body-secondary mb-0 mt-2">Todavía no se ha llamado a ningún contacto de esta base.</p>
+          {% endif %}
         </li>
         {% empty %}
-        <li class="text-center text-body-secondary py-4">No hay bases cargadas.</li>
+        <li class="text-center text-body-secondary py-4">No hay bases con contactos para los filtros elegidos.</li>
         {% endfor %}
       </ul>
+    </div>
+  </section>
+
+  {# 4. Desgloses: por asesor, ciudad y categoría de tarjeta #}
+  <section class="card mb-4" aria-labelledby="titulo-desglose">
+    <div class="card-header bg-body py-3">
+      <h2 class="h6 mb-2" id="titulo-desglose">¿Dónde salen más DAMI?</h2>
+      <ul class="nav nav-tabs card-header-tabs" role="tablist">
+        {% for clave, titulo, columna, filas in v.desgloses %}
+        <li class="nav-item" role="presentation">
+          <button class="nav-link{% if forloop.first %} active{% endif %}" id="pestana-{{ clave }}" data-bs-toggle="tab" data-bs-target="#desglose-{{ clave }}"
+                  type="button" role="tab" aria-controls="desglose-{{ clave }}" aria-selected="{% if forloop.first %}true{% else %}false{% endif %}">{{ titulo }}</button>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+    <div class="tab-content">
+      {% for clave, titulo, columna, filas in v.desgloses %}
+      <div class="tab-pane{% if forloop.first %} show active{% endif %}" id="desglose-{{ clave }}" role="tabpanel" aria-labelledby="pestana-{{ clave }}" tabindex="0">
+        {% if filas %}
+        <div class="table-responsive">
+          <table class="table align-middle mb-0 tabla-reporte-pantalla tabla-desglose">
+            <thead>
+              <tr>
+                <th scope="col">{{ columna }}</th><th scope="col" class="text-end">DAMI efectivo</th><th scope="col" class="text-end">Efectividad</th>
+                <th scope="col" class="text-end">Llamados</th><th scope="col" class="text-end">Contestaron</th><th scope="col" class="text-end">No contestaron</th>
+                <th scope="col" class="text-end">Conexión</th><th scope="col" class="text-end">Tarjeta no entregada</th><th scope="col" class="text-end">No quiere</th>
+                <th scope="col" style="min-width: 7rem">Resultado</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for d in filas %}
+              <tr>
+                <td class="fw-semibold">{{ d.nombre }}</td>
+                <td class="text-end fw-semibold text-success-emphasis">{{ d.dami_sacado }}</td>
+                <td class="text-end">{{ d.efectividad|pct }}</td>
+                <td class="text-end">{{ d.gestionados }}</td>
+                <td class="text-end">{{ d.contestaron }}</td>
+                <td class="text-end">{{ d.no_contesto }}</td>
+                <td class="text-end">{{ d.conexion|pct }}</td>
+                <td class="text-end">{{ d.no_entregada }}</td>
+                <td class="text-end">{{ d.no_quiere }}</td>
+                <td><div class="barra-mini" role="img" aria-label="{% for p in d.partes %}{{ p.valor }} {{ p.nombre|lower }}{% if not forloop.last %}, {% endif %}{% endfor %}">
+                  {% for p in d.partes %}<span class="seg seg-{{ p.clase }}" style="width: {{ p.ancho|stringformat:'s' }}%"></span>{% endfor %}</div></td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <p class="card-body small text-body-secondary mb-0">Todavía no hay contactos enviados a asesores para estos filtros.</p>
+        {% endif %}
+      </div>
+      {% endfor %}
     </div>
   </section>
 </div>

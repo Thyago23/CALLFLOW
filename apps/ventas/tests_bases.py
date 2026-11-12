@@ -1,10 +1,12 @@
 """Bases comerciales desde Excel, reparto, categorización y seguimiento: SCRUM-93 a SCRUM-97."""
 import io
+from datetime import timedelta
 
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import IntegrityError, transaction
 from django.urls import reverse
+from django.utils import timezone
 from openpyxl import Workbook, load_workbook
 
 from apps.core.models import Notificacion
@@ -249,6 +251,22 @@ class GestionDelVendedorTests(BaseVentas):
         self.marcar(self.de_lucia[1], "NO_QUIERE")
         e = servicios.efectividad_bases(self.base)[0]
         self.assertEqual((e["contactos"], e["gestionados"], e["dami_sacado"], e["efectividad"], e["efectividad_total"]), (4, 2, 1, 50, 25))
+
+    def test_tarjeta_no_entregada_y_conexion_con_los_clientes(self):
+        """«Tarjeta no entregada» cuenta como cliente que contestó; la conexión es contestaron ÷ llamados."""
+        self.marcar(self.de_lucia[0], "NO_ENTREGADA")
+        self.marcar(self.de_lucia[1], "DAMI_SACADO")
+        RegistroBase.objects.filter(pk=self.de_pedro.pk).update(estado="NO_CONTESTO", gestionado_en=timezone.now())
+        e = servicios.efectividad_bases(self.base)[0]
+        self.assertEqual((e["gestionados"], e["contestaron"], e["no_contesto"], e["no_entregada"], e["dami_sacado"]), (3, 2, 1, 1, 1))
+        self.assertEqual([round(e[k]) for k in ("conexion", "efectividad", "efectividad_contestaron")], [67, 33, 50])
+        self.assertEqual(RegistroBase.objects.get(pk=self.de_lucia[0].pk).get_estado_display(), "Tarjeta no entregada")
+        # Filtros: por vendedor y por fecha de la llamada.
+        self.assertEqual(servicios.efectividad_bases(self.base, vendedor=self.lucia.empleado)[0]["no_contesto"], 0)
+        ayer = timezone.localdate() - timedelta(days=1)
+        self.assertEqual(servicios.efectividad_bases(self.base, gestion=(ayer, ayer))[0]["gestionados"], 0)
+        por_vendedor = {f["vendedor"]: f for f in servicios.efectividad_por("vendedor", base=self.base)}
+        self.assertEqual(por_vendedor[self.lucia.empleado.pk]["dami_sacado"], 1)
 
     def test_llenar_dami_desde_un_contacto(self):
         self.client.force_login(self.lucia)

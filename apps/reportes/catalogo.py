@@ -378,76 +378,127 @@ def _metas(f, usuario) -> Tabla:
 
 
 # --------------------------------------------------------------------------- bases comerciales (SCRUM-97)
-def _efectividad_bases(f, usuario) -> Tabla:
-    from apps.ventas.servicios import efectividad_bases
+def _filtros_bases(f) -> dict:
+    """Filtros de los reportes de bases para los servicios de ventas."""
+    desde, hasta = f.get("llamado_desde"), f.get("llamado_hasta")
+    gestion = (desde or date(2000, 1, 1), hasta or timezone.localdate()) if desde or hasta else None
+    return {"base": f.get("base"), "vendedor": f.get("vendedor"), "ciudad": f.get("ciudad"), "tarjeta": f.get("tarjeta"),
+            "gestion": gestion}
 
-    datos = efectividad_bases(f.get("base"))
-    filas = [[x["base"].nombre, x["base"].creado_en, x["contactos"], x["enviados"], x["gestionados"], x["no_contesto"],
-              x["no_quiere"], x["dami_sacado"], x["efectividad"], x["efectividad_total"]] for x in datos]
+
+def _periodo_bases(f) -> str:
+    desde, hasta = f.get("llamado_desde"), f.get("llamado_hasta")
+    if desde and hasta:
+        return f"Llamadas del {desde:%d/%m/%Y} al {hasta:%d/%m/%Y}"
+    if desde:
+        return f"Llamadas desde el {desde:%d/%m/%Y}"
+    if hasta:
+        return f"Llamadas hasta el {hasta:%d/%m/%Y}"
+    return f"Al {timezone.localdate():%d/%m/%Y}"
+
+
+SUMABLES_BASES = ("contactos", "enviados", "gestionados", "contestaron", "no_contesto", "no_quiere", "no_entregada", "dami_sacado")
+
+
+def _efectividad_bases(f, usuario) -> Tabla:
+    from apps.ventas.servicios import _completar, efectividad_bases, efectividad_por
+
+    filtros = _filtros_bases(f)
+    datos = efectividad_bases(**filtros)
+    filas = [[x["base"].nombre, timezone.localtime(x["base"].creado_en).date(), x["contactos"], x["gestionados"], x["contestaron"], x["no_contesto"],
+              x["conexion"], x["no_quiere"], x["no_entregada"], x["dami_sacado"], x["efectividad"], x["efectividad_contestaron"]]
+             for x in datos]
     con_gestion = [x["efectividad"] for x in datos if x["efectividad"] is not None]
     media = sum(con_gestion, Decimal("0")) / len(con_gestion) if con_gestion else None
-    suma = {k: sum(x[k] for x in datos) for k in ("contactos", "enviados", "gestionados", "no_contesto", "no_quiere", "dami_sacado")}
+    suma = {k: sum(x[k] for x in datos) for k in SUMABLES_BASES}
+    total = _completar({**suma, "pendientes": 0})
     from .formato import porcentaje
 
     return Tabla(
-        columnas=[Columna("Base", peso=2.3), Columna("Cargada", "fecha"), Columna("Contactos", "entero", .9), Columna("Enviados", "entero", .9),
-                  Columna("Gestionados", "entero"), Columna("No contestó", "entero"), Columna("No quiere", "entero", .9),
-                  Columna("DAMI sacado", "entero"), Columna("Efectividad", "porcentaje", .9), Columna("% del total", "porcentaje", .9)],
-        filas=filas, periodo=f"Al {timezone.localdate():%d/%m/%Y}", horizontal=True,
-        totales=["Totales", None, suma["contactos"], suma["enviados"], suma["gestionados"], suma["no_contesto"], suma["no_quiere"],
-                 suma["dami_sacado"], Decimal(suma["dami_sacado"] * 100) / suma["gestionados"] if suma["gestionados"] else None,
-                 Decimal(suma["dami_sacado"] * 100) / suma["contactos"] if suma["contactos"] else None],
-        notas=["Efectividad = DAMI sacados ÷ contactos gestionados; % del total = DAMI sacados ÷ contactos de la base."]
+        columnas=[Columna("Base", peso=1.55), Columna("Cargada", "fecha", .95), Columna("Contactos", "entero", 1.05),
+                  Columna("Llamados", "entero", 1), Columna("Contestó", "entero", .95), Columna("No contestó", "entero", 1.1),
+                  Columna("Conexión", "porcentaje", 1), Columna("No quiere", "entero", 1), Columna("No entregada", "entero", 1.3),
+                  Columna("DAMI efect.", "entero", 1.05), Columna("Efectividad", "porcentaje", 1.1),
+                  Columna("Ef. contestó", "porcentaje", 1.15)],
+        filas=filas, periodo=_periodo_bases(f), horizontal=True,
+        totales=["Totales", None, suma["contactos"], suma["gestionados"], suma["contestaron"], suma["no_contesto"], total["conexion"],
+                 suma["no_quiere"], suma["no_entregada"], suma["dami_sacado"], total["efectividad"], total["efectividad_contestaron"]],
+        notas=["Llamados = contactos ya categorizados. Contestó = no quiere + tarjeta no entregada + DAMI efectivo; "
+               "conexión = contestó ÷ llamados. No entregada = tarjeta no entregada.",
+               "Efectividad = DAMI efectivos ÷ llamados; ef. contestó = DAMI efectivos ÷ los que contestaron."]
         + ([f"Media de efectividad de las bases: {porcentaje(media)} ({len(con_gestion)} bases con gestión)."] if media is not None else []),
-        vacio="No hay bases cargadas.",
-        vista="reportes/_efectividad_bases.html", extra=_vista_efectividad(datos, suma, media),
+        vacio="No hay bases con contactos para los filtros elegidos.",
+        vista="reportes/_efectividad_bases.html",
+        extra=_vista_efectividad(datos, total, media, {
+            "asesor": efectividad_por("vendedor", **filtros), "ciudad": efectividad_por("ciudad", **filtros),
+            "tarjeta": efectividad_por("categoria_tarjeta", **filtros)}),
     )
 
 
-def _vista_efectividad(datos, suma, media) -> dict:
-    """Datos de la vista visual: resumen general y, por base, la barra de cómo terminaron sus contactos."""
+def _partes_conexion(x) -> list:
+    """Cómo terminaron las llamadas, sobre los contactos (incluye lo que falta llamar)."""
+    falta = max(x["contactos"] - x["gestionados"], 0) if "contactos" in x else x.get("pendientes", 0)
+    total = (x["gestionados"] + falta) or 1
+    return [{"clase": c, "nombre": n, "valor": v, "ancho": round(v * 100 / total, 2)} for c, n, v in (
+        ("dami", "DAMI efectivo", x["dami_sacado"]), ("no-entregada", "Tarjeta no entregada", x["no_entregada"]),
+        ("no-quiere", "No quiere", x["no_quiere"]), ("no-contesto", "No contestó", x["no_contesto"]),
+        ("pendiente", "Falta llamar", falta)) if v]
 
-    def partes(x):
-        falta = max(x["contactos"] - x["gestionados"], 0)
-        total = x["contactos"] or 1
-        return [{"clase": c, "nombre": n, "valor": v, "ancho": round(v * 100 / total, 2)} for c, n, v in (
-            ("dami", "DAMI sacado", x["dami_sacado"]), ("no-quiere", "No quiere", x["no_quiere"]),
-            ("no-contesto", "No contestó", x["no_contesto"]), ("pendiente", "Falta llamar", falta)) if v]
 
+def _vista_efectividad(datos, total, media, desgloses) -> dict:
+    """Datos de la vista visual: DAMI efectivos, conexión con los clientes, cada base y los desgloses."""
     bases = []
     for x in datos:
         e = x["efectividad"]
         bases.append({
             "nombre": x["base"].nombre, "cargada": x["base"].creado_en, "contactos": x["contactos"], "gestionados": x["gestionados"],
             "dami": x["dami_sacado"], "efectividad": e, "falta": max(x["contactos"] - x["gestionados"], 0),
-            "avance": round(x["gestionados"] * 100 / x["contactos"]) if x["contactos"] else 0, "partes": partes(x),
+            "contestaron": x["contestaron"], "no_contesto": x["no_contesto"], "conexion": x["conexion"],
+            "no_entregada": x["no_entregada"], "efectividad_contestaron": x["efectividad_contestaron"],
+            "avance": round(x["gestionados"] * 100 / x["contactos"]) if x["contactos"] else 0, "partes": _partes_conexion(x),
             "nivel": None if e is None or media is None or len(datos) < 2 else
             ("igual" if round(e) == round(media) else "alta" if e > media else "baja"),
         })
     bases.sort(key=lambda b: (b["efectividad"] is None, -(b["efectividad"] or 0)))
-    general = Decimal(suma["dami_sacado"] * 100) / suma["gestionados"] if suma["gestionados"] else None
+    for filas in desgloses.values():
+        for d in filas:
+            d["partes"] = _partes_conexion(d)
+    general = total["efectividad"]
+    contestaron_ancho = round(total["contestaron"] * 100 / total["gestionados"], 2) if total["gestionados"] else 0
     return {
-        "bases": bases, "media": media, "general": general, "contactos": suma["contactos"], "gestionados": suma["gestionados"],
-        "dami": suma["dami_sacado"], "avance": round(suma["gestionados"] * 100 / suma["contactos"]) if suma["contactos"] else 0,
+        "bases": bases, "media": media, "general": general, "t": total,
+        "contactos": total["contactos"], "gestionados": total["gestionados"], "dami": total["dami_sacado"],
+        "avance": round(total["gestionados"] * 100 / total["contactos"]) if total["contactos"] else 0,
+        "falta": max(total["contactos"] - total["gestionados"], 0),
         "de_cada_100": round(general) if general is not None else None,
+        "conexion_100": round(total["conexion"]) if total["conexion"] is not None else None,
+        "contestaron_ancho": contestaron_ancho, "no_contesto_ancho": round(100 - contestaron_ancho, 2) if total["gestionados"] else 0,
+        "desgloses": [("asesor", "Por asesor", "Asesor", desgloses["asesor"]), ("ciudad", "Por ciudad", "Ciudad", desgloses["ciudad"]),
+                      ("tarjeta", "Por categoría de tarjeta", "Categoría", desgloses["tarjeta"])],
     }
 
 
 def _gestion_bases(f, usuario) -> Tabla:
     from apps.ventas.servicios import seguimiento
 
-    datos = seguimiento(base=f.get("base"), vendedor=f.get("vendedor"))
-    filas = [[_nombre(x["vendedor"]), x["base"].nombre, x["enviados"], x["gestionados"], x["pendientes"], x["no_contesto"],
-              x["no_quiere"], x["dami_sacado"], x["avance"]] for x in datos]
-    suma = {k: sum(x[k] for x in datos) for k in ("enviados", "gestionados", "pendientes", "no_contesto", "no_quiere", "dami_sacado")}
+    filtros = _filtros_bases(f)
+    datos = seguimiento(**filtros)
+    filas = [[_nombre(x["vendedor"]), x["base"].nombre, x["enviados"], x["gestionados"], x["pendientes"], x["contestaron"],
+              x["no_contesto"], x["no_quiere"], x["no_entregada"], x["dami_sacado"], x["efectividad"], x["avance"]] for x in datos]
+    suma = {k: sum(x[k] for x in datos) for k in ("enviados", "gestionados", "pendientes", "contestaron", "no_contesto", "no_quiere",
+                                                  "no_entregada", "dami_sacado")}
     return Tabla(
-        columnas=[Columna("Vendedor", peso=2.2), Columna("Base", peso=1.8), Columna("Enviados", "entero", .9), Columna("Gestionados", "entero"),
-                  Columna("Faltan", "entero", .8), Columna("No contestó", "entero"), Columna("No quiere", "entero", .9),
-                  Columna("DAMI sacado", "entero"), Columna("Avance", "porcentaje", .8)],
-        filas=filas, periodo=f"Al {timezone.localdate():%d/%m/%Y}", horizontal=True,
-        totales=["Totales", "", suma["enviados"], suma["gestionados"], suma["pendientes"], suma["no_contesto"], suma["no_quiere"],
-                 suma["dami_sacado"], Decimal(suma["gestionados"] * 100) / suma["enviados"] if suma["enviados"] else None],
-        notas=["«Faltan» son los contactos que el vendedor recibió y todavía no categorizó."],
+        columnas=[Columna("Vendedor", peso=1.8), Columna("Base", peso=1.45), Columna("Enviados", "entero", 1), Columna("Llamados", "entero", 1),
+                  Columna("Faltan", "entero", .8), Columna("Contestó", "entero", .95), Columna("No contestó", "entero", 1.1),
+                  Columna("No quiere", "entero", 1), Columna("No entregada", "entero", 1.3), Columna("DAMI efect.", "entero", 1.05),
+                  Columna("Efectividad", "porcentaje", 1.1), Columna("Avance", "porcentaje", .9)],
+        filas=filas, periodo=_periodo_bases(f), horizontal=True,
+        totales=["Totales", "", suma["enviados"], suma["gestionados"], suma["pendientes"], suma["contestaron"], suma["no_contesto"],
+                 suma["no_quiere"], suma["no_entregada"], suma["dami_sacado"],
+                 Decimal(suma["dami_sacado"] * 100) / suma["gestionados"] if suma["gestionados"] else None,
+                 Decimal(suma["gestionados"] * 100) / suma["enviados"] if suma["enviados"] else None],
+        notas=["«Faltan» son los contactos que el vendedor recibió y todavía no categorizó. No entregada = tarjeta no entregada. "
+               "Efectividad = DAMI efectivos ÷ llamados."],
         vacio="Todavía no se enviaron contactos a vendedores.",
     )
 
@@ -567,11 +618,12 @@ REPORTES = {r.codigo: r for r in [
             "La hoja de producción de un vendedor en un mes, con sus totales.", ("mes", "vendedor"), (A, C),
             obligatorios=("vendedor",), icono="table"),
     Reporte("BASES_EFECTIVIDAD", "Efectividad de bases comerciales", "VENTAS",
-            "Por base: contactos, gestionados, no contestó, no quiere, DAMI sacados y efectividad, con la media de todas.",
-            ("base",), (A, C), icono="database-check"),
+            "Por base: DAMI efectivos, conexión con los clientes (contestaron o no), tarjetas no entregadas y efectividad, "
+            "con desglose por asesor, ciudad y categoría de tarjeta.",
+            ("base", "vendedor", "ciudad", "tarjeta", "llamado_desde", "llamado_hasta"), (A, C), icono="database-check"),
     Reporte("BASES_GESTION", "Gestión de bases por vendedor", "VENTAS",
             "Contactos enviados a cada vendedor, cuántos gestionó, cuántos le faltan y cómo los categorizó.",
-            ("base", "vendedor"), (A, C), icono="person-lines-fill"),
+            ("base", "vendedor", "ciudad", "tarjeta", "llamado_desde", "llamado_hasta"), (A, C), icono="person-lines-fill"),
     Reporte("CIERRE_PANEL", "Cumplimiento de metas", "CIERRE",
             "Meta, vendido, porcentaje de avance y lo que falta de cada vendedor en un mes.", ("mes", "vendedor"), (A, C),
             icono="bullseye"),

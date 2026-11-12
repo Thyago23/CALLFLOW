@@ -523,7 +523,7 @@ def bases_seguimiento(request):
     base = BaseComercial.objects.filter(pk=request.GET.get("base") or 0).first()
     vendedor = Empleado.objects.filter(pk=request.GET.get("vendedor") or 0).first()
     filas = servicios.seguimiento(base=base, vendedor=vendedor)
-    totales = {k: sum(f[k] for f in filas) for k in ("enviados", "gestionados", "pendientes", "no_contesto", "no_quiere", "dami_sacado")}
+    totales = {k: sum(f[k] for f in filas) for k in ("enviados", "gestionados", "pendientes", "no_contesto", "no_quiere", "no_entregada", "dami_sacado", "contestaron")}
     return render(request, "ventas/bases_seguimiento.html", {
         "filas": filas, "totales": totales, "base": base, "vendedor": vendedor,
         "bases": BaseComercial.objects.order_by("-activa", "nombre"),
@@ -558,7 +558,7 @@ def bases_contactos(request):
 def _resumen_contactos(empleado) -> dict:
     resumen = servicios.seguimiento(vendedor=empleado)
     return {"resumen": resumen,
-            "totales": {k: sum(f[k] for f in resumen) for k in ("enviados", "gestionados", "pendientes", "no_contesto", "no_quiere", "dami_sacado")}}
+            "totales": {k: sum(f[k] for f in resumen) for k in ("enviados", "gestionados", "pendientes", "no_contesto", "no_quiere", "no_entregada", "dami_sacado", "contestaron")}}
 
 
 @login_required

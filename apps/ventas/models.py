@@ -71,7 +71,9 @@ class RegistroBase(DatosContacto):
         PENDIENTE = "PENDIENTE", "Pendiente"
         NO_CONTESTO = "NO_CONTESTO", "No contestó"
         NO_QUIERE = "NO_QUIERE", "No quiere"
-        DAMI_SACADO = "DAMI_SACADO", "DAMI sacado"
+        NO_ENTREGADA = "NO_ENTREGADA", "Tarjeta no entregada"
+        # El código se conserva (hay datos y reglas con él); en pantalla es «DAMI efectivo».
+        DAMI_SACADO = "DAMI_SACADO", "DAMI efectivo"
 
     base = models.ForeignKey(BaseComercial, on_delete=models.CASCADE, related_name="registros")
     vendedor = models.ForeignKey("personal.Empleado", on_delete=models.PROTECT, null=True, blank=True, related_name="contactos_base")
@@ -89,7 +91,7 @@ class RegistroBase(DatosContacto):
             models.Index(fields=["base", "estado"], name="registro_base_estado_idx"),
         ]
         constraints = [
-            models.CheckConstraint(condition=Q(estado__in=["PENDIENTE", "NO_CONTESTO", "NO_QUIERE", "DAMI_SACADO"]),
+            models.CheckConstraint(condition=Q(estado__in=["PENDIENTE", "NO_CONTESTO", "NO_QUIERE", "NO_ENTREGADA", "DAMI_SACADO"]),
                                    name="registro_base_estado_valido"),
             # Solo un contacto enviado a un vendedor se puede categorizar.
             models.CheckConstraint(condition=Q(estado="PENDIENTE") | (Q(vendedor__isnull=False) & Q(gestionado_en__isnull=False)),

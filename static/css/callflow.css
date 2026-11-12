@@ -1237,12 +1237,13 @@ details.anular-caja > summary::-webkit-details-marker { display: none; }
 .barras-h .valor { font-size: .875rem; font-weight: 600; font-variant-numeric: tabular-nums; text-align: right; min-width: 4.5rem; }
 
 /* ------------------------------------------------------------------ bases comerciales: contactos y gestión */
-:root { --cf-dami: var(--cf-exito); --cf-no-quiere: #c2410c; --cf-no-contesto: #d4a017; --cf-pendiente: #e3e7ee; }
+:root { --cf-dami: var(--cf-exito); --cf-no-quiere: #c2410c; --cf-no-contesto: #d4a017; --cf-no-entregada: #6f52c4; --cf-pendiente: #e3e7ee; }
 .avance-base { display: flex; gap: 2px; height: 8px; border-radius: 4px; overflow: hidden; background: var(--cf-pendiente); }
 .avance-base .seg { display: block; height: 100%; }
 .seg-dami { background: var(--cf-dami); }
 .seg-no-quiere { background: var(--cf-no-quiere); }
 .seg-no-contesto { background: var(--cf-no-contesto); }
+.seg-no-entregada { background: var(--cf-no-entregada); }
 .seg-pendiente { background: var(--cf-pendiente); }
 .clave-estado { display: inline-block; width: .65rem; height: .65rem; border-radius: 2px; margin-right: .35rem; vertical-align: baseline; }
 /* reporte de efectividad de bases: resumen y una barra por base */
@@ -1270,6 +1271,7 @@ details.anular-caja > summary::-webkit-details-marker { display: none; }
 .badge.estado-contacto.estado-pendiente { background: var(--bs-secondary-bg); color: var(--bs-secondary-color); }
 .badge.estado-contacto.estado-no_contesto { background: var(--cf-aviso-suave); color: var(--cf-aviso-texto); }
 .badge.estado-contacto.estado-no_quiere { background: #fde8de; color: #8a2e07; }
+.badge.estado-contacto.estado-no_entregada { background: #ece6fb; color: #4a3391; }
 .badge.estado-contacto.estado-dami_sacado { background: var(--cf-exito-suave); color: var(--cf-exito-texto); }
 
 .lista-contactos .contacto-base { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: .5rem 1.25rem; align-items: center;
@@ -1277,12 +1279,14 @@ details.anular-caja > summary::-webkit-details-marker { display: none; }
 .lista-contactos .contacto-base:last-child { border-bottom: 0; }
 .contacto-base.estado-no_contesto { border-left-color: var(--cf-no-contesto); }
 .contacto-base.estado-no_quiere { border-left-color: var(--cf-no-quiere); }
+.contacto-base.estado-no_entregada { border-left-color: var(--cf-no-entregada); }
 .contacto-base.estado-dami_sacado { border-left-color: var(--cf-dami); }
 .contacto-base.estado-dami_sacado .datos { opacity: .8; }
 .contacto-base .telefonos { text-align: right; }
 .contacto-base .acciones .btn.active { color: #fff; }
 .contacto-base .acciones .btn[value="NO_CONTESTO"].active { background: #a07800; border-color: #a07800; }
 .contacto-base .acciones .btn[value="NO_QUIERE"].active { background: var(--cf-no-quiere); border-color: var(--cf-no-quiere); }
+.contacto-base .acciones .btn[value="NO_ENTREGADA"].active { background: var(--cf-no-entregada); border-color: var(--cf-no-entregada); }
 .contacto-base .acciones .btn[value="DAMI_SACADO"].active { background: var(--cf-dami); border-color: var(--cf-dami); }
 .contacto-base.recien { animation: contacto-marcado 1.2s ease-out; }
 @keyframes contacto-marcado { from { background: var(--cf-primario-suave); } to { background: transparent; } }
@@ -1293,6 +1297,7 @@ details.anular-caja > summary::-webkit-details-marker { display: none; }
   font-size: .875rem; max-height: 6rem; overflow: hidden; transition: opacity .4s ease, max-height .4s ease, padding .4s ease; }
 .contacto-hecho.estado-no_contesto { border-left-color: var(--cf-no-contesto); }
 .contacto-hecho.estado-no_quiere { border-left-color: var(--cf-no-quiere); }
+.contacto-hecho.estado-no_entregada { border-left-color: var(--cf-no-entregada); }
 .contacto-hecho.estado-dami_sacado { border-left-color: var(--cf-dami); }
 .contacto-hecho.saliendo { opacity: 0; max-height: 0; padding-top: 0; padding-bottom: 0; }
 @media (max-width: 991.98px) {
@@ -1969,3 +1974,17 @@ a.enlace-modulo:hover { background: var(--cf-fondo); color: var(--bs-body-color)
   html.menu-plegado .menu-lateral .enlace-menu .badge { position: absolute; top: 2px; right: 4px; margin: 0; padding: 0.2em 0.42em; font-size: 0.6rem; }
 }
 @media (prefers-reduced-motion: reduce) { .menu-lateral { transition: none; } }
+
+/* Reporte de efectividad de bases: conexión con los clientes y desgloses */
+.conexion-barra { display: flex; height: 22px; border-radius: 6px; overflow: hidden; background: var(--cf-pendiente); font-size: .75rem; font-weight: 600; }
+.conexion-barra .seg { display: flex; align-items: center; justify-content: center; color: #fff; min-width: 0; white-space: nowrap; overflow: hidden; }
+.conexion-barra .seg-contestaron { background: var(--cf-primario); }
+.conexion-barra .seg-no-contesto { color: #3a2c00; }
+.indicadores-efectividad .indicador { padding: .75rem 1rem; border-radius: var(--bs-border-radius); background: var(--bs-tertiary-bg); height: 100%; }
+.indicadores-efectividad .indicador .valor { font-size: 1.5rem; font-weight: 700; line-height: 1.15; font-variant-numeric: tabular-nums; }
+.indicadores-efectividad .indicador .ayuda { font-size: .8rem; color: var(--bs-secondary-color); }
+.base-efectividad .datos-base { display: flex; flex-wrap: wrap; gap: .25rem 1.25rem; font-size: .8125rem; color: var(--bs-secondary-color); margin-top: .5rem; }
+.base-efectividad .datos-base strong { color: var(--bs-emphasis-color); font-variant-numeric: tabular-nums; }
+.tabla-desglose td, .tabla-desglose th { white-space: nowrap; }
+.tabla-desglose .barra-mini { display: flex; height: 6px; border-radius: 3px; overflow: hidden; background: var(--cf-pendiente); min-width: 5rem; }
+.tabla-desglose .barra-mini .seg { display: block; height: 100%; }
