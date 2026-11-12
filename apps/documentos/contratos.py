@@ -444,6 +444,49 @@ def salario_vigente(empleado, fecha: date | None = None) -> Decimal | None:
     return registro.salario_base if registro else None
 
 
+def plantilla_para(empleado):
+    """La plantilla que corresponde al empleado: la de su cargo; si no hay, la de su tipo de contrato."""
+    from .models import PlantillaContrato
+
+    activas = PlantillaContrato.objects.filter(activa=True).order_by("nombre")
+    return (activas.filter(cargo_id=empleado.cargo_id).first()
+            or activas.filter(tipo_contrato=empleado.tipo_contrato).exclude(tipo_contrato="").first())
+
+
+PLAZO_POR_DEFECTO_MESES = 3  # los contratos de la empresa son de 3 meses (90 días) a prueba
+
+
+def fin_por_defecto(inicio: date, meses: int = PLAZO_POR_DEFECTO_MESES) -> date:
+    """05/11/2026 -> 04/02/2027: el día anterior a cumplirse los meses."""
+    import calendar
+    from datetime import timedelta
+
+    anio, mes = divmod(inicio.month - 1 + meses, 12)
+    anio, mes = inicio.year + anio, mes + 1
+    return date(anio, mes, min(inicio.day, calendar.monthrange(anio, mes)[1])) - timedelta(days=1)
+
+
+def generar_contrato_de_ingreso(empleado, usuario):
+    """
+    Al registrar un empleado: genera su contrato con la plantilla de su cargo y los datos de su ficha (que se llenó
+    con el CV), desde la fecha de ingreso y con el sueldo inicial. Queda «pendiente de revisión» en su perfil.
+    Si no hay plantilla para su cargo, no hace nada (devuelve None).
+    """
+    plantilla = plantilla_para(empleado)
+    if plantilla is None:
+        return None
+    from apps.documentos.forms import CON_PLAZO
+
+    inicio = empleado.fecha_ingreso
+    # Fecha de fin solo si el contrato la necesita (el plazo en meses o un tipo de contrato con plazo).
+    con_fin = "plazo_meses" in variables_en(plantilla.contenido) or empleado.tipo_contrato in CON_PLAZO
+    contrato = generar_contrato(empleado, plantilla, fecha_inicio=inicio, fecha_fin=fin_por_defecto(inicio) if con_fin else None,
+                                salario=salario_vigente(empleado, inicio), usuario=usuario)
+    contrato.automatico = True
+    contrato.save(update_fields=["automatico", "actualizado_en"])
+    return contrato
+
+
 def generar_contrato(empleado, plantilla, *, fecha_inicio: date, fecha_fin: date | None, salario: Decimal | None, usuario):
     """
     Llena la plantilla, crea el PDF y lo guarda en el expediente del empleado (tipo CONTRATO),

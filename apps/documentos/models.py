@@ -116,6 +116,12 @@ class ContratoGenerado(ModeloBase):
     fecha_inicio = models.DateField()
     fecha_fin = models.DateField(null=True, blank=True)
     generado_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    automatico = models.BooleanField(
+        "generado al registrar", default=False,
+        help_text="Lo generó el sistema al registrar al empleado, con los datos de su CV: el administrador debe revisarlo.",
+    )
+    revisado_en = models.DateTimeField(null=True, blank=True)
+    revisado_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
 
     class Meta:
         verbose_name = "contrato generado"
@@ -124,4 +130,9 @@ class ContratoGenerado(ModeloBase):
             models.CheckConstraint(
                 condition=Q(fecha_fin__isnull=True) | Q(fecha_fin__gte=F("fecha_inicio")), name="contrato_fechas_validas"
             ),
+            models.CheckConstraint(condition=Q(revisado_en__isnull=True) | Q(automatico=True), name="contrato_revision_solo_automaticos"),
         ]
+
+    @property
+    def pendiente_revision(self) -> bool:
+        return self.automatico and self.revisado_en is None

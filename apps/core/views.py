@@ -112,6 +112,17 @@ def dashboard(request):
             "valor": NovedadAsistencia.objects.filter(estado=NovedadAsistencia.Estado.PENDIENTE).count(),
             "url": reverse("asistencia:novedades"), "alerta": True, "accion": "Justificar o descontar",
         })
+    if usuario.has_perm("documentos.add_contratogenerado"):
+        from apps.documentos.models import ContratoGenerado
+
+        por_revisar = ContratoGenerado.objects.filter(automatico=True, revisado_en__isnull=True).order_by("creado_en")
+        primero = por_revisar.first()
+        indicadores.append({
+            "titulo": "Contratos de empleados nuevos por revisar", "icono": "file-earmark-check",
+            "valor": por_revisar.count(), "alerta": True, "accion": "Se generaron con los datos del CV",
+            "url": (reverse("personal:empleado_detalle", args=[primero.empleado_id]) + "#contratos") if primero
+            else reverse("personal:empleado_lista"),
+        })
     if usuario.has_perm("inventario.view_material"):
         indicadores.append({
             "titulo": "Materiales con stock bajo", "icono": "box-seam",

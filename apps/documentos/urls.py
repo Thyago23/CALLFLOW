@@ -12,4 +12,5 @@ urlpatterns = [
     path("plantillas/vista-previa/", views.plantilla_vista_previa, name="plantilla_vista_previa"),
     path("contratos/<int:empleado_pk>/vista-previa/", views.contrato_vista_previa, name="contrato_vista_previa"),
     path("contratos/<int:empleado_pk>/generar/", views.contrato_generar, name="contrato_generar"),
+    path("contratos/<int:pk>/revisado/", views.contrato_revisado, name="contrato_revisado"),
 ]

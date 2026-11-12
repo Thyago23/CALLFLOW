@@ -25,8 +25,9 @@ def ver_documento(request, pk):
         archivo = documento.archivo.open("rb")
     except FileNotFoundError as error:
         raise Http404("El archivo ya no está disponible.") from error
-    respuesta = FileResponse(archivo, content_type=documento.tipo_mime, filename=documento.nombre_original)
-    respuesta["Content-Disposition"] = respuesta["Content-Disposition"].replace("attachment", "inline")
+    # ?descargar=1 lo baja como archivo; si no, se abre en el navegador.
+    respuesta = FileResponse(archivo, content_type=documento.tipo_mime, filename=documento.nombre_original,
+                             as_attachment=request.GET.get("descargar") == "1")
     respuesta["X-Content-Type-Options"] = "nosniff"
     return respuesta
 
@@ -143,3 +144,20 @@ def contrato_generar(request, empleado_pk):
     aviso = f" Quedaron espacios en blanco para completar a mano: {', '.join(v.descripcion.lower() for v in faltan)}." if faltan else ""
     messages.success(request, f"Contrato generado y guardado en el expediente.{aviso}")
     return redirect(destino)
+
+
+@login_required
+@permission_required("documentos.add_contratogenerado", raise_exception=True)
+@require_POST
+def contrato_revisado(request, pk):
+    """El administrador revisó el contrato que el sistema generó al registrar al empleado."""
+    from django.utils import timezone
+
+    from .models import ContratoGenerado
+
+    contrato = get_object_or_404(ContratoGenerado.objects.select_related("empleado"), pk=pk, automatico=True)
+    if contrato.revisado_en is None:
+        contrato.revisado_en, contrato.revisado_por = timezone.now(), request.user
+        contrato.save(update_fields=["revisado_en", "revisado_por", "actualizado_en"])
+        messages.success(request, "Contrato marcado como revisado.")
+    return redirect(reverse("personal:empleado_detalle", args=[contrato.empleado_id]) + "#contratos")

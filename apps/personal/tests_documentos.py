@@ -200,12 +200,62 @@ class RegistroConDocumentosTests(TestCase):
     def registrar(self, **cambios):
         return self.client.post(reverse("personal:empleado_crear"), datos_registro(**cambios))
 
+    # ----------------------------------------------------------- contrato automático (datos del CV)
+    def test_al_registrar_se_genera_el_contrato_de_su_cargo_pendiente_de_revision(self):
+        from apps.documentos.models import ContratoGenerado
+
+        respuesta = self.client.post(reverse("personal:empleado_crear"), datos_registro(), follow=True)
+        empleado = Empleado.objects.get()
+        contrato = ContratoGenerado.objects.get(empleado=empleado)
+        self.assertEqual(contrato.plantilla.nombre, "Contrato de servicios profesionales bajo comisiones")
+        self.assertTrue(contrato.pendiente_revision)
+        self.assertEqual(contrato.fecha_inicio, empleado.fecha_ingreso)
+        self.assertEqual(contrato.datos_utilizados["nombre_completo_mayusculas"], "PÉREZ ÑAÑEZ MARÍA JOSÉ")
+        self.assertEqual(contrato.datos_utilizados["identificacion"], CEDULA_VALIDA)
+        self.assertContains(respuesta, "con los datos del CV")
+
+        ficha = self.client.get(reverse("personal:empleado_detalle", args=[empleado.pk]))
+        self.assertContains(ficha, "Pendiente de revisión")
+        self.assertContains(ficha, "1 por revisar")
+        self.assertContains(ficha, f"{reverse('documentos:ver', args=[contrato.documento.pk])}?descargar=1")
+        descarga = self.client.get(reverse("documentos:ver", args=[contrato.documento.pk]), {"descargar": "1"})
+        self.assertTrue(descarga["Content-Disposition"].startswith("attachment"))
+        self.assertContains(self.client.get(reverse("inicio")), "Contratos de empleados nuevos por revisar")
+
+        self.client.post(reverse("documentos:contrato_revisado", args=[contrato.pk]))
+        contrato.refresh_from_db()
+        self.assertFalse(contrato.pendiente_revision)
+        self.assertEqual(contrato.revisado_por, self.admin)
+        self.client.force_login(self.vendedor)
+        self.assertEqual(self.client.post(reverse("documentos:contrato_revisado", args=[contrato.pk])).status_code, 403)
+
+    def test_cargo_sin_plantilla_no_genera_contrato_y_avisa(self):
+        from apps.documentos.models import ContratoGenerado
+
+        respuesta = self.client.post(reverse("personal:empleado_crear"),
+                                     datos_registro(cargo=Cargo.objects.get(nombre="Supervisor").pk), follow=True)
+        self.assertTrue(Empleado.objects.exists())
+        self.assertFalse(ContratoGenerado.objects.exists())
+        self.assertContains(respuesta, "No hay una plantilla de contrato para el cargo")
+
+    def test_si_falla_el_contrato_el_empleado_queda_registrado(self):
+        from unittest import mock
+
+        from apps.documentos.models import ContratoGenerado
+
+        with mock.patch("apps.documentos.contratos.generar_pdf", side_effect=RuntimeError("falla de prueba")):
+            respuesta = self.client.post(reverse("personal:empleado_crear"), datos_registro(), follow=True)
+        self.assertTrue(Empleado.objects.exists())
+        self.assertFalse(ContratoGenerado.objects.exists())
+        self.assertContains(respuesta, "no se pudo generar su contrato")
+
     # ----------------------------------------------------------- documentos
     def test_guarda_los_tres_documentos_en_el_expediente(self):
         self.registrar()
         empleado = Empleado.objects.get()
         documentos = {d.tipo.codigo: d for d in empleado.documentos.select_related("tipo")}
-        self.assertEqual(set(documentos), {"HOJA_VIDA", "CEDULA", "TITULO_BACHILLER"})
+        # Los tres de ingreso, más el contrato que el sistema genera para su cargo (asesor de ventas).
+        self.assertEqual(set(documentos), {"HOJA_VIDA", "CEDULA", "TITULO_BACHILLER", "CONTRATO"})
         cv_guardado = documentos["HOJA_VIDA"]
         self.assertEqual(cv_guardado.tipo_mime, "application/pdf")
         self.assertEqual(cv_guardado.nombre_original, "cv.pdf")

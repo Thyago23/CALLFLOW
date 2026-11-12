@@ -83,8 +83,7 @@ class GenerarContratoForm(forms.Form):
         plantillas = PlantillaContrato.objects.filter(activa=True).order_by("nombre")
         self.fields["plantilla"].queryset = plantillas
         if not self.is_bound:
-            preferida = (plantillas.filter(cargo_id=empleado.cargo_id).first()
-                         or plantillas.filter(tipo_contrato=empleado.tipo_contrato).first() or plantillas.first())
+            preferida = contratos.plantilla_para(empleado) or plantillas.first()
             self.initial.update({
                 "plantilla": preferida, "fecha_inicio": empleado.fecha_ingreso,
                 "salario": contratos.salario_vigente(empleado, empleado.fecha_ingreso),

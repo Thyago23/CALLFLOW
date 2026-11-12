@@ -605,6 +605,10 @@ input[type="checkbox"].form-check-input + .dia-check { margin-left: 0; }
 }
 .hoja-contrato .titulo-contrato { font-size: 1.05rem; font-weight: 700; text-align: center; margin-bottom: 1rem; }
 .hoja-contrato .firma-contrato { margin-top: 2.5rem; text-align: left; }
+/* Contratos generados al registrar al empleado (con los datos del CV), pendientes de revisión */
+.badge.estado-contrato-pendiente { background: var(--cf-aviso-suave); color: var(--cf-aviso-texto); }
+.badge.estado-contrato-revisado { background: var(--cf-exito-suave); color: var(--cf-exito-texto); }
+.contrato-por-revisar { border-left: 4px solid var(--cf-aviso, #e0a800); }
 .hoja-contrato .clausula-contrato { margin: 1.1rem 0 .5rem; font-size: .95rem; font-weight: 700; }
 .hoja-contrato .numeral-contrato { display: flex; gap: .5rem; }
 .hoja-contrato .numeral-contrato .numero { flex: 0 0 2.2rem; font-family: Helvetica, Arial, sans-serif; font-weight: 700; }
