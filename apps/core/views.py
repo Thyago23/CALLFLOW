@@ -162,6 +162,8 @@ _ACCESOS = [
     ("nomina.view_periodonomina", "Roles de pago", "cash-coin", "nomina:resumen"),
     ("core.add_usuario", "Nuevo usuario", "person-badge", "usuario_crear"),
     ("agenda.add_evento", "Nueva actividad", "calendar-plus", "agenda:crear"),
+    ("ti.add_equipo", "Registrar equipo", "pc-display", "ti:crear"),
+    ("ti.view_sesionequipo", "Equipos conectados", "wifi", "ti:conectados"),
 ]
 MAX_ACCESOS = 4
 
@@ -173,6 +175,8 @@ def _accesos_rapidos(usuario) -> list[dict]:
             continue  # solo el vendedor con ficha registra formularios
         if permiso == "cierre.add_gestioncierre" and usuario.rol != Rol.ENCARGADO_CIERRE:
             continue
+        if permiso.startswith("ti.") != (usuario.rol == Rol.TI):
+            continue  # lo de TI solo para TI, y TI solo ve lo suyo
         if usuario.has_perm(permiso):
             accesos.append({"titulo": titulo, "icono": icono, "url": reverse(ruta)})
     return accesos[:MAX_ACCESOS]
@@ -224,6 +228,10 @@ def usuario_crear(request):
 @require_POST
 def usuario_restablecer_clave(request, pk):
     usuario = get_object_or_404(Usuario, pk=pk)
+    if usuario.protegida:
+        messages.error(request, "Es una cuenta fija del departamento de TI: su código se gestiona con "
+                                "«python manage.py credenciales_ti».")
+        return redirect("usuarios")
     clave = generar_codigo_acceso(usuario.first_name, usuario.last_name)
     usuario.set_password(clave)
     usuario.debe_cambiar_clave = False
@@ -239,6 +247,8 @@ def usuario_cambiar_estado(request, pk):
     usuario = get_object_or_404(Usuario, pk=pk)
     if usuario == request.user:
         messages.error(request, "No puede desactivar su propia cuenta.")
+    elif usuario.protegida:
+        messages.error(request, "Es una cuenta fija del departamento de TI: no se puede desactivar.")
     elif usuario.is_active and usuario.rol == Rol.ADMINISTRADOR and not Usuario.objects.filter(
         rol=Rol.ADMINISTRADOR, is_active=True).exclude(pk=usuario.pk).exists():
         messages.error(request, "Debe quedar al menos un administrador activo.")

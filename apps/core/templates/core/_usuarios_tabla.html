@@ -28,6 +28,8 @@
           </td>
           {% if perms.core.change_usuario %}
           <td class="text-end text-nowrap">
+            {% if u.protegida %}<span class="badge bg-primary-subtle text-primary-emphasis border border-primary-subtle" title="Cuenta fija del departamento de TI"><i class="bi bi-shield-lock me-1" aria-hidden="true"></i>Cuenta de TI</span>
+            {% else %}
             <form method="post" action="{% url 'usuario_restablecer_clave' u.pk %}" class="d-inline"
                   data-confirmar-titulo="¿Generar un código de acceso nuevo?" data-confirmar-icono="key" data-confirmar-tono="warning"
                   data-confirmar="El código actual de {{ u.get_full_name|default:u.username }} ({{ u.username }}) dejará de funcionar. El nuevo se mostrará una sola vez para entregárselo."
@@ -49,6 +51,7 @@
               <button type="submit" class="btn btn-sm btn-outline-success" title="Activar"><i class="bi bi-person-check" aria-hidden="true"></i><span class="d-none d-xl-inline ms-1">Activar</span></button>
               {% endif %}
             </form>
+            {% endif %}
             {% endif %}
           </td>
           {% endif %}

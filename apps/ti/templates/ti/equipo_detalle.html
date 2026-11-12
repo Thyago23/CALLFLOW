@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% load humanize_cf %}
+{% block titulo %}{{ equipo.codigo }} · TI{% endblock %}
+{% block contenido %}
+<nav aria-label="Ruta" class="mb-2">
+  <ol class="breadcrumb small mb-0">
+    <li class="breadcrumb-item"><a href="{% url 'ti:equipos' %}">Equipos</a></li>
+    <li class="breadcrumb-item active" aria-current="page">{{ equipo.codigo }}</li>
+  </ol>
+</nav>
+<div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
+  <div>
+    <h1 class="h3 mb-0"><span class="font-monospace">{{ equipo.codigo }}</span> · {{ equipo.get_tipo_display }}</h1>
+    <p class="text-body-secondary small mb-0">{{ equipo.marca }} {{ equipo.modelo }} · {% include "ti/_estado.html" with e=equipo %}</p>
+  </div>
+  <div class="d-flex flex-wrap gap-2">
+    {% if equipo.estado != "BAJA" %}<a href="{% url 'ti:evento' equipo.pk %}" class="btn btn-primary"><i class="bi bi-tools me-1" aria-hidden="true"></i>Registrar mantenimiento</a>{% endif %}
+    <a href="{% url 'ti:editar' equipo.pk %}" class="btn btn-outline-secondary"><i class="bi bi-pencil me-1" aria-hidden="true"></i>Editar</a>
+  </div>
+</div>
+
+<div class="row g-4">
+  <div class="col-lg-4">
+    <section class="card mb-4">
+      <div class="card-body">
+        <h2 class="h6 mb-3">Ficha del equipo</h2>
+        <dl class="row small mb-0">
+          <dt class="col-5 text-body-secondary fw-normal">N.º de serie</dt><dd class="col-7 font-monospace">{{ equipo.numero_serie|default:"—" }}</dd>
+          <dt class="col-5 text-body-secondary fw-normal">Asignado a</dt><dd class="col-7">{{ equipo.asignado_a|default:"Sin asignar" }}</dd>
+          <dt class="col-5 text-body-secondary fw-normal">Ubicación</dt><dd class="col-7">{{ equipo.ubicacion|default:"—" }}</dd>
+          {% if equipo.procesador or equipo.memoria_ram_gb or equipo.almacenamiento or equipo.sistema_operativo %}
+          <dt class="col-5 text-body-secondary fw-normal">Procesador</dt><dd class="col-7">{{ equipo.procesador|default:"—" }}</dd>
+          <dt class="col-5 text-body-secondary fw-normal">Memoria RAM</dt><dd class="col-7">{% if equipo.memoria_ram_gb %}{{ equipo.memoria_ram_gb }} GB{% else %}—{% endif %}</dd>
+          <dt class="col-5 text-body-secondary fw-normal">Almacenamiento</dt><dd class="col-7">{{ equipo.almacenamiento|default:"—" }}</dd>
+          <dt class="col-5 text-body-secondary fw-normal">Sistema operativo</dt><dd class="col-7">{{ equipo.sistema_operativo|default:"—" }}</dd>
+          {% endif %}
+        </dl>
+      </div>
+    </section>
+    <section class="card mb-4">
+      <div class="card-body">
+        <h2 class="h6 mb-3">Red</h2>
+        <dl class="row small mb-0">
+          <dt class="col-5 text-body-secondary fw-normal">Dirección IP</dt><dd class="col-7 font-monospace">{{ equipo.direccion_ip|default:"—" }}</dd>
+          <dt class="col-5 text-body-secondary fw-normal">Nombre de red</dt><dd class="col-7 font-monospace">{{ equipo.hostname|default:"—" }}</dd>
+          <dt class="col-5 text-body-secondary fw-normal">MAC</dt><dd class="col-7 font-monospace">{{ equipo.direccion_mac|default:"—" }}</dd>
+        </dl>
+      </div>
+    </section>
+    <section class="card">
+      <div class="card-body">
+        <h2 class="h6 mb-3">Compra y garantía</h2>
+        <dl class="row small mb-0">
+          <dt class="col-5 text-body-secondary fw-normal">Compra</dt><dd class="col-7">{{ equipo.fecha_compra|date:"d/m/Y"|default:"—" }}</dd>
+          <dt class="col-5 text-body-secondary fw-normal">Proveedor</dt><dd class="col-7">{{ equipo.proveedor|default:"—" }}</dd>
+          <dt class="col-5 text-body-secondary fw-normal">Costo</dt><dd class="col-7">{% if equipo.costo is not None %}${{ equipo.costo|dinero }}{% else %}—{% endif %}</dd>
+          <dt class="col-5 text-body-secondary fw-normal">Garantía</dt>
+          <dd class="col-7">{% if equipo.garantia_hasta %}Hasta {{ equipo.garantia_hasta|date:"d/m/Y" }}{% if equipo.garantia_hasta < hoy %} <span class="badge text-bg-secondary">Vencida</span>{% endif %}{% else %}—{% endif %}</dd>
+          <dt class="col-5 text-body-secondary fw-normal">Registrado</dt><dd class="col-7">{{ equipo.creado_en|date:"d/m/Y" }}{% if equipo.registrado_por %} por {{ equipo.registrado_por.get_full_name }}{% endif %}</dd>
+          {% if equipo.observacion %}<dt class="col-5 text-body-secondary fw-normal">Observación</dt><dd class="col-7">{{ equipo.observacion|linebreaksbr }}</dd>{% endif %}
+        </dl>
+      </div>
+    </section>
+  </div>
+  <div class="col-lg-8">
+    <section class="card mb-4">
+      <div class="card-header bg-body"><h2 class="h6 mb-0">Hoja de vida</h2></div>
+      {% if eventos %}
+      <div class="table-responsive">
+        <table class="table align-middle mb-0">
+          <thead><tr><th scope="col">Fecha</th><th scope="col">Evento</th><th scope="col" class="text-end">Costo</th></tr></thead>
+          <tbody>
+            {% for ev in eventos %}
+            <tr>
+              <td class="text-nowrap">{{ ev.fecha|date:"d/m/Y" }}</td>
+              <td><span class="fw-semibold">{{ ev.get_tipo_display }}</span><div class="small">{{ ev.descripcion|linebreaksbr }}</div>
+                <div class="small text-body-secondary">{% if ev.realizado_por %}Realizó {{ ev.realizado_por }} · {% endif %}Registró {{ ev.registrado_por.get_full_name|default:"—" }}</div></td>
+              <td class="text-end text-nowrap">{% if ev.costo is not None %}${{ ev.costo|dinero }}{% else %}—{% endif %}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="card-body text-center text-body-secondary py-4">Este equipo todavía no tiene eventos.</div>
+      {% endif %}
+    </section>
+    <section class="card">
+      <div class="card-header bg-body"><h2 class="h6 mb-0">Últimas conexiones a CALLFLOW desde este equipo</h2></div>
+      {% if not equipo.direccion_ip %}
+      <div class="card-body text-body-secondary small">Registre la dirección IP del equipo para ver quién se conecta desde él.</div>
+      {% elif conexiones %}
+      <div class="table-responsive">
+        <table class="table align-middle mb-0 small">
+          <thead><tr><th scope="col">Usuario</th><th scope="col">Inicio</th><th scope="col">Última actividad</th><th scope="col">Navegador</th></tr></thead>
+          <tbody>
+            {% for s in conexiones %}
+            <tr><td>{{ s.usuario.get_full_name|default:s.usuario.username }}</td><td class="text-nowrap">{{ s.inicio|date:"d/m/Y H:i" }}</td>
+              <td class="text-nowrap">{{ s.ultima_actividad|date:"d/m/Y H:i" }}{% if s.fin %} <span class="text-body-secondary">(cerrada)</span>{% endif %}</td>
+              <td>{{ s.navegador }} · {{ s.sistema }}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="card-body text-body-secondary small">Nadie se ha conectado a CALLFLOW desde {{ equipo.direccion_ip }}.</div>
+      {% endif %}
+    </section>
+  </div>
+</div>
+{% endblock %}

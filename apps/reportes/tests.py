@@ -8,6 +8,7 @@ from django.utils import timezone
 from pypdf import PdfReader
 
 from apps.cierre.models import MetaMensual
+from apps.core.models import Rol
 from apps.ventas.models import FormularioDAMI
 from apps.ventas.tests import BaseVentas
 
@@ -43,7 +44,10 @@ class CentroTests(BaseReportes):
         self.client.force_login(self.admin)
         respuesta = self.client.get(reverse("reportes:centro"))
         for r in REPORTES.values():
-            self.assertContains(respuesta, r.nombre)
+            if Rol.ADMINISTRADOR in r.roles:
+                self.assertContains(respuesta, r.nombre)
+            else:  # los reportes de TI son solo del departamento de TI
+                self.assertNotContains(respuesta, r.nombre)
         self.assertContains(respuesta, reverse("reportes:estadisticas"))
 
     def test_el_encargado_solo_ve_los_comerciales(self):
@@ -76,7 +80,8 @@ class ReportesTests(BaseReportes):
         self.ventas()
         self.client.force_login(self.admin)
         extra = {"NOMINA_ROL_PAGO": {"empleado": self.lucia.empleado.pk}, "VENTAS_PRODUCCION": {"vendedor": self.lucia.empleado.pk}}
-        for codigo, r in REPORTES.items():
+        del_admin = {c: r for c, r in REPORTES.items() if Rol.ADMINISTRADOR in r.roles}
+        for codigo, r in del_admin.items():
             with self.subTest(codigo=codigo):
                 params = extra.get(codigo, {})
                 vista = self.client.get(self.url(codigo), params)
@@ -85,7 +90,7 @@ class ReportesTests(BaseReportes):
                 pdf = self.client.get(self.url(codigo, pdf=True), params)
                 self.assertEqual(pdf["Content-Type"], "application/pdf")
                 self.assertTrue(pdf.content.startswith(b"%PDF"))
-        self.assertEqual(ReporteGenerado.objects.filter(generado_por=self.admin).count(), len(REPORTES))
+        self.assertEqual(ReporteGenerado.objects.filter(generado_por=self.admin).count(), len(del_admin))
         registro = ReporteGenerado.objects.get(tipo__codigo="VENTAS_PRODUCCION")
         self.assertEqual(registro.filtros["vendedor"]["id"], self.lucia.empleado.pk)
         self.assertGreater(registro.tamano_bytes, 0)

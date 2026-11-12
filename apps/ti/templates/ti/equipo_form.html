@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block titulo %}{% if nuevo %}Registrar equipo{% else %}Editar {{ equipo.codigo }}{% endif %} · TI{% endblock %}
+{% block contenido %}
+<nav aria-label="Ruta" class="mb-2">
+  <ol class="breadcrumb small mb-0">
+    <li class="breadcrumb-item"><a href="{% url 'ti:equipos' %}">Equipos</a></li>
+    {% if not nuevo %}<li class="breadcrumb-item"><a href="{% url 'ti:detalle' equipo.pk %}">{{ equipo.codigo }}</a></li>{% endif %}
+    <li class="breadcrumb-item active" aria-current="page">{% if nuevo %}Registrar equipo{% else %}Editar{% endif %}</li>
+  </ol>
+</nav>
+<header class="cabecera-formulario">
+  <h1 class="h3 mb-1">{% if nuevo %}Registrar equipo{% else %}Editar equipo {{ equipo.codigo }}{% endif %}</h1>
+  <p class="text-body-secondary mb-0">{% if nuevo %}Agregue un equipo físico al inventario de TI.{% else %}Cambie la ficha, la asignación o el estado. Los cambios de asignación y estado quedan en la hoja de vida.{% endif %}</p>
+</header>
+
+<div class="contenedor-formulario">
+  {% for error in form.non_field_errors %}<div class="alert alert-danger">{{ error }}</div>{% endfor %}
+  <form method="post" novalidate class="card formulario">
+    {% csrf_token %}
+    <section class="formulario-seccion">
+      <div class="formulario-seccion-info">
+        <span class="formulario-icono" aria-hidden="true"><i class="bi bi-upc-scan"></i></span>
+        <h2>Identificación</h2>
+        <p>Qué equipo es y cómo se reconoce físicamente.</p>
+      </div>
+      <div class="row">
+        <div class="col-md-6">{% include "_campo.html" with campo=form.codigo ayuda=form.codigo.help_text %}</div>
+        <div class="col-md-6">{% include "_campo.html" with campo=form.tipo %}</div>
+        <div class="col-md-6">{% include "_campo.html" with campo=form.marca %}</div>
+        <div class="col-md-6">{% include "_campo.html" with campo=form.modelo %}</div>
+        <div class="col-md-6">{% include "_campo.html" with campo=form.numero_serie %}</div>
+      </div>
+    </section>
+
+    <section class="formulario-seccion">
+      <div class="formulario-seccion-info">
+        <span class="formulario-icono" aria-hidden="true"><i class="bi bi-cpu"></i></span>
+        <h2>Ficha técnica</h2>
+        <p>Para computadores y servidores. En otros equipos puede dejarlo vacío.</p>
+      </div>
+      <div class="row">
+        <div class="col-md-6">{% include "_campo.html" with campo=form.procesador %}</div>
+        <div class="col-md-6">{% include "_campo.html" with campo=form.memoria_ram_gb %}</div>
+        <div class="col-md-6">{% include "_campo.html" with campo=form.almacenamiento ayuda=form.almacenamiento.help_text %}</div>
+        <div class="col-md-6">{% include "_campo.html" with campo=form.sistema_operativo %}</div>
+      </div>
+    </section>
+
+    <section class="formulario-seccion">
+      <div class="formulario-seccion-info">
+        <span class="formulario-icono" aria-hidden="true"><i class="bi bi-diagram-3"></i></span>
+        <h2>Red</h2>
+        <p>Con la IP fija el sistema reconoce este equipo cuando alguien entra a CALLFLOW desde él.</p>
+      </div>
+      <div class="row">
+        <div class="col-md-6">{% include "_campo.html" with campo=form.hostname %}</div>
+        <div class="col-md-6">{% include "_campo.html" with campo=form.direccion_ip ayuda=form.direccion_ip.help_text %}</div>
+        <div class="col-md-6">{% include "_campo.html" with campo=form.direccion_mac %}</div>
+      </div>
+    </section>
+
+    <section class="formulario-seccion">
+      <div class="formulario-seccion-info">
+        <span class="formulario-icono" aria-hidden="true"><i class="bi bi-person-workspace"></i></span>
+        <h2>Ubicación y asignación</h2>
+        <p>Dónde está, quién lo usa y en qué estado se encuentra.</p>
+      </div>
+      <div class="row">
+        <div class="col-md-6">{% include "_campo.html" with campo=form.ubicacion %}</div>
+        <div class="col-md-6">{% include "_campo.html" with campo=form.asignado_a %}</div>
+        <div class="col-md-6">{% include "_campo.html" with campo=form.estado ayuda=form.estado.help_text %}</div>
+      </div>
+    </section>
+
+    <section class="formulario-seccion">
+      <div class="formulario-seccion-info">
+        <span class="formulario-icono" aria-hidden="true"><i class="bi bi-receipt"></i></span>
+        <h2>Compra y garantía</h2>
+        <p>Para saber cuánto costó y hasta cuándo lo cubre el proveedor.</p>
+      </div>
+      <div class="row">
+        <div class="col-md-6">{% include "_campo.html" with campo=form.fecha_compra %}</div>
+        <div class="col-md-6">{% include "_campo.html" with campo=form.proveedor %}</div>
+        <div class="col-md-6">{% include "_campo.html" with campo=form.costo %}</div>
+        <div class="col-md-6">{% include "_campo.html" with campo=form.garantia_hasta %}</div>
+        <div class="col-12">{% include "_campo.html" with campo=form.observacion %}</div>
+      </div>
+    </section>
+
+    <div class="formulario-acciones">
+      <span class="small text-body-secondary d-none d-sm-inline"><span class="text-danger">*</span> Campo obligatorio</span>
+      <a href="{% if nuevo %}{% url 'ti:equipos' %}{% else %}{% url 'ti:detalle' equipo.pk %}{% endif %}" class="btn btn-outline-secondary ms-auto">Cancelar</a>
+      <button type="submit" class="btn btn-primary"><i class="bi bi-check2" aria-hidden="true"></i> Guardar equipo</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

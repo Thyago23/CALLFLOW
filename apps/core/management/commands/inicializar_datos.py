@@ -12,7 +12,7 @@ from django.db import transaction
 
 from apps.asistencia.models import Horario
 from apps.core import jornada
-from apps.core.models import Rol
+from apps.core.models import CUENTAS_TI, Rol, Usuario
 from apps.documentos.models import TipoDocumento
 from apps.inventario.models import CategoriaMaterial
 from apps.nomina.models import TipoNovedadNomina
@@ -85,6 +85,11 @@ PERMISOS_POR_ROL = {
         "agenda": ["view", "add", "change", "delete"],
         "reportes": ["view"],
     } | _GESTION_BASES | _CATALOGO_TARJETAS,
+    # TI: solo su módulo y sus reportes. No ve personal, nómina, ventas ni nada del administrador.
+    Rol.TI: {
+        "ti": ["view", "add", "change"],
+        "reportes": ["view"],
+    },
 }
 
 
@@ -128,6 +133,20 @@ class Command(BaseCommand):
                 codenames = [p.codename for p in Permission.objects.filter(**filtro) if p.codename.split("_", 1)[0] in acciones]
                 permisos = permisos | Permission.objects.filter(**filtro, codename__in=codenames)
             grupo.permissions.set(permisos.distinct())
+
+        # Cuentas de TI quemadas en el sistema: si alguien las borró de una base nueva, se reponen.
+        for usuario, nombres, apellidos in CUENTAS_TI:
+            cuenta, creada = Usuario.objects.get_or_create(username=usuario, defaults={
+                "first_name": nombres, "last_name": apellidos, "rol": Rol.TI, "protegida": True})
+            if creada:
+                cuenta.set_unusable_password()  # el código se entrega con `python manage.py credenciales_ti`
+                cuenta.save(update_fields=["password"])
+
+        # Cada usuario en el grupo de su rol (las cuentas creadas por migraciones no pasan por la señal).
+        for cuenta in Usuario.objects.all():
+            grupo = Group.objects.filter(name=cuenta.get_rol_display()).first()
+            if grupo and not cuenta.groups.filter(pk=grupo.pk).exists():
+                cuenta.groups.add(grupo)
 
         if options["verbosity"] > 0:
             self.stdout.write(self.style.SUCCESS("Datos iniciales de CALLFLOW cargados."))

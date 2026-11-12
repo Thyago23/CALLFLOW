@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block titulo %}Mantenimiento de {{ equipo.codigo }} · TI{% endblock %}
+{% block contenido %}
+<nav aria-label="Ruta" class="mb-2">
+  <ol class="breadcrumb small mb-0">
+    <li class="breadcrumb-item"><a href="{% url 'ti:equipos' %}">Equipos</a></li>
+    <li class="breadcrumb-item"><a href="{% url 'ti:detalle' equipo.pk %}">{{ equipo.codigo }}</a></li>
+    <li class="breadcrumb-item active" aria-current="page">Registrar evento</li>
+  </ol>
+</nav>
+<header class="cabecera-formulario">
+  <h1 class="h3 mb-1">Registrar mantenimiento o reparación</h1>
+  <p class="text-body-secondary mb-0">{{ equipo }}. Queda en la hoja de vida del equipo y no se puede borrar.</p>
+</header>
+
+<div class="contenedor-formulario">
+  {% for error in form.non_field_errors %}<div class="alert alert-danger">{{ error }}</div>{% endfor %}
+  <form method="post" novalidate class="card formulario">
+    {% csrf_token %}
+    <section class="formulario-seccion">
+      <div class="formulario-seccion-info">
+        <span class="formulario-icono" aria-hidden="true"><i class="bi bi-tools"></i></span>
+        <h2>Qué se hizo</h2>
+        <p>Mantenimiento preventivo, reparación o actualización de hardware o software.</p>
+      </div>
+      <div class="row">
+        <div class="col-md-6">{% include "_campo.html" with campo=form.fecha %}</div>
+        <div class="col-md-6">{% include "_campo.html" with campo=form.tipo %}</div>
+        <div class="col-12">{% include "_campo.html" with campo=form.descripcion %}</div>
+        <div class="col-md-6">{% include "_campo.html" with campo=form.realizado_por ayuda=form.realizado_por.help_text %}</div>
+        <div class="col-md-6">{% include "_campo.html" with campo=form.costo %}</div>
+      </div>
+    </section>
+    <div class="formulario-acciones">
+      <a href="{% url 'ti:detalle' equipo.pk %}" class="btn btn-outline-secondary ms-auto">Cancelar</a>
+      <button type="submit" class="btn btn-primary"><i class="bi bi-check2" aria-hidden="true"></i> Guardar</button>
+    </div>
+  </form>
+</div>
+{% endblock %}
