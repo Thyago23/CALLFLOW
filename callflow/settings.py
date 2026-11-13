@@ -179,7 +179,8 @@ LOGIN_REDIRECT_URL = "inicio"
 LOGOUT_REDIRECT_URL = "login"
 
 MEDIA_URL = "media/"
-MEDIA_ROOT = Path(env("MEDIA_ROOT", str(BASE_DIR / "media")))
+# Vacío o sin definir = carpeta media del proyecto. Puede ser una carpeta compartida (\\IP\carpeta) o, en el servidor, /datos/media.
+MEDIA_ROOT = Path(env("MEDIA_ROOT", "") or str(BASE_DIR / "media"))
 
 # Límite de archivos adjuntos (debe coincidir con la restricción de la tabla documentos_documento)
 TAMANO_MAXIMO_ARCHIVO = 10 * 1024 * 1024  # 10 MB

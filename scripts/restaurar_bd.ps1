@@ -8,11 +8,18 @@
 param(
     [Parameter(Mandatory = $true)][string]$Archivo,
     [string]$BaseDestino = "callflow_restaurada",
-    [string]$PgBin = "C:\Program Files\PostgreSQL\17\bin"
+    [string]$PgBin = ""          # vacío: usa la versión de PostgreSQL más nueva instalada
 )
 
 $ErrorActionPreference = "Stop"
 $raiz = Split-Path -Parent $PSScriptRoot
+if (-not $PgBin) {
+    $PgBin = Get-ChildItem "C:\Program Files\PostgreSQL" -Directory -ErrorAction SilentlyContinue |
+        Sort-Object { [int]($_.Name -replace '\D', '') } -Descending |
+        ForEach-Object { Join-Path $_.FullName "bin" } |
+        Where-Object { Test-Path (Join-Path $_ "pg_restore.exe") } | Select-Object -First 1
+    if (-not $PgBin) { throw "No se encontró PostgreSQL en C:\Program Files\PostgreSQL. Indique -PgBin." }
+}
 if (-not (Test-Path $Archivo)) { throw "No existe el archivo $Archivo" }
 
 $cfg = @{}

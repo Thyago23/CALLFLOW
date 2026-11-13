@@ -29,7 +29,7 @@ Documento de trabajo para llevar CALLFLOW desde la PC de desarrollo (Windows) a 
 ## 2. Cómo queda armado
 
 ```
- PCs de la oficina (≈100)
+ PCs de la oficina (≈100, la mayoría por Wi-Fi)
         │  https://callflow.<dominio>  (red local)
         ▼
  ┌──────────────── Servidor Ubuntu ────────────────┐
@@ -37,7 +37,7 @@ Documento de trabajo para llevar CALLFLOW desde la PC de desarrollo (Windows) a 
  │    ├─ /static/  → archivos de diseño (directo)  │
  │    └─ resto     → Gunicorn (127.0.0.1:8000)     │
  │                    └─ Django / CALLFLOW         │
- │                         ├─ PostgreSQL 17 (local)│
+ │                         ├─ PostgreSQL 18 (local)│
  │                         └─ /datos/media (CV…)   │
  │  cron: push, agenda, salidas, repetidos, respaldo│
  └─────────────────────────────────────────────────┘
@@ -130,12 +130,28 @@ Cómo averiguarlo:
 
 ---
 
+## 5a. Red de la oficina: ~93 PCs por Wi-Fi
+
+Las PCs de los usuarios **no instalan nada**: solo usan el navegador y entran a la dirección del servidor. Todo lo que hacen (datos, archivos, quién está conectado) queda en el servidor.
+
+- **El servidor va siempre por cable** al router o switch, con **IP fija**. Hoy la red es `192.168.100.0/24` y el router es `192.168.100.1`. Lo más ordenado es reservar la IP del servidor por MAC, o ponerla fija **fuera del rango que reparte el DHCP**.
+- **El Wi-Fi del router actual (Huawei EG8145 del proveedor) no da para 93 equipos.** Estos equipos rinden bien con unos 20–30 clientes a la vez. Con 93 PCs más los celulares va a haber cortes y lentitud. Hace falta:
+  - **3 o 4 puntos de acceso (AP) empresariales** (por ejemplo TP-Link Omada, Ubiquiti UniFi o Aruba Instant On), cada uno para 25–30 PCs, conectados **por cable** a un **switch** y en modo puente (*AP mode*). Así siguen en la misma red `192.168.100.x`, con un solo DHCP en el router.
+  - El mismo nombre de red (SSID) en todos los AP, para que las PCs pasen de uno a otro solas. Usar **5 GHz** para las PCs.
+  - Una red Wi-Fi **aparte para invitados y celulares personales**, aislada, que no llegue al servidor.
+- **Direcciones:** una red `/24` tiene 253 direcciones. Alcanzan para 93 PCs más los celulares, pero conviene revisar el rango del DHCP del router para que no se acabe. Si se acaba, ampliarlo o pasar a `/23`.
+- **TI → Conectados** identifica cada PC por su IP. Si se quiere saber siempre qué PC es cuál, reservar también la IP de cada PC en el DHCP (por MAC).
+- **Capacidad:** ver la sección 8. Con 100 personas el servidor sobra. El punto débil es la red Wi-Fi, no el servidor.
+- **Seguridad:** cambiar la contraseña de fábrica del router (hoy es la de la etiqueta) y la clave del Wi-Fi. El firewall del servidor solo acepta la red de la oficina (sección 5b).
+
+---
+
 ## 5b. Acceso solo por red y sucursales
 
 ### Solo desde la red de la oficina
 
 - El servidor **no se publica a internet**: no se abre ningún puerto en el router hacia él.
-- El firewall del servidor (`ufw`) solo acepta conexiones desde la red de la oficina (por ejemplo `192.168.1.0/24`) y desde las redes de las sucursales que se conecten por VPN.
+- El firewall del servidor (`ufw`) solo acepta conexiones desde la red de la oficina (hoy `192.168.100.0/24`) y desde las redes de las sucursales que se conecten por VPN.
 - Quien no esté en esas redes no puede ni ver la página de inicio de sesión.
 
 ### Sucursales: opción recomendada, un servidor central y VPN entre sedes
@@ -178,7 +194,8 @@ Nada de esto está hecho todavía. Es lo que hay que construir antes de instalar
 
 - [ ] `CONN_MAX_AGE` (por ejemplo 60 s) y `CONN_HEALTH_CHECKS = True`, para no abrir una conexión nueva a PostgreSQL en cada petición.
 - [ ] `SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")`, porque Nginx entrega las peticiones a Gunicorn por HTTP interno.
-- [ ] `SECURE_SSL_REDIRECT`, `SECURE_HSTS_SECONDS` y `CSRF_TRUSTED_ORIGINS` (desde `.env`).
+- [ ] `SECURE_SSL_REDIRECT` y `SECURE_HSTS_SECONDS` (desde `.env`).
+- [x] `CSRF_TRUSTED_ORIGINS` desde `DJANGO_CSRF_TRUSTED_ORIGINS` y `connect_timeout` desde `DB_CONNECT_TIMEOUT` (commit `5b754b8`).
 - [ ] Revisar la cantidad de conexiones: con `max_connections = 100` en PostgreSQL y conexiones persistentes, el total de procesos de Gunicorn por hilos debe quedar muy por debajo de 100.
 - [ ] **Registro de errores con varios procesos**: `RotatingFileHandler` no es seguro cuando varios procesos de Gunicorn escriben en el mismo archivo, porque al rotar pueden perderse o mezclarse líneas. Opciones: `WatchedFileHandler` con rotación por `logrotate` (recomendada en Linux), o un archivo por proceso. `registro_errores.py` ya lee `errores.jsonl*`, así que sigue funcionando.
 
@@ -234,14 +251,85 @@ Como el servidor está **en la red local**, TI → Conectados va a distinguir ca
 
 ---
 
+## 6.6 Etapa actual (antes del servidor): la PC de Nicolás hace de servidor
+
+Desde el 13/11/2026, mientras no hay servidor, la **PC de Nicolás** cumple el mismo papel que va a cumplir el servidor. Así la mudanza es solo copiar dos cosas (la base y los archivos) y cambiar una dirección.
+
+```
+ Usuarios (cualquier rol)              Desarrolladores
+   navegador ─┐                          runserver local ─┐  (solo para programar y probar)
+              ▼                                           ▼
+ ┌──────── PC de Nicolás  192.168.100.83 (cable) ─────────────────┐
+ │  CALLFLOW  runserver 0.0.0.0:8000 → http://192.168.100.83:8000 │
+ │  PostgreSQL 18 · base callflow            ← la ÚNICA base      │
+ │  carpeta media\ (CV, contratos, fotos, adjuntos, actas)        │
+ │                                           ← la ÚNICA carpeta   │
+ │  Tareas programadas (push, agenda, salidas, repetidos, respaldo)│
+ └─────────────────────────────────────────────────────────────────┘
+```
+
+**Regla de oro: los datos y los archivos viven en un solo lugar.**
+- La base guarda solo la **ruta relativa** de cada archivo (por ejemplo `documentos/…/cv.pdf`). El archivo en sí queda en la carpeta `MEDIA_ROOT` **de la PC donde corre la app que lo recibió**.
+- Los archivos siempre se entregan por vistas de CALLFLOW que revisan el permiso del rol (CV, contratos, adjuntos de mensajes, actas, fotos). Por eso, para que un rol vea lo que subió otro, los dos tienen que estar usando la **misma carpeta**.
+- **Los usuarios reales usan siempre `http://192.168.100.83:8000`**, nunca la app de otra PC. Así todo lo que suben queda en la PC de Nicolás, igual que va a quedar en el servidor.
+- Si un desarrollador corre CALLFLOW en su propia PC contra la base compartida, su `MEDIA_ROOT` tiene que apuntar a la carpeta compartida de la PC de Nicolás (ver más abajo). Si no, lo que suba queda solo en su PC y los demás ven "archivo no encontrado".
+
+| Dato | Valor |
+|---|---|
+| PC que hace de servidor | `192.168.100.83` (cable), PostgreSQL **18**, base `callflow`, app en el puerto 8000 |
+| PC de desarrollo | `192.168.100.82` (cable) |
+| Router | Huawei EG8145, `192.168.100.1`. Las IPs por cable se reservan por MAC en *LAN → DHCP Static IP*. |
+| Acceso a la base por red | `pg_hba.conf`: `host callflow callflow_app 192.168.100.0/24 scram-sha-256`. El superusuario solo entra desde esa misma PC. |
+| Firewall | Entrantes 5432 (PostgreSQL), 8000 (Django) y 445 (carpeta compartida), solo desde `192.168.100.0/24` |
+| Carpeta de archivos compartida | `\\192.168.100.83\callflow-media` → carpeta `media\` del proyecto en la PC de Nicolás |
+
+### Qué tiene que ser IGUAL en todas las PCs que corren CALLFLOW
+
+| Variable | Por qué |
+|---|---|
+| `DB_HOST`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` | Una sola base |
+| `CLAVE_TARJETAS` | Si no coincide, no se pueden leer las tarjetas del DAMI guardadas desde otra PC |
+| `MEDIA_ROOT` | Una sola carpeta de archivos (en la PC de Nicolás es la local; en las demás, `\\192.168.100.83\callflow-media`) |
+| `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` | Las suscripciones push se guardan en la base atadas a esta clave. Con claves distintas, los avisos al navegador fallan |
+| `DJANGO_SECRET_KEY` | Firma las sesiones (guardadas en la base) y los enlaces de restablecer contraseña |
+
+`.env` de una PC de desarrollo (las claves se entregan aparte, nunca en el repo):
+
+```
+DB_HOST=192.168.100.83
+DB_USER=callflow_app
+DB_PASSWORD=<la de callflow_app en la PC servidor>
+DB_CONNECT_TIMEOUT=5
+CLAVE_TARJETAS=<idéntica>
+VAPID_PUBLIC_KEY=<idéntica>
+VAPID_PRIVATE_KEY=<idéntica>
+DJANGO_SECRET_KEY=<idéntica>
+MEDIA_ROOT=\\192.168.100.83\callflow-media
+DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1,<IP de esta PC>
+DJANGO_CSRF_TRUSTED_ORIGINS=http://<IP de esta PC>:8000
+```
+
+Para que la PC de desarrollo pueda escribir en la carpeta compartida sin pedir usuario, se guarda una sola vez la credencial de Windows de la PC servidor:
+`cmdkey /add:192.168.100.83 /user:<usuario de Windows de esa PC> /pass:<su contraseña>`
+
+### Reglas de esta etapa
+- Hay **una sola base y una sola carpeta de archivos**. Nadie corre `migrate` sin avisar, y antes se hace un respaldo.
+- `migrate` siempre se corre con `callflow_app`.
+- Las **tareas programadas** (sección 6.4) y los **respaldos** corren **solo en la PC servidor**. En las PCs de desarrollo no, para que no se dupliquen avisos.
+- Respaldo: `scripts\respaldar_bd.ps1` en la PC servidor. Genera `callflow_<fecha>.dump` (la base) y `callflow_media_<fecha>.zip` (los archivos) con la misma fecha y hora. Elige sola la versión de PostgreSQL más nueva instalada; desde una PC con una versión más vieja que la de la base no se puede respaldar.
+- Las pruebas se corren contra el PostgreSQL **local** de cada PC (ver la sección 10), porque el superusuario no entra por red.
+- La PC servidor tiene que estar prendida y con cable. Si alguien no se puede conectar, primero hay que revisar que no le haya cambiado la IP.
+
+---
+
 ## 7. Mudanza de los datos actuales
 
 Orden propuesto para el día del cambio:
 
-1. Avisar a todos y **detener el uso** de CALLFLOW en la PC actual.
-2. En la PC actual: `scripts\respaldar_bd.ps1` para obtener el `.dump` final.
-3. Copiar al servidor (USB o red): el `.dump`, la carpeta `media/` completa y los valores de `CLAVE_TARJETAS` y `VAPID_*` del `.env`.
-4. En el servidor: `crear_bd.sh` (roles y base), luego `pg_restore` del dump.
+1. Avisar a todos y **detener el uso** de CALLFLOW en la PC actual (hoy, la PC de la base compartida, `192.168.100.83`; ver la sección 6.6).
+2. En la PC actual: `scripts\respaldar_bd.ps1`. Deja el `.dump` final de la base y el `.zip` de los archivos (`MEDIA_ROOT`), con la misma fecha y hora.
+3. Copiar al servidor (USB o red): el `.dump`, el `.zip` de archivos (se descomprime en `/datos/media`, respetando las subcarpetas, porque la base guarda las rutas relativas) y los valores de `CLAVE_TARJETAS`, `VAPID_*` y `DJANGO_SECRET_KEY` del `.env`. Con la misma `SECRET_KEY` nadie pierde la sesión; si se cambia, todos inician sesión de nuevo una vez.
+4. En el servidor (con PostgreSQL **18 o superior**, porque un dump hecho en la 18 no se restaura en una versión anterior): `crear_bd.sh` (roles y base), luego `pg_restore` del dump.
 5. `python manage.py migrate` (con `callflow_app`), `verificar_bd` y `collectstatic`.
 6. Comprobar con TI: iniciar sesión, abrir un CV, descargar un rol de pago, generar un acta PDF y revisar TI → Servidor.
 7. Recién entonces, dar la dirección nueva a todos.
@@ -268,7 +356,7 @@ Recomendación: que el almacenamiento sea **SSD NVMe**, al menos donde va Postgr
 
 - [ ] ¿Multivisa tiene **dominio propio**? ¿Quién maneja su DNS? (Define la opción A o B de HTTPS.)
 - [ ] ¿Cuántas sucursales se esperan y cuándo? ¿Qué internet tienen? (Define VPN central o servidor por sucursal.)
-- [ ] ¿Qué rango de red usa la oficina (por ejemplo `192.168.1.x`)? Cada sucursal debe usar uno distinto.
+- [x] Rango de red de la oficina: `192.168.100.x` (router `192.168.100.1`). Cada sucursal debe usar uno distinto.
 - [ ] ¿Quién tiene acceso físico al servidor y por SSH? (Solo TI: santiago.cedeno y nicolas.correa.)
 - [ ] ¿Dónde se guarda la **copia 3** de los respaldos, fuera de la oficina?
 - [ ] ¿Se cifra el disco con LUKS? (Implica escribir la clave en cada reinicio.)
@@ -286,9 +374,10 @@ Recomendación: que el almacenamiento sea **SSD NVMe**, al menos donde va Postgr
 
 ## 10. Datos útiles del proyecto
 
-- Django 5.2, PostgreSQL 17.4, Python 3.12+, HTMX, Bootstrap, fpdf2.
+- Django 5.2, PostgreSQL 18 (en la PC de la base compartida), Python 3.12+, HTMX, Bootstrap, fpdf2.
 - Las migraciones se corren con el usuario de la aplicación (`callflow_app`): `python manage.py migrate`.
 - Las pruebas se corren con el usuario administrador de la base:
-  `DB_USER=$DB_ADMIN_USER DB_PASSWORD=$DB_ADMIN_PASSWORD python manage.py test apps --noinput`
+  `DB_HOST=localhost DB_USER=$DB_ADMIN_USER DB_PASSWORD=$DB_ADMIN_PASSWORD python manage.py test apps --noinput`
+  (`DB_HOST=localhost` hace falta en las PCs que apuntan a la base compartida.)
 - La base tiene triggers de inmutabilidad (actas, hoja de vida, cuentas TI) y de auditoría. `pg_restore` debe restaurarlos tal cual: no usar `--disable-triggers` en producción.
 - Repositorio: GitHub `Thyago23/CALLFLOW`, rama de trabajo `feature/ventas`.
