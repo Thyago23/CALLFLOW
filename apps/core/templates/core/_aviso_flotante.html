@@ -1,17 +1,19 @@
-<div class="toast aviso-flotante aviso-{{ n.tipo|lower }}" role="{% if n.fija %}alert{% else %}status{% endif %}" aria-live="{% if n.fija %}assertive{% else %}polite{% endif %}" aria-atomic="true"
+{% load interfaz %}
+<div class="toast aviso-flotante tono-{{ n.tono }}{% if n.fija %} fija{% endif %}" role="{% if n.fija %}alert{% else %}status{% endif %}" aria-live="{% if n.fija %}assertive{% else %}polite{% endif %}" aria-atomic="true"
      data-bs-autohide="{{ n.fija|yesno:'false,true' }}" data-bs-delay="10000">
-  <div class="d-flex gap-3 p-3">
-    <div class="icono-aviso flex-shrink-0" aria-hidden="true"><i class="bi bi-{{ n.icono }}"></i></div>
-    <div class="flex-grow-1 min-w-0">
-      <div class="d-flex justify-content-between align-items-start gap-2">
-        <strong class="d-block">{{ n.titulo }}</strong>
-        <button type="button" class="btn-close btn-close-sm flex-shrink-0" data-bs-dismiss="toast" aria-label="Cerrar"></button>
+  <div class="aviso-cuerpo">
+    <span class="icono-notificacion tono-{{ n.tono }}" aria-hidden="true"><i class="bi bi-{{ n.icono }}"></i></span>
+    <div class="min-w-0 flex-grow-1">
+      <div class="aviso-encabezado">
+        <span>{{ n.get_tipo_display }}</span>
+        <span aria-hidden="true">·</span>
+        <time datetime="{{ n.creado_en|date:'c' }}">{{ n.creado_en|hace }}</time>
       </div>
-      {% if n.mensaje %}<div class="small text-body-secondary mt-1">{{ n.mensaje }}</div>{% endif %}
-      <div class="d-flex align-items-center gap-2 mt-2">
-        <a class="btn btn-sm btn-primary" href="{% url 'notificacion_abrir' n.pk %}">{% if n.tipo == "AGENDA" %}Ver evento{% else %}Ver{% endif %}</a>
-        <span class="small text-body-secondary ms-auto">{{ n.get_tipo_display }}</span>
-      </div>
+      <a class="aviso-titulo stretched-link" href="{% url 'notificacion_abrir' n.pk %}">{{ n.titulo }}</a>
+      {% if n.mensaje %}<p class="aviso-mensaje">{{ n.mensaje }}</p>{% endif %}
+      {% if n.fija %}<span class="aviso-accion" aria-hidden="true">{% if n.tipo == "AGENDA" %}Ver evento{% else %}Ver{% endif %}<i class="bi bi-arrow-right-short"></i></span>{% endif %}
     </div>
+    <button type="button" class="btn-close aviso-cerrar" data-bs-dismiss="toast" aria-label="Cerrar aviso"></button>
   </div>
+  {% if not n.fija %}<div class="aviso-tiempo" aria-hidden="true"></div>{% endif %}
 </div>

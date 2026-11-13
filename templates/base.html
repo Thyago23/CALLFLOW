@@ -187,8 +187,8 @@
   {% endif %}
   {% if user.is_authenticated %}
   {% include "_modal_confirmar.html" %}
-  {# Avisos flotantes de notificaciones nuevas (esquina inferior izquierda). #}
-  <div id="avisos-flotantes" class="toast-container position-fixed bottom-0 start-0 p-3"></div>
+  {# Avisos flotantes de notificaciones nuevas: arriba a la derecha, debajo de la campana (el más nuevo arriba). #}
+  <div id="avisos-flotantes" class="avisos-flotantes" aria-label="Avisos nuevos"></div>
   <script>
     (function () {
       const caja = document.getElementById("avisos-flotantes");
@@ -197,6 +197,16 @@
         if (el.dataset.mostrado) return;
         el.dataset.mostrado = "1";
         el.addEventListener("hidden.bs.toast", function () { el.remove(); });
+        // Bootstrap pausa el cierre mientras el puntero está encima y lo reinicia al salir: la barra de tiempo hace lo mismo.
+        const barra = el.querySelector(".aviso-tiempo");
+        function reiniciarBarra() {
+          if (el.matches(":hover, :focus-within")) return;  // Bootstrap sigue en pausa
+          barra.style.animation = "none"; void barra.offsetWidth; barra.style.animation = "";
+        }
+        if (barra) {
+          el.addEventListener("mouseleave", reiniciarBarra);
+          el.addEventListener("focusout", function () { setTimeout(reiniciarBarra, 0); });
+        }
         bootstrap.Toast.getOrCreateInstance(el).show();
         // No se acumulan más de MAXIMO: se cierra el más antiguo.
         const visibles = caja.querySelectorAll(".toast");
