@@ -12,43 +12,69 @@
 <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
   <div>
     <h1 class="h3 mb-1">{{ f }}
+      {% if f.estado == "ENVIADO" or f.estado == "EN_GESTION" %}
+      <span class="badge etapa-dami etapa-{{ f.etapa|lower }} align-middle fs-6">{% if f.etapa == "CIERRE" %}Por cerrar{% elif f.etapa == "GESTION" %}En gestión{% else %}Por filtrar{% endif %}</span>
+      {% else %}
       <span class="badge estado-dami estado-{{ f.estado|lower }} align-middle fs-6">{{ f.get_estado_display }}</span>
+      {% endif %}
       {% if f.prioridad == 1 %}<span class="badge text-bg-danger align-middle fs-6">Prioritario</span>{% endif %}
     </h1>
     <div class="text-body-secondary">
       Enviado {{ f.enviado_en|date:"d/m/Y H:i" }} · Asesor: {{ f.vendedor }}{% if f.ayudado_por %} · lo llenó {{ f.ayudado_por }} como ayuda{% endif %}
-      {% if f.encargado_asignado %} · A cargo de: <strong>{% if propio %}usted{% else %}{{ f.encargado_asignado }}{% endif %}</strong>{% endif %}
+      {% if f.estado == "ENVIADO" or f.estado == "EN_GESTION" %} · A cargo de: <strong>{% if propio %}usted{% else %}{{ a_cargo|default:"cualquier supervisor" }}{% endif %}</strong>{% endif %}
     </div>
-  </div>
-  <div class="d-flex flex-wrap gap-2">
-    {% if puede_tomar %}
-    <form method="post" action="{% url 'cierre:accion' f.pk %}">
-      {% csrf_token %}<input type="hidden" name="accion" value="tomar"><input type="hidden" name="version" value="{{ f.version }}">
-      <button type="submit" class="btn btn-primary"><i class="bi bi-hand-index me-1" aria-hidden="true"></i>Tomar para gestionar</button>
-    </form>
-    {% endif %}
-    {% if puede_liberar %}
-    <form method="post" action="{% url 'cierre:accion' f.pk %}" onsubmit="return confirm('¿Devolver el formulario a la cola para que lo tome otro supervisor?');">
-      {% csrf_token %}<input type="hidden" name="accion" value="liberar"><input type="hidden" name="version" value="{{ f.version }}">
-      <button type="submit" class="btn btn-outline-secondary"><i class="bi bi-arrow-return-left me-1" aria-hidden="true"></i>Devolver a la cola</button>
-    </form>
-    {% endif %}
   </div>
 </div>
 
 {% include "cierre/_aviso_sin_ficha.html" %}
 
-{% if f.estado == "EN_GESTION" and not propio and not form_resultado %}
+{% if f.estado == "ENVIADO" or f.estado == "EN_GESTION" %}
+{% if not puede_actuar %}
 <div class="alert alert-info small"><i class="bi bi-person-lock me-1" aria-hidden="true"></i>
-  Este formulario lo está gestionando {{ f.encargado_asignado }}. Solo esa persona puede registrar el resultado.
+  Está en la etapa de <strong>{{ f.get_etapa_display|lower }}</strong>{% if a_cargo %}, a cargo de {{ a_cargo }}{% endif %}. Solo esa persona (o el administrador) puede continuar.
 </div>
+{% elif not propio %}
+<div class="alert alert-secondary small"><i class="bi bi-shield-check me-1" aria-hidden="true"></i>
+  Actúa como administrador en nombre de {{ a_cargo|default:"quien hace el filtro" }} (etapa de {{ f.get_etapa_display|lower }}).
+</div>
+{% endif %}
 {% endif %}
 
 <div class="row g-4">
   <div class="col-lg-7">
+    {% if puede_pasar_filtro or puede_devolver_cierre %}
+    <section class="card mb-4 border-success">
+      <div class="card-header bg-body"><h2 class="h6 mb-0">
+        {% if puede_pasar_filtro %}<i class="bi bi-funnel me-1" aria-hidden="true"></i>¿El cliente pasa el filtro?
+        {% else %}<i class="bi bi-telephone-outbound me-1" aria-hidden="true"></i>¿La gestión fue exitosa?{% endif %}
+      </h2></div>
+      <div class="card-body">
+        <form method="post" action="{% url 'cierre:accion' f.pk %}">
+          {% csrf_token %}{{ form_pase.version }}
+          <input type="hidden" name="accion" value="{% if puede_pasar_filtro %}pasar_filtro{% else %}devolver_cierre{% endif %}">
+          {% include "_campo.html" with campo=form_pase.nota %}
+          {% if puede_pasar_filtro %}
+            {% if responsable_gestion %}
+            <button type="submit" class="btn btn-success"><i class="bi bi-check2-circle me-1" aria-hidden="true"></i>Pasa el filtro: enviar a {{ responsable_gestion }}</button>
+            {% else %}
+            <div class="alert alert-warning small mb-0">Todavía no está definido quién hace la gestión. El administrador lo elige en la bandeja de cierre (Responsables).</div>
+            {% endif %}
+          {% else %}
+            <button type="submit" class="btn btn-success"><i class="bi bi-check2-circle me-1" aria-hidden="true"></i>Exitosa: devolver a {{ responsable_filtro|default:"quien lo filtró" }} para el cierre</button>
+          {% endif %}
+        </form>
+        <p class="form-text mb-0 mt-2">Si {% if puede_pasar_filtro %}no pasa el filtro{% else %}no fue exitosa{% endif %}, regístrelo abajo como venta no concretada.</p>
+      </div>
+    </section>
+    {% endif %}
+
     {% if form_resultado %}
-    <section class="card mb-4 border-primary">
-      <div class="card-header bg-body"><h2 class="h6 mb-0">Registrar el resultado de la gestión</h2></div>
+    <section class="card mb-4 {% if solo_descartar %}border-danger{% else %}border-primary{% endif %}">
+      <div class="card-header bg-body"><h2 class="h6 mb-0">
+        {% if not solo_descartar %}Cierre final: registrar el resultado
+        {% elif f.etapa == "GESTION" %}La gestión no fue exitosa
+        {% else %}El cliente no pasa el filtro{% endif %}
+      </h2></div>
       <div class="card-body">
         <form method="post" action="{% url 'cierre:resultado' f.pk %}" novalidate data-form-resultado>
           {% csrf_token %}{{ form_resultado.version }}
@@ -70,7 +96,7 @@
           </div>
           {% endwith %}
           {% include "_campo.html" with campo=form_resultado.observaciones %}
-          <button type="submit" class="btn btn-primary"><i class="bi bi-check2-circle me-1" aria-hidden="true"></i>Guardar resultado</button>
+          <button type="submit" class="btn {% if solo_descartar %}btn-outline-danger{% else %}btn-primary{% endif %}"><i class="bi bi-check2-circle me-1" aria-hidden="true"></i>{% if solo_descartar %}Registrar como no concretada{% else %}Guardar resultado{% endif %}</button>
           <p class="form-text mb-0 mt-2">Al guardar se actualiza la hoja de producción del vendedor. Después, solo el administrador puede corregirlo.</p>
         </form>
       </div>
@@ -161,7 +187,7 @@
   <div class="col-lg-5">
     {% if puede_reasignar %}
     <section class="card mb-4">
-      <div class="card-header bg-body"><h2 class="h6 mb-0">Reasignar (administrador)</h2></div>
+      <div class="card-header bg-body"><h2 class="h6 mb-0">Reasignar esta etapa (administrador)</h2></div>
       <div class="card-body">
         <form method="post" action="{% url 'cierre:accion' f.pk %}" class="d-flex gap-2 align-items-end">
           {% csrf_token %}<input type="hidden" name="accion" value="reasignar">{{ form_reasignar.version }}
@@ -181,6 +207,7 @@
         <li class="list-group-item small">
           {% if h.tipo == "estado" %}<span class="badge estado-dami estado-{{ h.estado|lower }}">{{ h.texto }}</span>
           {% else %}<i class="bi bi-person-gear me-1" aria-hidden="true"></i>{{ h.texto }}{% endif %}
+          {% if h.nota %}<div class="fst-italic text-body-secondary mt-1">“{{ h.nota }}”</div>{% endif %}
           <span class="text-body-secondary ms-1">{{ h.fecha|date:"d/m/Y H:i" }} · {{ h.usuario }}</span>
         </li>
         {% empty %}

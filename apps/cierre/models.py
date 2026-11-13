@@ -67,12 +67,15 @@ class MovimientoAsignacion(models.Model):
     """
 
     class Accion(models.TextChoices):
-        TOMAR = "TOMAR", "Tomó el formulario"
-        LIBERAR = "LIBERAR", "Devolvió el formulario a la cola"
+        TOMAR = "TOMAR", "Tomó el formulario"  # cola compartida (flujo anterior)
+        LIBERAR = "LIBERAR", "Devolvió el formulario a la cola"  # cola compartida (flujo anterior)
         REASIGNAR = "REASIGNAR", "Reasignó el formulario"
+        PASA_FILTRO = "PASA_FILTRO", "Pasó el filtro y lo envió a gestión"
+        A_CIERRE = "A_CIERRE", "Gestión exitosa: lo devolvió para el cierre"
 
     formulario = models.ForeignKey("ventas.FormularioDAMI", on_delete=models.CASCADE, related_name="movimientos_asignacion")
-    accion = models.CharField(max_length=10, choices=Accion.choices)
+    accion = models.CharField(max_length=12, choices=Accion.choices)
+    nota = models.TextField(blank=True, default="", help_text="Comentario para quien recibe el formulario.")
     de_encargado = models.ForeignKey("personal.Empleado", on_delete=models.PROTECT, null=True, blank=True, related_name="+")
     a_encargado = models.ForeignKey("personal.Empleado", on_delete=models.PROTECT, null=True, blank=True, related_name="+")
     usuario = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
@@ -83,8 +86,30 @@ class MovimientoAsignacion(models.Model):
         verbose_name_plural = "movimientos de asignación"
         ordering = ["formulario", "fecha"]
         constraints = [
-            models.CheckConstraint(condition=Q(accion__in=["TOMAR", "LIBERAR", "REASIGNAR"]), name="movimiento_accion_valida"),
+            models.CheckConstraint(condition=Q(accion__in=["TOMAR", "LIBERAR", "REASIGNAR", "PASA_FILTRO", "A_CIERRE"]),
+                                   name="movimiento_accion_valida"),
         ]
+
+
+class ConfiguracionCierre(models.Model):
+    """
+    Quién hace cada etapa del cierre (una sola fila, la configura el administrador):
+      - responsable_filtro: recibe los DAMI enviados, los filtra y hace el cierre final.
+      - responsable_gestion: gestiona los que pasaron el filtro y, si es exitoso, los devuelve para el cierre.
+    """
+
+    responsable_filtro = models.ForeignKey("personal.Empleado", on_delete=models.PROTECT, null=True, blank=True,
+                                           related_name="+", verbose_name="filtro y cierre")
+    responsable_gestion = models.ForeignKey("personal.Empleado", on_delete=models.PROTECT, null=True, blank=True,
+                                            related_name="+", verbose_name="gestión")
+    actualizado_en = models.DateTimeField(auto_now=True)
+    actualizado_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+                                        related_name="+")
+
+    class Meta:
+        verbose_name = "configuración del cierre"
+        verbose_name_plural = "configuración del cierre"
+        constraints = [models.CheckConstraint(condition=Q(id=1), name="configuracion_cierre_unica")]
 
 
 class PreferenciaPanel(models.Model):

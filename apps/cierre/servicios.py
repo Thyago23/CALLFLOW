@@ -1,11 +1,13 @@
 """
 4.4 Módulo de cierre de ventas (SCRUM-48 a SCRUM-59).
 
-Reparto de formularios (SCRUM-50, propuesta a confirmar con la empresa): **cola compartida**.
-Los formularios enviados quedan en una cola única, primero los de tarjeta activa y luego por
-orden de llegada. Cada encargado *toma* el que va a gestionar; mientras lo tiene, solo él (o
-el administrador en su nombre) registra el resultado. Puede devolverlo a la cola y el
-administrador puede reasignarlo a otro encargado.
+Flujo de cierre en etapas (definido con la empresa):
+  1. El vendedor envía el DAMI: llega a quien hace el **filtro y cierre**.
+  2. Filtro: si el cliente no pasa, se registra «no concretada». Si pasa, se envía a **gestión**.
+  3. Gestión: si no es exitosa, quien gestiona registra «no concretada». Si es exitosa, lo devuelve.
+  4. Cierre final: quien filtró registra «venta cerrada» (con su valor) o «no concretada».
+Quién hace cada etapa lo configura el administrador (ConfiguracionCierre). El administrador también
+puede reasignar la etapa actual a otro supervisor y registrar en nombre de quien la tiene.
 
 Modificaciones simultáneas (SCRUM-59): cada acción sobre un DAMI lleva la `version` que el
 usuario tenía en pantalla. La base de datos incrementa la versión en cada cambio, así que si
@@ -29,13 +31,17 @@ from apps.ventas.models import FormularioDAMI
 from apps.ventas.servicios import _notificar, empleado_de, es_administrador
 from apps.ventas.tarjetas import descifrar
 
-from .models import GestionCierre, MetaMensual, MovimientoAsignacion, PreferenciaPanel, ResumenVendedorMes
+from .models import (ConfiguracionCierre, GestionCierre, MetaMensual, MovimientoAsignacion, PreferenciaPanel,
+                     ResumenVendedorMes)
 
 logger = logging.getLogger(__name__)
 Estado = FormularioDAMI.Estado
+Etapa = FormularioDAMI.Etapa
 EN_COLA = [Estado.ENVIADO, Estado.EN_GESTION]
 
 MOTIVOS_NO_CONCRETADA = [
+    "El cliente no pasó el filtro",
+    "La gestión no fue exitosa",
     "El cliente no contesta",
     "El cliente no está interesado",
     "La tarjeta fue rechazada",
@@ -61,25 +67,13 @@ def es_encargado(usuario) -> bool:
 
 
 def sin_ficha(usuario) -> bool:
-    """Encargado de cierre cuya cuenta no está vinculada a un empleado: no puede tomar ni registrar cierres."""
+    """Encargado de cierre cuya cuenta no está vinculada a un empleado: no puede gestionar ni registrar cierres."""
     return usuario.rol == Rol.ENCARGADO_CIERRE and empleado_de(usuario) is None
-
-
-def numero_tarjeta_visible(usuario, formulario, tarjeta) -> str | None:
-    """Número completo, en bloques de 4: solo para el encargado que tiene tomado el DAMI, mientras lo gestiona."""
-    if (tarjeta is None or formulario.estado != Estado.EN_GESTION or not es_encargado(usuario)
-            or formulario.encargado_asignado_id != empleado_de(usuario).pk):
-        return None
-    try:
-        numero = descifrar(tarjeta.numero_cifrado)
-    except InvalidToken:
-        logger.error("No se pudo descifrar la tarjeta del formulario %s: revise CLAVE_TARJETAS.", formulario.pk)
-        return None
-    return " ".join(numero[i:i + 4] for i in range(0, len(numero), 4))
 
 
 def encargados_activos():
     return (Empleado.objects.filter(usuario__rol=Rol.ENCARGADO_CIERRE, usuario__is_active=True)
+            .exclude(estado=Empleado.Estado.DESVINCULADO)
             .select_related("usuario").order_by("apellidos", "nombres"))
 
 
@@ -91,6 +85,83 @@ def vendedores_activos():
 
 def url_formulario(formulario) -> str:
     return reverse("cierre:formulario", args=[formulario.pk])
+
+
+# --------------------------------------------------------------------------- responsables de cada etapa
+def configuracion() -> ConfiguracionCierre:
+    return (ConfiguracionCierre.objects.select_related("responsable_filtro__usuario", "responsable_gestion__usuario")
+            .get_or_create(pk=1)[0])
+
+
+def _disponible(empleado):
+    """Solo cuenta si sigue siendo un supervisor activo (no desvinculado ni con la cuenta desactivada)."""
+    return empleado if empleado and encargados_activos().filter(pk=empleado.pk).exists() else None
+
+
+def responsable_filtro():
+    return _disponible(configuracion().responsable_filtro)
+
+
+def responsable_gestion():
+    return _disponible(configuracion().responsable_gestion)
+
+
+@transaction.atomic
+def configurar_responsables(usuario, *, filtro: Empleado | None, gestion: Empleado | None) -> ConfiguracionCierre:
+    if not es_administrador(usuario):
+        raise PermissionDenied("Solo el administrador configura quién hace cada etapa del cierre.")
+    for empleado in (filtro, gestion):
+        if empleado is not None and _disponible(empleado) is None:
+            raise ValidationError(f"{empleado} no es un supervisor activo.")
+    config = ConfiguracionCierre.objects.select_for_update().get_or_create(pk=1)[0]
+    config.responsable_filtro, config.responsable_gestion, config.actualizado_por = filtro, gestion, usuario
+    config.save()
+    return config
+
+
+def a_cargo(formulario):
+    """Quién debe actuar ahora sobre el DAMI (None: cualquier supervisor, si no hay responsable de filtro)."""
+    if formulario.estado == Estado.ENVIADO:
+        return responsable_filtro()
+    if formulario.estado == Estado.EN_GESTION:
+        return formulario.encargado_asignado
+    return None
+
+
+def puede_actuar(usuario, formulario) -> bool:
+    """El supervisor de la etapa actual (o el administrador en su nombre)."""
+    if formulario.estado not in EN_COLA:
+        return False
+    if es_administrador(usuario):
+        return True
+    if not es_encargado(usuario):
+        return False
+    yo = empleado_de(usuario)
+    if yo.pk == formulario.vendedor_id:
+        return False
+    if formulario.estado == Estado.ENVIADO:
+        filtro = responsable_filtro()
+        return filtro is None or filtro.pk == yo.pk
+    return formulario.encargado_asignado_id == yo.pk
+
+
+def resultados_permitidos(formulario) -> list[str]:
+    """La venta solo se cierra en el cierre final; en el filtro y en la gestión solo se puede descartar."""
+    if formulario.estado == Estado.EN_GESTION and formulario.etapa == Etapa.CIERRE:
+        return [GestionCierre.Resultado.VENTA_CERRADA, GestionCierre.Resultado.NO_CONCRETADA]
+    return [GestionCierre.Resultado.NO_CONCRETADA]
+
+
+def numero_tarjeta_visible(usuario, formulario, tarjeta) -> str | None:
+    """Número completo, en bloques de 4: solo para el supervisor que tiene el DAMI en su etapa (filtro, gestión o cierre)."""
+    if tarjeta is None or not es_encargado(usuario) or not puede_actuar(usuario, formulario):
+        return None
+    try:
+        numero = descifrar(tarjeta.numero_cifrado)
+    except InvalidToken:
+        logger.error("No se pudo descifrar la tarjeta del formulario %s: revise CLAVE_TARJETAS.", formulario.pk)
+        return None
+    return " ".join(numero[i:i + 4] for i in range(0, len(numero), 4))
 
 
 # --------------------------------------------------------------------------- bandeja (SCRUM-48, 49)
@@ -107,17 +178,37 @@ def gestionados():
             .order_by("-gestion__gestionado_en", "-pk"))
 
 
+def mis_pendientes(qs, usuario):
+    """Los DAMI de la bandeja que le toca atender a este supervisor."""
+    yo = empleado_de(usuario)
+    if yo is None:
+        return qs.none()
+    filtro = responsable_filtro()
+    mios = Q(estado=Estado.EN_GESTION, encargado_asignado=yo)
+    if filtro is None or filtro.pk == yo.pk:
+        mios |= Q(estado=Estado.ENVIADO)
+    return qs.filter(mios).exclude(vendedor=yo)
+
+
+def pendientes_de(usuario) -> int:
+    """Número del menú: lo que espera a este supervisor (al administrador: lo recién enviado, sin abrir)."""
+    if es_encargado(usuario):
+        return mis_pendientes(FormularioDAMI.objects.filter(estado__in=EN_COLA), usuario).count()
+    return FormularioDAMI.objects.filter(estado=Estado.ENVIADO).count()
+
+
 def resumen_bandeja() -> dict:
     cola = FormularioDAMI.objects.filter(estado__in=EN_COLA)
     return {
         "en_cola": cola.count(),
-        "sin_asignar": cola.filter(estado=Estado.ENVIADO).count(),
+        "por_filtrar": cola.filter(etapa=Etapa.FILTRO).count(),
+        "en_gestion": cola.filter(etapa=Etapa.GESTION).count(),
+        "por_cerrar": cola.filter(etapa=Etapa.CIERRE).count(),
         "prioritarios": cola.filter(prioridad=1).count(),
-        "prioritarios_sin_asignar": cola.filter(prioridad=1, estado=Estado.ENVIADO).count(),
     }
 
 
-# --------------------------------------------------------------------------- asignación (SCRUM-51, 59)
+# --------------------------------------------------------------------------- pasar de una etapa a otra (SCRUM-51, 59)
 def _actualizar_con_version(formulario, version: int, filtro: Q, **cambios) -> FormularioDAMI:
     """UPDATE ... WHERE id = ? AND version = ?: si alguien guardó antes, no se toca nada."""
     filas = (FormularioDAMI.objects.filter(filtro, pk=formulario.pk, version=version)
@@ -132,52 +223,79 @@ def _marcar_avisos_atendidos(url: str) -> None:
     Notificacion.objects.filter(url=url, leida=False).update(leida=True, leida_en=timezone.now())
 
 
-@transaction.atomic
-def tomar(usuario, formulario, version: int) -> FormularioDAMI:
-    if not es_encargado(usuario):
-        raise PermissionDenied("Solo los supervisores toman formularios.")
-    if formulario.estado != Estado.ENVIADO or formulario.encargado_asignado_id:
-        if formulario.encargado_asignado_id:
-            raise Conflicto(f"Este formulario ya lo está gestionando {formulario.encargado_asignado}.")
-        raise ValidationError("Este formulario ya no está en la cola.")
-    encargado = empleado_de(usuario)
+def _quien_actua(usuario, formulario):
+    """El empleado en cuyo nombre queda la acción: el de la etapa, o quien actúa si es supervisor."""
+    if formulario.encargado_asignado_id:
+        return formulario.encargado_asignado
+    if es_encargado(usuario):
+        return empleado_de(usuario)
+    return responsable_filtro()
+
+
+def _mover(usuario, formulario, version: int, *, etapa_actual: str, etapa: str, destino: Empleado, accion: str,
+           nota: str, titulo: str) -> FormularioDAMI:
+    if destino.pk == formulario.vendedor_id:
+        raise ValidationError(f"{destino} es el vendedor de este DAMI: no puede gestionarlo.")
+    anterior = _quien_actua(usuario, formulario)
     try:
         with transaction.atomic():
             actualizado = _actualizar_con_version(
-                formulario, version, Q(estado=Estado.ENVIADO, encargado_asignado__isnull=True),
-                estado=Estado.EN_GESTION, encargado_asignado=encargado, asignado_en=timezone.now(),
+                formulario, version, Q(estado__in=EN_COLA, etapa=etapa_actual),
+                estado=Estado.EN_GESTION, etapa=etapa, encargado_asignado=destino, asignado_en=timezone.now(),
             )
-    except IntegrityError as error:  # p. ej. un encargado que también es el vendedor del DAMI
-        raise ValidationError("No puede tomar un formulario que usted mismo registró.") from error
-    MovimientoAsignacion.objects.create(formulario=actualizado, accion=MovimientoAsignacion.Accion.TOMAR,
-                                        a_encargado=encargado, usuario=usuario)
+    except IntegrityError as error:
+        raise ValidationError("No se pudo pasar el formulario a la siguiente etapa. Recargue e intente de nuevo.") from error
+    MovimientoAsignacion.objects.create(formulario=actualizado, accion=accion, de_encargado=anterior,
+                                        a_encargado=destino, usuario=usuario, nota=nota.strip())
     _marcar_avisos_atendidos(url_formulario(actualizado))
+    if destino.usuario_id:
+        de = usuario.get_full_name() or usuario.username
+        _notificar([destino.usuario], titulo=titulo.format(f=actualizado),
+                   mensaje=f"De {de}" + (f": {nota.strip()}" if nota.strip() else "") + f" · cliente {actualizado.cliente.identificacion}",
+                   url=url_formulario(actualizado))
     return actualizado
 
 
 @transaction.atomic
-def liberar(usuario, formulario, version: int) -> FormularioDAMI:
-    """Devuelve el formulario a la cola para que lo tome otro encargado."""
-    propio = es_encargado(usuario) and formulario.encargado_asignado_id == empleado_de(usuario).pk
-    if not (propio or es_administrador(usuario)):
-        raise PermissionDenied("Solo quien tiene el formulario (o el administrador) puede devolverlo a la cola.")
-    if formulario.estado != Estado.EN_GESTION:
-        raise ValidationError("Este formulario no está en gestión.")
-    anterior = formulario.encargado_asignado
-    actualizado = _actualizar_con_version(
-        formulario, version, Q(estado=Estado.EN_GESTION, encargado_asignado=anterior),
-        estado=Estado.ENVIADO, encargado_asignado=None, asignado_en=None,
-    )
-    MovimientoAsignacion.objects.create(formulario=actualizado, accion=MovimientoAsignacion.Accion.LIBERAR,
-                                        de_encargado=anterior, usuario=usuario)
-    otros = [e.usuario for e in encargados_activos().exclude(pk=getattr(anterior, "pk", None))]
-    _notificar(otros, titulo=f"{actualizado} volvió a la cola de cierre",
-               mensaje=f"Lo devolvió {usuario.get_full_name() or usuario.username}.", url=url_formulario(actualizado))
-    return actualizado
+def pasar_filtro(usuario, formulario, version: int, nota: str = "") -> FormularioDAMI:
+    """El cliente pasó el filtro: el DAMI va a quien hace la gestión."""
+    if not puede_actuar(usuario, formulario):
+        raise PermissionDenied("Este formulario no está en su etapa.")
+    if formulario.etapa != Etapa.FILTRO:
+        raise ValidationError("Este formulario ya pasó el filtro.")
+    gestion = responsable_gestion()
+    if gestion is None:
+        raise ValidationError("Todavía no está configurado quién hace la gestión. Pida al administrador que lo elija "
+                              "en la bandeja de cierre (Responsables).")
+    return _mover(usuario, formulario, version, etapa_actual=Etapa.FILTRO, etapa=Etapa.GESTION, destino=gestion,
+                  accion=MovimientoAsignacion.Accion.PASA_FILTRO, nota=nota,
+                  titulo="{f} pasó el filtro: le toca gestionarlo")
+
+
+def _quien_filtro(formulario):
+    movimiento = (formulario.movimientos_asignacion.filter(accion=MovimientoAsignacion.Accion.PASA_FILTRO)
+                  .order_by("-fecha").first())
+    return _disponible(movimiento.de_encargado) if movimiento else None
+
+
+@transaction.atomic
+def devolver_a_cierre(usuario, formulario, version: int, nota: str = "") -> FormularioDAMI:
+    """La gestión fue exitosa: el DAMI vuelve a quien filtró para que cierre la venta."""
+    if not puede_actuar(usuario, formulario):
+        raise PermissionDenied("Este formulario no está en su etapa.")
+    if formulario.estado != Estado.EN_GESTION or formulario.etapa != Etapa.GESTION:
+        raise ValidationError("Solo se devuelve para el cierre un formulario que está en gestión.")
+    destino = responsable_filtro() or _quien_filtro(formulario)
+    if destino is None:
+        raise ValidationError("No hay a quién devolverlo: pida al administrador que configure quién hace el filtro y cierre.")
+    return _mover(usuario, formulario, version, etapa_actual=Etapa.GESTION, etapa=Etapa.CIERRE, destino=destino,
+                  accion=MovimientoAsignacion.Accion.A_CIERRE, nota=nota,
+                  titulo="{f}: gestión exitosa, listo para cerrar la venta")
 
 
 @transaction.atomic
 def reasignar(usuario, formulario, version: int, encargado: Empleado) -> FormularioDAMI:
+    """El administrador pasa la etapa actual a otro supervisor (p. ej. si el responsable faltó)."""
     if not es_administrador(usuario):
         raise PermissionDenied("Solo el administrador reasigna formularios.")
     if formulario.estado not in EN_COLA:
@@ -196,7 +314,8 @@ def reasignar(usuario, formulario, version: int, encargado: Empleado) -> Formula
     MovimientoAsignacion.objects.create(formulario=actualizado, accion=MovimientoAsignacion.Accion.REASIGNAR,
                                         de_encargado=anterior, a_encargado=encargado, usuario=usuario)
     if encargado.usuario_id:
-        _notificar([encargado.usuario], titulo=f"Se le asignó {actualizado} para cierre",
+        _notificar([encargado.usuario],
+                   titulo=f"Se le asignó {actualizado} ({actualizado.get_etapa_display().lower()})",
                    mensaje=f"Cliente {actualizado.cliente.identificacion} · asesor {actualizado.vendedor}",
                    url=url_formulario(actualizado))
     return actualizado
@@ -219,23 +338,31 @@ def _validar_resultado(resultado: str, valor, motivo: str):
 def registrar_resultado(usuario, formulario, version: int, *, resultado: str, valor_venta: Decimal | None = None,
                         motivo: str = "", observaciones: str = "") -> GestionCierre:
     """
-    Registra el resultado. La base de datos actualiza en la misma transacción el DAMI y la hoja
-    de producción del vendedor (SCRUM-53): si algo falla, no se guarda nada.
+    Registra el resultado: «no concretada» en cualquier etapa (no pasó el filtro / gestión no exitosa) y
+    «venta cerrada» solo en el cierre final. La base de datos actualiza en la misma transacción el DAMI y
+    la hoja de producción del vendedor (SCRUM-53): si algo falla, no se guarda nada.
     """
     valor, motivo = _validar_resultado(resultado, valor_venta, motivo.strip())
     bloqueado = (FormularioDAMI.objects.select_for_update(of=("self",)).select_related("encargado_asignado", "vendedor")
                  .get(pk=formulario.pk))
     if bloqueado.version != version:
         raise Conflicto()
-    if bloqueado.estado != Estado.EN_GESTION or bloqueado.encargado_asignado is None:
-        raise ValidationError("Primero tome el formulario para gestionarlo.")
-    propio = es_encargado(usuario) and bloqueado.encargado_asignado_id == empleado_de(usuario).pk
-    if not (propio or es_administrador(usuario)):
-        raise PermissionDenied(f"Este formulario lo está gestionando {bloqueado.encargado_asignado}.")
+    if bloqueado.estado not in EN_COLA:
+        raise ValidationError("Este formulario ya no está pendiente de cierre.")
+    if not puede_actuar(usuario, bloqueado):
+        quien = a_cargo(bloqueado)
+        raise PermissionDenied(f"Este formulario lo tiene {quien} ({bloqueado.get_etapa_display().lower()})." if quien
+                               else "Este formulario no está en su etapa.")
+    if resultado not in resultados_permitidos(bloqueado):
+        raise ValidationError({"resultado": "La venta se cierra en el cierre final, después de la gestión."})
+    encargado = _quien_actua(usuario, bloqueado)
+    if encargado is None:
+        raise ValidationError("Configure quién hace el filtro y cierre para registrar el resultado.")
+    etapa = bloqueado.etapa
     try:
         with transaction.atomic():
             gestion = GestionCierre.objects.create(
-                formulario=bloqueado, encargado=bloqueado.encargado_asignado, resultado=resultado,
+                formulario=bloqueado, encargado=encargado, resultado=resultado,
                 valor_venta=valor, motivo_no_concretada=motivo, observaciones=observaciones.strip(),
             )
     except IntegrityError as error:  # la base de datos no admite dos resultados para un mismo formulario
@@ -246,6 +373,11 @@ def registrar_resultado(usuario, formulario, version: int, *, resultado: str, va
         texto = (f"Venta cerrada por ${valor:,.2f}" if valor else f"Venta no concretada: {motivo}")
         _notificar([vendedor.usuario], titulo=f"Resultado de {bloqueado}: {gestion.get_resultado_display().lower()}",
                    mensaje=texto, url=reverse("ventas:hoja"))
+    if etapa == Etapa.GESTION:  # quien lo filtró se entera de que la gestión no resultó
+        filtro = responsable_filtro() or _quien_filtro(bloqueado)
+        if filtro and filtro.usuario_id and filtro.pk != encargado.pk:
+            _notificar([filtro.usuario], titulo=f"{bloqueado}: la gestión no fue exitosa",
+                       mensaje=f"{encargado} lo registró como no concretada: {motivo}", url=url_formulario(bloqueado))
     return gestion
 
 
@@ -270,7 +402,7 @@ def corregir_resultado(usuario, gestion: GestionCierre, *, resultado: str, valor
 
 # --------------------------------------------------------------------------- historial del formulario
 def historial(formulario) -> list[dict]:
-    """Cambios de estado (trigger de ventas) y movimientos de asignación, en orden."""
+    """Cambios de estado (trigger de ventas) y movimientos entre etapas, en orden."""
     from apps.core.models import Usuario
 
     estados = list(formulario.historial.all())
@@ -280,14 +412,19 @@ def historial(formulario) -> list[dict]:
     filas = [{"fecha": h.fecha, "tipo": "estado", "estado": h.estado_nuevo,
               "texto": etiquetas.get(h.estado_nuevo, h.estado_nuevo), "usuario": nombres.get(h.usuario_id, "Sistema")}
              for h in estados]
+    A = MovimientoAsignacion.Accion
     for m in movimientos:
-        if m.accion == MovimientoAsignacion.Accion.REASIGNAR:
+        if m.accion == A.PASA_FILTRO:
+            texto = f"Pasó el filtro: enviado a gestión con {m.a_encargado}"
+        elif m.accion == A.A_CIERRE:
+            texto = f"Gestión exitosa: devuelto a {m.a_encargado} para el cierre"
+        elif m.accion == A.REASIGNAR:
             texto = f"Reasignado de {m.de_encargado or 'la cola'} a {m.a_encargado}"
-        elif m.accion == MovimientoAsignacion.Accion.TOMAR:
+        elif m.accion == A.TOMAR:
             texto = f"Lo tomó {m.a_encargado}"
         else:
             texto = f"{m.de_encargado} lo devolvió a la cola"
-        filas.append({"fecha": m.fecha, "tipo": "asignacion", "texto": texto,
+        filas.append({"fecha": m.fecha, "tipo": "asignacion", "texto": texto, "nota": m.nota,
                       "usuario": m.usuario.get_full_name() if m.usuario else "Sistema"})
     return sorted(filas, key=lambda f: f["fecha"])
 

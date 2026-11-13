@@ -4,11 +4,42 @@
 {% include "cierre/_subnav.html" with seccion="bandeja" %}
 {% include "cierre/_aviso_sin_ficha.html" %}
 
+{# Flujo: filtro (y cierre final) → gestión → cierre final. #}
+<div class="card mb-3">
+  <div class="card-body py-2 d-flex flex-wrap align-items-center gap-2 small">
+    <span class="fw-semibold me-1">Flujo del cierre:</span>
+    <span class="badge etapa-dami etapa-filtro">1 · Filtro</span><span class="text-body-secondary">{{ responsable_filtro|default:"sin definir" }}</span>
+    <i class="bi bi-arrow-right text-body-secondary" aria-hidden="true"></i>
+    <span class="badge etapa-dami etapa-gestion">2 · Gestión</span><span class="text-body-secondary">{{ responsable_gestion|default:"sin definir" }}</span>
+    <i class="bi bi-arrow-right text-body-secondary" aria-hidden="true"></i>
+    <span class="badge etapa-dami etapa-cierre">3 · Cierre final</span><span class="text-body-secondary">{{ responsable_filtro|default:"sin definir" }}</span>
+    {% if form_responsables %}
+    <button class="btn btn-sm btn-outline-primary ms-auto" type="button" data-bs-toggle="collapse" data-bs-target="#responsables-cierre"
+            aria-expanded="{% if not responsable_filtro or not responsable_gestion %}true{% else %}false{% endif %}" aria-controls="responsables-cierre">
+      <i class="bi bi-people me-1" aria-hidden="true"></i>Responsables
+    </button>
+    {% endif %}
+  </div>
+  {% if form_responsables %}
+  <div class="collapse {% if not responsable_filtro or not responsable_gestion %}show{% endif %}" id="responsables-cierre">
+    <form method="post" action="{% url 'cierre:responsables' %}" class="card-body border-top row g-3 align-items-end">
+      {% csrf_token %}
+      {% if not responsable_filtro or not responsable_gestion %}
+      <div class="col-12"><div class="alert alert-warning small mb-0">Elija quién hace cada etapa. Mientras no haya alguien en «Gestión», los DAMI no pueden pasar el filtro.</div></div>
+      {% endif %}
+      <div class="col-md-5">{% include "_campo.html" with campo=form_responsables.filtro ayuda=form_responsables.filtro.help_text %}</div>
+      <div class="col-md-5">{% include "_campo.html" with campo=form_responsables.gestion ayuda=form_responsables.gestion.help_text %}</div>
+      <div class="col-md-2 mb-3"><button type="submit" class="btn btn-primary w-100">Guardar</button></div>
+    </form>
+  </div>
+  {% endif %}
+</div>
+
 <div class="row g-3 mb-3">
-  <div class="col-6 col-lg-3"><div class="card resumen-dia h-100"><div class="card-body"><div class="valor">{{ resumen.en_cola }}</div><div class="small text-body-secondary">En la cola</div></div></div></div>
-  <div class="col-6 col-lg-3"><div class="card resumen-dia h-100"><div class="card-body"><div class="valor text-warning-emphasis">{{ resumen.sin_asignar }}</div><div class="small text-body-secondary">Sin asignar</div></div></div></div>
+  <div class="col-6 col-lg-3"><div class="card resumen-dia h-100"><div class="card-body"><div class="valor text-warning-emphasis">{{ resumen.por_filtrar }}</div><div class="small text-body-secondary">Por filtrar</div></div></div></div>
+  <div class="col-6 col-lg-3"><div class="card resumen-dia h-100"><div class="card-body"><div class="valor">{{ resumen.en_gestion }}</div><div class="small text-body-secondary">En gestión</div></div></div></div>
+  <div class="col-6 col-lg-3"><div class="card resumen-dia h-100"><div class="card-body"><div class="valor text-success">{{ resumen.por_cerrar }}</div><div class="small text-body-secondary">Por cerrar (gestión exitosa)</div></div></div></div>
   <div class="col-6 col-lg-3"><div class="card resumen-dia h-100 borde-prioritario"><div class="card-body"><div class="valor text-danger">{{ resumen.prioritarios }}</div><div class="small text-body-secondary">Prioritarios (tarjeta activa)</div></div></div></div>
-  <div class="col-6 col-lg-3"><div class="card resumen-dia h-100"><div class="card-body"><div class="valor">{{ resumen.prioritarios_sin_asignar }}</div><div class="small text-body-secondary">Prioritarios sin asignar</div></div></div></div>
 </div>
 
 <ul class="nav nav-pills nav-pills-sm mb-3">
@@ -24,7 +55,7 @@
     <input id="busqueda" type="search" name="q" value="{{ q }}" class="form-control" placeholder="Cédula, RUC, nombre o DAMI-000123" autocomplete="off">
   </div>
   <div class="col-sm-4 col-md-2">
-    <label class="form-label small mb-1" for="f-estado">Estado</label>
+    <label class="form-label small mb-1" for="f-estado">{% if vista == "gestionados" %}Resultado{% else %}Etapa{% endif %}</label>
     <select id="f-estado" name="estado" class="form-select">
       <option value="">Todos</option>
       {% for valor, texto in estados %}<option value="{{ valor }}" {% if valor == estado %}selected{% endif %}>{{ texto }}</option>{% endfor %}
@@ -52,8 +83,9 @@
     </div>
     {% if empleado %}
     <div class="form-check">
+      <input type="hidden" name="mios" value="0">
       <input class="form-check-input" type="checkbox" name="mios" value="1" id="f-mios" {% if mios %}checked{% endif %}>
-      <label class="form-check-label small" for="f-mios">Solo los que gestiono yo</label>
+      <label class="form-check-label small" for="f-mios">{% if vista == "gestionados" %}Solo los que gestioné yo{% else %}Solo los que me tocan a mí{% endif %}</label>
     </div>
     {% endif %}
   </div>

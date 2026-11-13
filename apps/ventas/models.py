@@ -304,6 +304,12 @@ class FormularioDAMI(ModeloBase):
         NO_CONCRETADA = "NO_CONCRETADA", "Venta no concretada"
         ANULADO = "ANULADO", "Anulado"
 
+    class Etapa(models.TextChoices):
+        """Flujo de cierre: filtro (cierre) → gestión → cierre final (vuelve a quien filtró)."""
+        FILTRO = "FILTRO", "Filtro"
+        GESTION = "GESTION", "Gestión"
+        CIERRE = "CIERRE", "Cierre final"
+
     vendedor = models.ForeignKey("personal.Empleado", on_delete=models.PROTECT, related_name="formularios_dami")
     cliente = models.ForeignKey(Cliente, on_delete=models.PROTECT, related_name="formularios_dami")
     base_comercial = models.ForeignKey(BaseComercial, on_delete=models.SET_NULL, null=True, blank=True, related_name="formularios")
@@ -317,6 +323,10 @@ class FormularioDAMI(ModeloBase):
     )
     datos_adicionales = models.JSONField(default=dict, blank=True)
     estado = models.CharField(max_length=14, choices=Estado.choices, default=Estado.BORRADOR)
+    etapa = models.CharField(
+        max_length=8, choices=Etapa.choices, default=Etapa.FILTRO,
+        help_text="En qué parte del cierre está: filtro, gestión o cierre final. Al terminar queda la última.",
+    )
     encargado_asignado = models.ForeignKey(
         "personal.Empleado", on_delete=models.PROTECT, null=True, blank=True, related_name="formularios_asignados"
     )
@@ -358,6 +368,17 @@ class FormularioDAMI(ModeloBase):
             models.CheckConstraint(
                 condition=Q(ayudado_por__isnull=True) | ~Q(ayudado_por=F("vendedor")),
                 name="dami_ayudante_distinto_vendedor",
+            ),
+            models.CheckConstraint(condition=Q(etapa__in=["FILTRO", "GESTION", "CIERRE"]), name="dami_etapa_valida"),
+            # Recién enviado: está en el filtro y le toca a quien filtra (aún sin persona asignada).
+            models.CheckConstraint(
+                condition=~Q(estado="ENVIADO") | Q(etapa="FILTRO", encargado_asignado__isnull=True),
+                name="dami_enviado_en_filtro",
+            ),
+            # En gestión siempre hay una persona a cargo de la etapa.
+            models.CheckConstraint(
+                condition=~Q(estado="EN_GESTION") | Q(encargado_asignado__isnull=False),
+                name="dami_en_gestion_con_encargado",
             ),
         ]
 

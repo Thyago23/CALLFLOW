@@ -130,12 +130,14 @@ def dashboard(request):
             "url": reverse("inventario:materiales") + "?estado=bajo", "alerta": True, "accion": "Conviene reponerlos",
         })
     if usuario.has_perm("cierre.add_gestioncierre"):
-        from apps.ventas.models import FormularioDAMI
+        from apps.cierre.servicios import es_encargado, pendientes_de
 
+        encargado = es_encargado(usuario)
         indicadores.append({
-            "titulo": "Formularios DAMI sin asignar", "icono": "inbox",
-            "valor": FormularioDAMI.objects.filter(estado=FormularioDAMI.Estado.ENVIADO).count(),
-            "url": reverse("cierre:bandeja") + "?estado=ENVIADO", "alerta": True, "accion": "Esperan a un supervisor",
+            "titulo": "DAMI que le toca atender" if encargado else "DAMI por filtrar", "icono": "inbox",
+            "valor": pendientes_de(usuario),
+            "url": reverse("cierre:bandeja") + ("" if encargado else "?mios=0&estado=FILTRO"), "alerta": True,
+            "accion": "En su etapa del cierre" if encargado else "Esperan el filtro",
         })
     if usuario.has_perm("ventas.change_solicitudbase"):
         from apps.ventas.servicios import solicitudes_pendientes

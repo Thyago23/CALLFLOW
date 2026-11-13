@@ -34,10 +34,14 @@ class ResultadoForm(FormularioEstilizado, forms.Form):
                                     widget=forms.Textarea(attrs={"rows": 2}))
     version = forms.IntegerField(widget=forms.HiddenInput)
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, permitidos=None, **kwargs):
         super().__init__(*args, **kwargs)
         _estilizar(self)
         self.fields["resultado"].widget.attrs["class"] = "form-check-input"
+        if permitidos is not None:  # en el filtro y en la gestión solo se puede descartar la venta
+            self.fields["resultado"].choices = [c for c in GestionCierre.Resultado.choices if c[0] in permitidos]
+            if len(permitidos) == 1:
+                self.initial.setdefault("resultado", permitidos[0])
 
     def clean_observaciones(self):
         return sin_numero_de_tarjeta(self.cleaned_data["observaciones"])
@@ -76,6 +80,38 @@ class CorreccionForm(ResultadoForm):
         del self.fields["observaciones"]
         del self.fields["version"]
         self.fields["motivo_correccion"].widget.attrs["class"] = "form-control"
+
+
+class NotaPaseForm(forms.Form):
+    """Pasar el DAMI a la siguiente etapa, con un comentario opcional para quien lo recibe."""
+
+    nota = forms.CharField(label="Comentario para quien lo recibe (opcional)", required=False, max_length=500,
+                           widget=forms.Textarea(attrs={"rows": 2}))
+    version = forms.IntegerField(widget=forms.HiddenInput)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        _estilizar(self)
+
+    def clean_nota(self):
+        return sin_numero_de_tarjeta(self.cleaned_data["nota"])
+
+
+class ResponsablesForm(forms.Form):
+    """Administrador: quién hace cada etapa del cierre."""
+
+    filtro = forms.ModelChoiceField(label="Filtro y cierre", required=False, queryset=servicios.encargados_activos(),
+                                    empty_label="Sin definir (cualquier supervisor filtra)",
+                                    help_text="Recibe los DAMI enviados, filtra al cliente y hace el cierre final.")
+    gestion = forms.ModelChoiceField(label="Gestión", required=False, queryset=servicios.encargados_activos(),
+                                     empty_label="Sin definir",
+                                     help_text="Gestiona los que pasaron el filtro y, si es exitoso, los devuelve para el cierre.")
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for campo in self.fields.values():
+            campo.queryset = servicios.encargados_activos()
+        _estilizar(self)
 
 
 class ReasignarForm(forms.Form):

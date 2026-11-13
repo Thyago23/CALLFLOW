@@ -36,7 +36,7 @@ from apps.personal.models import Cargo, EsquemaComision
 from apps.ventas.models import BaseComercial, FormularioDAMI, RegistroBase, RegistroProduccion
 
 from . import servicios as cierre_servicios
-from .models import GestionCierre
+from .models import ConfiguracionCierre, GestionCierre, MovimientoAsignacion
 
 Estado = FormularioDAMI.Estado
 CLAVE = Fernet.generate_key().decode()
@@ -445,90 +445,134 @@ class FlujoRealTests(TestCase):
             return None, ""
         return f.pk, "directo"
 
-    # ------------------------------------------------------------------ 6. los encargados cierran
+    # ------------------------------------------------------------------ 6. cierre en etapas: filtro → gestión → cierre final
     def fase_cierre(self):
         F = "6. Cierre de ventas"
         enc = self.encargados
+        # El administrador define el flujo: el primer supervisor filtra y cierra, el segundo gestiona.
+        self.pedir(self.admin, "post", reverse("cierre:responsables"), {"filtro": enc[0], "gestion": enc[1]},
+                   rol="administrador", fase=F, follow=True)
+        config = ConfiguracionCierre.objects.filter(pk=1).first()
+        if not config or config.responsable_filtro_id != enc[0] or config.responsable_gestion_id != enc[1]:
+            self.d.hallazgo("ALTO", F, "El administrador no pudo configurar los responsables del cierre")
+            return
+        filtro, gestor = self.clientes[enc[0]], self.clientes[enc[1]]
         for i, pk in enumerate(enc):
             self.pedir(self.clientes[pk], "get", reverse("cierre:bandeja"), rol="encargado", fase=F,
                        medir=f"Bandeja de cierre ({FormularioDAMI.objects.filter(estado=Estado.ENVIADO).count()} en cola)" if i == 0 else None)
         total = FormularioDAMI.objects.filter(estado=Estado.ENVIADO).count()
         dejar_en_cola, dejar_en_gestion = 10, 6
         self.resultados = Counter()
+        etapas = Counter()
         prioridad_rota = 0
         turno = 0
         while FormularioDAMI.objects.filter(estado=Estado.ENVIADO).count() > dejar_en_cola:
-            pk_enc = enc[turno % len(enc)]
             turno += 1
-            c = self.clientes[pk_enc]
-            r = self.pedir(c, "get", reverse("cierre:bandeja"), rol="encargado", fase=F)
+            r = self.pedir(filtro, "get", reverse("cierre:bandeja"), rol="encargado", fase=F)
             if r is None:
                 break
             cola = [f for f in r.context["formularios"] if f.estado == Estado.ENVIADO]
             if not cola:
+                self.d.hallazgo("ALTO", F, "Quien hace el filtro no ve los DAMI enviados en su bandeja")
                 break
             f = cola[0]
             if f.prioridad != 1 and any(x.prioridad == 1 for x in cola):
                 prioridad_rota += 1
-            r = self.pedir(c, "get", reverse("cierre:formulario", args=[f.pk]), rol="encargado", fase=F,
+            r = self.pedir(filtro, "get", reverse("cierre:formulario", args=[f.pk]), rol="encargado", fase=F,
                            medir="Detalle de DAMI en cierre" if turno < 3 else None)
             version = r.context["f"].version
-            self.pedir(c, "post", reverse("cierre:accion", args=[f.pk]), {"accion": "tomar", "version": version}, rol="encargado",
-                       fase=F, follow=True)
+            # 1. Filtro: algunos clientes no pasan.
+            if self.rng.random() < 0.15:
+                self.pedir(filtro, "post", reverse("cierre:resultado", args=[f.pk]),
+                           {"resultado": "NO_CONCRETADA", "motivo": "El cliente no pasó el filtro", "version": version},
+                           rol="encargado", fase=F, follow=True)
+                f.refresh_from_db()
+                if f.estado != Estado.NO_CONCRETADA:
+                    self.d.hallazgo("ALTO", F, f"No se registró que {f} no pasó el filtro", "")
+                self.resultados[(enc[0], f.estado)] += 1
+                etapas["no pasó el filtro"] += 1
+                continue
+            self.pedir(filtro, "post", reverse("cierre:accion", args=[f.pk]),
+                       {"accion": "pasar_filtro", "nota": "Cliente confirmado", "version": version},
+                       rol="encargado", fase=F, follow=True)
             f.refresh_from_db()
-            if f.estado != Estado.EN_GESTION:
-                self.d.hallazgo("ALTO", F, f"El encargado no pudo tomar {f}", "")
+            if (f.estado, f.etapa, f.encargado_asignado_id) != (Estado.EN_GESTION, "GESTION", enc[1]):
+                self.d.hallazgo("ALTO", F, f"{f} no llegó a gestión después de pasar el filtro", "")
                 continue
             if turno <= dejar_en_gestion:
-                continue  # lo tomó y quedó pendiente (llamada sin terminar)
-            if self.rng.random() < 0.62:
+                etapas["quedó en gestión"] += 1
+                continue  # gestión sin terminar
+            # 2. Gestión: algunas no son exitosas.
+            r = self.pedir(gestor, "get", reverse("cierre:formulario", args=[f.pk]), rol="encargado", fase=F)
+            version = r.context["f"].version
+            if self.rng.random() < 0.2:
+                self.pedir(gestor, "post", reverse("cierre:resultado", args=[f.pk]),
+                           {"resultado": "NO_CONCRETADA", "motivo": "La gestión no fue exitosa", "version": version},
+                           rol="encargado", fase=F, follow=True)
+                f.refresh_from_db()
+                if f.estado != Estado.NO_CONCRETADA:
+                    self.d.hallazgo("ALTO", F, f"Quien gestiona no pudo registrar que {f} no fue exitosa", "")
+                self.resultados[(enc[1], f.estado)] += 1
+                etapas["gestión no exitosa"] += 1
+                continue
+            self.pedir(gestor, "post", reverse("cierre:accion", args=[f.pk]), {"accion": "devolver_cierre", "version": version},
+                       rol="encargado", fase=F, follow=True)
+            f.refresh_from_db()
+            if (f.etapa, f.encargado_asignado_id) != ("CIERRE", enc[0]):
+                self.d.hallazgo("ALTO", F, f"{f} no volvió a quien filtró después de una gestión exitosa", "")
+                continue
+            # 3. Cierre final.
+            if self.rng.random() < 0.85:
                 datos = {"resultado": "VENTA_CERRADA", "valor_venta": f"{self.rng.randint(60, 900)}.{self.rng.randint(0, 99):02d}"}
             else:
-                datos = {"resultado": "NO_CONCRETADA", "motivo": self.rng.choice(cierre_servicios.MOTIVOS_NO_CONCRETADA)}
+                datos = {"resultado": "NO_CONCRETADA", "motivo": self.rng.choice(cierre_servicios.MOTIVOS_NO_CONCRETADA[2:-1])}
             datos |= {"observaciones": "Llamada de confirmación", "version": f.version}
-            self.pedir(c, "post", reverse("cierre:resultado", args=[f.pk]), datos, rol="encargado", fase=F, follow=True)
+            self.pedir(filtro, "post", reverse("cierre:resultado", args=[f.pk]), datos, rol="encargado", fase=F, follow=True)
             f.refresh_from_db()
             if f.estado != datos["resultado"]:
-                self.d.hallazgo("ALTO", F, f"No se registró el resultado de {f} ({datos['resultado']})", "")
-            self.resultados[(pk_enc, f.estado)] += 1
-        por_enc = Counter()
-        for (pk_enc, _), n in self.resultados.items():
-            por_enc[pk_enc] += n
+                self.d.hallazgo("ALTO", F, f"No se registró el resultado final de {f} ({datos['resultado']})", "")
+            self.resultados[(enc[0], f.estado)] += 1
+            etapas["cierre final"] += 1
         cerradas = sum(n for (_, e), n in self.resultados.items() if e == Estado.VENTA_CERRADA)
-        self.d.paso(F, f"De {total} DAMI en cola, los 3 encargados gestionaron {sum(self.resultados.values())} "
-                       f"({cerradas} ventas cerradas). Por encargado: {dict(por_enc)}. Quedan "
-                       f"{FormularioDAMI.objects.filter(estado=Estado.ENVIADO).count()} en cola y "
-                       f"{FormularioDAMI.objects.filter(estado=Estado.EN_GESTION).count()} en gestión.")
+        self.d.paso(F, f"De {total} DAMI en cola se resolvieron {sum(self.resultados.values())} ({cerradas} ventas cerradas). "
+                       f"Recorrido: {dict(etapas)}. Quedan {FormularioDAMI.objects.filter(estado=Estado.ENVIADO).count()} por "
+                       f"filtrar y {FormularioDAMI.objects.filter(estado=Estado.EN_GESTION).count()} en gestión.")
         if prioridad_rota:
             self.d.hallazgo("MEDIO", F, f"{prioridad_rota} veces la bandeja mostró primero un DAMI sin tarjeta activa habiendo prioritarios")
 
     # ------------------------------------------------------------------ 7. casos límite del cierre
     def fase_casos_limite_cierre(self):
         F = "7. Casos límite de cierre"
-        a, b, c3 = (self.clientes[p] for p in self.encargados[:3])
+        a, b, c3 = (self.clientes[p] for p in self.encargados[:3])  # a: filtro y cierre · b: gestión · c3: otro supervisor
         cola = list(FormularioDAMI.objects.filter(estado=Estado.ENVIADO).order_by("pk"))
         if len(cola) < 4:
             self.d.hallazgo("BAJO", F, "No quedaron formularios suficientes para los casos límite")
             return
-        # (a) Dos encargados toman el mismo DAMI a la vez (los dos con la pantalla abierta).
+        # (a) Quien filtra lo envía a gestión desde dos pestañas a la vez.
         f = cola[0]
         v = f.version
-        self.pedir(a, "post", reverse("cierre:accion", args=[f.pk]), {"accion": "tomar", "version": v}, rol="encargado", fase=F, follow=True)
-        r = self.pedir(b, "post", reverse("cierre:accion", args=[f.pk]), {"accion": "tomar", "version": v}, rol="encargado", fase=F, follow=True)
+        self.pedir(a, "post", reverse("cierre:accion", args=[f.pk]), {"accion": "pasar_filtro", "version": v}, rol="encargado", fase=F, follow=True)
+        r = self.pedir(a, "post", reverse("cierre:accion", args=[f.pk]), {"accion": "pasar_filtro", "version": v}, rol="encargado", fase=F, follow=True)
         f.refresh_from_db()
-        ok = f.encargado_asignado_id == self.encargados[0]
-        self.d.paso(F, f"Dos encargados toman el mismo DAMI a la vez: {'gana el primero y al segundo se le avisa' if ok else 'PROBLEMA'} "
+        pases = MovimientoAsignacion.objects.filter(formulario=f, accion="PASA_FILTRO").count()
+        ok = pases == 1 and f.encargado_asignado_id == self.encargados[1]
+        self.d.paso(F, f"Pasar el filtro dos veces a la vez: {'se registra una sola vez y se avisa' if ok else 'PROBLEMA'} "
                        f"(«{self.mensajes(r)[:140]}»).")
         if not ok:
-            self.d.hallazgo("CRÍTICO", F, "Con dos encargados tomando el mismo DAMI, el segundo sobrescribió al primero")
-        # (b) El otro encargado intenta registrar el resultado del DAMI ajeno.
-        r = self.pedir(b, "post", reverse("cierre:resultado", args=[f.pk]),
-                       {"resultado": "VENTA_CERRADA", "valor_venta": "100", "version": f.version}, rol="encargado", fase=F,
-                       esperado=(200, 302, 403), follow=True)
+            self.d.hallazgo("CRÍTICO", F, "El mismo DAMI pasó el filtro dos veces")
+        # (b) Un supervisor que no tiene la etapa intenta registrar el resultado.
+        self.pedir(c3, "post", reverse("cierre:resultado", args=[f.pk]),
+                   {"resultado": "NO_CONCRETADA", "motivo": "Otro motivo", "motivo_otro": "x", "version": f.version},
+                   rol="encargado", fase=F, esperado=(200, 302, 400, 403), follow=True)
         f.refresh_from_db()
         if f.estado != Estado.EN_GESTION:
-            self.d.hallazgo("CRÍTICO", F, "Un encargado registró el resultado de un DAMI tomado por otro")
-        # (c) Validaciones del resultado.
+            self.d.hallazgo("CRÍTICO", F, "Un supervisor registró el resultado de un DAMI que estaba en la etapa de otro")
+        # (c) En gestión no se puede cerrar la venta; y validaciones del cierre final.
+        self.pedir(b, "post", reverse("cierre:resultado", args=[f.pk]), {"resultado": "VENTA_CERRADA", "valor_venta": "100", "version": f.version},
+                   rol="encargado", fase=F, esperado=(400,))
+        self.pedir(b, "post", reverse("cierre:accion", args=[f.pk]), {"accion": "devolver_cierre", "version": f.version},
+                   rol="encargado", fase=F, follow=True)
+        f.refresh_from_db()
         r = self.pedir(a, "post", reverse("cierre:resultado", args=[f.pk]), {"resultado": "VENTA_CERRADA", "valor_venta": "", "version": f.version},
                        rol="encargado", fase=F, esperado=(400,))
         r = self.pedir(a, "post", reverse("cierre:resultado", args=[f.pk]), {"resultado": "NO_CONCRETADA", "motivo": "", "version": f.version},
@@ -548,29 +592,32 @@ class FlujoRealTests(TestCase):
             self.d.hallazgo("ALTO", F, "Se aceptó un resultado enviado con una versión vieja del formulario")
         self.pedir(a, "post", reverse("cierre:resultado", args=[f.pk]),
                    {"resultado": "VENTA_CERRADA", "valor_venta": "250.00", "version": f.version}, rol="encargado", fase=F, follow=True)
-        # (d) Devolver a la cola y que lo tome otro.
+        f.refresh_from_db()
+        if f.estado != Estado.VENTA_CERRADA:
+            self.d.hallazgo("ALTO", F, "Quien filtró no pudo cerrar la venta en el cierre final")
+        # (d) El otro supervisor no puede hacer el filtro.
         g = cola[1]
-        self.pedir(c3, "post", reverse("cierre:accion", args=[g.pk]), {"accion": "tomar", "version": g.version}, rol="encargado", fase=F, follow=True)
+        self.pedir(c3, "post", reverse("cierre:accion", args=[g.pk]), {"accion": "pasar_filtro", "version": g.version},
+                   rol="encargado", fase=F, follow=True)
         g.refresh_from_db()
-        self.pedir(c3, "post", reverse("cierre:accion", args=[g.pk]), {"accion": "liberar", "version": g.version}, rol="encargado", fase=F, follow=True)
-        g.refresh_from_db()
-        if g.estado != Estado.ENVIADO or g.encargado_asignado_id:
-            self.d.hallazgo("ALTO", F, "Devolver a la cola no dejó el DAMI libre")
-        # (e) El administrador reasigna un DAMI en gestión.
+        if g.estado != Estado.ENVIADO:
+            self.d.hallazgo("ALTO", F, "Un supervisor que no hace el filtro pudo pasar un DAMI a gestión")
+        # (e) El administrador reasigna la gestión a otro supervisor (p. ej. faltó quien gestiona).
         h = cola[2]
-        self.pedir(a, "post", reverse("cierre:accion", args=[h.pk]), {"accion": "tomar", "version": h.version}, rol="encargado", fase=F, follow=True)
+        self.pedir(a, "post", reverse("cierre:accion", args=[h.pk]), {"accion": "pasar_filtro", "version": h.version}, rol="encargado", fase=F, follow=True)
         h.refresh_from_db()
         self.pedir(self.admin, "post", reverse("cierre:accion", args=[h.pk]),
-                   {"accion": "reasignar", "encargado": self.encargados[1], "version": h.version}, rol="administrador", fase=F, follow=True)
+                   {"accion": "reasignar", "encargado": self.encargados[2], "version": h.version}, rol="administrador", fase=F, follow=True)
         h.refresh_from_db()
-        if h.encargado_asignado_id != self.encargados[1]:
-            self.d.hallazgo("ALTO", F, "La reasignación del administrador no cambió el encargado")
+        if h.encargado_asignado_id != self.encargados[2] or h.etapa != "GESTION":
+            self.d.hallazgo("ALTO", F, "La reasignación del administrador no cambió a quien gestiona")
         # el anterior ya no puede registrar
-        self.pedir(a, "post", reverse("cierre:resultado", args=[h.pk]), {"resultado": "VENTA_CERRADA", "valor_venta": "90", "version": h.version},
+        self.pedir(b, "post", reverse("cierre:resultado", args=[h.pk]),
+                   {"resultado": "NO_CONCRETADA", "motivo": "La gestión no fue exitosa", "version": h.version},
                    rol="encargado", fase=F, esperado=(200, 302, 403), follow=True)
         h.refresh_from_db()
         if h.estado != Estado.EN_GESTION:
-            self.d.hallazgo("CRÍTICO", F, "El encargado anterior registró el resultado después de la reasignación")
+            self.d.hallazgo("CRÍTICO", F, "Quien gestionaba registró el resultado después de la reasignación")
         # (f) El administrador corrige un resultado ya registrado.
         gestion = GestionCierre.objects.filter(resultado="VENTA_CERRADA").order_by("pk").first()
         if gestion:
@@ -591,7 +638,7 @@ class FlujoRealTests(TestCase):
                        {"resultado": "NO_CONCRETADA", "motivo": "Otro motivo", "motivo_correccion": "x"}, rol="encargado", fase=F,
                        esperado=(403,))
         self.d.paso(F, "Validaciones: venta sin valor y no concretada sin motivo → rechazadas; versión vieja → "
-                       f"{'rechazada' if f.estado != Estado.VENTA_CERRADA or True else ''}; devolver a la cola, reasignar y corregir probados.")
+                       "rechazada; etapas, reasignar y corregir probados.")
 
     # ------------------------------------------------------------------ 8. los vendedores ven su resultado
     def fase_post_cierre_vendedores(self):

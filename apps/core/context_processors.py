@@ -12,9 +12,9 @@ def contadores(usuario) -> dict:
 
         datos["mensajes_sin_leer"] = sin_leer(usuario)
     if usuario.has_perm("cierre.add_gestioncierre"):
-        from apps.ventas.models import FormularioDAMI
+        from apps.cierre.servicios import pendientes_de
 
-        datos["dami_sin_asignar"] = FormularioDAMI.objects.filter(estado=FormularioDAMI.Estado.ENVIADO).count()
+        datos["dami_sin_asignar"] = pendientes_de(usuario)  # lo que le toca atender en el cierre
     if usuario.has_perm("ventas.change_solicitudbase"):
         from apps.ventas.servicios import solicitudes_pendientes
 

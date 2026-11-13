@@ -175,8 +175,12 @@ def enviar_formulario(usuario, formulario: FormularioDAMI) -> FormularioDAMI:
     formulario.refresh_from_db()
 
     tarjeta = formulario.tarjeta
+    from apps.cierre.servicios import responsable_filtro
+
+    filtro = responsable_filtro()  # le llega a quien hace el filtro; si no está definido, a todos los supervisores
+    destinatarios = [filtro.usuario] if filtro and filtro.usuario_id else usuarios_con_rol(Rol.ENCARGADO_CIERRE)
     _notificar(
-        usuarios_con_rol(Rol.ENCARGADO_CIERRE),
+        destinatarios,
         titulo=f"Nuevo DAMI para cierre: {formulario} · {formulario.cliente.identificacion}",
         mensaje=f"{tarjeta.get_marca_display()} · {tarjeta.banco} · asesor {formulario.vendedor}"
                 + (f" (lo llenó {formulario.ayudado_por} como ayuda)" if formulario.ayudado_por_id else ""),

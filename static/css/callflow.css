@@ -2042,3 +2042,9 @@ a.enlace-modulo:hover { background: var(--cf-fondo); color: var(--bs-body-color)
 
 /* Breaks programados */
 .break-programado .hora-programada { min-width: 4.25rem; padding: .35rem .5rem; border-radius: var(--bs-border-radius); background: var(--cf-primario-suave); color: var(--cf-primario); }
+
+/* Etapas del cierre: filtro → gestión → cierre final */
+.badge.etapa-dami { font-weight: 600; }
+.badge.etapa-filtro { background: var(--bs-warning-bg-subtle); color: var(--bs-warning-text-emphasis); }
+.badge.etapa-gestion { background: var(--bs-info-bg-subtle); color: var(--bs-info-text-emphasis); }
+.badge.etapa-cierre { background: var(--bs-success-bg-subtle); color: var(--bs-success-text-emphasis); }

@@ -150,6 +150,8 @@ class Command(BaseCommand):
             pk=dami.pk).update(estado="VENTA_CERRADA"))
         self.rechaza("Crear un DAMI directamente como cerrado", lambda: FormularioDAMI.objects.create(
             vendedor=vendedor, cliente=cliente, estado="VENTA_CERRADA", enviado_en=ahora))
+        self.rechaza("DAMI en gestión sin una persona a cargo", lambda: FormularioDAMI.objects.filter(
+            pk=dami.pk).update(estado="EN_GESTION"))
         self.rechaza("Hoja de producción con venta cerrada sin valor", lambda: RegistroProduccion.objects.filter(
             formulario=dami).update(estado="VENTA_CERRADA"))
         self.rechaza("Cliente duplicado", lambda: Cliente.objects.create(
@@ -161,7 +163,8 @@ class Command(BaseCommand):
         self.rechaza("Venta cerrada sin valor", lambda: GestionCierre.objects.create(
             formulario=dami, encargado=encargado, resultado="VENTA_CERRADA"))
         version_antes = dami.version
-        cambios = FormularioDAMI.objects.filter(pk=dami.pk, version=version_antes).update(estado="EN_GESTION")
+        cambios = FormularioDAMI.objects.filter(pk=dami.pk, version=version_antes).update(
+            estado="EN_GESTION", etapa="CIERRE", encargado_asignado=encargado, asignado_en=ahora)
         conflicto = FormularioDAMI.objects.filter(pk=dami.pk, version=version_antes).update(observaciones="otro encargado")
         self.cumple("Bloqueo optimista: un segundo guardado con versión vieja no sobrescribe", cambios == 1 and conflicto == 0)
         GestionCierre.objects.create(formulario=dami, encargado=encargado, resultado="VENTA_CERRADA", valor_venta=Decimal("150.00"))

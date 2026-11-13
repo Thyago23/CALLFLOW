@@ -29,11 +29,13 @@
             <span class="badge estado-dami estado-{{ f.estado|lower }}">{{ f.get_estado_display }}</span>
             {% if f.gestion.valor_venta %}<div class="small fw-semibold">${{ f.gestion.valor_venta|dinero }}</div>{% endif %}
             <div class="small text-body-secondary">{{ f.gestion.gestionado_en|date:"d/m/Y H:i" }}</div>
-          {% elif f.encargado_asignado %}
-            <span class="badge estado-dami estado-en_gestion">En gestión</span>
-            <div class="small {% if f.encargado_asignado_id == empleado.pk %}fw-semibold{% else %}text-body-secondary{% endif %}">{% if f.encargado_asignado_id == empleado.pk %}Usted{% else %}{{ f.encargado_asignado }}{% endif %}</div>
           {% else %}
-            <span class="badge estado-dami estado-enviado">Sin asignar</span>
+            <span class="badge etapa-dami etapa-{{ f.etapa|lower }}">{% if f.etapa == "CIERRE" %}Por cerrar{% elif f.etapa == "GESTION" %}En gestión{% else %}Por filtrar{% endif %}</span>
+            {% if f.encargado_asignado %}
+            <div class="small {% if f.encargado_asignado_id == empleado.pk %}fw-semibold{% else %}text-body-secondary{% endif %}">{% if f.encargado_asignado_id == empleado.pk %}Usted{% else %}{{ f.encargado_asignado }}{% endif %}</div>
+            {% else %}
+            <div class="small text-body-secondary">{{ responsable_filtro|default:"Cualquier supervisor" }}</div>
+            {% endif %}
           {% endif %}
         </td>
       </tr>
@@ -43,8 +45,9 @@
 </div>
 {% else %}
 <div class="card-body text-center text-body-secondary py-5">
-  {% if q or estado or vendedor or desde or hasta or solo_prioritarios or mios %}No hay formularios que coincidan con los filtros.
+  {% if q or estado or vendedor or desde or hasta or solo_prioritarios %}No hay formularios que coincidan con los filtros.
   {% elif vista == "gestionados" %}Todavía no hay formularios gestionados.
+  {% elif mios %}No tiene formularios pendientes en su etapa. <a href="?mios=0">Ver toda la cola</a>.
   {% else %}No hay formularios por gestionar. Cuando un vendedor envíe un DAMI, aparecerá aquí.{% endif %}
 </div>
 {% endif %}

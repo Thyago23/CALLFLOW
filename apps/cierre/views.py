@@ -19,7 +19,7 @@ from apps.ventas.models import FormularioDAMI
 from apps.ventas.servicios import empleado_de
 
 from . import servicios
-from .forms import CorreccionForm, ReasignarForm, ResultadoForm, inicial_motivo
+from .forms import CorreccionForm, NotaPaseForm, ReasignarForm, ResponsablesForm, ResultadoForm, inicial_motivo
 from .models import GestionCierre
 
 Estado = FormularioDAMI.Estado
@@ -64,8 +64,10 @@ def bandeja(request):
             filtro |= Q(pk=int(texto[5:]))
         qs = qs.filter(filtro)
     estado = request.GET.get("estado", "")
-    if estado in Estado.values:
+    if vista == "gestionados" and estado in Estado.values:
         qs = qs.filter(estado=estado)
+    elif vista != "gestionados" and estado in FormularioDAMI.Etapa.values:
+        qs = qs.filter(etapa=estado)
     vendedor = request.GET.get("vendedor", "")
     if vendedor.isdigit():
         qs = qs.filter(vendedor_id=int(vendedor))
@@ -77,19 +79,28 @@ def bandeja(request):
     solo_prioritarios = request.GET.get("prioritarios") == "1"
     if solo_prioritarios:
         qs = qs.filter(prioridad=1)
-    mios = request.GET.get("mios") == "1"
     empleado = empleado_de(request.user)
+    # Los supervisores ven primero lo que les toca; pueden quitar el filtro para ver toda la cola.
+    if "mios" in request.GET:
+        mios = request.GET.get("mios") == "1"
+    else:
+        mios = vista != "gestionados" and servicios.es_encargado(request.user)
     if mios and empleado:
-        qs = qs.filter(encargado_asignado=empleado)
+        qs = servicios.mis_pendientes(qs, request.user) if vista != "gestionados" else qs.filter(gestion__encargado=empleado)
+    config = servicios.configuracion()
 
     contexto = {
         "formularios": qs[:300], "vista": vista, "q": texto, "estado": estado, "vendedor": vendedor,
         "desde": desde, "hasta": hasta, "solo_prioritarios": solo_prioritarios, "mios": mios,
-        "estados": [(Estado.ENVIADO, "Sin asignar"), (Estado.EN_GESTION, "En gestión")] if vista != "gestionados"
+        "estados": FormularioDAMI.Etapa.choices if vista != "gestionados"
         else [(Estado.VENTA_CERRADA, "Venta cerrada"), (Estado.NO_CONCRETADA, "No concretada")],
         "vendedores": Empleado.objects.filter(formularios_dami__isnull=False).distinct().order_by("apellidos", "nombres"),
         "resumen": servicios.resumen_bandeja(), "empleado": empleado,
         "sin_ficha": servicios.sin_ficha(request.user),
+        "responsable_filtro": servicios.responsable_filtro(), "responsable_gestion": servicios.responsable_gestion(),
+        "form_responsables": ResponsablesForm(initial={"filtro": config.responsable_filtro_id,
+                                                       "gestion": config.responsable_gestion_id})
+        if servicios.es_administrador(request.user) else None,
     }
     plantilla = "cierre/_bandeja_tabla.html" if _es_htmx(request) else "cierre/bandeja.html"
     return render(request, plantilla, contexto)
@@ -97,13 +108,13 @@ def bandeja(request):
 
 # --------------------------------------------------------------------------- detalle y acciones (SCRUM-48, 51, 52, 59)
 def _detalle(request, formulario, form_resultado=None, form_correccion=None, status=200):
-    usuario, empleado = request.user, empleado_de(request.user)
+    usuario = request.user
     gestion = getattr(formulario, "gestion", None) if formulario.estado in (Estado.VENTA_CERRADA, Estado.NO_CONCRETADA) else None
-    propio = bool(empleado) and formulario.encargado_asignado_id == empleado.pk
-    puede_registrar = (formulario.estado == Estado.EN_GESTION and usuario.has_perm(GESTIONAR)
-                       and (propio or servicios.es_administrador(usuario)))
-    if puede_registrar and form_resultado is None:
-        form_resultado = ResultadoForm(initial={"version": formulario.version})
+    puede_actuar = usuario.has_perm(GESTIONAR) and servicios.puede_actuar(usuario, formulario)
+    propio = puede_actuar and servicios.es_encargado(usuario)
+    permitidos = servicios.resultados_permitidos(formulario)
+    if puede_actuar and form_resultado is None:
+        form_resultado = ResultadoForm(initial={"version": formulario.version}, permitidos=permitidos)
     if gestion and servicios.es_administrador(usuario) and usuario.has_perm("cierre.change_gestioncierre") and form_correccion is None:
         form_correccion = CorreccionForm(initial={"resultado": gestion.resultado, "valor_venta": gestion.valor_venta,
                                                   **inicial_motivo(gestion.motivo_no_concretada)})
@@ -117,11 +128,16 @@ def _detalle(request, formulario, form_resultado=None, form_correccion=None, sta
         "gestion": gestion,
         "historial": servicios.historial(formulario),
         "propio": propio,
-        "puede_tomar": (formulario.estado == Estado.ENVIADO and servicios.es_encargado(usuario)
-                        and usuario.has_perm(GESTIONAR) and formulario.vendedor_id != getattr(empleado, "pk", None)),
-        "puede_liberar": formulario.estado == Estado.EN_GESTION and (propio or servicios.es_administrador(usuario)),
+        "puede_actuar": puede_actuar,
+        "a_cargo": servicios.a_cargo(formulario),
+        "puede_pasar_filtro": puede_actuar and formulario.etapa == FormularioDAMI.Etapa.FILTRO,
+        "puede_devolver_cierre": puede_actuar and formulario.estado == Estado.EN_GESTION
+                                 and formulario.etapa == FormularioDAMI.Etapa.GESTION,
+        "responsable_filtro": servicios.responsable_filtro(), "responsable_gestion": servicios.responsable_gestion(),
+        "form_pase": NotaPaseForm(initial={"version": formulario.version}),
         "puede_reasignar": formulario.estado in servicios.EN_COLA and servicios.es_administrador(usuario),
-        "form_resultado": form_resultado if puede_registrar else None,
+        "form_resultado": form_resultado if puede_actuar else None,
+        "solo_descartar": len(permitidos) == 1,
         "form_correccion": form_correccion,
         "form_reasignar": ReasignarForm(initial={"version": formulario.version}),
         "sin_ficha": servicios.sin_ficha(usuario),
@@ -165,12 +181,18 @@ def accion(request, pk):
     formulario = _formulario(pk)
     accion = request.POST.get("accion")
     try:
-        if accion == "tomar":
-            formulario = servicios.tomar(request.user, formulario, _version(request))
-            messages.success(request, f"Tomó {formulario}. Ya puede registrar el resultado.")
-        elif accion == "liberar":
-            formulario = servicios.liberar(request.user, formulario, _version(request))
-            messages.success(request, f"{formulario} volvió a la cola.")
+        if accion in ("pasar_filtro", "devolver_cierre"):
+            form = NotaPaseForm(request.POST)
+            if not form.is_valid():
+                raise ValidationError(" ".join(e for lista in form.errors.values() for e in lista))
+            datos = form.cleaned_data
+            if accion == "pasar_filtro":
+                formulario = servicios.pasar_filtro(request.user, formulario, datos["version"], datos["nota"])
+                messages.success(request, f"{formulario} pasó el filtro: se envió a {formulario.encargado_asignado} para la gestión.")
+            else:
+                formulario = servicios.devolver_a_cierre(request.user, formulario, datos["version"], datos["nota"])
+                messages.success(request, f"{formulario}: gestión exitosa. Se devolvió a {formulario.encargado_asignado} "
+                                          "para cerrar la venta.")
             return redirect("cierre:bandeja")
         elif accion == "reasignar":
             form = ReasignarForm(request.POST)
@@ -180,9 +202,32 @@ def accion(request, pk):
             messages.success(request, f"{formulario} quedó a cargo de {formulario.encargado_asignado}.")
         else:
             messages.error(request, "Acción no válida.")
+    except PermissionDenied as error:
+        messages.error(request, str(error) or "No puede hacer esa acción.")
     except ValidationError as error:
         _avisar_error(request, error)
     return redirect("cierre:formulario", pk=pk)
+
+
+@login_required
+@require_POST
+def responsables(request):
+    """Administrador: elige quién hace el filtro y cierre y quién la gestión."""
+    form = ResponsablesForm(request.POST)
+    if not form.is_valid():
+        messages.error(request, "Elija supervisores activos.")
+        return redirect("cierre:bandeja")
+    try:
+        config = servicios.configurar_responsables(request.user, filtro=form.cleaned_data["filtro"],
+                                                   gestion=form.cleaned_data["gestion"])
+    except PermissionDenied as error:
+        raise error
+    except ValidationError as error:
+        _avisar_error(request, error)
+        return redirect("cierre:bandeja")
+    messages.success(request, f"Responsables guardados. Filtro y cierre: {config.responsable_filtro or 'sin definir'} · "
+                              f"Gestión: {config.responsable_gestion or 'sin definir'}.")
+    return redirect("cierre:bandeja")
 
 
 @login_required
@@ -194,11 +239,17 @@ def resultado(request, pk):
     if not form.is_valid():
         return _detalle(request, formulario, form_resultado=form, status=400)
     datos = form.cleaned_data
+    if datos["resultado"] not in servicios.resultados_permitidos(formulario):
+        form.add_error("resultado", "La venta se cierra en el cierre final, después de la gestión.")
+        return _detalle(request, formulario, form_resultado=form, status=400)
     try:
         gestion = servicios.registrar_resultado(
             request.user, formulario, datos["version"], resultado=datos["resultado"], valor_venta=datos["valor_venta"],
             motivo=datos.get("motivo") or "", observaciones=datos.get("observaciones") or "",
         )
+    except PermissionDenied as error:
+        messages.error(request, str(error) or "Este formulario no está en su etapa.")
+        return redirect("cierre:formulario", pk=pk)
     except ValidationError as error:
         if isinstance(error, servicios.Conflicto) or not hasattr(error, "error_dict"):
             _avisar_error(request, error)

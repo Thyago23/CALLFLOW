@@ -18,7 +18,7 @@ from apps.ventas.models import BaseComercial
 from apps.ventas.tests import CLAVE_PRUEBA, CLIENTE, BaseVentas
 
 from . import servicios
-from .models import GestionCierre, MetaMensual, MovimientoAsignacion
+from .models import ConfiguracionCierre, GestionCierre, MetaMensual, MovimientoAsignacion
 from .templatetags.panel_cf import OCULTO
 
 Estado = FormularioDAMI.Estado
@@ -30,14 +30,22 @@ class BaseCierre(BaseVentas):
     def setUpTestData(cls):
         super().setUpTestData()
         cls.luis = cls.persona("luis.vera", "Luis", "Vera", Rol.ENCARGADO_CIERRE, "0912345675", "Supervisor")
+        # Flujo: Ana hace el filtro y el cierre final (como Javier); Luis hace la gestión (como Marlon).
+        ConfiguracionCierre.objects.update_or_create(pk=1, defaults={
+            "responsable_filtro": cls.ana.empleado, "responsable_gestion": cls.luis.empleado})
 
     def enviado(self, usuario=None, **cambios) -> FormularioDAMI:
         self.crear(usuario or self.lucia, enviar=True, **cambios)
         return FormularioDAMI.objects.order_by("-pk").first()
 
-    def tomado(self, encargado=None, **cambios) -> FormularioDAMI:
+    def en_gestion(self, **cambios) -> FormularioDAMI:
         f = self.enviado(**cambios)
-        return servicios.tomar(encargado or self.ana, f, f.version)
+        return servicios.pasar_filtro(self.ana, f, f.version)
+
+    def por_cerrar(self, **cambios) -> FormularioDAMI:
+        """Pasó el filtro (Ana) y la gestión fue exitosa (Luis): vuelve a Ana para el cierre final."""
+        f = self.en_gestion(**cambios)
+        return servicios.devolver_a_cierre(self.luis, f, f.version)
 
     def post(self, usuario, nombre, pk, datos):
         self.client.force_login(usuario)
@@ -81,70 +89,148 @@ class BandejaTests(BaseCierre):
         self.assertEqual(list(self.client.get(url, {"q": "1710034065"}).context["formularios"]), [f])
         self.assertEqual(list(self.client.get(url, {"q": f"DAMI-{f.pk:06d}"}).context["formularios"]), [f])
         self.assertFalse(self.client.get(url, {"vendedor": self.pedro.empleado.pk}).context["formularios"])
-        self.assertFalse(self.client.get(url, {"estado": "EN_GESTION"}).context["formularios"])
+        self.assertFalse(self.client.get(url, {"estado": "GESTION"}).context["formularios"])
         manana = (timezone.localdate().toordinal() + 1)
         self.assertFalse(self.client.get(url, {"desde": date.fromordinal(manana).isoformat()}).context["formularios"])
 
-    def test_aviso_al_llegar_un_formulario(self):
+    def test_aviso_al_llegar_le_llega_solo_a_quien_filtra(self):
         f = self.enviado()
         aviso = Notificacion.objects.get(destinatario=self.ana)
         self.assertEqual(aviso.url, reverse("cierre:formulario", args=[f.pk]))
+        self.assertFalse(Notificacion.objects.filter(destinatario=self.luis).exists())
         self.client.force_login(self.ana)
-        self.assertContains(self.client.get(aviso.url), "Tomar para gestionar")
+        self.assertContains(self.client.get(aviso.url), "Pasa el filtro: enviar a Vera Luis")
 
-
-class AsignacionTests(BaseCierre):
-    """SCRUM-50 y SCRUM-51: cola compartida, cada encargado toma su formulario."""
-
-    def test_tomar_pone_en_gestion_y_deja_historial(self):
-        f = self.enviado()
-        respuesta = self.post(self.ana, "cierre:accion", f.pk, {"accion": "tomar", "version": f.version})
-        f.refresh_from_db()
-        self.assertEqual((f.estado, f.encargado_asignado), (Estado.EN_GESTION, self.ana.empleado))
-        self.assertIsNotNone(f.asignado_en)
-        mov = MovimientoAsignacion.objects.get()
-        self.assertEqual((mov.accion, mov.a_encargado, mov.usuario), ("TOMAR", self.ana.empleado, self.ana))
-        self.assertContains(respuesta, "Lo tomó Torres Ana")
-        self.assertTrue(f.historial.filter(estado_nuevo="EN_GESTION", usuario_id=self.ana.pk).exists())
-        # El aviso deja de estar pendiente también para el otro encargado.
-        self.assertFalse(Notificacion.objects.filter(destinatario=self.luis, leida=False).exists())
-
-    def test_solo_el_asignado_registra_el_resultado(self):
-        f = self.tomado(self.ana)
-        with self.assertRaises(PermissionDenied):
-            servicios.registrar_resultado(self.luis, f, f.version, resultado="VENTA_CERRADA", valor_venta=D("10"))
+    def test_cada_supervisor_ve_primero_lo_suyo(self):
+        filtro, gestion = self.enviado(), self.en_gestion(cedula="0926687856")
+        url = reverse("cierre:bandeja")
+        self.client.force_login(self.ana)
+        self.assertEqual(list(self.client.get(url).context["formularios"]), [filtro])
+        self.assertEqual(len(self.client.get(url, {"mios": "0"}).context["formularios"]), 2)
         self.client.force_login(self.luis)
-        self.assertContains(self.client.get(reverse("cierre:formulario", args=[f.pk])), "Solo esa persona puede registrar")
+        self.assertEqual(list(self.client.get(url).context["formularios"]), [gestion])
+        self.assertEqual(servicios.pendientes_de(self.ana), 1)
+        self.assertEqual(servicios.pendientes_de(self.luis), 1)
 
-    def test_devolver_a_la_cola(self):
-        f = self.tomado(self.ana)
-        self.post(self.ana, "cierre:accion", f.pk, {"accion": "liberar", "version": f.version})
-        f.refresh_from_db()
-        self.assertEqual((f.estado, f.encargado_asignado), (Estado.ENVIADO, None))
-        self.assertTrue(Notificacion.objects.filter(destinatario=self.luis, titulo__contains="volvió a la cola").exists())
-        with self.assertRaises(PermissionDenied):
-            g = self.tomado(self.ana)
-            servicios.liberar(self.luis, g, g.version)
 
-    def test_administrador_reasigna(self):
-        f = self.tomado(self.ana)
-        self.post(self.admin, "cierre:accion", f.pk, {"accion": "reasignar", "version": f.version, "encargado": self.luis.empleado.pk})
-        f.refresh_from_db()
-        self.assertEqual(f.encargado_asignado, self.luis.empleado)
-        mov = MovimientoAsignacion.objects.get(accion="REASIGNAR")
-        self.assertEqual((mov.de_encargado, mov.a_encargado, mov.usuario), (self.ana.empleado, self.luis.empleado, self.admin))
-        self.assertTrue(Notificacion.objects.filter(destinatario=self.luis, titulo__contains="Se le asignó").exists())
-        with self.assertRaises(PermissionDenied):
-            servicios.reasignar(self.ana, f, f.version, self.ana.empleado)
+class FlujoEtapasTests(BaseCierre):
+    """Filtro (Ana) → gestión (Luis) → cierre final (Ana)."""
 
-    def test_vendedor_no_toma_ni_ve_la_bandeja(self):
+    def test_flujo_exitoso_completo(self):
         f = self.enviado()
-        respuesta = self.post(self.lucia, "cierre:accion", f.pk, {"accion": "tomar", "version": f.version})
+        respuesta = self.post(self.ana, "cierre:accion", f.pk, {"accion": "pasar_filtro", "nota": "Cliente con buen perfil",
+                                                                 "version": f.version})
+        self.assertContains(respuesta, "pasó el filtro")
+        f.refresh_from_db()
+        self.assertEqual((f.estado, f.etapa, f.encargado_asignado), (Estado.EN_GESTION, "GESTION", self.luis.empleado))
+        aviso = Notificacion.objects.get(destinatario=self.luis)
+        self.assertIn("Cliente con buen perfil", aviso.mensaje)
+
+        self.post(self.luis, "cierre:accion", f.pk, {"accion": "devolver_cierre", "version": f.version})
+        f.refresh_from_db()
+        self.assertEqual((f.etapa, f.encargado_asignado), ("CIERRE", self.ana.empleado))
+        self.assertTrue(Notificacion.objects.filter(destinatario=self.ana, titulo__contains="listo para cerrar").exists())
+
+        self.post(self.ana, "cierre:resultado", f.pk, {"resultado": "VENTA_CERRADA", "valor_venta": "300", "version": f.version})
+        f.refresh_from_db()
+        self.assertEqual(f.estado, Estado.VENTA_CERRADA)
+        self.assertEqual(GestionCierre.objects.get().encargado, self.ana.empleado)
+        acciones = list(MovimientoAsignacion.objects.order_by("fecha").values_list("accion", flat=True))
+        self.assertEqual(acciones, ["PASA_FILTRO", "A_CIERRE"])
+        self.client.force_login(self.ana)
+        historial = self.client.get(reverse("cierre:formulario", args=[f.pk]))
+        self.assertContains(historial, "Pasó el filtro: enviado a gestión con Vera Luis")
+        self.assertContains(historial, "Cliente con buen perfil")
+
+    def test_no_pasa_el_filtro(self):
+        f = self.enviado()
+        self.post(self.ana, "cierre:resultado", f.pk, {"resultado": "NO_CONCRETADA", "motivo": "El cliente no pasó el filtro",
+                                                     "version": f.version})
+        f.refresh_from_db()
+        self.assertEqual(f.estado, Estado.NO_CONCRETADA)
+        self.assertEqual(GestionCierre.objects.get().encargado, self.ana.empleado)
+        self.assertEqual(RegistroProduccion.objects.get(formulario=f).estado, "NO_CONCRETADA")
+
+    def test_gestion_no_exitosa_la_cierra_quien_gestiona(self):
+        f = self.en_gestion()
+        self.post(self.luis, "cierre:resultado", f.pk, {"resultado": "NO_CONCRETADA", "motivo": "La gestión no fue exitosa",
+                                                      "version": f.version})
+        f.refresh_from_db()
+        self.assertEqual(f.estado, Estado.NO_CONCRETADA)
+        self.assertEqual(GestionCierre.objects.get().encargado, self.luis.empleado)
+        self.assertTrue(Notificacion.objects.filter(destinatario=self.ana, titulo__contains="no fue exitosa").exists())
+
+    def test_la_venta_solo_se_cierra_en_el_cierre_final(self):
+        for f in (self.enviado(), self.en_gestion(cedula="0926687856")):
+            quien = self.ana if f.etapa == "FILTRO" else self.luis
+            with self.subTest(etapa=f.etapa):
+                with self.assertRaises(ValidationError):
+                    servicios.registrar_resultado(quien, f, f.version, resultado="VENTA_CERRADA", valor_venta=D("10"))
+                respuesta = self.post(quien, "cierre:resultado", f.pk,
+                                      {"resultado": "VENTA_CERRADA", "valor_venta": "10", "version": f.version})
+                self.assertEqual(respuesta.status_code, 400)
+        self.assertFalse(GestionCierre.objects.exists())
+
+    def test_solo_quien_tiene_la_etapa_actua(self):
+        f = self.enviado()
+        with self.assertRaises(PermissionDenied):
+            servicios.pasar_filtro(self.luis, f, f.version)  # Luis no hace el filtro
+        f = servicios.pasar_filtro(self.ana, f, f.version)
+        with self.assertRaises(PermissionDenied):
+            servicios.devolver_a_cierre(self.ana, f, f.version)  # ahora le toca a Luis
+        with self.assertRaises(PermissionDenied):
+            servicios.registrar_resultado(self.ana, f, f.version, resultado="NO_CONCRETADA", motivo="Otro motivo: x")
+        self.client.force_login(self.ana)
+        self.assertContains(self.client.get(reverse("cierre:formulario", args=[f.pk])), "Solo esa persona")
+
+    def test_sin_responsable_de_gestion_no_pasa_el_filtro(self):
+        ConfiguracionCierre.objects.filter(pk=1).update(responsable_gestion=None)
+        f = self.enviado()
+        with self.assertRaises(ValidationError):
+            servicios.pasar_filtro(self.ana, f, f.version)
+
+    def test_sin_responsable_de_filtro_cualquier_supervisor_filtra(self):
+        ConfiguracionCierre.objects.filter(pk=1).update(responsable_filtro=None)
+        f = self.enviado()
+        self.assertTrue(Notificacion.objects.filter(destinatario=self.luis).exists())  # avisa a todos
+        f = servicios.pasar_filtro(self.ana, f, f.version)
+        f = servicios.devolver_a_cierre(self.luis, f, f.version)
+        self.assertEqual(f.encargado_asignado, self.ana.empleado)  # vuelve a quien filtró
+
+    def test_administrador_configura_responsables(self):
+        self.client.force_login(self.admin)
+        self.client.post(reverse("cierre:responsables"), {"filtro": self.luis.empleado.pk, "gestion": self.ana.empleado.pk})
+        config = ConfiguracionCierre.objects.get()
+        self.assertEqual((config.responsable_filtro, config.responsable_gestion), (self.luis.empleado, self.ana.empleado))
+        self.client.force_login(self.ana)
+        self.assertEqual(self.client.post(reverse("cierre:responsables"), {"filtro": self.ana.empleado.pk}).status_code, 403)
+
+    def test_administrador_reasigna_la_etapa(self):
+        f = self.en_gestion()
+        self.post(self.admin, "cierre:accion", f.pk, {"accion": "reasignar", "version": f.version, "encargado": self.ana.empleado.pk})
+        f.refresh_from_db()
+        self.assertEqual((f.encargado_asignado, f.etapa), (self.ana.empleado, "GESTION"))
+        mov = MovimientoAsignacion.objects.get(accion="REASIGNAR")
+        self.assertEqual((mov.de_encargado, mov.a_encargado, mov.usuario), (self.luis.empleado, self.ana.empleado, self.admin))
+        self.assertTrue(Notificacion.objects.filter(destinatario=self.ana, titulo__contains="Se le asignó").exists())
+        with self.assertRaises(PermissionDenied):
+            servicios.reasignar(self.ana, f, f.version, self.luis.empleado)
+
+    def test_vendedor_no_actua(self):
+        f = self.enviado()
+        respuesta = self.post(self.lucia, "cierre:accion", f.pk, {"accion": "pasar_filtro", "version": f.version})
         self.assertEqual(respuesta.status_code, 403)
+
+    def test_la_base_exige_persona_a_cargo_en_gestion(self):
+        from django.db import IntegrityError, transaction
+
+        f = self.enviado()
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            FormularioDAMI.objects.filter(pk=f.pk).update(estado="EN_GESTION")
 
 
 class NumeroDeTarjetaTests(BaseCierre):
-    """El número completo solo lo ve quien cierra la venta, mientras la gestiona."""
+    """El número completo lo ve el supervisor que tiene el DAMI en su etapa (filtro, gestión o cierre)."""
 
     NUMERO = "4111 1111 1111 1111"
     MASCARA = "**** **** **** 1111"
@@ -154,30 +240,30 @@ class NumeroDeTarjetaTests(BaseCierre):
         return self.client.get(reverse("cierre:formulario", args=[formulario.pk]))
 
     def test_el_encargado_a_cargo_lo_ve_completo_y_sin_cache(self):
-        respuesta = self.ver(self.ana, self.tomado(self.ana))
+        respuesta = self.ver(self.ana, self.por_cerrar())
         self.assertContains(respuesta, self.NUMERO)
         self.assertNotContains(respuesta, self.MASCARA)
         self.assertIn("no-store", respuesta["Cache-Control"])
 
     def test_nadie_mas_lo_ve(self):
-        f = self.tomado(self.ana)
+        f = self.por_cerrar()
         for usuario in (self.luis, self.admin):
             respuesta = self.ver(usuario, f)
             self.assertNotContains(respuesta, self.NUMERO)
             self.assertContains(respuesta, self.MASCARA)
 
-    def test_sin_tomarlo_no_se_ve(self):
-        respuesta = self.ver(self.ana, self.enviado())
-        self.assertNotContains(respuesta, self.NUMERO)
-        self.assertContains(respuesta, self.MASCARA)
+    def test_en_el_filtro_lo_ve_quien_filtra(self):
+        f = self.enviado()
+        self.assertContains(self.ver(self.ana, f), self.NUMERO)
+        self.assertNotContains(self.ver(self.luis, f), self.NUMERO)
 
-    def test_al_devolverlo_a_la_cola_deja_de_verse(self):
-        f = self.tomado(self.ana)
-        f = servicios.liberar(self.ana, f, f.version)
+    def test_en_la_gestion_lo_ve_quien_gestiona_y_ya_no_quien_filtro(self):
+        f = self.en_gestion()
+        self.assertContains(self.ver(self.luis, f), self.NUMERO)
         self.assertNotContains(self.ver(self.ana, f), self.NUMERO)
 
     def test_con_el_resultado_registrado_deja_de_verse(self):
-        f = self.tomado(self.ana)
+        f = self.por_cerrar()
         servicios.registrar_resultado(self.ana, f, f.version, resultado="VENTA_CERRADA", valor_venta=D("100"))
         f.refresh_from_db()
         respuesta = self.ver(self.ana, f)
@@ -185,12 +271,12 @@ class NumeroDeTarjetaTests(BaseCierre):
         self.assertContains(respuesta, self.MASCARA)
 
     def test_la_bandeja_sigue_enmascarada(self):
-        self.tomado(self.ana)
+        self.por_cerrar()
         self.client.force_login(self.ana)
         self.assertNotContains(self.client.get(reverse("cierre:bandeja")), self.NUMERO)
 
     def test_si_la_clave_cambio_muestra_la_mascara_sin_romper_la_pagina(self):
-        f = self.tomado(self.ana)
+        f = self.por_cerrar()
         with override_settings(CLAVE_TARJETAS=Fernet.generate_key().decode()), self.assertLogs("apps.cierre.servicios", "ERROR"):
             respuesta = self.ver(self.ana, f)
         self.assertEqual(respuesta.status_code, 200)
@@ -201,7 +287,7 @@ class ResultadoTests(BaseCierre):
     """SCRUM-52 y SCRUM-53."""
 
     def test_venta_cerrada_actualiza_dami_y_hoja(self):
-        f = self.tomado()
+        f = self.por_cerrar()
         respuesta = self.post(self.ana, "cierre:resultado", f.pk,
                               {"resultado": "VENTA_CERRADA", "valor_venta": "250.50", "version": f.version})
         self.assertContains(respuesta, "Se actualizó la hoja de producción")
@@ -216,7 +302,7 @@ class ResultadoTests(BaseCierre):
         self.assertContains(self.client.get(reverse("ventas:hoja")), "250,50")
 
     def test_no_concretada_pide_motivo_y_no_valor(self):
-        f = self.tomado()
+        f = self.por_cerrar()
         respuesta = self.post(self.ana, "cierre:resultado", f.pk, {"resultado": "NO_CONCRETADA", "version": f.version})
         self.assertEqual(respuesta.status_code, 400)
         self.assertIn("motivo", respuesta.context["form_resultado"].errors)
@@ -227,7 +313,7 @@ class ResultadoTests(BaseCierre):
         self.assertEqual(RegistroProduccion.objects.get(formulario=f).estado, "NO_CONCRETADA")
 
     def test_otro_motivo_exige_escribirlo(self):
-        f = self.tomado()
+        f = self.por_cerrar()
         datos = {"resultado": "NO_CONCRETADA", "motivo": "Otro motivo", "version": f.version}
         respuesta = self.post(self.ana, "cierre:resultado", f.pk, datos)
         self.assertEqual(respuesta.status_code, 400)
@@ -236,24 +322,24 @@ class ResultadoTests(BaseCierre):
         self.assertEqual(GestionCierre.objects.get().motivo_no_concretada, "Otro motivo: Viaja fuera del país")
 
     def test_venta_cerrada_exige_valor(self):
-        f = self.tomado()
+        f = self.por_cerrar()
         respuesta = self.post(self.ana, "cierre:resultado", f.pk, {"resultado": "VENTA_CERRADA", "valor_venta": "0", "version": f.version})
         self.assertEqual(respuesta.status_code, 400)
         self.assertFalse(GestionCierre.objects.exists())
 
-    def test_hay_que_tomarlo_antes(self):
+    def test_en_el_filtro_no_se_cierra_la_venta(self):
         f = self.enviado()
         with self.assertRaises(ValidationError):
             servicios.registrar_resultado(self.ana, f, f.version, resultado="VENTA_CERRADA", valor_venta=D("10"))
 
     def test_sin_numeros_de_tarjeta_en_observaciones(self):
-        f = self.tomado()
+        f = self.por_cerrar()
         respuesta = self.post(self.ana, "cierre:resultado", f.pk, {"resultado": "VENTA_CERRADA", "valor_venta": "10",
                                                                  "observaciones": "pagó con 4111 1111 1111 1111", "version": f.version})
         self.assertEqual(respuesta.status_code, 400)
 
     def test_solo_el_administrador_corrige_y_queda_auditado(self):
-        f = self.tomado()
+        f = self.por_cerrar()
         gestion = servicios.registrar_resultado(self.ana, f, f.version, resultado="VENTA_CERRADA", valor_venta=D("100"))
         with self.assertRaises(PermissionDenied):
             servicios.corregir_resultado(self.ana, gestion, resultado="NO_CONCRETADA", valor_venta=None,
@@ -271,26 +357,26 @@ class ResultadoTests(BaseCierre):
 class ConcurrenciaTests(BaseCierre):
     """SCRUM-59: dos encargados sobre el mismo formulario."""
 
-    def test_dos_encargados_toman_a_la_vez(self):
+    def test_dos_pestanas_pasan_el_filtro_a_la_vez(self):
         f = self.enviado()
         version_en_pantalla = f.version
-        servicios.tomar(self.ana, f, version_en_pantalla)
-        with self.assertRaises(servicios.Conflicto):
-            servicios.tomar(self.luis, f, version_en_pantalla)  # Luis aún veía el formulario sin asignar
-        f.refresh_from_db()
-        self.assertEqual(f.encargado_asignado, self.ana.empleado)
+        servicios.pasar_filtro(self.ana, f, version_en_pantalla)
+        with self.assertRaises(servicios.Conflicto):  # la otra pestaña aún lo veía en el filtro
+            servicios.pasar_filtro(self.ana, f, version_en_pantalla)
+        self.assertEqual(MovimientoAsignacion.objects.filter(accion="PASA_FILTRO").count(), 1)
 
     def test_pantalla_desactualizada_no_sobrescribe(self):
-        f = self.tomado()
+        f = self.por_cerrar()
         vieja = f.version
-        servicios.liberar(self.ana, f, vieja)
-        servicios.tomar(self.luis, FormularioDAMI.objects.get(pk=f.pk), FormularioDAMI.objects.get(pk=f.pk).version)
+        servicios.reasignar(self.admin, f, vieja, self.luis.empleado)
+        servicios.reasignar(self.admin, FormularioDAMI.objects.get(pk=f.pk), FormularioDAMI.objects.get(pk=f.pk).version,
+                            self.ana.empleado)
         respuesta = self.post(self.ana, "cierre:resultado", f.pk, {"resultado": "VENTA_CERRADA", "valor_venta": "50", "version": vieja})
         self.assertContains(respuesta, "Otra persona modificó este formulario")
         self.assertFalse(GestionCierre.objects.exists())
 
     def test_no_hay_dos_resultados(self):
-        f = self.tomado()
+        f = self.por_cerrar()
         servicios.registrar_resultado(self.ana, f, f.version, resultado="VENTA_CERRADA", valor_venta=D("10"))
         f.refresh_from_db()
         with self.assertRaises(ValidationError):
@@ -342,7 +428,7 @@ class PanelTests(BaseCierre):
 
     def cerrar_venta(self, usuario, valor, cedula):
         f = self.enviado(usuario, cedula=cedula)
-        f = servicios.tomar(self.ana, f, f.version)
+        f = servicios.devolver_a_cierre(self.luis, (g := servicios.pasar_filtro(self.ana, f, f.version)), g.version)
         servicios.registrar_resultado(self.ana, f, f.version, resultado="VENTA_CERRADA", valor_venta=D(valor))
 
     def setUp(self):
@@ -461,7 +547,7 @@ class TableroVentasTests(BaseCierre):
 
     def cerrar_venta(self, usuario, valor, cedula):
         f = self.enviado(usuario, cedula=cedula)
-        f = servicios.tomar(self.ana, f, f.version)
+        f = servicios.devolver_a_cierre(self.luis, (g := servicios.pasar_filtro(self.ana, f, f.version)), g.version)
         servicios.registrar_resultado(self.ana, f, f.version, resultado="VENTA_CERRADA", valor_venta=D(valor))
 
     def test_muestra_a_todos_y_destaca_al_mejor(self):
