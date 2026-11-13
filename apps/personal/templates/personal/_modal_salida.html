@@ -1,0 +1,51 @@
+{# Registrar (o corregir) la salida del empleado: despido, renuncia… El empleado no se borra. #}
+<div class="modal fade" id="modal-salida" tabindex="-1" aria-labelledby="modal-salida-titulo" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <form method="post" action="{% url 'personal:empleado_salida' empleado.pk %}" class="modal-content">
+      {% csrf_token %}
+      <div class="modal-header">
+        <h2 class="modal-title h5" id="modal-salida-titulo">
+          {% if empleado.es_ex_empleado %}Corregir la salida{% else %}Registrar salida{% endif %} de {{ empleado.nombres }} {{ empleado.apellidos }}
+        </h2>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <div class="modal-body">
+        {% if not empleado.es_ex_empleado %}
+        <ul class="list-unstyled small bg-body-tertiary rounded p-3 mb-3">
+          <li class="mb-2"><i class="bi bi-archive me-2 text-body-secondary" aria-hidden="true"></i>Su ficha <strong>no se borra</strong>: nómina, asistencia, ventas y documentos se conservan.</li>
+          <li class="mb-2"><i class="bi bi-eye-slash me-2 text-body-secondary" aria-hidden="true"></i>Deja de aparecer en el personal actual y en las listas para asignar tareas.</li>
+          <li><i class="bi bi-key me-2 text-body-secondary" aria-hidden="true"></i>{% if empleado.usuario %}Se desactiva su cuenta <span class="font-monospace">{{ empleado.usuario.username }}</span>.{% else %}No tiene cuenta de acceso.{% endif %}</li>
+        </ul>
+        {% endif %}
+        {% include "_campo.html" with campo=salida_form.motivo %}
+        <div id="campo-motivo-otro" {% if salida_form.motivo.value != "OTRO" %}hidden{% endif %}>
+          {% include "_campo.html" with campo=salida_form.motivo_otro %}
+        </div>
+        {% include "_campo.html" with campo=salida_form.fecha %}
+        {% include "_campo.html" with campo=salida_form.detalle %}
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="submit" class="btn btn-danger">
+          <i class="bi bi-box-arrow-right me-1" aria-hidden="true"></i>{% if empleado.es_ex_empleado %}Guardar corrección{% else %}Registrar salida{% endif %}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+<script>
+  // «¿Cuál fue el motivo?» solo aparece (y es obligatorio) con «Otro motivo».
+  (function () {
+    const motivo = document.getElementById("{{ salida_form.motivo.id_for_label }}");
+    const caja = document.getElementById("campo-motivo-otro");
+    const otro = document.getElementById("{{ salida_form.motivo_otro.id_for_label }}");
+    function actualizar() {
+      const esOtro = motivo.value === "OTRO";
+      caja.hidden = !esOtro;
+      otro.required = esOtro;
+      if (esOtro && document.activeElement === motivo) otro.focus();
+    }
+    motivo.addEventListener("change", actualizar);
+    actualizar();
+  })();
+</script>

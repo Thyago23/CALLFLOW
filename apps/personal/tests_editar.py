@@ -6,7 +6,7 @@ Criterios de aceptación:
   2. Los cambios se validan igual que en el registro.
   3. Cada cambio importante queda en el registro de cambios (usuario, fecha y valor anterior).
 """
-from datetime import date, timedelta
+from datetime import date
 
 from django.core.management import call_command
 from django.test import TestCase
@@ -43,7 +43,7 @@ class EditarEmpleadoTests(TestCase):
             "tipo_identificacion": e.tipo_identificacion, "identificacion": e.identificacion, "nombres": e.nombres,
             "apellidos": e.apellidos, "fecha_nacimiento": "", "telefono": e.telefono, "email": e.email,
             "direccion": e.direccion, "cargo": e.cargo_id, "tipo_contrato": e.tipo_contrato,
-            "fecha_ingreso": e.fecha_ingreso.isoformat(), "estado": e.estado, "fecha_salida": "",
+            "fecha_ingreso": e.fecha_ingreso.isoformat(), "estado": e.estado,
         } | cambios
 
     # ----------------------------------------------------------- criterio 1
@@ -97,11 +97,12 @@ class EditarEmpleadoTests(TestCase):
         self.assertContains(self.client.get(url, consulta), "Ya está registrada")
         self.assertContains(self.client.get(url, consulta | {"excluir": self.empleado.pk}), "disponible")
 
-    def test_desvinculado_exige_fecha_de_salida_valida(self):
+    def test_la_salida_no_se_hace_desde_editar(self):
+        # Despido o renuncia van por «Registrar salida» (con motivo); el formulario de edición no ofrece ese estado.
         respuesta = self.client.post(self.url, self.datos(estado="DESVINCULADO"))
-        self.assertTrue(respuesta.context["form"].errors.get("fecha_salida"))
-        respuesta = self.client.post(self.url, self.datos(estado="DESVINCULADO", fecha_salida="2025-12-31"))
-        self.assertIn("anterior a la fecha de ingreso", str(respuesta.context["form"].errors["fecha_salida"]))
+        self.assertTrue(respuesta.context["form"].errors.get("estado"))
+        self.empleado.refresh_from_db()
+        self.assertEqual(self.empleado.estado, "ACTIVO")
 
     # ----------------------------------------------------------- criterio 3
     def test_criterio3_cambio_queda_en_la_auditoria_con_usuario_y_valor_anterior(self):
@@ -129,12 +130,3 @@ class EditarEmpleadoTests(TestCase):
         self.assertEqual(usuario.rol, Rol.ENCARGADO_CIERRE)
         self.assertEqual(usuario.username, "luis.andrade")  # el usuario de ingreso no cambia
         self.assertTrue(usuario.groups.filter(name="Supervisor").exists())
-
-    def test_desvincular_desactiva_la_cuenta(self):
-        usuario, _ = crear_cuenta_para_empleado(self.empleado, creado_por=self.admin)
-        salida = (date.today() - timedelta(days=1)).isoformat()
-        self.client.post(self.url, self.datos(estado="DESVINCULADO", fecha_salida=salida))
-        usuario.refresh_from_db()
-        self.assertFalse(usuario.is_active)
-        self.empleado.refresh_from_db()
-        self.assertEqual(self.empleado.estado, "DESVINCULADO")

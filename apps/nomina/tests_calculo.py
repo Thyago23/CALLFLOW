@@ -257,7 +257,8 @@ class EstimacionMesTests(TestCase):
         self.assertEqual([r.empleado for r in roles], [self.encargado])
 
     def test_nomina_no_incluye_a_quien_salio_antes_del_mes(self):
-        Empleado.objects.filter(pk=self.encargado.pk).update(estado="DESVINCULADO", fecha_salida=date(2026, 1, 31))
+        Empleado.objects.filter(pk=self.encargado.pk).update(estado="DESVINCULADO", fecha_salida=date(2026, 1, 31),
+                                                               motivo_salida="RENUNCIA")
         empleados = list(calculo.empleados_del_mes(self.anio, self.mes))
         self.assertNotIn(self.encargado, empleados)
         self.assertIn(self.encargado, list(calculo.empleados_del_mes(2026, 1)))

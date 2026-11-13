@@ -261,20 +261,25 @@ class ObservacionForm(forms.ModelForm):
 
 
 class EmpleadoEditarForm(EmpleadoForm):
-    """SCRUM-13 · Actualizar datos de empleados: las mismas validaciones del registro, más estado y salida."""
+    """
+    SCRUM-13 · Actualizar datos de empleados: las mismas validaciones del registro, más el estado.
+    La salida (despido, renuncia) y el reintegro no se hacen aquí sino desde la ficha, para que siempre
+    quede registrado el motivo y se desactive la cuenta de acceso (ver salidas.py).
+    """
 
     class Meta(EmpleadoForm.Meta):
-        fields = EmpleadoForm.Meta.fields + ["estado", "fecha_salida"]
-        labels = EmpleadoForm.Meta.labels | {"estado": "Estado", "fecha_salida": "Fecha de salida"}
-        widgets = EmpleadoForm.Meta.widgets | {
-            "fecha_salida": forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
-        }
-        help_texts = {"fecha_salida": "Obligatoria si el estado es «Desvinculado»."}
+        fields = EmpleadoForm.Meta.fields + ["estado"]
+        labels = EmpleadoForm.Meta.labels | {"estado": "Estado"}
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # Sueldo y equipo se cambian desde la ficha (pestaña Sueldo y comisiones), con su historial.
         del self.fields["salario_base"], self.fields["equipo"], self.fields["cuenta_existente"]
+        if self.instance.es_ex_empleado:
+            del self.fields["estado"]  # un ex empleado se reintegra desde su ficha
+        else:
+            self.fields["estado"].choices = [(v, t) for v, t in Empleado.Estado.choices if v != Empleado.Estado.DESVINCULADO]
+            self.fields["estado"].help_text = "Para un despido o una renuncia use «Registrar salida» en la ficha."
         # El cargo actual se puede conservar aunque ya no esté activo para nuevos registros.
         cargo_actual = self.instance.cargo_id
         self.fields["cargo"].queryset = Cargo.objects.filter(Q(activo=True) | Q(pk=cargo_actual)).order_by("nombre")
@@ -285,13 +290,55 @@ class EmpleadoEditarForm(EmpleadoForm):
 
     def clean(self):
         datos = super().clean()
-        estado, salida, ingreso = datos.get("estado"), datos.get("fecha_salida"), datos.get("fecha_ingreso")
-        if estado == Empleado.Estado.DESVINCULADO and not salida:
-            self.add_error("fecha_salida", "Indique la fecha de salida del empleado desvinculado.")
-        if salida and ingreso and salida < ingreso:
-            self.add_error("fecha_salida", "La fecha de salida no puede ser anterior a la fecha de ingreso.")
-        if salida and salida > date.today() + timedelta(days=365):
-            self.add_error("fecha_salida", "La fecha de salida no puede ser más de un año en el futuro.")
+        salida, ingreso = self.instance.fecha_salida, datos.get("fecha_ingreso")
+        if salida and ingreso and ingreso > salida:
+            self.add_error("fecha_ingreso", "La fecha de ingreso no puede ser posterior a su fecha de salida.")
+        return datos
+
+
+class SalidaForm(forms.Form):
+    """Registrar (o corregir) la salida de un empleado: despido, renuncia, fin de contrato…"""
+
+    motivo = forms.ChoiceField(label="Motivo de la salida", choices=[("", "Seleccione…")] + Empleado.MotivoSalida.choices)
+    motivo_otro = forms.CharField(label="¿Cuál fue el motivo?", required=False, max_length=120,
+                                  widget=forms.TextInput(attrs={"placeholder": "Ej.: abandono del trabajo, mutuo acuerdo…"}))
+    fecha = forms.DateField(label="Último día de trabajo",
+                            widget=forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"))
+    detalle = forms.CharField(label="Nota interna (opcional)", required=False, max_length=1000,
+                              widget=forms.Textarea(attrs={"rows": 3, "placeholder": "Ej.: presentó la renuncia por escrito el…"}))
+
+    def __init__(self, *args, empleado, **kwargs):
+        self.empleado = empleado
+        if empleado.es_ex_empleado:
+            kwargs.setdefault("initial", {"motivo": empleado.motivo_salida, "motivo_otro": empleado.motivo_otro,
+                                          "fecha": empleado.fecha_salida, "detalle": empleado.detalle_salida})
+        else:
+            kwargs.setdefault("initial", {"fecha": date.today()})
+        super().__init__(*args, **kwargs)
+        self.fields["motivo"].widget.attrs["class"] = "form-select"
+        for nombre in ("motivo_otro", "fecha", "detalle"):
+            self.fields[nombre].widget.attrs["class"] = "form-control"
+        self.fields["fecha"].widget.attrs["min"] = empleado.fecha_ingreso.isoformat()
+        self.fields["fecha"].widget.attrs["max"] = date.today().isoformat()
+
+    def clean_fecha(self):
+        fecha = self.cleaned_data["fecha"]
+        if fecha < self.empleado.fecha_ingreso:
+            raise ValidationError("La fecha de salida no puede ser anterior a la fecha de ingreso "
+                                  f"({self.empleado.fecha_ingreso:%d/%m/%Y}).")
+        if fecha > date.today():
+            raise ValidationError("Registre la salida cuando el empleado ya haya dejado de trabajar (la fecha no puede ser futura).")
+        return fecha
+
+    def clean(self):
+        datos = super().clean()
+        otro = " ".join((datos.get("motivo_otro") or "").split())
+        if datos.get("motivo") == Empleado.MotivoSalida.OTRO:
+            if not otro:
+                self.add_error("motivo_otro", "Escriba cuál fue el motivo de la salida.")
+        else:
+            otro = ""  # solo se guarda con «Otro motivo»
+        datos["motivo_otro"] = otro
         return datos
 
 

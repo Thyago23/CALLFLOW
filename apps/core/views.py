@@ -207,7 +207,15 @@ def usuarios(request):
     rol = request.GET.get("rol", "")
     if rol in Rol.values:
         qs = qs.filter(rol=rol)
-    contexto = {"usuarios": qs, "q": texto, "rol": rol, "roles": Rol.choices}
+    # Por defecto solo las cuentas activas: las de ex empleados quedan desactivadas y no estorban.
+    estado = request.GET.get("estado", "")
+    if estado == "INACTIVAS":
+        qs = qs.filter(is_active=False)
+    elif estado != "TODAS":
+        estado = ""
+        qs = qs.filter(is_active=True)
+    contexto = {"usuarios": qs, "q": texto, "rol": rol, "roles": Rol.choices, "estado": estado,
+                "total_inactivas": Usuario.objects.filter(is_active=False).count()}
     plantilla = "core/_usuarios_tabla.html" if _es_htmx(request) else "core/usuarios.html"
     return render(request, plantilla, contexto)
 
@@ -251,6 +259,12 @@ def usuario_restablecer_clave(request, pk):
     return redirect("usuario_credenciales")
 
 
+def _es_de_ex_empleado(usuario) -> bool:
+    from apps.personal.models import Empleado
+
+    return Empleado.objects.filter(usuario=usuario, estado=Empleado.Estado.DESVINCULADO).exists()
+
+
 @login_required
 @permission_required("core.change_usuario", raise_exception=True)
 @require_POST
@@ -260,6 +274,9 @@ def usuario_cambiar_estado(request, pk):
         messages.error(request, "No puede desactivar su propia cuenta.")
     elif usuario.protegida:
         messages.error(request, "Es una cuenta fija del departamento de TI: no se puede desactivar.")
+    elif not usuario.is_active and _es_de_ex_empleado(usuario):
+        messages.error(request, f"La cuenta {usuario.username} es de un ex empleado. Para que vuelva a ingresar, "
+                                "reintégrelo desde su ficha en Personal.")
     elif usuario.is_active and usuario.rol == Rol.ADMINISTRADOR and not Usuario.objects.filter(
         rol=Rol.ADMINISTRADOR, is_active=True).exclude(pk=usuario.pk).exists():
         messages.error(request, "Debe quedar al menos un administrador activo.")

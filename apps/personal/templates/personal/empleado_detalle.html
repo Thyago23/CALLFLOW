@@ -18,11 +18,39 @@
     </div>
   </div>
   {% if perms.personal.change_empleado %}
-  <a href="{% url 'personal:empleado_editar' empleado.pk %}" class="btn btn-outline-primary ms-md-auto">
-    <i class="bi bi-pencil me-1" aria-hidden="true"></i>Editar datos
-  </a>
+  <div class="d-flex flex-wrap gap-2 ms-md-auto">
+    <a href="{% url 'personal:empleado_editar' empleado.pk %}" class="btn btn-outline-primary">
+      <i class="bi bi-pencil me-1" aria-hidden="true"></i>Editar datos
+    </a>
+    {% if salida_form and not empleado.es_ex_empleado %}
+    <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#modal-salida">
+      <i class="bi bi-box-arrow-right me-1" aria-hidden="true"></i>Registrar salida
+    </button>
+    {% endif %}
+  </div>
   {% endif %}
 </div>
+
+{% if empleado.es_ex_empleado %}
+<div class="alert alert-secondary d-flex flex-wrap align-items-center gap-2" role="status">
+  <i class="bi bi-archive" aria-hidden="true"></i>
+  <div class="me-auto">
+    <strong>Ex empleado</strong> · {{ empleado.motivo_salida_texto }} · último día {{ empleado.fecha_salida|date:"d/m/Y" }}.
+    No aparece en el personal actual; su historial se conserva.
+    {% if empleado.detalle_salida %}<div class="small text-body-secondary mt-1">{{ empleado.detalle_salida|linebreaksbr }}</div>{% endif %}
+  </div>
+  {% if perms.personal.change_empleado %}
+  {% if salida_form %}<button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#modal-salida">Corregir salida</button>{% endif %}
+  <form method="post" action="{% url 'personal:empleado_reintegrar' empleado.pk %}"
+        data-confirmar="Volverá al personal activo{% if empleado.usuario %} y se reactivará su cuenta {{ empleado.usuario.username }}{% endif %}. Después revise su fecha de ingreso, sueldo y horario."
+        data-confirmar-titulo="¿Volver a contratar a {{ empleado.nombres }}?" data-confirmar-boton="Reintegrar" data-confirmar-icono="person-check" data-confirmar-tono="primary">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-sm btn-primary"><i class="bi bi-person-check me-1" aria-hidden="true"></i>Reintegrar</button>
+  </form>
+  {% endif %}
+</div>
+{% endif %}
+{% if salida_form %}{% include "personal/_modal_salida.html" %}{% endif %}
 
 {# ------------------------------------------------------------------ pestañas #}
 <div class="pestanas-ficha mb-3">
@@ -104,6 +132,7 @@
               <div class="col-sm-6"><dt>Contrato</dt><dd>{{ empleado.get_tipo_contrato_display }}</dd></div>
               <div class="col-sm-6"><dt>Fecha de ingreso</dt><dd>{{ empleado.fecha_ingreso|date:"d/m/Y" }}</dd></div>
               {% if empleado.fecha_salida %}<div class="col-sm-6"><dt>Fecha de salida</dt><dd>{{ empleado.fecha_salida|date:"d/m/Y" }}</dd></div>{% endif %}
+              {% if empleado.motivo_salida %}<div class="col-sm-6"><dt>Motivo de salida</dt><dd>{{ empleado.motivo_salida_texto }}</dd></div>{% endif %}
               {% if asistencia %}
               <div class="col-12"><dt>Horario</dt><dd class="mb-0">{% if horario_actual %}{{ horario_actual.nombre }} ({{ horario_actual.hora_entrada|time:"H:i" }}–{{ horario_actual.hora_salida|time:"H:i" }}){% else %}Sin horario asignado{% if perms.asistencia.add_asignacionhorario %} · <a href="{% url 'asistencia:horarios' %}">Asignar</a>{% endif %}{% endif %}</dd></div>
               {% endif %}

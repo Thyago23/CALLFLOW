@@ -47,6 +47,12 @@ class Empleado(ModeloBase):
         AHORROS = "AHORROS", "Ahorros"
         CORRIENTE = "CORRIENTE", "Corriente"
 
+    class MotivoSalida(models.TextChoices):
+        RENUNCIA = "RENUNCIA", "Renunció"
+        DESPIDO = "DESPIDO", "Despedido"
+        FIN_CONTRATO = "FIN_CONTRATO", "Fin de contrato"
+        OTRO = "OTRO", "Otro motivo"
+
     usuario = models.OneToOneField(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="empleado",
         help_text="Cuenta de acceso al sistema, si la persona usa CALLFLOW.",
@@ -64,6 +70,10 @@ class Empleado(ModeloBase):
     fecha_ingreso = models.DateField()
     fecha_salida = models.DateField(null=True, blank=True)
     estado = models.CharField(max_length=12, choices=Estado.choices, default=Estado.ACTIVO)
+    # La salida no borra al empleado: queda como ex empleado, con su historial de nómina, asistencia y ventas.
+    motivo_salida = models.CharField(max_length=12, choices=MotivoSalida.choices, blank=True, default="")
+    motivo_otro = models.CharField(max_length=120, blank=True, default="", help_text="Cuál fue el motivo, si es «Otro motivo».")
+    detalle_salida = models.TextField(blank=True, default="", help_text="Nota interna sobre la salida (opcional).")
     banco = models.CharField(max_length=80, blank=True, default="")
     tipo_cuenta = models.CharField(max_length=10, choices=TipoCuenta.choices, blank=True, default="")
     numero_cuenta = models.CharField(max_length=30, blank=True, default="")
@@ -88,10 +98,32 @@ class Empleado(ModeloBase):
                 name="empleado_desvinculado_con_fecha_salida",
             ),
             models.CheckConstraint(condition=Q(estado__in=["ACTIVO", "VACACIONES", "LICENCIA", "INACTIVO", "DESVINCULADO"]), name="empleado_estado_valido"),
+            # Motivo de salida si y solo si el empleado está desvinculado.
+            models.CheckConstraint(
+                condition=(Q(estado="DESVINCULADO") & Q(motivo_salida__in=["RENUNCIA", "DESPIDO", "FIN_CONTRATO", "OTRO"]))
+                | (~Q(estado="DESVINCULADO") & Q(motivo_salida="")),
+                name="empleado_motivo_salida_coherente",
+            ),
+            # «Otro motivo» exige escribir cuál; los demás motivos no llevan ese texto.
+            models.CheckConstraint(
+                condition=(Q(motivo_salida="OTRO") & ~Q(motivo_otro="")) | (~Q(motivo_salida="OTRO") & Q(motivo_otro="")),
+                name="empleado_motivo_otro_coherente",
+            ),
         ]
 
     def __str__(self):
         return f"{self.apellidos} {self.nombres}"
+
+    @property
+    def es_ex_empleado(self) -> bool:
+        return self.estado == self.Estado.DESVINCULADO
+
+    @property
+    def motivo_salida_texto(self) -> str:
+        """El motivo como se muestra: el texto escrito si es «Otro motivo»."""
+        if self.motivo_salida == self.MotivoSalida.OTRO and self.motivo_otro:
+            return self.motivo_otro
+        return self.get_motivo_salida_display()
 
 
 class HistorialSalario(ModeloBase):

@@ -13,7 +13,7 @@
 
 <form class="row g-2 mb-3" role="search"
       hx-get="{% url 'usuarios' %}" hx-target="#tabla-usuarios"
-      hx-trigger="input changed delay:300ms from:#busqueda, change from:#filtro-rol, submit" hx-push-url="true">
+      hx-trigger="input changed delay:300ms from:#busqueda, change from:#filtro-rol, change from:#filtro-estado-cuenta, submit" hx-push-url="true">
   <div class="col-sm-8 col-md-6">
     <label class="visually-hidden" for="busqueda">Buscar</label>
     <input id="busqueda" name="q" type="search" class="form-control" value="{{ q }}" placeholder="Buscar por usuario, nombre o correo" autocomplete="off">
@@ -25,6 +25,14 @@
       {% for valor, texto in roles %}
       <option value="{{ valor }}" {% if valor == rol %}selected{% endif %}>{{ texto }}</option>
       {% endfor %}
+    </select>
+  </div>
+  <div class="col-sm-4 col-md-3">
+    <label class="visually-hidden" for="filtro-estado-cuenta">Estado de la cuenta</label>
+    <select id="filtro-estado-cuenta" name="estado" class="form-select">
+      <option value="">Cuentas activas</option>
+      <option value="INACTIVAS" {% if estado == "INACTIVAS" %}selected{% endif %}>Desactivadas (ex empleados…){% if total_inactivas %} · {{ total_inactivas }}{% endif %}</option>
+      <option value="TODAS" {% if estado == "TODAS" %}selected{% endif %}>Todas</option>
     </select>
   </div>
 </form>

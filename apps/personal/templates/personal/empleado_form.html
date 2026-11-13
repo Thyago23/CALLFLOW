@@ -22,7 +22,13 @@
 {% if form.errors or documentos_form.errors %}
 <div class="alert alert-danger" role="alert">
   Revise los campos marcados en rojo antes de guardar.
-  {% for error in form.non_field_errors %}<div>{{ error }}</div>{% endfor %}
+  {# Cada error con el nombre de su campo: así ninguno queda escondido aunque el campo esté más abajo. #}
+  <ul class="mb-0 mt-1 small">
+    {% for error in form.non_field_errors %}<li>{{ error }}</li>{% endfor %}
+    {% for error in documentos_form.non_field_errors %}<li>{{ error }}</li>{% endfor %}
+    {% for campo in form %}{% if campo.errors %}<li><strong>{{ campo.label }}:</strong> {{ campo.errors|join:" " }}</li>{% endif %}{% endfor %}
+    {% for campo in documentos_form %}{% if campo.errors %}<li><strong>{{ campo.label }}:</strong> {{ campo.errors|join:" " }}</li>{% endif %}{% endfor %}
+  </ul>
   {% if documentos_form.is_bound %}<div class="small mt-1">Por seguridad, el navegador no conserva los archivos: vuelva a adjuntar los documentos.</div>{% endif %}
 </div>
 {% endif %}
@@ -98,14 +104,17 @@
         <div class="col-md-4">{% include "_campo.html" with campo=form.salario_base ayuda=form.salario_base.help_text %}</div>
         <div class="col-md-4">{% include "_campo.html" with campo=form.equipo ayuda=form.equipo.help_text %}</div>
         {% endif %}
-        {% if editando %}
-        <div class="col-md-4">{% include "_campo.html" with campo=form.estado %}</div>
-        <div class="col-md-4">{% include "_campo.html" with campo=form.fecha_salida ayuda=form.fecha_salida.help_text %}</div>
+        {% if editando and form.estado %}
+        <div class="col-md-4">{% include "_campo.html" with campo=form.estado ayuda=form.estado.help_text %}</div>
         {% endif %}
       </div>
+      {% if editando and object.es_ex_empleado %}
+      <p class="nota-formulario"><i class="bi bi-info-circle" aria-hidden="true"></i><span>Es un ex empleado ({{ object.motivo_salida_texto|lower }} el {{ object.fecha_salida|date:"d/m/Y" }}).
+        Para corregir la salida o volver a contratarlo use los botones de su ficha.</span></p>
+      {% endif %}
       {% if editando and object.usuario %}
-      <p class="nota-formulario"><i class="bi bi-info-circle" aria-hidden="true"></i><span>La cuenta <span class="font-monospace">{{ object.usuario.username }}</span> se actualiza sola: nombre, rol según el cargo,
-        y se desactiva si el empleado queda desvinculado. El usuario y el código de acceso no cambian.</span></p>
+      <p class="nota-formulario"><i class="bi bi-info-circle" aria-hidden="true"></i><span>La cuenta <span class="font-monospace">{{ object.usuario.username }}</span> se actualiza sola: nombre y rol según el cargo.
+        Se desactiva al registrar la salida del empleado. El usuario y el código de acceso no cambian.</span></p>
       {% endif %}
     </div>
   </section>

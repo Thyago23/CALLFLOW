@@ -25,6 +25,9 @@ CAMPOS = {
     "fecha_ingreso": "Fecha de ingreso",
     "estado": "Estado",
     "fecha_salida": "Fecha de salida",
+    "motivo_salida": "Motivo de salida",
+    "motivo_otro": "Otro motivo (cuál)",
+    "detalle_salida": "Nota de salida",
     "banco": "Banco",
     "tipo_cuenta": "Tipo de cuenta",
     "numero_cuenta": "Número de cuenta",
@@ -34,6 +37,7 @@ OPCIONES = {
     "tipo_identificacion": dict(Empleado.TipoIdentificacion.choices),
     "tipo_contrato": dict(Empleado.TipoContrato.choices),
     "estado": dict(Empleado.Estado.choices),
+    "motivo_salida": dict(Empleado.MotivoSalida.choices),
     "tipo_cuenta": dict(Empleado.TipoCuenta.choices),
 }
 

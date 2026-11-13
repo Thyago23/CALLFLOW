@@ -24,10 +24,12 @@
   <div class="col-sm-4 col-md-3">
     <label class="visually-hidden" for="filtro-estado">Estado</label>
     <select id="filtro-estado" name="estado" class="form-select">
-      <option value="">Todos los estados</option>
+      <option value="">Personal actual</option>
       {% for valor, texto in estados %}
       <option value="{{ valor }}" {% if valor == estado %}selected{% endif %}>{{ texto }}</option>
       {% endfor %}
+      <option value="{{ filtro_ex }}" {% if estado == filtro_ex %}selected{% endif %}>Ex empleados (despedidos, renuncias…){% if total_ex_empleados %} · {{ total_ex_empleados }}{% endif %}</option>
+      <option value="{{ filtro_todos }}" {% if estado == filtro_todos %}selected{% endif %}>Todos, incluidos ex empleados</option>
     </select>
   </div>
 </form>

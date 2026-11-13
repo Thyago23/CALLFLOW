@@ -19,7 +19,7 @@
         <td>{{ e.cargo }}</td>
         <td class="d-none d-md-table-cell">{{ e.get_tipo_contrato_display }}</td>
         <td class="d-none d-md-table-cell text-nowrap">{{ e.fecha_ingreso|date:"d/m/Y" }}</td>
-        <td><span class="badge estado-{{ e.estado|lower }}">{{ e.get_estado_display }}</span></td>
+        <td>{% if e.es_ex_empleado %}<span class="badge estado-desvinculado">{{ e.motivo_salida_texto }}</span><br><span class="text-body-secondary small text-nowrap">Salió el {{ e.fecha_salida|date:"d/m/Y" }}</span>{% else %}<span class="badge estado-{{ e.estado|lower }}">{{ e.get_estado_display }}</span>{% endif %}</td>
       </tr>
       {% endfor %}
     </tbody>
@@ -42,6 +42,8 @@
 {% endif %}
 {% elif q or estado %}
 <div class="text-center text-body-secondary py-5">No hay empleados que coincidan con la búsqueda.</div>
+{% elif total_ex_empleados %}
+<div class="text-center text-body-secondary py-5">No hay personal actual. Hay {{ total_ex_empleados }} ex empleado{{ total_ex_empleados|pluralize }} en el filtro «Ex empleados».</div>
 {% else %}
 <div class="text-center py-5">
   <p class="text-body-secondary mb-3">Todavía no hay empleados registrados.</p>

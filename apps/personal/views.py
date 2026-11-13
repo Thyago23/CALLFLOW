@@ -24,7 +24,9 @@ from apps.documentos.models import Documento, TipoDocumento
 
 from . import cv
 from . import historial
-from .forms import DocumentosIngresoForm, EmpleadoEditarForm, EmpleadoForm, EquipoForm, ObservacionForm, SalarioForm
+from . import salidas
+from .forms import (DocumentosIngresoForm, EmpleadoEditarForm, EmpleadoForm, EquipoForm, ObservacionForm, SalarioForm,
+                    SalidaForm)
 from .models import AsignacionComision, Empleado, HistorialSalario
 
 registro = logging.getLogger(__name__)
@@ -41,8 +43,16 @@ def es_htmx(request) -> bool:
     return request.headers.get("HX-Request") == "true"
 
 
+# Filtros del listado además de cada estado. Por defecto solo se ve el personal actual (sin ex empleados).
+FILTRO_EX_EMPLEADOS = "EX"
+FILTRO_TODOS = "TODOS"
+
+
 class EmpleadoListaView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
-    """Listado del personal, con búsqueda en vivo (HTMX) y filtro por estado."""
+    """
+    Listado del personal, con búsqueda en vivo (HTMX) y filtro por estado.
+    Los ex empleados (despedidos, renuncias) no se muestran salvo que se pidan con el filtro.
+    """
 
     permission_required = "personal.view_empleado"
     model = Empleado
@@ -60,8 +70,12 @@ class EmpleadoListaView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
                 filtro |= Q(nombres__icontains=palabra) | Q(apellidos__icontains=palabra)
             qs = qs.filter(filtro)
         estado = self.request.GET.get("estado", "")
-        if estado in Empleado.Estado.values:
+        if estado == FILTRO_EX_EMPLEADOS:
+            qs = qs.filter(estado=Empleado.Estado.DESVINCULADO).order_by("-fecha_salida", "apellidos", "nombres")
+        elif estado in Empleado.Estado.values and estado != Empleado.Estado.DESVINCULADO:
             qs = qs.filter(estado=estado)
+        elif estado != FILTRO_TODOS:
+            qs = qs.exclude(estado=Empleado.Estado.DESVINCULADO)
         return qs
 
     def get_template_names(self):
@@ -71,7 +85,9 @@ class EmpleadoListaView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
         ctx = super().get_context_data(**kwargs)
         ctx["q"] = self.request.GET.get("q", "")
         ctx["estado"] = self.request.GET.get("estado", "")
-        ctx["estados"] = Empleado.Estado.choices
+        ctx["estados"] = [(v, t) for v, t in Empleado.Estado.choices if v != Empleado.Estado.DESVINCULADO]
+        ctx["filtro_ex"], ctx["filtro_todos"] = FILTRO_EX_EMPLEADOS, FILTRO_TODOS
+        ctx["total_ex_empleados"] = Empleado.objects.filter(estado=Empleado.Estado.DESVINCULADO).count()
         ctx["resaltado"] = self.request.GET.get("nuevo", "")
         return ctx
 
@@ -177,7 +193,7 @@ class EmpleadoEditarView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView
         return redirect(self.get_success_url())
 
     def _sincronizar_cuenta(self, cambiados):
-        """La cuenta de acceso refleja el nombre, el rol del cargo y la desvinculación del empleado."""
+        """La cuenta de acceso refleja el nombre y el rol del cargo (la salida se maneja en salidas.py)."""
         usuario = self.object.usuario
         if not usuario:
             return
@@ -188,15 +204,6 @@ class EmpleadoEditarView(LoginRequiredMixin, PermissionRequiredMixin, UpdateView
         if "cargo" in cambiados:
             usuario.rol = rol_para_cargo(self.object.cargo.nombre)
             campos.append("rol")
-        if ("estado" in cambiados and self.object.estado == Empleado.Estado.DESVINCULADO and usuario.is_active
-                and usuario.protegida):
-            # La base de datos no permite desactivar las cuentas fijas de TI.
-            messages.warning(self.request, f"La cuenta {usuario.username} es una cuenta fija de TI: sigue activa "
-                                           "aunque el empleado esté desvinculado. Cambie su código de acceso si es necesario.")
-        elif "estado" in cambiados and self.object.estado == Empleado.Estado.DESVINCULADO and usuario.is_active:
-            usuario.is_active = False  # un empleado desvinculado ya no puede ingresar
-            campos.append("is_active")
-            messages.warning(self.request, f"Se desactivó la cuenta {usuario.username}: el empleado está desvinculado.")
         if campos:
             usuario.save()  # save() completo: dispara la sincronización del grupo de permisos por rol
 
@@ -306,6 +313,8 @@ class EmpleadoDetalleView(LoginRequiredMixin, PermissionRequiredMixin, DetailVie
 
         ctx["observaciones"] = self.object.observaciones.select_related("autor")
         ctx["observacion_form"] = ObservacionForm()
+        if self.request.user.has_perm("personal.change_empleado"):
+            ctx["salida_form"] = SalidaForm(empleado=self.object)
 
         ctx["contratos"] = self.object.contratos.select_related("plantilla", "documento", "generado_por", "revisado_por").order_by("-creado_en")
         ctx["contratos_por_revisar"] = sum(1 for c in ctx["contratos"] if c.pendiente_revision)
@@ -329,6 +338,55 @@ def observacion_crear(request, pk):
     else:
         messages.error(request, " ".join(e for errores in form.errors.values() for e in errores))
     return redirect(reverse("personal:empleado_detalle", args=[pk]) + "#observaciones")
+
+
+@login_required
+@permission_required("personal.change_empleado", raise_exception=True)
+@require_POST
+def empleado_salida(request, pk):
+    """Registra que el empleado fue despedido, renunció, etc. (o corrige esa salida). El registro NO se borra."""
+    empleado = get_object_or_404(Empleado, pk=pk)
+    corrigiendo = empleado.es_ex_empleado
+    form = SalidaForm(request.POST, empleado=empleado)
+    if not form.is_valid():
+        messages.error(request, "No se registró la salida: " + " ".join(e for lista in form.errors.values() for e in lista))
+        return redirect("personal:empleado_detalle", pk=pk)
+    datos = form.cleaned_data
+    try:
+        resultado = salidas.registrar_salida(empleado, fecha=datos["fecha"], motivo=datos["motivo"],
+                                             motivo_otro=datos["motivo_otro"], detalle=datos["detalle"])
+    except ValidationError as error:
+        messages.error(request, " ".join(error.messages))
+        return redirect("personal:empleado_detalle", pk=pk)
+    e = resultado.empleado
+    if corrigiendo:
+        messages.success(request, f"Se corrigió la salida de {e.nombres} {e.apellidos}.")
+    else:
+        messages.success(request, f"{e.nombres} {e.apellidos} quedó como ex empleado ({e.motivo_salida_texto.lower()}, "
+                                  f"último día {e.fecha_salida:%d/%m/%Y}). Su historial se conserva y ya no aparece en el "
+                                  "personal actual.")
+    for aviso in resultado.avisos:
+        messages.warning(request, aviso)
+    return redirect("personal:empleado_detalle", pk=pk)
+
+
+@login_required
+@permission_required("personal.change_empleado", raise_exception=True)
+@require_POST
+def empleado_reintegrar(request, pk):
+    """Vuelve a contratar a un ex empleado."""
+    empleado = get_object_or_404(Empleado, pk=pk)
+    try:
+        resultado = salidas.reintegrar(empleado)
+    except ValidationError as error:
+        messages.error(request, " ".join(error.messages))
+        return redirect("personal:empleado_detalle", pk=pk)
+    e = resultado.empleado
+    messages.success(request, f"{e.nombres} {e.apellidos} volvió al personal activo. Revise su fecha de ingreso, "
+                              "sueldo y horario si cambiaron con la nueva contratación.")
+    for aviso in resultado.avisos:
+        messages.info(request, aviso)
+    return redirect("personal:empleado_detalle", pk=pk)
 
 
 @login_required
