@@ -98,6 +98,8 @@ def bandeja(request):
         "resumen": servicios.resumen_bandeja(), "empleado": empleado,
         "sin_ficha": servicios.sin_ficha(request.user),
         "responsable_filtro": servicios.responsable_filtro(), "responsable_gestion": servicios.responsable_gestion(),
+        "faltan_responsables": servicios.es_administrador(request.user)
+                               and not (servicios.responsable_filtro() and servicios.responsable_gestion()),
         "form_responsables": ResponsablesForm(initial={"filtro": config.responsable_filtro_id,
                                                        "gestion": config.responsable_gestion_id})
         if servicios.es_administrador(request.user) else None,

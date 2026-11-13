@@ -6,30 +6,37 @@
 
 {# Flujo: filtro (y cierre final) → gestión → cierre final. #}
 <div class="card mb-3">
-  <div class="card-body py-2 d-flex flex-wrap align-items-center gap-2 small">
-    <span class="fw-semibold me-1">Flujo del cierre:</span>
-    <span class="badge etapa-dami etapa-filtro">1 · Filtro</span><span class="text-body-secondary">{{ responsable_filtro|default:"sin definir" }}</span>
-    <i class="bi bi-arrow-right text-body-secondary" aria-hidden="true"></i>
-    <span class="badge etapa-dami etapa-gestion">2 · Gestión</span><span class="text-body-secondary">{{ responsable_gestion|default:"sin definir" }}</span>
-    <i class="bi bi-arrow-right text-body-secondary" aria-hidden="true"></i>
-    <span class="badge etapa-dami etapa-cierre">3 · Cierre final</span><span class="text-body-secondary">{{ responsable_filtro|default:"sin definir" }}</span>
+  <div class="card-body py-2 d-flex flex-wrap align-items-center gap-2">
+    <div class="d-flex flex-wrap align-items-center gap-2 small flex-grow-1">
+      <span class="fw-semibold me-1">Flujo del cierre:</span>
+      <span class="badge etapa-dami etapa-filtro">1 · Filtro</span><span class="text-body-secondary">{{ responsable_filtro|default:"sin definir" }}</span>
+      <i class="bi bi-arrow-right text-body-secondary" aria-hidden="true"></i>
+      <span class="badge etapa-dami etapa-gestion">2 · Gestión</span><span class="text-body-secondary">{{ responsable_gestion|default:"sin definir" }}</span>
+      <i class="bi bi-arrow-right text-body-secondary" aria-hidden="true"></i>
+      <span class="badge etapa-dami etapa-cierre">3 · Cierre final</span><span class="text-body-secondary">{{ responsable_filtro|default:"sin definir" }}</span>
+    </div>
     {% if form_responsables %}
-    <button class="btn btn-sm btn-outline-primary ms-auto" type="button" data-bs-toggle="collapse" data-bs-target="#responsables-cierre"
-            aria-expanded="{% if not responsable_filtro or not responsable_gestion %}true{% else %}false{% endif %}" aria-controls="responsables-cierre">
+    <button class="btn btn-sm btn-outline-primary flex-shrink-0" type="button" data-bs-toggle="collapse" data-bs-target="#responsables-cierre"
+            aria-expanded="{% if faltan_responsables %}true{% else %}false{% endif %}" aria-controls="responsables-cierre">
       <i class="bi bi-people me-1" aria-hidden="true"></i>Responsables
     </button>
     {% endif %}
   </div>
   {% if form_responsables %}
-  <div class="collapse {% if not responsable_filtro or not responsable_gestion %}show{% endif %}" id="responsables-cierre">
-    <form method="post" action="{% url 'cierre:responsables' %}" class="card-body border-top row g-3 align-items-end">
+  <div class="collapse {% if faltan_responsables %}show{% endif %}" id="responsables-cierre">
+    <form method="post" action="{% url 'cierre:responsables' %}" class="card-body border-top">
       {% csrf_token %}
-      {% if not responsable_filtro or not responsable_gestion %}
-      <div class="col-12"><div class="alert alert-warning small mb-0">Elija quién hace cada etapa. Mientras no haya alguien en «Gestión», los DAMI no pueden pasar el filtro.</div></div>
+      {% if faltan_responsables %}
+      <div class="alert alert-warning small">Elija quién hace cada etapa. Mientras no haya alguien en «Gestión», los DAMI no pueden pasar el filtro.</div>
       {% endif %}
-      <div class="col-md-5">{% include "_campo.html" with campo=form_responsables.filtro ayuda=form_responsables.filtro.help_text %}</div>
-      <div class="col-md-5">{% include "_campo.html" with campo=form_responsables.gestion ayuda=form_responsables.gestion.help_text %}</div>
-      <div class="col-md-2 mb-3"><button type="submit" class="btn btn-primary w-100">Guardar</button></div>
+      <div class="row g-3">
+        <div class="col-md-6">{% include "_campo.html" with campo=form_responsables.filtro ayuda=form_responsables.filtro.help_text %}</div>
+        <div class="col-md-6">{% include "_campo.html" with campo=form_responsables.gestion ayuda=form_responsables.gestion.help_text %}</div>
+      </div>
+      <div class="d-flex justify-content-end gap-2">
+        <button type="button" class="btn btn-outline-secondary" data-bs-toggle="collapse" data-bs-target="#responsables-cierre">Cancelar</button>
+        <button type="submit" class="btn btn-primary"><i class="bi bi-check2 me-1" aria-hidden="true"></i>Guardar responsables</button>
+      </div>
     </form>
   </div>
   {% endif %}
