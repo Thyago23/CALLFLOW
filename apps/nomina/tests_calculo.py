@@ -69,11 +69,22 @@ class AtrasosTests(TestCase):
                 self.assertEqual(self.minutos(*hora), esperado)
 
     def test_multas_por_tramo(self):
+        # v2 (desde noviembre de 2026): 9:01–9:09 $1 · 9:10–9:29 $3 · desde 9:30 llamado de atención
         reglas = calculo.parametros("PENALIZACIONES", date(2026, 11, 30))
-        casos = {1: D("1.00"), 2: D("5.00"), 10: D("5.00"), 11: None, 45: None}
+        casos = {1: D("1.00"), 9: D("1.00"), 10: D("3.00"), 29: D("3.00"), 30: None, 45: None}
         for minutos, esperado in casos.items():
             with self.subTest(minutos=minutos):
                 self.assertEqual(calculo.multa_por_atraso(minutos, reglas), esperado)
+        self.assertEqual(self.minutos(9, 29, 0), 29)  # 9:29 en punto todavía es $3
+        self.assertEqual(self.minutos(9, 30, 0), 30)
+
+    def test_meses_anteriores_conservan_la_regla_v1(self):
+        reglas = calculo.parametros("PENALIZACIONES", date(2026, 10, 31))
+        casos = {1: D("1.00"), 2: D("5.00"), 10: D("5.00"), 11: None}
+        for minutos, esperado in casos.items():
+            with self.subTest(minutos=minutos):
+                self.assertEqual(calculo.multa_por_atraso(minutos, reglas), esperado)
+        self.assertNotIn("tope_penalizaciones_porcentaje", reglas)
 
 
 class EstimacionMesTests(TestCase):
@@ -129,23 +140,53 @@ class EstimacionMesTests(TestCase):
         self.assertEqual((e.comision, e.neto), (D("0.00"), D("500.00")))
 
     def test_penalizaciones(self):
-        self.novedad(0, "AUSENCIA", "NO_JUSTIFICADA")          # 10 % de 400 = 40
-        self.novedad(1, "AUSENCIA", "JUSTIFICADA")             # 13,33
+        self.novedad(1, "AUSENCIA", "JUSTIFICADA")             # 13,33 (no entra en el tope)
         self.novedad(2, "ATRASO", "NO_JUSTIFICADA", minutos=1)  # 1
-        self.novedad(3, "ATRASO", "PENDIENTE", minutos=7)       # 5 (sin clasificar: se cobra y se avisa)
+        self.novedad(3, "ATRASO", "PENDIENTE", minutos=7)       # 1 (sin clasificar: se cobra y se avisa)
         self.novedad(4, "ATRASO", "JUSTIFICADA", minutos=8)     # justificado: nada
-        self.novedad(5, "ATRASO", "NO_JUSTIFICADA", minutos=25)  # llamado de atención, sin multa
+        self.novedad(5, "ATRASO", "NO_JUSTIFICADA", minutos=25)  # 3
         e = self.estimar()
-        self.assertEqual([d.valor for d in e.descuentos], [D("40.00"), D("13.33"), D("1.00"), D("5.00")])
-        self.assertEqual(e.descuentos[0].concepto, "Falta no justificada (10 % del sueldo)")
-        self.assertEqual(e.total_descuentos, D("59.33"))
-        self.assertEqual(e.neto, D("340.67"))
-        self.assertEqual(e.pendientes, 1)
-        self.assertEqual([n.minutos for n in e.llamados_mes], [25])
-        self.assertTrue(e.multas_superan_aviso)  # 59,33 > 10 % de 400
+        self.assertEqual([d.valor for d in e.descuentos], [D("13.33"), D("1.00"), D("1.00"), D("3.00")])
+        self.assertEqual((e.ajuste_tope, e.total_descuentos, e.neto), (D("0.00"), D("18.33"), D("381.67")))
+        self.assertEqual((e.pendientes, e.total_atrasos, e.llamados_mes), (1, 3, []))
+        self.assertFalse(e.multas_superan_aviso)
+
+    def test_atraso_desde_las_930_es_llamado_multa_de_4_y_falta(self):
+        self.novedad(2, "ATRASO", "NO_JUSTIFICADA", minutos=166)
+        e = self.estimar()
+        self.assertEqual([(d.clase, d.valor) for d in e.descuentos], [("atraso", D("4.00")), ("falta_injustificada", D("40.00"))])
+        self.assertEqual([n.minutos for n in e.llamados_mes], [166])
+        self.assertEqual((e.total_atrasos, len(e.faltas_injustificadas), e.dias_trabajados), (1, 1, 29))
+        # 4 + 40 = 44 pasa el tope del 10 % de 400: se descuentan solo 40
+        self.assertEqual((e.tope_penalizaciones, e.ajuste_tope, e.total_descuentos, e.neto),
+                         (D("40.00"), D("4.00"), D("40.00"), D("360.00")))
+
+    def test_tope_de_multas_y_faltas_no_toca_faltas_justificadas_ni_anticipos(self):
+        self.novedad(0, "AUSENCIA", "NO_JUSTIFICADA")           # 40
+        self.novedad(1, "AUSENCIA", "JUSTIFICADA")              # 13,33 (fuera del tope)
+        self.novedad(2, "ATRASO", "NO_JUSTIFICADA", minutos=12)  # 3
+        self.novedad(3, "ATRASO", "NO_JUSTIFICADA", minutos=5)   # 1
+        e = self.estimar()
+        self.assertEqual(e.ajuste_tope, D("4.00"))  # 44 de penalizaciones → 40
+        self.assertEqual(e.total_descuentos, D("53.33"))
+
+    def test_acta_de_llamado_de_atencion(self):
+        largo = self.novedad(2, "ATRASO", "NO_JUSTIFICADA", minutos=166)
+        corto = self.novedad(3, "ATRASO", "NO_JUSTIFICADA", minutos=12)
+        self.client.force_login(self.admin)
+        url = reverse("nomina:acta_llamado", args=[largo.pk])
+        respuesta = self.client.get(url)
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertEqual(respuesta["Content-Type"], "application/pdf")
+        self.assertTrue(respuesta.content.startswith(b"%PDF"))
+        self.client.get(url)  # volver a generarla no duplica la copia del expediente
+        self.assertEqual(Documento.objects.filter(empleado=self.vendedor, tipo__codigo="LLAMADO_ATENCION").count(), 1)
+        self.assertEqual(self.client.get(reverse("nomina:acta_llamado", args=[corto.pk])).status_code, 404)
+        rol = self.client.get(reverse("nomina:rol", args=[self.vendedor.pk]))
+        self.assertContains(rol, url)
 
     def test_tres_llamados_de_atencion_son_visto_bueno(self):
-        self.novedad(0, "ATRASO", "NO_JUSTIFICADA", minutos=15)
+        self.novedad(0, "ATRASO", "NO_JUSTIFICADA", minutos=35)
         self.novedad(1, "ATRASO", "PENDIENTE", minutos=40)
         self.assertFalse(self.estimar().requiere_visto_bueno)
         ObservacionEmpleado.objects.create(empleado=self.vendedor, tipo="LLAMADO_ATENCION", texto="Uso del celular", autor=self.admin)

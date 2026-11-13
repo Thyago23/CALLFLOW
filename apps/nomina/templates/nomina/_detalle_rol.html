@@ -25,6 +25,12 @@
     {% empty %}
     <tr><th scope="row" class="text-body-secondary">Sin descuentos por faltas ni atrasos</th><td class="text-end">$ 0,00</td></tr>
     {% endfor %}
+    {% if e.ajuste_tope %}
+    <tr class="text-success-emphasis">
+      <th scope="row">Ajuste por tope de multas y faltas <span class="small text-body-secondary">· máximo {{ e.tope_porcentaje|floatformat:"-2" }} % del sueldo ($ {{ e.tope_penalizaciones }})</span></th>
+      <td class="text-end">+ $ {{ e.ajuste_tope }}</td>
+    </tr>
+    {% endif %}
     {% for a in e.anticipos %}
     <tr class="text-danger-emphasis"><th scope="row">Anticipo{% if a.concepto != "Anticipo" %}: {{ a.concepto }}{% endif %}{% if a.fecha %} <span class="small text-body-secondary">· {{ a.fecha|date:"D d/m" }}</span>{% endif %}</th><td class="text-end">− $ {{ a.valor }}</td></tr>
     {% endfor %}
@@ -45,6 +51,7 @@
 {% if e.llamados_mes %}
 <h3 class="h6 mt-4">Llamados de atención por atraso en el mes</h3>
 <ul class="small mb-0">
-  {% for n in e.llamados_mes %}<li>{{ n.fecha|date:"D d/m/Y" }} · {{ n.minutos }} min de atraso</li>{% endfor %}
+  {% for n in e.llamados_mes %}<li>{{ n.fecha|date:"D d/m/Y" }} · {{ n.minutos }} min de atraso{% if n.estado == "PENDIENTE" %} <span class="badge text-bg-warning">Sin clasificar</span>{% endif %}
+    {% if perms.documentos.add_documento %}· <a href="{% url 'nomina:acta_llamado' n.pk %}" target="_blank" rel="noopener"><i class="bi bi-file-earmark-pdf me-1" aria-hidden="true"></i>Acta de llamado de atención</a>{% endif %}</li>{% endfor %}
 </ul>
 {% endif %}

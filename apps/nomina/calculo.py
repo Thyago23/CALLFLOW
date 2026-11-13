@@ -10,7 +10,11 @@ Reglas:
     tramo alcanzado se aplica a TODO el total. Se paga aparte: no entra en el rol de pagos.
   - Falta no justificada: % del sueldo base. Falta justificada: monto fijo.
   - Atraso: multa según los minutos (cada minuto empezado cuenta); pasado el último tramo de
-    multa, es llamado de atención (sin multa). Un atraso justificado no tiene multa ni llamado.
+    multa, es llamado de atención. Desde la v2 de las reglas, ese atraso además tiene su propia
+    multa (atraso_llamado_multa) y el día cuenta como falta no justificada (no ingresa a la
+    oficina). Un atraso justificado no tiene multa ni llamado.
+  - Tope (v2): las multas por atraso más las faltas no justificadas del mes no superan el
+    porcentaje del sueldo de tope_penalizaciones_porcentaje; lo que pase se descuenta como ajuste.
   - Lo que no está justificado se descuenta: las novedades pendientes de revisar cuentan como
     no justificadas, y se marcan para que el administrador las clasifique antes de pagar.
 """
@@ -114,6 +118,10 @@ class Estimacion:
     aviso_multas_porcentaje: Decimal = Decimal("10")
     anticipos: list = field(default_factory=list)  # Linea: anticipos aprobados del mes (se descuentan)
     dias_trabajados: int = DIAS_DEL_MES
+    cantidad_atrasos: int = 0
+    llamado_desde_minutos: int = 11  # atrasos de estos minutos o más son llamado de atención
+    tope_porcentaje: Decimal | None = None  # tope de multas por atraso + faltas no justificadas
+    ajuste_tope: Decimal = Decimal("0.00")  # lo que se deja de descontar por el tope
 
     def _de(self, clase):
         return [d for d in self.descuentos if d.clase == clase]
@@ -132,8 +140,8 @@ class Estimacion:
 
     @property
     def total_atrasos(self) -> int:
-        """Atrasos con multa más los que pasaron a llamado de atención."""
-        return len(self.atrasos) + len(self.llamados_mes)
+        """Todos los atrasos no justificados del mes: con multa y los que pasaron a llamado de atención."""
+        return self.cantidad_atrasos
 
     @staticmethod
     def suma(lineas) -> Decimal:
@@ -161,7 +169,13 @@ class Estimacion:
 
     @property
     def total_descuentos(self) -> Decimal:
-        return _dinero(sum((d.valor for d in self.descuentos), Decimal("0")))
+        return _dinero(sum((d.valor for d in self.descuentos), Decimal("0")) - self.ajuste_tope)
+
+    @property
+    def tope_penalizaciones(self) -> Decimal | None:
+        if self.tope_porcentaje is None or not self.sueldo_base:
+            return None
+        return _dinero(self.sueldo_base * self.tope_porcentaje / 100)
 
     @property
     def total_ingresos(self) -> Decimal:
@@ -188,7 +202,7 @@ class Estimacion:
 
     @property
     def multas_superan_aviso(self) -> bool:
-        if not self.sueldo_base:
+        if not self.sueldo_base or self.tope_porcentaje is not None:  # con tope, el sistema ya lo respeta
             return False
         return self.total_descuentos > self.sueldo_base * self.aviso_multas_porcentaje / 100
 
@@ -246,15 +260,34 @@ def estimar_mes(empleado, anio: int, mes: int) -> Estimacion:
                 pendiente=n.estado == Estado.PENDIENTE, clase="falta_injustificada",
             ))
 
-    # Atrasos: multa o llamado de atención
+    # Atrasos: multa o llamado de atención (v2: el llamado también tiene multa y cuenta como falta)
+    multa_llamado = reglas.get("atraso_llamado_multa")
+    llamado_es_falta = bool(reglas.get("atraso_llamado_es_falta"))
     for n in novedades.filter(tipo=Tipo.ATRASO).exclude(estado=Estado.JUSTIFICADA):
+        estimacion.cantidad_atrasos += 1
+        pendiente = n.estado == Estado.PENDIENTE
         multa = multa_por_atraso(n.minutos or 0, reglas)
-        if multa is None:
-            estimacion.llamados_mes.append(n)
-        else:
+        if multa is not None:
+            estimacion.descuentos.append(Linea(f"Atraso de {n.minutos} min", multa, n.fecha, pendiente=pendiente, clase="atraso"))
+            continue
+        estimacion.llamados_mes.append(n)
+        if multa_llamado:
             estimacion.descuentos.append(Linea(
-                f"Atraso de {n.minutos} min", multa, n.fecha, pendiente=n.estado == Estado.PENDIENTE, clase="atraso",
+                f"Atraso de {n.minutos} min (llamado de atención)", _dinero(multa_llamado), n.fecha, pendiente=pendiente, clase="atraso",
             ))
+        if llamado_es_falta and sueldo:
+            estimacion.descuentos.append(Linea(
+                f"Falta por atraso de {n.minutos} min: no ingresó ({_porcentaje(pct_falta)} % del sueldo)",
+                _dinero(sueldo * pct_falta / 100), n.fecha, pendiente=pendiente, clase="falta_injustificada",
+            ))
+
+    # Tope: multas por atraso + faltas no justificadas no superan el % del sueldo
+    if reglas.get("tope_penalizaciones_porcentaje") is not None:
+        estimacion.tope_porcentaje = Decimal(str(reglas["tope_penalizaciones_porcentaje"]))
+        tope = estimacion.tope_penalizaciones
+        penalizaciones = estimacion.suma(estimacion.atrasos + estimacion.faltas_injustificadas)
+        if tope is not None and penalizaciones > tope:
+            estimacion.ajuste_tope = _dinero(penalizaciones - tope)
 
     # Anticipos aprobados de algún periodo de nómina que cae en el mes
     from .models import NovedadNomina
@@ -277,6 +310,7 @@ def estimar_mes(empleado, anio: int, mes: int) -> Estimacion:
         empleado=empleado, tipo=ObservacionEmpleado.Tipo.LLAMADO_ATENCION, creado_en__date__range=(desde_ventana, fin),
     ).count()
     estimacion.llamados_ventana = por_atraso + manuales
+    estimacion.llamado_desde_minutos = ultimo_tramo + 1
     return estimacion
 
 
@@ -370,6 +404,7 @@ def nomina_del_mes(anio: int, mes: int) -> ResumenNomina:
 # --------------------------------------------------------------------------- rol de pagos en PDF
 MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto",
          "septiembre", "octubre", "noviembre", "diciembre"]
+DIAS_SEMANA = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"]
 
 
 def nombre_mes(anio: int, mes: int) -> str:
@@ -465,7 +500,7 @@ def _pdf_total(pdf, ancho, etiqueta: str, valor: str):
     pdf.set_draw_color(*_LINEA)
 
 
-def _pdf_firmas_y_pie(pdf, ancho, e: Estimacion, nota: str):
+def _pdf_firmas_y_pie(pdf, ancho, e: Estimacion, nota: str, firma_derecha: str = "Firma Contabilidad"):
     from apps.documentos.contratos import _latin1
 
     if pdf.get_y() > pdf.h - 62:  # las firmas no quedan cortadas al final de la hoja
@@ -481,7 +516,7 @@ def _pdf_firmas_y_pie(pdf, ancho, e: Estimacion, nota: str):
     pdf.set_text_color(30)
     pdf.set_font("Helvetica", "B", 10)
     pdf.cell(mitad, 5.5, "Firma Empleado", align="C")
-    pdf.cell(mitad, 5.5, "Firma Contabilidad", align="C", new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(mitad, 5.5, _latin1(firma_derecha), align="C", new_x="LMARGIN", new_y="NEXT")
     pdf.set_font("Helvetica", size=8.5)
     pdf.set_text_color(*_GRIS)
     pdf.cell(mitad, 5, _latin1(f"{emp.nombres} {emp.apellidos} - {emp.identificacion}"), align="C", new_x="LMARGIN", new_y="NEXT")
@@ -501,6 +536,9 @@ def rol_de_pagos_pdf(e: Estimacion) -> bytes:
     _pdf_seccion(pdf, ancho, "Descuentos")
     for d in e.descuentos:
         _pdf_fila(pdf, ancho, f"{d.concepto} - {d.fecha:%d/%m/%Y}" + (" (sin clasificar)" if d.pendiente else ""), f"- {dinero(d.valor)}")
+    if e.ajuste_tope:
+        _pdf_fila(pdf, ancho, f"Ajuste por tope de multas y faltas ({_porcentaje(e.tope_porcentaje)} % del sueldo: "
+                              f"{dinero(e.tope_penalizaciones)})", f"+ {dinero(e.ajuste_tope)}")
     for a in e.anticipos:
         _pdf_fila(pdf, ancho, "Anticipo" + (f": {a.concepto}" if a.concepto != "Anticipo" else "") + (f" - {a.fecha:%d/%m/%Y}" if a.fecha else ""),
                   f"- {dinero(a.valor)}")

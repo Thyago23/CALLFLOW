@@ -13,6 +13,9 @@
       {% for d in e.descuentos %}
       <tr><td>{{ d.concepto }} · {{ d.fecha|date:"d/m/Y" }}{% if d.pendiente %} (sin clasificar){% endif %}</td><td>−${{ d.valor|dinero }}</td></tr>
       {% endfor %}
+      {% if e.ajuste_tope %}
+      <tr><td>Ajuste por tope de multas y faltas ({{ e.tope_porcentaje|floatformat:"-2" }} % del sueldo: ${{ e.tope_penalizaciones|dinero }})</td><td>+${{ e.ajuste_tope|dinero }}</td></tr>
+      {% endif %}
       {% for a in e.anticipos %}
       <tr><td>Anticipo{% if a.concepto != "Anticipo" %}: {{ a.concepto }}{% endif %}{% if a.fecha %} · {{ a.fecha|date:"d/m/Y" }}{% endif %}</td><td>−${{ a.valor|dinero }}</td></tr>
       {% endfor %}

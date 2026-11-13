@@ -4,7 +4,7 @@
   {% if e.requiere_visto_bueno %}
   <div class="alert alert-danger d-flex gap-2" role="alert">
     <i class="bi bi-exclamation-octagon fs-5" aria-hidden="true"></i>
-    <div><strong>{{ e.llamados_ventana }} llamados de atención</strong> en el último año (atrasos de más de 10 minutos y llamados registrados en Observaciones).
+    <div><strong>{{ e.llamados_ventana }} llamados de atención</strong> en el último año (atrasos de {{ e.llamado_desde_minutos }} minutos o más y llamados registrados en Observaciones).
       Al llegar a {{ e.llamados_para_visto_bueno }} procede el <strong>visto bueno</strong>.</div>
   </div>
   {% endif %}

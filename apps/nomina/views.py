@@ -6,6 +6,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required, permission_required
 from django.core.exceptions import ValidationError
 from django.http import Http404, HttpResponse, JsonResponse
+from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -85,6 +86,23 @@ def comision_pdf(request, empleado_pk):
         raise Http404("Solo los vendedores tienen comisión.")
     return _respuesta_pdf(calculo.comprobante_comision_pdf(estimacion),
                           f"Comision {anio}-{mes:02d} {empleado.apellidos} {empleado.nombres}.pdf")
+
+
+@login_required
+@permission_required("nomina.view_periodonomina", raise_exception=True)
+@permission_required("documentos.add_documento", raise_exception=True)
+def acta_llamado_pdf(request, novedad_pk):
+    """Acta de llamado de atención de un atraso largo; queda una copia en el expediente del empleado."""
+    from apps.asistencia.models import NovedadAsistencia
+
+    from . import llamados
+
+    novedad = get_object_or_404(NovedadAsistencia.objects.select_related("empleado__cargo", "registro"), pk=novedad_pk)
+    pdf = llamados.acta_pdf(novedad)
+    with transaction.atomic():
+        llamados.guardar_en_expediente(novedad, pdf, request.user)
+    emp = novedad.empleado
+    return _respuesta_pdf(pdf, f"Llamado de atencion {novedad.fecha:%Y-%m-%d} {emp.apellidos} {emp.nombres}.pdf")
 
 
 def _respuesta_pdf(pdf: bytes, nombre: str) -> HttpResponse:

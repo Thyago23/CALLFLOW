@@ -9,6 +9,7 @@ urlpatterns = [
     path("rol/<int:empleado_pk>/", views.rol, name="rol"),
     path("rol/<int:empleado_pk>/pdf/", views.rol_pdf, name="rol_pdf"),
     path("rol/<int:empleado_pk>/comision/pdf/", views.comision_pdf, name="comision_pdf"),
+    path("llamados/<int:novedad_pk>/acta/", views.acta_llamado_pdf, name="acta_llamado"),
     path("reportes/rol-de-pagos/", views.reporte_roles, name="reporte_roles"),
     path("caja-chica/", views.caja_chica, name="caja_chica"),
     path("caja-chica/<int:pk>/anular/", views.caja_anular, name="caja_anular"),

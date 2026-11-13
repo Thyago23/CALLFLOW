@@ -252,6 +252,8 @@ def _rol_pago(f, usuario) -> Tabla:
     e = calculo.estimar_mes(f["empleado"], *f["mes"])
     filas = [["Sueldo base", e.sueldo_base or Decimal("0")]]
     filas += [[f"{d.concepto} ({d.fecha:%d/%m/%Y})", -d.valor] for d in e.descuentos]
+    if e.ajuste_tope:
+        filas.append([f"Ajuste por tope de multas y faltas ({e.tope_porcentaje.normalize():f} % del sueldo)", e.ajuste_tope])
     filas += [["Anticipo" + (f": {a.concepto}" if a.concepto != "Anticipo" else ""), -a.valor] for a in e.anticipos]
     return Tabla(columnas=[Columna("Concepto", peso=4), Columna("Valor", "dinero")], filas=filas, periodo=_periodo_mes(f),
                  totales=["Neto a recibir", e.neto],
