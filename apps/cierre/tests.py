@@ -226,6 +226,15 @@ class ResultadoTests(BaseCierre):
         self.assertIsNone(gestion.valor_venta)
         self.assertEqual(RegistroProduccion.objects.get(formulario=f).estado, "NO_CONCRETADA")
 
+    def test_otro_motivo_exige_escribirlo(self):
+        f = self.tomado()
+        datos = {"resultado": "NO_CONCRETADA", "motivo": "Otro motivo", "version": f.version}
+        respuesta = self.post(self.ana, "cierre:resultado", f.pk, datos)
+        self.assertEqual(respuesta.status_code, 400)
+        self.assertIn("motivo_otro", respuesta.context["form_resultado"].errors)
+        self.post(self.ana, "cierre:resultado", f.pk, {**datos, "motivo_otro": "  Viaja fuera del país  "})
+        self.assertEqual(GestionCierre.objects.get().motivo_no_concretada, "Otro motivo: Viaja fuera del país")
+
     def test_venta_cerrada_exige_valor(self):
         f = self.tomado()
         respuesta = self.post(self.ana, "cierre:resultado", f.pk, {"resultado": "VENTA_CERRADA", "valor_venta": "0", "version": f.version})

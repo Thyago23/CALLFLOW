@@ -50,7 +50,7 @@
     <section class="card mb-4 border-primary">
       <div class="card-header bg-body"><h2 class="h6 mb-0">Registrar el resultado de la gestión</h2></div>
       <div class="card-body">
-        <form method="post" action="{% url 'cierre:resultado' f.pk %}" novalidate>
+        <form method="post" action="{% url 'cierre:resultado' f.pk %}" novalidate data-form-resultado>
           {% csrf_token %}{{ form_resultado.version }}
           {% for error in form_resultado.non_field_errors %}<div class="alert alert-danger small">{{ error }}</div>{% endfor %}
           <fieldset class="mb-3">
@@ -62,10 +62,13 @@
             </div>
             {% for error in form_resultado.resultado.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
           </fieldset>
+          {% with res=form_resultado.resultado.value %}
           <div class="row g-3">
-            <div class="col-sm-6">{% include "_campo.html" with campo=form_resultado.valor_venta ayuda="Obligatorio si la venta se cerró." %}</div>
-            <div class="col-sm-6">{% include "_campo.html" with campo=form_resultado.motivo ayuda="Obligatorio si no se concretó." %}</div>
+            <div class="col-sm-6" data-si-resultado="VENTA_CERRADA" {% if res != "VENTA_CERRADA" %}hidden{% endif %}>{% include "_campo.html" with campo=form_resultado.valor_venta ayuda="Obligatorio si la venta se cerró." %}</div>
+            <div class="col-sm-6" data-si-resultado="NO_CONCRETADA" {% if res != "NO_CONCRETADA" %}hidden{% endif %}>{% include "_campo.html" with campo=form_resultado.motivo ayuda="Obligatorio si no se concretó." %}</div>
+            <div class="col-12" data-si-otro-motivo {% if res != "NO_CONCRETADA" or form_resultado.motivo.value != "Otro motivo" %}hidden{% endif %}>{% include "_campo.html" with campo=form_resultado.motivo_otro %}</div>
           </div>
+          {% endwith %}
           {% include "_campo.html" with campo=form_resultado.observaciones %}
           <button type="submit" class="btn btn-primary"><i class="bi bi-check2-circle me-1" aria-hidden="true"></i>Guardar resultado</button>
           <p class="form-text mb-0 mt-2">Al guardar se actualiza la hoja de producción del vendedor. Después, solo el administrador puede corregirlo.</p>
@@ -94,7 +97,7 @@
     <details class="card mb-4" {% if form_correccion.errors %}open{% endif %}>
       <summary class="card-header bg-body h6 mb-0">Corregir el resultado (administrador)</summary>
       <div class="card-body">
-        <form method="post" action="{% url 'cierre:corregir' f.pk %}" novalidate>
+        <form method="post" action="{% url 'cierre:corregir' f.pk %}" novalidate data-form-resultado>
           {% csrf_token %}
           {% for error in form_correccion.non_field_errors %}<div class="alert alert-danger small">{{ error }}</div>{% endfor %}
           <fieldset class="mb-3">
@@ -105,10 +108,13 @@
               {% endfor %}
             </div>
           </fieldset>
+          {% with res=form_correccion.resultado.value %}
           <div class="row g-3">
-            <div class="col-sm-6">{% include "_campo.html" with campo=form_correccion.valor_venta %}</div>
-            <div class="col-sm-6">{% include "_campo.html" with campo=form_correccion.motivo %}</div>
+            <div class="col-sm-6" data-si-resultado="VENTA_CERRADA" {% if res != "VENTA_CERRADA" %}hidden{% endif %}>{% include "_campo.html" with campo=form_correccion.valor_venta %}</div>
+            <div class="col-sm-6" data-si-resultado="NO_CONCRETADA" {% if res != "NO_CONCRETADA" %}hidden{% endif %}>{% include "_campo.html" with campo=form_correccion.motivo %}</div>
+            <div class="col-12" data-si-otro-motivo {% if res != "NO_CONCRETADA" or form_correccion.motivo.value != "Otro motivo" %}hidden{% endif %}>{% include "_campo.html" with campo=form_correccion.motivo_otro %}</div>
           </div>
+          {% endwith %}
           {% include "_campo.html" with campo=form_correccion.motivo_correccion ayuda="Queda en el registro de cambios junto con el valor anterior." %}
           <button type="submit" class="btn btn-outline-danger">Guardar corrección</button>
         </form>
@@ -184,4 +190,24 @@
     </section>
   </div>
 </div>
+
+<script>
+  // Resultado: el valor solo se pide si la venta se cerró; el motivo, solo si no se concretó.
+  // Con "Otro motivo" aparece un campo para escribirlo.
+  document.querySelectorAll("[data-form-resultado]").forEach(function (form) {
+    const motivo = form.querySelector("select[name=motivo]");
+    function actualizar() {
+      const marcado = form.querySelector("input[name=resultado]:checked");
+      const res = marcado ? marcado.value : "";
+      form.querySelectorAll("[data-si-resultado]").forEach(function (bloque) {
+        bloque.hidden = bloque.dataset.siResultado !== res;
+      });
+      const otro = form.querySelector("[data-si-otro-motivo]");
+      if (otro) otro.hidden = !(res === "NO_CONCRETADA" && motivo && motivo.value === "Otro motivo");
+    }
+    form.querySelectorAll("input[name=resultado]").forEach(function (r) { r.addEventListener("change", actualizar); });
+    if (motivo) motivo.addEventListener("change", actualizar);
+    actualizar();
+  });
+</script>
 {% endblock %}

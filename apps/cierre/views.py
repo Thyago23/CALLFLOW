@@ -19,7 +19,7 @@ from apps.ventas.models import FormularioDAMI
 from apps.ventas.servicios import empleado_de
 
 from . import servicios
-from .forms import CorreccionForm, ReasignarForm, ResultadoForm
+from .forms import CorreccionForm, ReasignarForm, ResultadoForm, inicial_motivo
 from .models import GestionCierre
 
 Estado = FormularioDAMI.Estado
@@ -106,7 +106,7 @@ def _detalle(request, formulario, form_resultado=None, form_correccion=None, sta
         form_resultado = ResultadoForm(initial={"version": formulario.version})
     if gestion and servicios.es_administrador(usuario) and usuario.has_perm("cierre.change_gestioncierre") and form_correccion is None:
         form_correccion = CorreccionForm(initial={"resultado": gestion.resultado, "valor_venta": gestion.valor_venta,
-                                                  "motivo": gestion.motivo_no_concretada})
+                                                  **inicial_motivo(gestion.motivo_no_concretada)})
     tarjeta = getattr(formulario, "tarjeta", None)
     numero_tarjeta = servicios.numero_tarjeta_visible(usuario, formulario, tarjeta)
     respuesta = render(request, "cierre/formulario.html", {

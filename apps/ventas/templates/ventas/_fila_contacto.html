@@ -1,4 +1,5 @@
 {# Un contacto de la base en «Mis contactos». Recibe `r` y `estado` (el filtro de la lista). #}
+{% load humanize_cf %}
 <li class="contacto-base estado-{{ r.estado|lower }}{% if recien %} recien{% endif %}" id="contacto-{{ r.pk }}">
   <div class="datos min-w-0">
     <div class="fw-semibold">{{ r.nombre|default:"Sin nombre" }}
@@ -9,6 +10,21 @@
     </div>
     {% if r.direccion %}<div class="small text-body-secondary text-truncate">{{ r.direccion }}</div>{% endif %}
     <div class="small text-body-tertiary">{{ r.base.nombre }}{% if r.intentos > 1 %} · {{ r.intentos }} gestiones{% endif %}</div>
+    {% if r.dami %}
+    {# Lo que pasó con el DAMI de este cliente en cierre de ventas. #}
+    <div class="small mt-1">
+      {% if r.dami.estado == "VENTA_CERRADA" %}
+        <span class="badge text-bg-success"><i class="bi bi-trophy me-1" aria-hidden="true"></i>Venta cerrada{% if r.dami.gestion.valor_venta %} · ${{ r.dami.gestion.valor_venta|dinero }}{% endif %}</span>
+        <span class="text-body-secondary ms-1">{{ r.dami }}{% if r.dami.gestion %} · {{ r.dami.gestion.gestionado_en|date:"d/m/Y" }}{% endif %}</span>
+      {% elif r.dami.estado == "NO_CONCRETADA" %}
+        <span class="badge text-bg-danger"><i class="bi bi-x-circle me-1" aria-hidden="true"></i>Venta no concretada</span>
+        <span class="text-body-secondary ms-1">{{ r.dami }}{% if r.dami.gestion.motivo_no_concretada %} · {{ r.dami.gestion.motivo_no_concretada }}{% endif %}</span>
+      {% else %}
+        <span class="badge text-bg-info"><i class="bi bi-hourglass-split me-1" aria-hidden="true"></i>{{ r.dami.get_estado_display }}</span>
+        <span class="text-body-secondary ms-1">{{ r.dami }}</span>
+      {% endif %}
+    </div>
+    {% endif %}
   </div>
   <div class="telefonos">
     <a href="tel:{{ r.numero }}" class="fw-semibold text-decoration-none font-monospace"><i class="bi bi-telephone me-1" aria-hidden="true"></i>{{ r.numero }}</a>

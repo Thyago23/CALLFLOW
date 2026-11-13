@@ -681,6 +681,31 @@ def contactos_del_vendedor(empleado):
     return RegistroBase.objects.filter(Q(vendedor=empleado) | Q(pk__in=ayudando)).select_related("base", "vendedor")
 
 
+def damis_de_contactos(registros) -> dict:
+    """
+    {pk del contacto: su DAMI más reciente (enviado o ya gestionado en cierre)}. El DAMI no guarda el
+    contacto del que salió, así que se cruza por el vendedor dueño y la cédula o el teléfono del cliente.
+    """
+    registros = [r for r in registros if r.vendedor_id]
+    if not registros:
+        return {}
+    cedulas = {r.cedula for r in registros if r.cedula}
+    numeros = {r.numero for r in registros if r.numero}
+    damis = (FormularioDAMI.objects
+             .filter(vendedor_id__in={r.vendedor_id for r in registros})
+             .filter(Q(cliente__identificacion__in=cedulas) | Q(cliente__telefono__in=numeros))
+             .exclude(estado__in=[Estado.BORRADOR, Estado.ANULADO])
+             .select_related("cliente", "gestion").order_by("-enviado_en", "-pk"))
+    resultado = {}
+    for r in registros:
+        for f in damis:
+            if f.vendedor_id == r.vendedor_id and (
+                    (r.cedula and f.cliente.identificacion == r.cedula) or (r.numero and f.cliente.telefono == r.numero)):
+                resultado[r.pk] = f
+                break
+    return resultado
+
+
 @transaction.atomic
 def categorizar(usuario, registro_id: int, estado: str) -> RegistroBase:
     """El vendedor marca a su cliente; puede corregirlo o devolverlo a pendiente."""

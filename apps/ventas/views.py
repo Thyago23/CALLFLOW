@@ -586,10 +586,12 @@ def mis_contactos(request):
 
 
 def _anotar_contactos(registros, empleado, en_curso: dict) -> None:
-    """Para cada fila: si es un contacto en el que ayuda («cliente de») y la ayuda en curso, si la hay."""
+    """Para cada fila: si es un contacto en el que ayuda («cliente de»), la ayuda en curso y su DAMI, si los hay."""
+    damis = servicios.damis_de_contactos(registros)
     for r in registros:
         r.es_ayuda = r.vendedor_id != empleado.pk
         r.ayuda = en_curso.get(r.pk)
+        r.dami = damis.get(r.pk)
 
 
 @login_required

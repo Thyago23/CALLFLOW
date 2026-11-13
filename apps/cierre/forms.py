@@ -9,6 +9,15 @@ from . import servicios
 from .models import GestionCierre
 
 _MOTIVOS = [("", "Elija el motivo…")] + [(m, m) for m in servicios.MOTIVOS_NO_CONCRETADA]
+OTRO_MOTIVO = "Otro motivo"
+_PREFIJO_OTRO = f"{OTRO_MOTIVO}: "
+
+
+def inicial_motivo(guardado: str) -> dict:
+    """Convierte el motivo guardado ("Otro motivo: texto") en los dos campos del formulario."""
+    if guardado.startswith(_PREFIJO_OTRO):
+        return {"motivo": OTRO_MOTIVO, "motivo_otro": guardado[len(_PREFIJO_OTRO):]}
+    return {"motivo": guardado, "motivo_otro": ""}
 
 
 class ResultadoForm(FormularioEstilizado, forms.Form):
@@ -19,6 +28,8 @@ class ResultadoForm(FormularioEstilizado, forms.Form):
                                      max_digits=12, decimal_places=2,
                                      widget=forms.NumberInput(attrs={"step": "0.01", "inputmode": "decimal"}))
     motivo = forms.ChoiceField(label="Motivo", required=False, choices=_MOTIVOS)
+    motivo_otro = forms.CharField(label="¿Por qué no se concretó?", required=False,
+                                  max_length=255 - len(_PREFIJO_OTRO))
     observaciones = forms.CharField(label="Observación", required=False, max_length=1000,
                                     widget=forms.Textarea(attrs={"rows": 2}))
     version = forms.IntegerField(widget=forms.HiddenInput)
@@ -31,15 +42,26 @@ class ResultadoForm(FormularioEstilizado, forms.Form):
     def clean_observaciones(self):
         return sin_numero_de_tarjeta(self.cleaned_data["observaciones"])
 
+    def clean_motivo_otro(self):
+        return sin_numero_de_tarjeta(self.cleaned_data["motivo_otro"])
+
     def clean(self):
         datos = super().clean()
         resultado = datos.get("resultado")
         if resultado == GestionCierre.Resultado.VENTA_CERRADA and not datos.get("valor_venta"):
             self.add_error("valor_venta", "Indique el valor de la venta (mayor a cero).")
+        if resultado == GestionCierre.Resultado.VENTA_CERRADA:
+            datos["motivo"] = ""
         if resultado == GestionCierre.Resultado.NO_CONCRETADA:
             datos["valor_venta"] = None
             if not datos.get("motivo"):
                 self.add_error("motivo", "Indique por qué no se concretó la venta.")
+            elif datos["motivo"] == OTRO_MOTIVO:
+                texto = (datos.get("motivo_otro") or "").strip()
+                if not texto:
+                    self.add_error("motivo_otro", "Escriba el motivo por el que no se concretó la venta.")
+                else:
+                    datos["motivo"] = _PREFIJO_OTRO + texto
         return datos
 
 
