@@ -2,7 +2,7 @@
 Cálculo de sueldo, comisiones y penalizaciones de un empleado en un mes (SCRUM-14).
 
 Los valores (porcentajes, montos, tramos) no están escritos aquí: se leen de las reglas de
-cálculo vigentes (nomina_reglacalculo) y de los esquemas de comisión (Visas, Baymont Travel),
+cálculo vigentes (nomina_reglacalculo) y de los esquemas de comisión (Visado, Paquetería),
 para que la empresa pueda cambiarlos sin tocar el código. Ver nomina/migrations/0003.
 
 Reglas:
@@ -54,7 +54,7 @@ def sueldo_base_por_defecto(fecha: date | None = None) -> Decimal:
 # --------------------------------------------------------------------------- comisiones
 def tramo_alcanzado(esquema, total: Decimal):
     """
-    Primer tramo cuyo tope ('hasta', inclusive) cubre el total. Visas: 1.300 → tramo 0 %,
+    Primer tramo cuyo tope ('hasta', inclusive) cubre el total. Visado: 1.300 → tramo 0 %,
     1.301 → 11 %, 3.000 → 11 %, 3.001 → 15 % (el último tramo no tiene tope).
     """
     for tramo in esquema.tramos.order_by("desde_monto"):

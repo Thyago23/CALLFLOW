@@ -115,7 +115,7 @@ class FiltrosForm(forms.Form):
         return {k: v for k, v in self.cleaned_data.items() if v not in (None, "")}
 
     def texto(self) -> str:
-        """'Equipo: Visas · Vendedor: Mora Lucía' (para el PDF; las fechas ya van en el periodo)."""
+        """'Equipo: Visado · Vendedor: Mora Lucía' (para el PDF; las fechas ya van en el periodo)."""
         partes = []
         for nombre in self.reporte.filtros:
             if nombre in ("desde", "hasta", "mes", "llamado_desde", "llamado_hasta"):  # van en el periodo

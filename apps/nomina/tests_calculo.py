@@ -29,7 +29,7 @@ class ComisionesTests(TestCase):
     """Tramos de la empresa: el porcentaje alcanzado se aplica a todo el total del mes."""
 
     def test_visas(self):
-        visas = EsquemaComision.objects.get(nombre="Visas")
+        visas = EsquemaComision.objects.get(nombre="Visado")
         casos = {"0": ("0", "0.00"), "1300": ("0", "0.00"), "1301": ("11", "143.11"), "3000": ("11", "330.00"),
                  "3001": ("15", "450.15"), "3500": ("15", "525.00")}
         for total, (pct, monto) in casos.items():
@@ -37,7 +37,7 @@ class ComisionesTests(TestCase):
                 self.assertEqual(calculo.comision(visas, D(total)), (D(pct), D(monto)))
 
     def test_baymont_travel(self):
-        baymont = EsquemaComision.objects.get(nombre="Baymont Travel")
+        baymont = EsquemaComision.objects.get(nombre="Paquetería")
         casos = {"3000": ("0", "0.00"), "3001": ("11", "330.11"), "5000": ("11", "550.00"), "5001": ("15", "750.15")}
         for total, (pct, monto) in casos.items():
             with self.subTest(total=total):
@@ -89,7 +89,7 @@ class EstimacionMesTests(TestCase):
         cls.encargado = Empleado.objects.create(identificacion="0926687856", nombres="Luis", apellidos="Paz",
                                                 cargo=Cargo.objects.get(nombre="Supervisor"), fecha_ingreso=date(2026, 1, 1))
         HistorialSalario.objects.create(empleado=cls.vendedor, salario_base=D("400.00"), vigente_desde=date(2026, 1, 1))
-        AsignacionComision.objects.create(empleado=cls.vendedor, esquema=EsquemaComision.objects.get(nombre="Visas"),
+        AsignacionComision.objects.create(empleado=cls.vendedor, esquema=EsquemaComision.objects.get(nombre="Visado"),
                                           vigente_desde=date(2026, 1, 1))
         AsignacionHorario.objects.create(empleado=cls.vendedor, horario=Horario.objects.get(nombre="Jornada estándar"),
                                          vigente_desde=date(2026, 1, 1))
@@ -158,7 +158,7 @@ class EstimacionMesTests(TestCase):
         self.client.force_login(self.admin)
         ficha = self.client.get(reverse("personal:empleado_detalle", args=[self.vendedor.pk]))
         self.assertContains(ficha, 'data-pestana="sueldo"')
-        self.assertContains(ficha, "Visas")
+        self.assertContains(ficha, "Visado")
         self.assertContains(ficha, reverse("nomina:rol", args=[self.vendedor.pk]))  # el detalle del pago está en Nómina
         self.assertNotContains(ficha, "Total descuentos")
 
@@ -174,11 +174,11 @@ class EstimacionMesTests(TestCase):
 
     def test_cambiar_equipo(self):
         self.client.force_login(self.admin)
-        baymont = EsquemaComision.objects.get(nombre="Baymont Travel")
+        baymont = EsquemaComision.objects.get(nombre="Paquetería")
         self.client.post(reverse("personal:equipo_cambiar", args=[self.vendedor.pk]), {"esquema": baymont.pk, "vigente_desde": "2026-03-01"})
         actual = self.vendedor.comisiones.get(vigente_hasta__isnull=True)
         self.assertEqual(actual.esquema, baymont)
-        self.assertEqual(self.vendedor.comisiones.get(esquema__nombre="Visas").vigente_hasta, date(2026, 2, 28))
+        self.assertEqual(self.vendedor.comisiones.get(esquema__nombre="Visado").vigente_hasta, date(2026, 2, 28))
 
     def test_solo_autorizados_ven_y_editan_sueldos(self):
         vendedor_usuario = Usuario.objects.create_user("vend1", None, "clave-segura-123", rol=Rol.VENDEDOR)
@@ -192,7 +192,7 @@ class EstimacionMesTests(TestCase):
     # ----------------------------------------------------------- módulo Nómina
     def test_nomina_resume_a_todos_con_totales(self):
         HistorialSalario.objects.create(empleado=self.encargado, salario_base=D("500.00"), vigente_desde=date(2026, 1, 1))
-        self.venta_cerrada("2000.00", 1)                         # Visas 11 % = 220
+        self.venta_cerrada("2000.00", 1)                         # Visado 11 % = 220
         self.novedad(0, "AUSENCIA", "NO_JUSTIFICADA")            # − 40
         self.client.force_login(self.admin)
         respuesta = self.client.get(reverse("nomina:resumen"), {"mes": f"{self.anio}-{self.mes:02d}"})
@@ -209,7 +209,7 @@ class EstimacionMesTests(TestCase):
 
     def test_nomina_filtra_por_equipo_y_busqueda(self):
         self.client.force_login(self.admin)
-        visas = EsquemaComision.objects.get(nombre="Visas")
+        visas = EsquemaComision.objects.get(nombre="Visado")
         roles = self.client.get(reverse("nomina:resumen"), {"equipo": visas.pk}).context["roles"]
         self.assertEqual([r.empleado for r in roles], [self.vendedor])
         roles = self.client.get(reverse("nomina:resumen"), {"q": "paz"}).context["roles"]
@@ -238,7 +238,7 @@ class EstimacionMesTests(TestCase):
         lector = PdfReader(io.BytesIO(pdf.content))
         self.assertEqual(len(lector.pages), 1)
         texto = lector.pages[0].extract_text()
-        for esperado in ("ROL DE PAGOS", "Periodo:", "Ana Vera", "1710034065", "Visas", "NETO A RECIBIR", "$ 400,00", "Firma Empleado",
+        for esperado in ("ROL DE PAGOS", "Periodo:", "Ana Vera", "1710034065", "Visado", "NETO A RECIBIR", "$ 400,00", "Firma Empleado",
                          "Firma Contabilidad", "Faltas justificadas", "Días trabajados"):
             self.assertIn(esperado, texto)
         for ausente in ("Comisión", "165,00", "565,00"):
@@ -252,7 +252,7 @@ class EstimacionMesTests(TestCase):
         mes = f"{self.anio}-{self.mes:02d}"
         url = reverse("nomina:comision_pdf", args=[self.vendedor.pk])
         texto = PdfReader(io.BytesIO(self.client.get(url, {"mes": mes}).content)).pages[0].extract_text()
-        for esperado in ("COMPROBANTE DE COMISIÓN", "Ana Vera", "Visas", "$ 1.500,00", "11 %", "COMISIÓN A RECIBIR", "$ 165,00", "Firma Contabilidad"):
+        for esperado in ("COMPROBANTE DE COMISIÓN", "Ana Vera", "Visado", "$ 1.500,00", "11 %", "COMISIÓN A RECIBIR", "$ 165,00", "Firma Contabilidad"):
             self.assertIn(esperado, texto)
         self.assertEqual(self.client.get(reverse("nomina:comision_pdf", args=[self.encargado.pk])).status_code, 404)
 

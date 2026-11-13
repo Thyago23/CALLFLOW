@@ -50,7 +50,7 @@ class EmpleadoForm(forms.ModelForm):
     )
     equipo = forms.ModelChoiceField(
         EsquemaComision.objects.none(), label="Equipo", required=False, empty_label="Administrativo",
-        help_text="Vendedores: Visas o Baymont Travel (define sus comisiones). Administrativo: no lleva comisiones.",
+        help_text="Vendedores: Visado o Paquetería (define sus comisiones). Administrativo: no lleva comisiones.",
     )
     cuenta_existente = forms.ModelChoiceField(
         queryset=None, label="Cuenta de acceso", required=False, empty_label="Crear una cuenta nueva",

@@ -409,7 +409,7 @@ class FlujoRealTests(TestCase):
 
     def datos_dami(self, base, tarjeta):
         marca, numero, banco = tarjeta
-        return {"producto": "Visas", "cedula": "", "ruc": "", "nombres": "", "apellidos": "", "telefono": "", "direccion": "",
+        return {"producto": "Visado", "cedula": "", "ruc": "", "nombres": "", "apellidos": "", "telefono": "", "direccion": "",
                 "sector": "Centro", "ciudad": "Quito", "referencia": "Casa esquinera", "email": "",
                 "marca": marca, "tarjeta_activa": self.rng.choice(["SI", "SI", "NO"]), "banco": banco, "caducidad": "08/35",
                 "numero_tarjeta": numero, "observaciones": ""} | {k: v for k, v in base.items() if v}
