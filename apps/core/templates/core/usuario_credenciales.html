@@ -31,12 +31,42 @@
   </div>
 </div>
 <script>
+  // navigator.clipboard solo existe en HTTPS o localhost. Por la red de la oficina (http://IP:8000) no está,
+  // así que se usa el método clásico: un campo oculto, seleccionarlo y execCommand("copy").
+  function copiarClasico(texto) {
+    const campo = document.createElement("textarea");
+    campo.value = texto;
+    campo.setAttribute("readonly", "");
+    campo.style.position = "fixed";
+    campo.style.opacity = "0";
+    document.body.appendChild(campo);
+    campo.select();
+    let ok = false;
+    try { ok = document.execCommand("copy"); } catch (e) { ok = false; }
+    campo.remove();
+    return ok ? Promise.resolve() : Promise.reject();
+  }
+
   document.getElementById("copiar-credenciales").addEventListener("click", function () {
-    const texto = "Usuario: " + document.getElementById("cred-usuario").textContent +
-                  "\nCódigo de acceso: " + document.getElementById("cred-clave").textContent;
-    const etiqueta = this.querySelector("span");
-    navigator.clipboard.writeText(texto).then(
-      () => { etiqueta.textContent = "Copiado"; },
+    const texto = "Usuario: " + document.getElementById("cred-usuario").textContent.trim() +
+                  "\nCódigo de acceso: " + document.getElementById("cred-clave").textContent.trim();
+    const boton = this;
+    const etiqueta = boton.querySelector("span");
+    const icono = boton.querySelector("i");
+    const copia = (navigator.clipboard && window.isSecureContext)
+      ? navigator.clipboard.writeText(texto).catch(() => copiarClasico(texto))
+      : copiarClasico(texto);
+    copia.then(
+      () => {
+        etiqueta.textContent = "Copiado";
+        icono.className = "bi bi-clipboard-check me-1";
+        boton.classList.replace("btn-outline-primary", "btn-success");
+        setTimeout(() => {
+          etiqueta.textContent = "Copiar usuario y código";
+          icono.className = "bi bi-clipboard me-1";
+          boton.classList.replace("btn-success", "btn-outline-primary");
+        }, 2500);
+      },
       () => { etiqueta.textContent = "No se pudo copiar; cópielo a mano"; }
     );
   });
