@@ -3,6 +3,7 @@
   <div class="panel-chats-cabecera">
     <h2 class="h5 mb-0">Chats</h2>
     <div class="d-flex gap-1">
+      <button type="button" class="boton-redondo" data-sonido-chat aria-pressed="true" title="Sonido de mensajes"><i class="bi bi-volume-up" aria-hidden="true"></i><span class="visually-hidden">Silenciar sonido de mensajes</span></button>
       <button type="button" class="boton-redondo" data-nuevo-grupo title="Nuevo grupo"><i class="bi bi-people" aria-hidden="true"></i><span class="visually-hidden">Nuevo grupo</span></button>
       {% if modo == "dock" %}<a href="{% url 'mensajes:bandeja' %}" class="boton-redondo" title="Abrir Mensajes en pantalla completa"><i class="bi bi-arrows-angle-expand" aria-hidden="true"></i><span class="visually-hidden">Pantalla completa</span></a>{% endif %}
     </div>

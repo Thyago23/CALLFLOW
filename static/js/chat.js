@@ -142,6 +142,7 @@
   function prepararVentana(v) {
     if (!v) return;
     var hilo = v.querySelector(".hilo");
+    registrarMensajes(v);  // lo que ya estaba escrito no suena
     agrupar(hilo);
     alFinal(hilo);
     prepararComposer(v.querySelector("form.escribir"));
@@ -235,6 +236,108 @@
     var c = e.target.closest("[data-cerrar-dialogo]");
     if (c) c.closest("dialog").close();
   });
+
+  // ------------------------------------------------------------------ sonido de mensajes nuevos
+  /*
+   * Suena un «ding» cuando llega un mensaje de otra persona:
+   *  - en un chat abierto (ventanita o página Mensajes), al aparecer la burbuja;
+   *  - en cualquier otro chat, cuando sube el contador de mensajes sin leer (sondeo de la campana).
+   * El sonido se genera con Web Audio (no hay archivo). Se puede silenciar desde el panel de Chats;
+   * la preferencia se recuerda en este navegador. Los navegadores solo dejan sonar después de que la
+   * persona hizo clic o escribió algo en la página: hasta entonces el aviso es solo visual.
+   */
+  var CLAVE_SONIDO = "cf-chat-sonido";
+  var audio = null, ultimoSonido = 0, contadorPrevio = null, mensajesVistos = {};
+
+  function sonidoActivo() {
+    try { return localStorage.getItem(CLAVE_SONIDO) !== "0"; } catch (e) { return true; }
+  }
+  function contexto() {
+    var Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return null;
+    if (!audio) { try { audio = new Ctx(); } catch (e) { return null; } }
+    return audio;
+  }
+  function nota(ctx, frecuencia, inicio, duracion) {
+    var osc = ctx.createOscillator(), vol = ctx.createGain();
+    osc.type = "sine";
+    osc.frequency.value = frecuencia;
+    vol.gain.setValueAtTime(0.0001, inicio);
+    vol.gain.exponentialRampToValueAtTime(0.18, inicio + 0.015);
+    vol.gain.exponentialRampToValueAtTime(0.0001, inicio + duracion);
+    osc.connect(vol); vol.connect(ctx.destination);
+    osc.start(inicio); osc.stop(inicio + duracion + 0.02);
+  }
+  function sonar() {
+    if (!sonidoActivo()) return;
+    var ahora = Date.now();
+    if (ahora - ultimoSonido < 1500) return;  // varios mensajes juntos: un solo aviso
+    var ctx = contexto();
+    if (!ctx || ctx.state !== "running") return;  // aún sin clic en la página: el navegador no deja sonar
+    ultimoSonido = ahora;
+    var t = ctx.currentTime;
+    nota(ctx, 880, t, 0.18);          // la
+    nota(ctx, 1318.5, t + 0.11, 0.3);  // mi agudo
+  }
+  // Desbloquear el audio con la primera interacción en la página.
+  function desbloquear() {
+    var ctx = contexto();
+    if (ctx && ctx.state === "suspended") ctx.resume().catch(function () {});
+  }
+  ["pointerdown", "keydown", "touchstart"].forEach(function (ev) { document.addEventListener(ev, desbloquear, {capture: true, passive: true}); });
+
+  function registrarMensajes(raiz) {
+    (raiz || document).querySelectorAll(".mensaje[data-id]").forEach(function (m) { mensajesVistos[m.dataset.id] = true; });
+  }
+  function leerContador() {
+    var el = document.getElementById("contador-mensajes");
+    var n = el ? parseInt(el.textContent, 10) : NaN;
+    return isNaN(n) ? 0 : n;
+  }
+  registrarMensajes(document);
+  contadorPrevio = document.getElementById("contador-mensajes") ? leerContador() : null;
+
+  document.body.addEventListener("htmx:oobAfterSwap", function (e) {
+    var t = e.detail.target;
+    if (!t) return;
+    if (t.id === "contador-mensajes") {
+      var n = leerContador();
+      // Si ya sonó por la burbuja (ventanita minimizada) hace poco, no se repite.
+      if (contadorPrevio !== null && n > contadorPrevio && Date.now() - ultimoSonido > 6000) sonar();
+      contadorPrevio = n;
+    } else if (t.classList && t.classList.contains("hilo")) {
+      var nuevoDeOtro = false;
+      t.querySelectorAll(".mensaje[data-id]").forEach(function (m) {
+        if (mensajesVistos[m.dataset.id]) return;
+        mensajesVistos[m.dataset.id] = true;
+        if (!m.classList.contains("mio")) nuevoDeOtro = true;
+      });
+      if (nuevoDeOtro) sonar();
+    }
+  });
+
+  // Botón para activar o silenciar el sonido (en la cabecera del panel de Chats).
+  function pintarBotonesSonido() {
+    var activo = sonidoActivo();
+    document.querySelectorAll("[data-sonido-chat]").forEach(function (b) {
+      b.setAttribute("aria-pressed", activo ? "true" : "false");
+      b.title = activo ? "Sonido de mensajes: activado (clic para silenciar)" : "Sonido de mensajes: silenciado (clic para activar)";
+      var i = b.querySelector("i");
+      if (i) i.className = "bi " + (activo ? "bi-volume-up" : "bi-volume-mute");
+      var txt = b.querySelector(".visually-hidden");
+      if (txt) txt.textContent = activo ? "Silenciar sonido de mensajes" : "Activar sonido de mensajes";
+    });
+  }
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest("[data-sonido-chat]");
+    if (!b) return;
+    var activar = !sonidoActivo();
+    try { localStorage.setItem(CLAVE_SONIDO, activar ? "1" : "0"); } catch (err) {}
+    pintarBotonesSonido();
+    if (activar) { desbloquear(); ultimoSonido = 0; setTimeout(sonar, 50); }  // muestra de cómo suena
+  });
+  document.body.addEventListener("htmx:afterSwap", pintarBotonesSonido);
+  pintarBotonesSonido();
 
   // ------------------------------------------------------------------ página Mensajes
   document.querySelectorAll(".ventana-chat.pagina").forEach(prepararVentana);
