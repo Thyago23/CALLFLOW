@@ -35,6 +35,9 @@ def env(clave: str, defecto: str | None = None) -> str:
 SECRET_KEY = env("DJANGO_SECRET_KEY")
 DEBUG = env("DJANGO_DEBUG", "False").lower() in ("1", "true", "si", "yes")
 ALLOWED_HOSTS = [h.strip() for h in env("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",") if h.strip()]
+# Orígenes desde los que se aceptan formularios (POST) cuando se entra por IP o por otro puerto,
+# p. ej. http://192.168.100.83:8000 al abrir la app desde la otra computadora de la red.
+CSRF_TRUSTED_ORIGINS = [o.strip() for o in env("DJANGO_CSRF_TRUSTED_ORIGINS", "").split(",") if o.strip()]
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -111,7 +114,8 @@ DATABASES = {
         "HOST": env("DB_HOST", "localhost"),
         "PORT": env("DB_PORT", "5432"),
         "ATOMIC_REQUESTS": True,
-        "OPTIONS": {"options": "-c timezone=America/Guayaquil"},
+        # connect_timeout: si la base está en otra computadora y no responde, falla en segundos en vez de colgarse.
+        "OPTIONS": {"options": "-c timezone=America/Guayaquil", "connect_timeout": int(env("DB_CONNECT_TIMEOUT", "5"))},
     }
 }
 
