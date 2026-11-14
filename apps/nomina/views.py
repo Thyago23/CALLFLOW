@@ -13,6 +13,7 @@ from django.utils import timezone
 from django.utils.http import content_disposition_header, url_has_allowed_host_and_scheme
 from django.views.decorators.http import require_POST
 
+from apps.core import validadores
 from apps.personal.models import Empleado, EsquemaComision
 from apps.reportes import formato
 from apps.ventas.templatetags.humanize_cf import dinero
@@ -356,7 +357,7 @@ def caja_recibo_entrega(request, pk):
                 messages.success(request, "Datos del recibo guardados.")
                 return redirect("nomina:caja_recibo_entrega", pk=recibo.pk)
             if accion == "quitar":
-                linea = get_object_or_404(LineaRecibo, pk=request.POST.get("linea"), recibo=recibo)
+                linea = get_object_or_404(LineaRecibo, pk=validadores.entero(request.POST.get("linea")), recibo=recibo)
                 caja.anular_linea(request.user, linea)
                 messages.success(request, "Fila quitada del recibo." + (" Lo entregado volvió a la caja." if linea.movimiento_id else ""))
                 return redirect("nomina:caja_recibo_entrega", pk=recibo.pk)

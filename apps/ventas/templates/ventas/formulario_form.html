@@ -19,7 +19,7 @@
 
 {# Mismo formato que el DAMI en papel («Formulario de ventas»), con los campos que tiene el sistema. #}
 <form method="post" novalidate id="formulario-dami" class="formulario-empleado dami-papel" autocomplete="off">
-  {% csrf_token %}
+  {% csrf_token %}{{ form.version }}
   {% if contacto %}<input type="hidden" name="contacto" value="{{ contacto.pk }}">{% endif %}
   {% if ayuda or ayudante %}
   <div class="alert alert-primary d-flex gap-2 align-items-start papel-alerta" role="note">

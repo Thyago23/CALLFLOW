@@ -8,6 +8,7 @@ from django.db.models import Q
 from django.urls import reverse
 
 from apps.core import validadores
+from apps.core.concurrencia import ControlConcurrencia
 from apps.core.cuentas import rol_para_cargo
 from apps.core.models import Rol
 from apps.documentos import archivos
@@ -260,7 +261,7 @@ class ObservacionForm(forms.ModelForm):
         return texto
 
 
-class EmpleadoEditarForm(EmpleadoForm):
+class EmpleadoEditarForm(ControlConcurrencia, EmpleadoForm):
     """
     SCRUM-13 · Actualizar datos de empleados: las mismas validaciones del registro, más el estado.
     La salida (despido, renuncia) y el reintegro no se hacen aquí sino desde la ficha, para que siempre

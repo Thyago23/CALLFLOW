@@ -34,7 +34,7 @@
 {% endif %}
 
 <form method="post" enctype="multipart/form-data" novalidate class="card formulario formulario-empleado" id="formulario-empleado">
-  {% csrf_token %}
+  {% csrf_token %}{{ form.huella_registro }}
 
   {% if not editando %}
   <section class="formulario-seccion">

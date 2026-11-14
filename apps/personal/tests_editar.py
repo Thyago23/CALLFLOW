@@ -12,9 +12,11 @@ from django.core.management import call_command
 from django.test import TestCase
 from django.urls import reverse
 
+from apps.core.concurrencia import huella_actual
 from apps.core.cuentas import crear_cuenta_para_empleado
 from apps.core.models import RegistroCambio, Rol, Usuario
 
+from .forms import EmpleadoEditarForm
 from .models import Cargo, Empleado
 from .tests import CEDULA_VALIDA, OTRA_CEDULA_VALIDA
 
@@ -44,7 +46,7 @@ class EditarEmpleadoTests(TestCase):
             "apellidos": e.apellidos, "fecha_nacimiento": "", "telefono": e.telefono, "email": e.email,
             "direccion": e.direccion, "cargo": e.cargo_id, "tipo_contrato": e.tipo_contrato,
             "fecha_ingreso": e.fecha_ingreso.isoformat(), "estado": e.estado,
-        } | cambios
+        } | huella_actual(EmpleadoEditarForm, Empleado.objects.get(pk=e.pk)) | cambios
 
     # ----------------------------------------------------------- criterio 1
     def test_criterio1_edita_datos_personales_y_laborales(self):

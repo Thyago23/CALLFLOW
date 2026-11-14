@@ -293,7 +293,8 @@ class GestionDelVendedorTests(BaseVentas):
         self.assertEqual(RegistroBase.objects.get(pk=self.de_pedro.pk).estado, "PENDIENTE")
         # Al editar el borrador (sin contacto) no se pierde la base que ya tenía.
         FormularioDAMI.objects.filter(pk=borrador.pk).update(base_comercial=self.base)
-        self.client.post(reverse("ventas:formulario_editar", args=[borrador.pk]), CLIENTE | {"cedula": "0926687856", "observaciones": "Llamar tarde"})
+        self.client.post(reverse("ventas:formulario_editar", args=[borrador.pk]), CLIENTE | {"cedula": "0926687856", "observaciones": "Llamar tarde",
+                                                                                      "version": FormularioDAMI.objects.get(pk=borrador.pk).version})
         borrador.refresh_from_db()
         self.assertEqual((borrador.observaciones, borrador.base_comercial), ("Llamar tarde", self.base))
 

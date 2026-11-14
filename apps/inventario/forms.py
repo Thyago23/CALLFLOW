@@ -2,6 +2,7 @@ from decimal import Decimal
 
 from django import forms
 
+from apps.core.concurrencia import ControlConcurrencia
 from apps.core.forms import FormularioEstilizado, _estilizar
 
 from .models import CategoriaMaterial, Material, MovimientoInventario
@@ -9,7 +10,7 @@ from .models import CategoriaMaterial, Material, MovimientoInventario
 _CANTIDAD = {"min_value": Decimal("0.01"), "max_digits": 12, "decimal_places": 2}
 
 
-class MaterialForm(FormularioEstilizado, forms.ModelForm):
+class MaterialForm(ControlConcurrencia, FormularioEstilizado, forms.ModelForm):
     """SCRUM-25 · Registrar materiales de oficina."""
 
     categoria_nueva = forms.CharField(label="…o una categoría nueva", required=False, max_length=80,

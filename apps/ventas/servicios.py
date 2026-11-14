@@ -128,8 +128,19 @@ def guardar_formulario(usuario, datos: dict, formulario: FormularioDAMI | None =
     empleado = empleado_de(usuario)
     if not es_vendedor(usuario):
         raise PermissionDenied("Solo los vendedores registran formularios DAMI.")
-    if formulario is not None and not formulario_editable(usuario, formulario):
-        raise ValidationError("Este formulario ya no se puede modificar.")
+    if formulario is not None:
+        # Concurrencia optimista: se bloquea la fila y se compara la versión con la que se abrió el formulario.
+        # La base incrementa `version` en cada cambio (trigger de ventas/0002), así que si otro (el dueño o quien
+        # lo ayuda) guardó entre medio, no se pisa su trabajo.
+        formulario = FormularioDAMI.objects.select_for_update(of=("self",)).select_related("vendedor").get(pk=formulario.pk)
+        if not formulario_editable(usuario, formulario):
+            raise ValidationError("Este formulario ya no se puede modificar.")
+        version = datos.get("version")
+        if not version:
+            raise ValidationError("Recargue la página e intente de nuevo.")
+        if version != formulario.version:
+            raise ValidationError("Otra persona guardó cambios en este formulario mientras usted lo editaba. "
+                                  "Abra el formulario de nuevo para ver la versión actual antes de guardar.")
 
     cliente = guardar_cliente(datos)
     if formulario is None:

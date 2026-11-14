@@ -104,7 +104,15 @@ superusuario de la empresa (`DB_USER` y `DB_PASSWORD` de `DB_ADMIN_USER` como va
 
 ## Respaldos (sección 6)
 
-- Respaldo: `powershell -ExecutionPolicy Bypass -File scripts\respaldar_bd.ps1` (guarda en `respaldos\`, conserva los últimos 30 y verifica que cada archivo se pueda leer). Conviene programarlo a diario en el Programador de tareas de Windows.
+- Respaldo manual: `powershell -ExecutionPolicy Bypass -File scripts\respaldar_bd.ps1` (guarda en `respaldos\` y verifica que cada archivo se pueda leer). `-Tipo hora` respalda solo la base; `-CopiarA <ruta>` deja además una copia en otro disco o carpeta.
+- **Respaldos automáticos** (correr una vez, solo en la PC que tiene la base):
+  `powershell -ExecutionPolicy Bypass -File scripts\programar_respaldos.ps1 -CopiarA "E:\Respaldos CALLFLOW"`
+  - Cada hora de 09:00 a 19:00 en días laborables: solo la base (`callflow_hora_*.dump`, se conservan 50 ≈ 5 días). Como mucho se pierde una hora de trabajo.
+  - Días laborables a las 19:30: base + archivos (`callflow_*.dump` + `callflow_media_*.zip`, se conservan 30).
+  - Si la PC estaba apagada a esa hora, el respaldo corre al encenderla. `-Sabados` si se trabaja los sábados; `-Quitar` elimina las tareas.
+  - Si un respaldo falla, queda anotado en TI › Servidor (errores recientes); la tarjeta «Último respaldo» se pone en amarillo si pasan 2 días.
+  - Una vez por semana, copiar el último respaldo diario a un disco que salga de la oficina (o a una nube cifrada).
+  - Una vez al mes, restaurar el último respaldo en una base aparte (siguiente punto) para comprobar que sirve.
 - Restauración de prueba en una base aparte: `scripts\restaurar_bd.ps1 -Archivo respaldos\<archivo>.dump`
   Crea `callflow_restaurada` sin tocar la base en uso. Para comprobarla: `$env:DB_NAME='callflow_restaurada'; python manage.py verificar_bd`.
   Probado el 2026-11-05: la base restaurada quedó idéntica a la original (52 tablas, 253 restricciones, 29 triggers, mismas filas) y pasó las 31 verificaciones.
