@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% load ti_extras %}
+{% block titulo %}Mesa de ayuda · TI{% endblock %}
+{% block contenido %}
+{% include "ti/_subnav.html" with seccion="soporte" %}
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-lg"><a href="?ver=activos" class="card h-100 text-decoration-none tarjeta-resumen"><div class="card-body"><div class="small text-body-secondary">Abiertos</div><div class="fs-3 fw-semibold">{{ resumen.activos }}</div><div class="small text-body-secondary">{{ resumen.sin_atender }} sin atender</div></div></a></div>
+  <div class="col-6 col-lg"><a href="?ver=vencidos" class="card h-100 text-decoration-none tarjeta-resumen {% if resumen.respuesta_vencida or resumen.solucion_vencida %}border-danger{% endif %}"><div class="card-body"><div class="small text-body-secondary">Fuera de plazo</div><div class="fs-3 fw-semibold {% if resumen.respuesta_vencida or resumen.solucion_vencida %}text-danger{% endif %}">{{ resumen.solucion_vencida }}</div><div class="small text-body-secondary">{{ resumen.respuesta_vencida }} sin primera respuesta a tiempo</div></div></a></div>
+  <div class="col-6 col-lg"><a href="?ver=por_confirmar" class="card h-100 text-decoration-none tarjeta-resumen"><div class="card-body"><div class="small text-body-secondary">Esperan confirmación</div><div class="fs-3 fw-semibold">{{ resumen.por_confirmar }}</div><div class="small text-body-secondary">resueltos, falta que la persona confirme</div></div></a></div>
+  <div class="col-6 col-lg"><div class="card h-100"><div class="card-body"><div class="small text-body-secondary">Respuesta a tiempo ({{ indicadores.dias }} días)</div><div class="fs-3 fw-semibold">{% if indicadores.pct_respuesta is None %}—{% else %}{{ indicadores.pct_respuesta }} %{% endif %}</div><div class="small text-body-secondary">promedio {{ indicadores.promedio_respuesta|duracion }}</div></div></div></div>
+  <div class="col-12 col-lg"><div class="card h-100"><div class="card-body"><div class="small text-body-secondary">Solución a tiempo ({{ indicadores.dias }} días)</div><div class="fs-3 fw-semibold">{% if indicadores.pct_solucion is None %}—{% else %}{{ indicadores.pct_solucion }} %{% endif %}</div><div class="small text-body-secondary">promedio {{ indicadores.promedio_solucion|duracion }} · {{ indicadores.resueltos }} de {{ indicadores.total }} resueltos</div></div></div></div>
+</div>
+
+<div class="d-flex flex-wrap justify-content-between gap-2 mb-3">
+  <ul class="nav nav-pills small">
+    <li class="nav-item"><a class="nav-link py-1 {% if ver == 'activos' %}active{% endif %}" href="?ver=activos">Abiertos</a></li>
+    <li class="nav-item"><a class="nav-link py-1 {% if ver == 'mios' %}active{% endif %}" href="?ver=mios">Los que atiendo</a></li>
+    <li class="nav-item"><a class="nav-link py-1 {% if ver == 'vencidos' %}active{% endif %}" href="?ver=vencidos">Fuera de plazo</a></li>
+    <li class="nav-item"><a class="nav-link py-1 {% if ver == 'por_confirmar' %}active{% endif %}" href="?ver=por_confirmar">Por confirmar</a></li>
+    <li class="nav-item"><a class="nav-link py-1 {% if ver == 'todos' %}active{% endif %}" href="?ver=todos">Todos</a></li>
+  </ul>
+  <a href="{% url 'soporte:crear' %}" class="btn btn-sm btn-outline-primary"><i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Registrar un reporte</a>
+</div>
+
+<form class="row g-2 mb-3" role="search" method="get">
+  <input type="hidden" name="ver" value="{{ ver }}">
+  <div class="col-md-6"><label class="visually-hidden" for="q">Buscar</label><input id="q" type="search" name="q" value="{{ q }}" class="form-control" placeholder="SOP-00012, texto, persona o equipo" autocomplete="off"></div>
+  <div class="col-sm-8 col-md-4"><label class="visually-hidden" for="categoria">Categoría</label>
+    <select id="categoria" name="categoria" class="form-select"><option value="">Todas las categorías</option>{% for valor, nombre in categorias %}<option value="{{ valor }}" {% if valor == categoria %}selected{% endif %}>{{ nombre }}</option>{% endfor %}</select></div>
+  <div class="col-sm-4 col-md-2 d-grid"><button type="submit" class="btn btn-outline-secondary">Filtrar</button></div>
+</form>
+
+{% if pagina.object_list %}
+<div class="card mb-3">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead><tr><th scope="col">Reporte</th><th scope="col">Prioridad</th><th scope="col">Estado</th><th scope="col" class="d-none d-md-table-cell">Reportó</th><th scope="col" class="d-none d-lg-table-cell">Atiende</th><th scope="col">Plazo</th></tr></thead>
+      <tbody>
+        {% for t in pagina %}
+        <tr>
+          <td><a class="fw-semibold text-reset" href="{% url 'soporte:detalle' t.pk %}">{{ t.titulo }}</a><div class="small text-body-secondary"><span class="font-monospace">{{ t.numero }}</span> · {{ t.get_categoria_display }}{% if t.equipo %} · {{ t.equipo.codigo }}{% endif %} · {{ t.creado_en|date:"d/m H:i" }}</div></td>
+          <td>{% include "soporte/_prioridad.html" %}</td>
+          <td>{% include "soporte/_estado.html" %}</td>
+          <td class="d-none d-md-table-cell small">{{ t.reportado_por.get_full_name|default:t.reportado_por.username }}</td>
+          <td class="d-none d-lg-table-cell small">{% if t.asignado_a %}{{ t.asignado_a.get_full_name|default:t.asignado_a.username }}{% else %}<span class="text-body-secondary">Sin asignar</span>{% endif %}</td>
+          <td class="small text-nowrap">
+            {% if not t.activo %}{% if t.solucion_atrasada %}<span class="text-danger">Resuelto tarde</span>{% else %}<span class="text-success-emphasis">A tiempo</span>{% endif %}
+            {% elif not t.primera_respuesta_en %}{% if t.respuesta_atrasada %}<span class="badge text-bg-danger">Sin respuesta</span>{% else %}Responder antes de {{ t.limite_respuesta|date:"H:i" }}{% endif %}
+            {% elif t.solucion_atrasada %}<span class="badge text-bg-danger">Vencido</span>
+            {% else %}Resolver antes de {{ t.limite_solucion|date:"d/m H:i" }}{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% with extra="ver="|add:ver|add:"&categoria="|add:categoria|add:"&q="|add:q %}{% include "soporte/_paginacion.html" with pagina=pagina extra=extra %}{% endwith %}
+{% else %}
+<div class="card mb-3"><div class="card-body text-center text-body-secondary py-5"><i class="bi bi-check2-all fs-1 d-block mb-2 text-success" aria-hidden="true"></i>No hay reportes en esta vista.</div></div>
+{% endif %}
+
+<div class="row g-4">
+  <div class="col-md-6">
+    <section class="card h-100"><div class="card-header bg-body d-flex justify-content-between"><h2 class="h6 mb-0">Fallas más reportadas</h2>
+      <span class="small"><a href="?ver={{ ver }}&dias=7" class="{% if dias == 7 %}fw-semibold{% endif %}">7 d</a> · <a href="?ver={{ ver }}&dias=30" class="{% if dias == 30 %}fw-semibold{% endif %}">30 d</a> · <a href="?ver={{ ver }}&dias=90" class="{% if dias == 90 %}fw-semibold{% endif %}">90 d</a></span></div>
+      <ul class="list-group list-group-flush small">
+        {% for c in indicadores.por_categoria %}<li class="list-group-item d-flex justify-content-between"><span>{{ c.categoria }}</span><span class="fw-semibold">{{ c.n }}</span></li>
+        {% empty %}<li class="list-group-item text-body-secondary">Sin reportes en el periodo.</li>{% endfor %}
+      </ul>
+    </section>
+  </div>
+  <div class="col-md-6"><section class="card h-100"><div class="card-body">{% include "soporte/_plazos.html" %}<p class="small text-body-secondary mt-2 mb-0">Los plazos se ajustan en <span class="font-monospace">TI_MESA_PLAZOS</span> (settings).</p></div></section></div>
+</div>
+{% endblock %}

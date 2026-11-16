@@ -11,6 +11,7 @@ Departamento de TI: equipos físicos de la empresa, su historial y los equipos c
 from django.conf import settings
 from django.db import models
 from django.db.models import F, Q
+from django.utils import timezone
 
 from apps.core.models import ModeloBase
 
@@ -250,3 +251,249 @@ class ActaEquipo(models.Model):
     @property
     def es_prestamo(self) -> bool:
         return self.modalidad == self.Modalidad.PRESTAMO
+
+
+# --------------------------------------------------------------------------- mesa de ayuda
+class Ticket(ModeloBase):
+    """
+    Reporte de una falla («no tengo audio», «se cayó el internet»). Lo crea cualquier persona y lo atiende TI.
+
+    El tiempo de respuesta se mide contra dos plazos que dependen de la prioridad (settings.TI_MESA_PLAZOS):
+    la primera respuesta de TI y la solución. Los plazos se calculan al crear el reporte y al cambiar la prioridad.
+    """
+
+    class Categoria(models.TextChoices):
+        AUDIO = "AUDIO", "Audio o diadema"
+        INTERNET = "INTERNET", "Internet o red"
+        TELEFONIA = "TELEFONIA", "Teléfono o llamadas"
+        COMPUTADOR = "COMPUTADOR", "Computador (lento, no enciende, pantalla)"
+        IMPRESORA = "IMPRESORA", "Impresora"
+        CALLFLOW = "CALLFLOW", "Sistema CALLFLOW"
+        CUENTA = "CUENTA", "Cuenta, contraseña o acceso"
+        OTRO = "OTRO", "Otro"
+
+    class Prioridad(models.TextChoices):
+        CRITICA = "CRITICA", "Crítica (afecta a varias personas)"
+        ALTA = "ALTA", "Alta (no puedo trabajar)"
+        MEDIA = "MEDIA", "Media (trabajo con dificultad)"
+        BAJA = "BAJA", "Baja (molestia menor)"
+
+    class Estado(models.TextChoices):
+        ABIERTO = "ABIERTO", "Abierto"
+        EN_PROCESO = "EN_PROCESO", "En atención"
+        EN_ESPERA = "EN_ESPERA", "En espera"
+        RESUELTO = "RESUELTO", "Resuelto"
+        CERRADO = "CERRADO", "Cerrado"
+
+    ACTIVOS = (Estado.ABIERTO, Estado.EN_PROCESO, Estado.EN_ESPERA)
+
+    reportado_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="tickets_reportados",
+                                      verbose_name="reportado por")
+    titulo = models.CharField("¿qué pasa?", max_length=120)
+    descripcion = models.TextField("detalle", blank=True, default="")
+    categoria = models.CharField(max_length=12, choices=Categoria.choices)
+    prioridad = models.CharField(max_length=8, choices=Prioridad.choices, default=Prioridad.MEDIA)
+    estado = models.CharField(max_length=12, choices=Estado.choices, default=Estado.ABIERTO)
+    ip = models.GenericIPAddressField("IP desde la que se reportó", null=True, blank=True)
+    equipo = models.ForeignKey(Equipo, on_delete=models.SET_NULL, null=True, blank=True, related_name="tickets",
+                               help_text="Se reconoce solo por la IP; TI lo puede corregir.")
+    asignado_a = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+                                   related_name="tickets_asignados", verbose_name="atendido por")
+    limite_respuesta = models.DateTimeField("responder antes de")
+    limite_solucion = models.DateTimeField("resolver antes de")
+    primera_respuesta_en = models.DateTimeField("primera respuesta", null=True, blank=True)
+    resuelto_en = models.DateTimeField(null=True, blank=True)
+    cerrado_en = models.DateTimeField(null=True, blank=True)
+    solucion = models.TextField("solución", blank=True, default="")
+
+    class Meta:
+        verbose_name = "reporte de falla"
+        verbose_name_plural = "reportes de fallas"
+        ordering = ["-creado_en"]
+        indexes = [models.Index(fields=["estado", "prioridad"], name="ticket_estado_prioridad_idx"),
+                   models.Index(fields=["creado_en"], name="ticket_creado_idx")]
+        constraints = [
+            models.CheckConstraint(condition=Q(categoria__in=["AUDIO", "INTERNET", "TELEFONIA", "COMPUTADOR", "IMPRESORA",
+                                                              "CALLFLOW", "CUENTA", "OTRO"]), name="ticket_categoria_valida"),
+            models.CheckConstraint(condition=Q(prioridad__in=["CRITICA", "ALTA", "MEDIA", "BAJA"]), name="ticket_prioridad_valida"),
+            models.CheckConstraint(condition=Q(estado__in=["ABIERTO", "EN_PROCESO", "EN_ESPERA", "RESUELTO", "CERRADO"]),
+                                   name="ticket_estado_valido"),
+            # Resuelto o cerrado: con fecha de solución y la solución escrita. Cerrado: con fecha de cierre.
+            models.CheckConstraint(condition=Q(estado__in=["ABIERTO", "EN_PROCESO", "EN_ESPERA"])
+                                   | (Q(resuelto_en__isnull=False) & ~Q(solucion="")), name="ticket_resuelto_con_solucion"),
+            models.CheckConstraint(condition=~Q(estado="CERRADO") | Q(cerrado_en__isnull=False), name="ticket_cerrado_con_fecha"),
+            models.CheckConstraint(condition=Q(limite_solucion__gte=F("limite_respuesta")), name="ticket_plazos_coherentes"),
+            models.CheckConstraint(condition=Q(primera_respuesta_en__isnull=True) | Q(primera_respuesta_en__gte=F("creado_en")),
+                                   name="ticket_respuesta_despues_de_crear"),
+        ]
+
+    def __str__(self):
+        return f"{self.numero} · {self.titulo}"
+
+    @property
+    def numero(self) -> str:
+        return f"SOP-{self.pk:05d}" if self.pk else "SOP-(nuevo)"
+
+    @property
+    def activo(self) -> bool:
+        return self.estado in self.ACTIVOS
+
+    @property
+    def respuesta_atrasada(self) -> bool:
+        """TI respondió tarde o, si todavía no responde, ya pasó el plazo."""
+        return (self.primera_respuesta_en or timezone.now()) > self.limite_respuesta
+
+    @property
+    def solucion_atrasada(self) -> bool:
+        return (self.resuelto_en or timezone.now()) > self.limite_solucion
+
+
+class ComentarioTicket(models.Model):
+    """Conversación del reporte. Las notas internas solo las ve TI. No se edita ni se borra (trigger)."""
+
+    ticket = models.ForeignKey(Ticket, on_delete=models.PROTECT, related_name="comentarios")
+    autor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="+")
+    texto = models.TextField(blank=True, default="")
+    interno = models.BooleanField("nota interna de TI", default=False)
+    cambio = models.CharField("cambio registrado", max_length=255, blank=True, default="",
+                              help_text="Ej.: «Estado: Abierto → En atención».")
+    creado_en = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "comentario de reporte"
+        verbose_name_plural = "comentarios de reportes"
+        ordering = ["creado_en", "pk"]
+        constraints = [
+            models.CheckConstraint(condition=~Q(texto="") | ~Q(cambio=""), name="comentario_ticket_no_vacio"),
+        ]
+
+    def __str__(self):
+        return f"{self.ticket.numero} · {self.autor} · {self.creado_en:%d/%m/%Y %H:%M}"
+
+
+# --------------------------------------------------------------------------- licencias y servicios
+class Licencia(ModeloBase):
+    """Licencias (Windows, Office, antivirus) y servicios contratados (dominio, internet, hosting) con su vencimiento."""
+
+    class Tipo(models.TextChoices):
+        WINDOWS = "WINDOWS", "Windows"
+        OFFICE = "OFFICE", "Office / Microsoft 365"
+        ANTIVIRUS = "ANTIVIRUS", "Antivirus"
+        DOMINIO = "DOMINIO", "Dominio web"
+        HOSTING = "HOSTING", "Hosting / servidor en la nube"
+        CORREO = "CORREO", "Correo corporativo"
+        INTERNET = "INTERNET", "Internet"
+        TELEFONIA = "TELEFONIA", "Telefonía / troncal SIP"
+        SOFTWARE = "SOFTWARE", "Otro programa"
+        OTRO = "OTRO", "Otro servicio"
+
+    tipo = models.CharField(max_length=10, choices=Tipo.choices)
+    nombre = models.CharField(max_length=120, help_text="Ej.: Microsoft 365 Empresa Básico, multivisa.com.ec, Fibra 300 Mbps.")
+    proveedor = models.CharField(max_length=100, blank=True, default="")
+    referencia = models.CharField(max_length=100, blank=True, default="",
+                                  help_text="N.º de contrato, de cuenta o los últimos dígitos de la clave. No escriba la clave completa.")
+    cantidad = models.PositiveSmallIntegerField("puestos / licencias", null=True, blank=True)
+    fecha_inicio = models.DateField("desde", null=True, blank=True)
+    fecha_vencimiento = models.DateField("vence el", null=True, blank=True, help_text="Vacío = no vence (licencia perpetua).")
+    dias_aviso = models.PositiveSmallIntegerField("avisar con (días)", default=30,
+                                                  help_text="Cuántos días antes del vencimiento se avisa a TI.")
+    renovacion_automatica = models.BooleanField("se renueva sola", default=False,
+                                                help_text="Igual se avisa: conviene revisar que el cobro pase.")
+    costo = models.DecimalField("costo por periodo ($)", max_digits=10, decimal_places=2, null=True, blank=True)
+    activa = models.BooleanField("vigente / en uso", default=True, help_text="Desmarque si ya no se usa: deja de avisar.")
+    equipos = models.ManyToManyField(Equipo, blank=True, related_name="licencias", verbose_name="instalada en")
+    observacion = models.TextField("observación", blank=True, default="")
+    registrado_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+
+    class Meta:
+        verbose_name = "licencia o servicio"
+        verbose_name_plural = "licencias y servicios"
+        ordering = ["fecha_vencimiento", "nombre"]
+        constraints = [
+            models.CheckConstraint(condition=Q(tipo__in=["WINDOWS", "OFFICE", "ANTIVIRUS", "DOMINIO", "HOSTING", "CORREO",
+                                                         "INTERNET", "TELEFONIA", "SOFTWARE", "OTRO"]), name="licencia_tipo_valido"),
+            models.CheckConstraint(condition=Q(dias_aviso__lte=365), name="licencia_aviso_hasta_un_anio"),
+            models.CheckConstraint(condition=Q(cantidad__isnull=True) | Q(cantidad__gt=0), name="licencia_cantidad_positiva"),
+            models.CheckConstraint(condition=Q(costo__isnull=True) | Q(costo__gte=0), name="licencia_costo_no_negativo"),
+            models.CheckConstraint(condition=Q(fecha_vencimiento__isnull=True) | Q(fecha_inicio__isnull=True)
+                                   | Q(fecha_vencimiento__gte=F("fecha_inicio")), name="licencia_vence_despues_de_inicio"),
+        ]
+
+    def __str__(self):
+        return f"{self.get_tipo_display()} · {self.nombre}"
+
+    @property
+    def dias_restantes(self) -> int | None:
+        return (self.fecha_vencimiento - timezone.localdate()).days if self.fecha_vencimiento else None
+
+    @property
+    def situacion(self) -> str:
+        """«vencida», «por_vencer» (dentro de los días de aviso), «vigente» o «sin_vencimiento»."""
+        dias = self.dias_restantes
+        if dias is None:
+            return "sin_vencimiento"
+        if dias < 0:
+            return "vencida"
+        return "por_vencer" if dias <= self.dias_aviso else "vigente"
+
+
+# --------------------------------------------------------------------------- mantenimiento preventivo
+class PlanMantenimiento(ModeloBase):
+    """Mantenimiento preventivo que se repite cada cierto tiempo en un equipo (p. ej. limpieza cada 6 meses)."""
+
+    equipo = models.ForeignKey(Equipo, on_delete=models.CASCADE, related_name="planes")
+    actividad = models.CharField(max_length=100, help_text="Ej.: Limpieza interna y cambio de pasta térmica.")
+    cada_meses = models.PositiveSmallIntegerField("cada (meses)", default=6)
+    proxima_fecha = models.DateField("próximo mantenimiento")
+    ultima_fecha = models.DateField("último realizado", null=True, blank=True)
+    dias_aviso = models.PositiveSmallIntegerField("avisar con (días)", default=7)
+    activo = models.BooleanField(default=True)
+    observacion = models.CharField("observación", max_length=255, blank=True, default="")
+    registrado_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+
+    class Meta:
+        verbose_name = "plan de mantenimiento"
+        verbose_name_plural = "planes de mantenimiento"
+        ordering = ["proxima_fecha", "equipo__codigo"]
+        constraints = [
+            models.UniqueConstraint(fields=["equipo", "actividad"], name="plan_mantenimiento_unico"),
+            models.CheckConstraint(condition=Q(cada_meses__gte=1) & Q(cada_meses__lte=36), name="plan_mantenimiento_frecuencia"),
+            models.CheckConstraint(condition=Q(dias_aviso__lte=90), name="plan_mantenimiento_aviso"),
+            models.CheckConstraint(condition=Q(ultima_fecha__isnull=True) | Q(proxima_fecha__gt=F("ultima_fecha")),
+                                   name="plan_mantenimiento_proxima_despues_de_ultima"),
+        ]
+
+    def __str__(self):
+        return f"{self.equipo.codigo} · {self.actividad} cada {self.cada_meses} mes{'es' if self.cada_meses != 1 else ''}"
+
+    @property
+    def dias_restantes(self) -> int:
+        return (self.proxima_fecha - timezone.localdate()).days
+
+    @property
+    def situacion(self) -> str:
+        """«vencido», «por_vencer» (dentro de los días de aviso) o «al_dia»."""
+        dias = self.dias_restantes
+        if dias < 0:
+            return "vencido"
+        return "por_vencer" if dias <= self.dias_aviso else "al_dia"
+
+
+# --------------------------------------------------------------------------- avisos automáticos a TI
+class AvisoTI(models.Model):
+    """
+    Marca de que ya se avisó a TI de algo (una licencia por vencer, un respaldo fallido…), para no repetirlo.
+    La clave incluye la fecha del hecho: si la licencia se renueva, la clave cambia y se vuelve a avisar a tiempo.
+    """
+
+    clave = models.CharField(max_length=150, unique=True)
+    titulo = models.CharField(max_length=150)
+    creado_en = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "aviso a TI"
+        verbose_name_plural = "avisos a TI"
+        ordering = ["-creado_en"]
+
+    def __str__(self):
+        return self.titulo

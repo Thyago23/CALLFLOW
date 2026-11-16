@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block titulo %}Mantenimiento hecho · {{ plan.equipo.codigo }}{% endblock %}
+{% block contenido %}
+<nav aria-label="Ruta" class="mb-2"><ol class="breadcrumb small mb-0">
+  <li class="breadcrumb-item"><a href="{% url 'ti:mantenimiento' %}">Mantenimiento</a></li>
+  <li class="breadcrumb-item"><a href="{% url 'ti:detalle' plan.equipo.pk %}">{{ plan.equipo.codigo }}</a></li>
+  <li class="breadcrumb-item active" aria-current="page">Registrar realizado</li>
+</ol></nav>
+<header class="cabecera-formulario">
+  <h1 class="h3 mb-1">{{ plan.actividad }}</h1>
+  <p class="text-body-secondary mb-0">{{ plan.equipo }} · cada {{ plan.cada_meses }} mes{{ plan.cada_meses|pluralize:"es" }}. Tocaba el {{ plan.proxima_fecha|date:"d/m/Y" }}.</p>
+</header>
+<div class="contenedor-formulario">
+  {% for error in form.non_field_errors %}<div class="alert alert-danger">{{ error }}</div>{% endfor %}
+  <form method="post" novalidate class="card formulario">
+    {% csrf_token %}<input type="hidden" name="volver" value="{{ volver }}">
+    <section class="formulario-seccion">
+      <div class="formulario-seccion-info"><span class="formulario-icono" aria-hidden="true"><i class="bi bi-check2-circle"></i></span><h2>Mantenimiento hecho</h2><p>Queda en la hoja de vida y el próximo se programa desde esta fecha.</p></div>
+      <div class="row">
+        <div class="col-md-6">{% include "_campo.html" with campo=form.fecha %}</div>
+        <div class="col-md-6">{% include "_campo.html" with campo=form.realizado_por %}</div>
+        <div class="col-12">{% include "_campo.html" with campo=form.descripcion %}</div>
+        <div class="col-md-6">{% include "_campo.html" with campo=form.costo %}</div>
+      </div>
+    </section>
+    <div class="formulario-acciones">
+      <a href="{% url 'ti:mantenimiento' %}" class="btn btn-outline-secondary ms-auto">Cancelar</a>
+      <button type="submit" class="btn btn-success"><i class="bi bi-check2" aria-hidden="true"></i> Registrar</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

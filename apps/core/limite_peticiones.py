@@ -164,12 +164,24 @@ def registrar_ingreso_fallido(usuario: str, request=None) -> None:
         cache.delete(contador)
         logger.warning("Cuenta bloqueada %s min por %s intentos fallidos: %s (IP %s)", bloqueo // 60, fallos, clave, ip,
                        extra=extra | {"evento": "ingreso_bloqueado"})
+        try:  # aviso en la campana de TI; nunca debe impedir responder al intento de ingreso
+            from apps.ti.alertas import avisar_bloqueo
+
+            avisar_bloqueo(clave, ip, minutos=bloqueo // 60, intentos=fallos)
+        except Exception:  # noqa: BLE001
+            logger.exception("No se pudo avisar a TI del bloqueo de %s", clave)
     else:
         logger.warning("Ingreso fallido: %s (IP %s)", clave, ip, extra=extra)
 
 
 def limpiar_fallos_ingreso(usuario: str) -> None:
     _cache().delete(f"ingreso-fallos:{_clave_usuario(usuario)}")
+
+
+def desbloquear_ingreso(usuario: str) -> None:
+    """TI › Accesos: quita el bloqueo y los fallos acumulados de la cuenta (en este proceso)."""
+    clave = _clave_usuario(usuario)
+    _cache().delete_many([f"ingreso-bloqueo:{clave}", f"ingreso-fallos:{clave}"])
 
 
 # Señales de Django: cubren cualquier puerta de ingreso (la pantalla de CALLFLOW y la de /admin/).

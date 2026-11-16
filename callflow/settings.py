@@ -160,6 +160,14 @@ ASISTENCIA_BREAK_TOLERANCIA_MINUTOS = 0
 TI_MINUTOS_CONECTADO = 5
 TI_PROXY_CONFIABLE = env("TI_PROXY_CONFIABLE", "False").lower() in ("1", "true", "si", "yes")
 
+# Mesa de ayuda: plazos por prioridad en minutos corridos (primera respuesta de TI, solución). Ver apps/ti/soporte.py.
+TI_MESA_PLAZOS = {
+    "CRITICA": (15, 4 * 60),
+    "ALTA": (30, 8 * 60),
+    "MEDIA": (2 * 60, 24 * 60),
+    "BAJA": (8 * 60, 72 * 60),
+}
+
 # --------------------------------------------------------------------------- límite de peticiones (rate limit)
 # Ver apps/core/limite_peticiones.py. Los contadores viven en memoria (no tocan la base de datos).
 CACHES = {"default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache", "LOCATION": "callflow"}}
@@ -225,6 +233,8 @@ LOGS_DIR = Path(tempfile.mkdtemp(prefix="callflow-logs-")) if PROBANDO else Path
 LOGS_DIR.mkdir(parents=True, exist_ok=True)
 if PROBANDO:  # las pruebas hacen cientos de peticiones desde la misma IP; las del límite lo activan ellas mismas
     LIMITE_PETICIONES_ACTIVO = False
+# Avisos automáticos a TI desde la campana (licencias, mantenimientos, respaldos, disco). Las pruebas los llaman directo.
+TI_ALERTAS_AUTOMATICAS = not PROBANDO
 # Carpeta de las copias de seguridad (scripts/respaldar_bd.ps1), para mostrar el último respaldo.
 CARPETA_RESPALDOS = Path(env("CARPETA_RESPALDOS", str(BASE_DIR / "respaldos")))
 

@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block titulo %}Mantenimiento preventivo · TI{% endblock %}
+{% block contenido %}
+{% include "ti/_subnav.html" with seccion="mantenimiento" %}
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-lg-3"><a href="?situacion=vencido" class="card h-100 text-decoration-none tarjeta-resumen {% if resumen.vencidos %}border-danger{% endif %}"><div class="card-body"><div class="small text-body-secondary">Atrasados</div><div class="fs-3 fw-semibold {% if resumen.vencidos %}text-danger{% endif %}">{{ resumen.vencidos }}</div></div></a></div>
+  <div class="col-6 col-lg-3"><a href="?situacion=por_vencer" class="card h-100 text-decoration-none tarjeta-resumen"><div class="card-body"><div class="small text-body-secondary">Tocan pronto</div><div class="fs-3 fw-semibold">{{ resumen.por_vencer }}</div><div class="small text-body-secondary">dentro de sus días de aviso</div></div></a></div>
+  <div class="col-6 col-lg-3"><a href="?" class="card h-100 text-decoration-none tarjeta-resumen"><div class="card-body"><div class="small text-body-secondary">Planes activos</div><div class="fs-3 fw-semibold">{{ resumen.total }}</div></div></a></div>
+  <div class="col-6 col-lg-3"><div class="card h-100"><div class="card-body"><div class="small text-body-secondary">Computadores sin plan</div><div class="fs-3 fw-semibold">{{ sin_plan }}</div><div class="small text-body-secondary">escritorio, laptop y servidor</div></div></div></div>
+</div>
+
+<div class="d-flex flex-wrap justify-content-between gap-2 mb-3">
+  <form class="d-flex flex-wrap gap-2" method="get" role="search">
+    <label class="visually-hidden" for="q">Buscar</label>
+    <input id="q" type="search" name="q" value="{{ q }}" class="form-control form-control-sm" style="width: 16rem" placeholder="Equipo, actividad o ubicación">
+    <label class="visually-hidden" for="situacion">Situación</label>
+    <select id="situacion" name="situacion" class="form-select form-select-sm" style="width: auto">
+      <option value="">Todas</option><option value="vencido" {% if situacion == "vencido" %}selected{% endif %}>Atrasados</option><option value="por_vencer" {% if situacion == "por_vencer" %}selected{% endif %}>Tocan pronto</option><option value="al_dia" {% if situacion == "al_dia" %}selected{% endif %}>Al día</option>
+    </select>
+    <button class="btn btn-sm btn-outline-secondary">Filtrar</button>
+  </form>
+  <a href="{% url 'ti:plan_crear' %}" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Programar mantenimiento</a>
+</div>
+
+{% if planes %}
+<div class="card mb-4">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead><tr><th scope="col">Equipo</th><th scope="col">Actividad</th><th scope="col" class="d-none d-md-table-cell">Último</th><th scope="col">Próximo</th><th scope="col" class="text-end">Acciones</th></tr></thead>
+      <tbody>
+        {% for p in planes %}
+        <tr class="{% if not p.activo %}text-body-secondary{% endif %}">
+          <td><a class="fw-semibold text-reset font-monospace" href="{% url 'ti:detalle' p.equipo.pk %}">{{ p.equipo.codigo }}</a><div class="small text-body-secondary">{{ p.equipo.get_tipo_display }}{% if p.equipo.ubicacion %} · {{ p.equipo.ubicacion }}{% endif %}</div></td>
+          <td>{{ p.actividad }}<div class="small text-body-secondary">cada {{ p.cada_meses }} mes{{ p.cada_meses|pluralize:"es" }}{% if not p.activo %} · pausado{% endif %}</div></td>
+          <td class="d-none d-md-table-cell small">{{ p.ultima_fecha|date:"d/m/Y"|default:"—" }}</td>
+          <td class="small text-nowrap">{{ p.proxima_fecha|date:"d/m/Y" }}<div>{% include "ti/_vence.html" with s=p.situacion dias=p.dias_restantes %}</div></td>
+          <td class="text-end text-nowrap">
+            <a href="{% url 'ti:plan_realizado' p.pk %}" class="btn btn-sm btn-success"><i class="bi bi-check2 me-1" aria-hidden="true"></i>Hecho</a>
+            <a href="{% url 'ti:plan_editar' p.pk %}" class="btn btn-sm btn-outline-secondary">Editar</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% else %}
+<div class="card mb-4"><div class="card-body text-center py-5"><i class="bi bi-tools fs-1 text-body-secondary d-block mb-2" aria-hidden="true"></i><p class="mb-3">No hay mantenimientos programados{% if q or situacion %} con ese filtro{% endif %}.</p><a href="{% url 'ti:plan_crear' %}" class="btn btn-primary">Programar mantenimiento</a></div></div>
+{% endif %}
+
+<section class="card">
+  <div class="card-header bg-body"><h2 class="h6 mb-0">Mantenimientos hechos en los últimos 90 días</h2></div>
+  <ul class="list-group list-group-flush small">
+    {% for e in hechos %}<li class="list-group-item d-flex flex-wrap gap-2"><span class="text-nowrap">{{ e.fecha|date:"d/m/Y" }}</span><a class="font-monospace" href="{% url 'ti:detalle' e.equipo.pk %}">{{ e.equipo.codigo }}</a><span class="text-body-secondary">{{ e.descripcion|truncatechars:120 }}</span></li>
+    {% empty %}<li class="list-group-item text-body-secondary">Sin mantenimientos registrados en este periodo.</li>{% endfor %}
+  </ul>
+</section>
+{% endblock %}

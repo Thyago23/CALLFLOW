@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block titulo %}Accesos y bloqueos · TI{% endblock %}
+{% block contenido %}
+{% include "ti/_subnav.html" with seccion="accesos" %}
+
+<p class="small text-body-secondary mb-3">Tras {{ config.intentos }} intentos fallidos en {{ config.ventana }} min, la cuenta queda bloqueada {{ config.bloqueo }} min aunque prueben desde otra IP.{% if not config.activo %} <span class="badge text-bg-warning">El límite está desactivado (LIMITE_PETICIONES_ACTIVO)</span>{% endif %}</p>
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-lg-3"><div class="card h-100 {% if bloqueadas %}border-danger{% endif %}"><div class="card-body"><div class="small text-body-secondary">Bloqueadas ahora</div><div class="fs-3 fw-semibold {% if bloqueadas %}text-danger{% endif %}">{{ bloqueadas|length }}</div></div></div></div>
+  <div class="col-6 col-lg-3"><div class="card h-100"><div class="card-body"><div class="small text-body-secondary">Intentos fallidos</div><div class="fs-3 fw-semibold">{{ intentos.fallos }}</div><div class="small text-body-secondary">{% if dias == 1 %}último día{% else %}últimos {{ dias }} días{% endif %}</div></div></div></div>
+  <div class="col-6 col-lg-3"><div class="card h-100"><div class="card-body"><div class="small text-body-secondary">Bloqueos</div><div class="fs-3 fw-semibold">{{ intentos.bloqueos }}</div><div class="small text-body-secondary">en el mismo periodo</div></div></div></div>
+  <div class="col-6 col-lg-3"><div class="card h-100 {% if intentos.inexistentes %}border-warning{% endif %}"><div class="card-body"><div class="small text-body-secondary">Usuarios que no existen</div><div class="fs-3 fw-semibold">{{ intentos.inexistentes }}</div><div class="small text-body-secondary">probaron nombres inventados</div></div></div></div>
+</div>
+
+<section class="card mb-4" aria-labelledby="titulo-bloqueadas">
+  <div class="card-header bg-body"><h2 class="h6 mb-0" id="titulo-bloqueadas">Cuentas bloqueadas ahora</h2></div>
+  {% if bloqueadas %}
+  <div class="table-responsive">
+    <table class="table align-middle mb-0">
+      <thead><tr><th scope="col">Usuario</th><th scope="col">Desde la IP</th><th scope="col">Bloqueada desde</th><th scope="col">Se libera</th><th scope="col" class="text-end">Acción</th></tr></thead>
+      <tbody>
+        {% for b in bloqueadas %}
+        <tr>
+          <td><span class="font-monospace">{{ b.usuario }}</span>{% if b.cuenta %}<div class="small text-body-secondary">{{ b.cuenta.get_full_name }}</div>{% else %}<div class="small text-warning-emphasis">Ese usuario no existe</div>{% endif %}</td>
+          <td class="font-monospace small">{{ b.ip|default:"—" }}</td>
+          <td class="small">{{ b.desde|date:"d/m/Y H:i" }}</td>
+          <td class="small">{{ b.hasta|date:"H:i" }} <span class="text-body-secondary">(en {{ b.minutos }} min)</span></td>
+          <td class="text-end">
+            <form method="post" action="{% url 'ti:desbloquear' %}">{% csrf_token %}<input type="hidden" name="usuario" value="{{ b.usuario }}">
+              <button class="btn btn-sm btn-outline-primary"><i class="bi bi-unlock me-1" aria-hidden="true"></i>Desbloquear</button></form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="small text-body-secondary px-3 py-2 mb-0">Desbloquee solo si confirmó con la persona que era ella. Si el servidor corre con varios procesos, el desbloqueo aplica al proceso que atiende esta página; el bloqueo de los demás vence solo.</p>
+  {% else %}
+  <div class="card-body text-center text-body-secondary py-4"><i class="bi bi-shield-check fs-3 d-block mb-1 text-success" aria-hidden="true"></i>No hay cuentas bloqueadas.</div>
+  {% endif %}
+</section>
+
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+  <h2 class="h6 mb-0">Intentos de ingreso fallidos</h2>
+  <ul class="nav nav-pills small">
+    <li class="nav-item"><a class="nav-link py-1 {% if dias == 1 %}active{% endif %}" href="?dias=1">Último día</a></li>
+    <li class="nav-item"><a class="nav-link py-1 {% if dias == 7 %}active{% endif %}" href="?dias=7">7 días</a></li>
+    <li class="nav-item"><a class="nav-link py-1 {% if dias == 30 %}active{% endif %}" href="?dias=30">30 días</a></li>
+  </ul>
+</div>
+<div class="row g-4">
+  <div class="col-lg-7">
+    <section class="card h-100" aria-label="Por usuario">
+      <div class="card-header bg-body small fw-semibold">Por usuario</div>
+      {% if intentos.por_usuario %}
+      <div class="table-responsive"><table class="table table-sm align-middle mb-0">
+        <thead><tr><th scope="col" class="ps-3">Usuario intentado</th><th scope="col" class="text-end">Fallos</th><th scope="col" class="text-end">Bloqueos</th><th scope="col">IPs</th><th scope="col" class="text-end pe-3">Último</th></tr></thead>
+        <tbody>{% for u in intentos.por_usuario|slice:":50" %}
+          <tr><td class="ps-3"><span class="font-monospace small">{{ u.usuario }}</span>{% if u.cuenta %}<div class="small text-body-secondary">{{ u.cuenta.get_full_name }}</div>{% else %} <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle">No existe</span>{% endif %}</td>
+            <td class="text-end">{{ u.fallos }}</td><td class="text-end">{% if u.bloqueos %}<span class="badge text-bg-danger">{{ u.bloqueos }}</span>{% else %}0{% endif %}</td>
+            <td class="small font-monospace">{{ u.ips|join:", "|truncatechars:40 }}</td><td class="text-end small text-nowrap pe-3">{{ u.ultima|date:"d/m H:i" }}</td></tr>
+        {% endfor %}</tbody></table></div>
+      {% else %}<div class="card-body text-body-secondary small">Sin intentos fallidos en el periodo.</div>{% endif %}
+    </section>
+  </div>
+  <div class="col-lg-5">
+    <section class="card h-100" aria-label="Por IP">
+      <div class="card-header bg-body small fw-semibold">Por equipo (IP)</div>
+      {% if intentos.por_ip %}
+      <div class="table-responsive"><table class="table table-sm align-middle mb-0">
+        <thead><tr><th scope="col" class="ps-3">IP</th><th scope="col" class="text-end">Fallos</th><th scope="col" class="text-end">Usuarios</th><th scope="col" class="text-end pe-3">Último</th></tr></thead>
+        <tbody>{% for i in intentos.por_ip|slice:":30" %}
+          <tr><td class="ps-3 font-monospace small">{{ i.ip }}</td><td class="text-end">{{ i.fallos|add:i.bloqueos }}</td><td class="text-end">{{ i.usuarios|length }}</td><td class="text-end small text-nowrap pe-3">{{ i.ultima|date:"d/m H:i" }}</td></tr>
+        {% endfor %}</tbody></table></div>
+      <p class="small text-body-secondary px-3 py-2 mb-0">Una IP que prueba muchos usuarios distintos suele ser alguien adivinando cuentas.</p>
+      {% else %}<div class="card-body text-body-secondary small">Sin intentos fallidos en el periodo.</div>{% endif %}
+    </section>
+  </div>
+</div>
+<p class="small text-body-secondary mt-3 mb-0">Los ingresos que sí entraron están en <a href="{% url 'ti:conectados' %}">Conectados</a>. Las peticiones rechazadas por exceso (HTTP 429) están en <a href="{% url 'ti:servidor' %}#seguridad">Servidor</a>.</p>
+{% endblock %}

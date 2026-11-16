@@ -4,7 +4,7 @@ from pathlib import Path
 from django.contrib import messages
 from django.http import FileResponse, Http404, HttpResponse
 from django.core.paginator import Paginator
-from django.db.models import Count, Q
+from django.db.models import Count, F, Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -18,7 +18,7 @@ from apps.core.models import Usuario
 from . import actas_pdf, servicios
 from .acceso import requiere_ti
 from .forms import ActaFirmadaForm, DevolucionForm, EntregaForm, EquipoForm, EventoForm
-from .models import ActaEquipo, Equipo, SesionEquipo
+from .models import ActaEquipo, Equipo, EventoEquipo, SesionEquipo
 
 
 @requiere_ti
@@ -80,6 +80,8 @@ def equipo_detalle(request, pk):
         "equipo": equipo, "eventos": equipo.eventos.select_related("empleado", "registrado_por", "acta"),
         "conexiones": conexiones, "hoy": timezone.localdate(), "entrega": servicios.entrega_abierta(equipo),
         "actas": equipo.actas.select_related("empleado", "registrado_por"), "form_firmada": ActaFirmadaForm(),
+        "planes": equipo.planes.order_by("proxima_fecha"), "licencias": equipo.licencias.filter(activa=True),
+        "tickets": equipo.tickets.order_by("-creado_en")[:10],
     })
 
 
@@ -266,4 +268,177 @@ def servidor(request):
         "n_ocurrencias": sum(e["veces"] for e in errores), "errores_24h": registro_errores.contar_desde(24),
         "seguridad": seguridad[:100], "n_seguridad": len(seguridad), "seguridad_24h": registro_errores.contar_seguridad_desde(24),
         "dias": dias, "ahora": timezone.localtime(), "libre_critico": estado.LIBRE_CRITICO, "libre_bajo": estado.LIBRE_BAJO,
+    })
+
+
+# --------------------------------------------------------------------------- licencias y servicios
+@requiere_ti
+def licencias(request):
+    from .models import Licencia
+
+    qs = Licencia.objects.prefetch_related("equipos").order_by(F("fecha_vencimiento").asc(nulls_last=True), "nombre")
+    tipo = request.GET.get("tipo", "")
+    if tipo in Licencia.Tipo.values:
+        qs = qs.filter(tipo=tipo)
+    ver = request.GET.get("ver", "")
+    lista = list(qs.filter(activa=True) if ver != "todas" else qs)
+    for lic in lista:
+        lic.estado_actual = lic.situacion if lic.activa else "inactiva"
+    return render(request, "ti/licencias.html", {
+        "licencias": lista, "tipo": tipo, "ver": ver, "tipos": Licencia.Tipo.choices,
+        "n_vencidas": sum(1 for x in lista if x.estado_actual == "vencida"),
+        "n_por_vencer": sum(1 for x in lista if x.estado_actual == "por_vencer"),
+        "costo_anual": sum((x.costo or 0) for x in lista if x.activa),
+    })
+
+
+def _licencia_form(request, licencia=None):
+    from .forms import LicenciaForm
+
+    form = LicenciaForm(request.POST or None, instance=licencia)
+    if request.method == "POST" and form.is_valid():
+        nueva = licencia is None
+        licencia = form.save(commit=False)
+        if nueva:
+            licencia.registrado_por = request.user
+        licencia.save()
+        form.save_m2m()
+        messages.success(request, f"{licencia} {'registrada' if nueva else 'actualizada'}.")
+        return redirect("ti:licencias")
+    return render(request, "ti/licencia_form.html", {"form": form, "licencia": licencia})
+
+
+@requiere_ti
+def licencia_crear(request):
+    return _licencia_form(request)
+
+
+@requiere_ti
+def licencia_editar(request, pk):
+    from .models import Licencia
+
+    return _licencia_form(request, get_object_or_404(Licencia, pk=pk))
+
+
+# --------------------------------------------------------------------------- mantenimiento preventivo
+@requiere_ti
+def mantenimiento(request):
+    from .models import PlanMantenimiento
+
+    qs = PlanMantenimiento.objects.select_related("equipo", "equipo__asignado_a").exclude(equipo__estado=Equipo.Estado.BAJA)
+    texto = request.GET.get("q", "").strip()
+    if texto:
+        qs = qs.filter(Q(equipo__codigo__icontains=texto) | Q(actividad__icontains=texto) | Q(equipo__ubicacion__icontains=texto))
+    ver = request.GET.get("ver", "")
+    planes = list(qs.filter(activo=True) if ver != "todos" else qs)
+    situacion = request.GET.get("situacion", "")
+    if situacion in ("vencido", "por_vencer", "al_dia"):
+        planes = [p for p in planes if p.situacion == situacion]
+    from . import mantenimiento as reglas
+
+    hoy = timezone.localdate()
+    return render(request, "ti/mantenimiento.html", {
+        "planes": planes, "q": texto, "ver": ver, "situacion": situacion, "resumen": reglas.resumen(), "hoy": hoy,
+        "hechos": EventoEquipo.objects.filter(tipo=EventoEquipo.Tipo.MANTENIMIENTO, fecha__gte=hoy - timedelta(days=90))
+                                      .select_related("equipo").order_by("-fecha", "-pk")[:15],
+        "sin_plan": Equipo.objects.filter(tipo__in=[Equipo.Tipo.ESCRITORIO, Equipo.Tipo.LAPTOP, Equipo.Tipo.SERVIDOR])
+                                  .exclude(estado=Equipo.Estado.BAJA).filter(planes__isnull=True).count(),
+    })
+
+
+@requiere_ti
+def plan_crear(request):
+    from . import mantenimiento as reglas
+    from .forms import PlanNuevoForm
+
+    inicial = {"primera_fecha": timezone.localdate()}
+    if request.GET.get("equipo", "").isdigit():
+        inicial["equipo"] = request.GET["equipo"]
+    form = PlanNuevoForm(request.POST or None, initial=inicial)
+    if request.method == "POST" and form.is_valid():
+        datos = form.cleaned_data
+        creados, omitidos = reglas.crear_planes(
+            form.equipos(), actividad=datos["actividad"], cada_meses=datos["cada_meses"], primera_fecha=datos["primera_fecha"],
+            dias_aviso=datos["dias_aviso"], observacion=datos["observacion"], usuario=request.user)
+        if creados:
+            messages.success(request, f"Plan «{datos['actividad']}» creado en {len(creados)} equipo{'s' if len(creados) != 1 else ''}.")
+        if omitidos:
+            messages.warning(request, "Ya tenían esa actividad: " + ", ".join(e.codigo for e in omitidos[:15])
+                             + ("…" if len(omitidos) > 15 else ""))
+        if not creados and not omitidos:
+            messages.warning(request, "No hay equipos de ese tipo.")
+        if len(creados) == 1 and datos.get("equipo"):
+            return redirect("ti:detalle", pk=datos["equipo"].pk)
+        return redirect("ti:mantenimiento")
+    return render(request, "ti/plan_form.html", {"form": form, "nuevo": True})
+
+
+@requiere_ti
+def plan_editar(request, pk):
+    from .forms import PlanForm
+    from .models import PlanMantenimiento
+
+    plan = get_object_or_404(PlanMantenimiento.objects.select_related("equipo"), pk=pk)
+    form = PlanForm(request.POST or None, instance=plan)
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        messages.success(request, f"Plan de {plan.equipo.codigo} actualizado.")
+        return redirect("ti:mantenimiento")
+    return render(request, "ti/plan_form.html", {"form": form, "plan": plan})
+
+
+@requiere_ti
+def plan_realizado(request, pk):
+    from . import mantenimiento as reglas
+    from .forms import MantenimientoRealizadoForm
+    from .models import PlanMantenimiento
+
+    plan = get_object_or_404(PlanMantenimiento.objects.select_related("equipo"), pk=pk)
+    form = MantenimientoRealizadoForm(request.POST or None, initial={"fecha": timezone.localdate()})
+    if request.method == "POST" and form.is_valid():
+        try:
+            reglas.registrar_realizado(plan, **form.cleaned_data, usuario=request.user)
+        except servicios.OperacionNoPermitida as error:
+            messages.error(request, str(error))
+        else:
+            plan.refresh_from_db()
+            messages.success(request, f"Mantenimiento de {plan.equipo.codigo} registrado en su hoja de vida. "
+                                      f"Próximo: {plan.proxima_fecha:%d/%m/%Y}.")
+            return redirect(request.POST.get("volver") == "equipo" and reverse("ti:detalle", args=[plan.equipo_id])
+                            or reverse("ti:mantenimiento"))
+    return render(request, "ti/plan_realizado.html", {"form": form, "plan": plan, "volver": request.GET.get("volver", "")})
+
+
+# --------------------------------------------------------------------------- accesos y bloqueos
+@requiere_ti
+def accesos(request):
+    from . import ingresos
+
+    dias = int(request.GET["dias"]) if request.GET.get("dias") in ("1", "7", "30") else 7
+    return render(request, "ti/accesos.html", {
+        "bloqueadas": ingresos.cuentas_bloqueadas(), "intentos": ingresos.intentos_fallidos(dias), "dias": dias,
+        "config": ingresos.configuracion(), "ahora": timezone.localtime(),
+    })
+
+
+@requiere_ti
+@require_POST
+def desbloquear(request):
+    from . import ingresos
+
+    usuario = request.POST.get("usuario", "").strip()
+    if usuario:
+        ingresos.desbloquear(usuario, request.user, request)
+        messages.success(request, f"Se desbloqueó la cuenta {usuario}. Ya puede volver a intentar ingresar.")
+    return redirect("ti:accesos")
+
+
+# --------------------------------------------------------------------------- respaldos
+@requiere_ti
+def respaldos(request):
+    from . import respaldos as historial
+
+    dias = int(request.GET["dias"]) if request.GET.get("dias") in ("7", "30", "90") else 30
+    return render(request, "ti/respaldos.html", {
+        "estado": historial.estado(dias), "copias": historial.copias_en_carpeta(), "dias": dias, "ahora": timezone.localtime(),
     })

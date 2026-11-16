@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block titulo %}{% if nuevo %}Programar mantenimiento{% else %}Editar plan{% endif %} · TI{% endblock %}
+{% block contenido %}
+<nav aria-label="Ruta" class="mb-2"><ol class="breadcrumb small mb-0">
+  <li class="breadcrumb-item"><a href="{% url 'ti:mantenimiento' %}">Mantenimiento</a></li>
+  <li class="breadcrumb-item active" aria-current="page">{% if nuevo %}Programar{% else %}{{ plan.equipo.codigo }}{% endif %}</li>
+</ol></nav>
+<header class="cabecera-formulario">
+  <h1 class="h3 mb-1">{% if nuevo %}Programar mantenimiento preventivo{% else %}Plan de {{ plan.equipo }}{% endif %}</h1>
+  <p class="text-body-secondary mb-0">TI recibe un aviso antes de cada fecha. Al marcarlo como hecho queda en la hoja de vida y se programa el siguiente.</p>
+</header>
+<div class="contenedor-formulario">
+  {% for error in form.non_field_errors %}<div class="alert alert-danger">{{ error }}</div>{% endfor %}
+  <form method="post" novalidate class="card formulario">
+    {% csrf_token %}
+    <section class="formulario-seccion">
+      <div class="formulario-seccion-info"><span class="formulario-icono" aria-hidden="true"><i class="bi bi-tools"></i></span><h2>Qué y cada cuánto</h2><p>{% if nuevo %}Para un equipo o para todos los de un tipo de una vez.{% else %}Cambie la frecuencia o mueva la próxima fecha.{% endif %}</p></div>
+      <div class="row">
+        {% if nuevo %}
+        <div class="col-md-6">{% include "_campo.html" with campo=form.equipo %}</div>
+        <div class="col-md-6">{% include "_campo.html" with campo=form.tipo ayuda=form.tipo.help_text %}</div>
+        <div class="col-12">{% include "_campo.html" with campo=form.actividad %}</div>
+        <div class="col-md-4">{% include "_campo.html" with campo=form.cada_meses %}</div>
+        <div class="col-md-4">{% include "_campo.html" with campo=form.primera_fecha %}</div>
+        <div class="col-md-4">{% include "_campo.html" with campo=form.dias_aviso %}</div>
+        {% else %}
+        <div class="col-12">{% include "_campo.html" with campo=form.actividad %}</div>
+        <div class="col-md-4">{% include "_campo.html" with campo=form.cada_meses %}</div>
+        <div class="col-md-4">{% include "_campo.html" with campo=form.proxima_fecha %}</div>
+        <div class="col-md-4">{% include "_campo.html" with campo=form.dias_aviso %}</div>
+        <div class="col-12">{% include "ti/_casilla.html" with campo=form.activo %}</div>
+        {% endif %}
+        <div class="col-12">{% include "_campo.html" with campo=form.observacion %}</div>
+      </div>
+    </section>
+    <div class="formulario-acciones">
+      <a href="{% url 'ti:mantenimiento' %}" class="btn btn-outline-secondary ms-auto">Cancelar</a>
+      <button type="submit" class="btn btn-primary"><i class="bi bi-check2" aria-hidden="true"></i> Guardar</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

@@ -25,6 +25,7 @@ EVENTOS_SEGURIDAD = {
     "limite_peticiones": "Exceso de peticiones",
     "ingreso_fallido": "Ingreso fallido",
     "ingreso_bloqueado": "Cuenta bloqueada",
+    "ingreso_desbloqueado": "Cuenta desbloqueada por TI",
 }
 MAX_TRAZA = 20_000
 
@@ -134,6 +135,11 @@ def eventos_seguridad(dias: int = 7) -> list[dict]:
             grupos[clave] = ev | {"veces": 1, "ultima": ev["fecha"], "primera": ev["fecha"],
                                   "tipo": EVENTOS_SEGURIDAD.get(ev.get("evento", ""), ev.get("evento", "") or "Aviso")}
     return list(grupos.values())
+
+
+def lineas_seguridad(desde) -> list[dict]:
+    """Eventos de seguridad sin agrupar desde `desde` (para TI › Accesos)."""
+    return _lineas_recientes(desde, ARCHIVO_SEGURIDAD)
 
 
 def contar_seguridad_desde(horas: int = 24) -> int:
