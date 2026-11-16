@@ -5,7 +5,8 @@ from . import views
 app_name = "ti"
 
 urlpatterns = [
-    path("", views.equipos, name="equipos"),
+    path("", views.panel, name="panel"),
+    path("equipos/", views.equipos, name="equipos"),
     path("equipos/nuevo/", views.equipo_crear, name="crear"),
     path("equipos/<int:pk>/", views.equipo_detalle, name="detalle"),
     path("equipos/<int:pk>/editar/", views.equipo_editar, name="editar"),

@@ -206,22 +206,47 @@ def _casillas(form):
 
 # --------------------------------------------------------------------------- mesa de ayuda
 class TicketForm(FormularioEstilizado, forms.ModelForm):
+    reportado_por = forms.ModelChoiceField(
+        label="¿Quién avisó?", queryset=None, required=False, empty_label="Yo mismo (TI)",
+        help_text="Si la persona avisó en persona o por teléfono, regístrelo a su nombre: le llegará el seguimiento.")
+
     class Meta:
         model = Ticket
-        fields = ["categoria", "titulo", "descripcion", "prioridad"]
-        widgets = {"descripcion": forms.Textarea(attrs={"rows": 4})}
-        labels = {"prioridad": "¿Cuánto le afecta?"}
+        fields = ["categoria", "titulo", "descripcion", "prioridad", "puesto", "desde_otro_equipo"]
+        widgets = {"descripcion": forms.Textarea(attrs={"rows": 4}), "categoria": forms.RadioSelect}
+        labels = {"prioridad": "¿Cuánto le afecta?", "categoria": "¿Qué falla?", "titulo": "Cuéntelo en una frase",
+                  "desde_otro_equipo": "Mi equipo no funciona: estoy reportando desde otro computador o desde el celular"}
+        help_texts = {"desde_otro_equipo": "Así TI no confunde el equipo desde el que escribe con el que falla."}
 
     def __init__(self, *args, es_ti=False, **kwargs):
+        from apps.core.models import Usuario
+
         super().__init__(*args, **kwargs)
-        if not es_ti:  # la prioridad crítica (afecta a varias personas) la pone TI
+        self.fields["categoria"].choices = list(Ticket.Categoria.choices)  # sin la opción vacía «------»
+        if es_ti:
+            self.fields["reportado_por"].queryset = (Usuario.objects.filter(is_active=True).exclude(rol="TI")
+                                                     .order_by("first_name", "last_name"))
+            self.fields["reportado_por"].label_from_instance = lambda u: u.get_full_name() or u.username
+            del self.fields["desde_otro_equipo"]
+        else:  # la prioridad crítica (afecta a varias personas) la pone TI
+            del self.fields["reportado_por"]
             self.fields["prioridad"].choices = [c for c in Ticket.Prioridad.choices if c[0] != Ticket.Prioridad.CRITICA]
         _estilizar(self)
-        self.fields["titulo"].widget.attrs["placeholder"] = "Ej.: No tengo audio en la diadema"
+        _casillas(self)
+        self.fields["categoria"].widget.attrs["class"] = "form-check-input"
+        self.fields["titulo"].widget.attrs["placeholder"] = "Ej.: No escucho a los clientes por la diadema"
         self.fields["descripcion"].widget.attrs["placeholder"] = "Desde cuándo pasa, qué intentó, si le pasa a alguien más…"
+        self.fields["puesto"].widget.attrs["placeholder"] = "Ej.: Puesto 12"
 
     def clean_titulo(self):
         return (self.cleaned_data.get("titulo") or "").strip()
+
+    def clean(self):
+        datos = super().clean()
+        # «No prende»: obviamente no escribe desde ese equipo.
+        if datos.get("categoria") in Ticket.SIN_EQUIPO and "desde_otro_equipo" in self.fields:
+            datos["desde_otro_equipo"] = True
+        return datos
 
 
 class ComentarioTicketForm(FormularioEstilizado, forms.Form):

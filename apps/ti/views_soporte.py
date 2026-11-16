@@ -74,9 +74,13 @@ def crear(request):
     form = TicketForm(request.POST or None, es_ti=es_ti, initial={"prioridad": Ticket.Prioridad.MEDIA})
     if request.method == "POST" and form.is_valid():
         ticket = soporte.crear_ticket(usuario=request.user, request=request, **form.cleaned_data)
-        messages.success(request, f"Reporte {ticket.numero} enviado a TI. Le avisaremos aquí cuando lo atiendan.")
+        if ticket.registrado_por_id:
+            messages.success(request, f"Reporte {ticket.numero} registrado a nombre de {ticket.reportado_por.get_full_name()}. "
+                                      "Le llegará el seguimiento en CALLFLOW.")
+        else:
+            messages.success(request, f"Reporte {ticket.numero} enviado a TI. Le avisaremos aquí cuando lo atiendan.")
         return redirect("soporte:detalle", pk=ticket.pk)
-    return render(request, "soporte/nuevo.html", {"form": form, "plazos": soporte.tabla_plazos()})
+    return render(request, "soporte/nuevo.html", {"form": form, "plazos": soporte.tabla_plazos(), "es_ti": es_ti})
 
 
 def _ticket_visible(request, pk) -> Ticket:

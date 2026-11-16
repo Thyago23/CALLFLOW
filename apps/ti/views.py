@@ -442,3 +442,34 @@ def respaldos(request):
     return render(request, "ti/respaldos.html", {
         "estado": historial.estado(dias), "copias": historial.copias_en_carpeta(), "dias": dias, "ahora": timezone.localtime(),
     })
+
+
+# --------------------------------------------------------------------------- panel de TI
+@requiere_ti
+def panel(request):
+    """Inicio de TI: lo que necesita atención ahora, con enlaces a cada sección."""
+    from django.db.models import Case, IntegerField, Value, When
+
+    from . import ingresos, mantenimiento as reglas, registro_errores, respaldos, soporte
+    from . import servidor as estado_servidor
+    from .models import AvisoTI, Licencia, PlanMantenimiento, Ticket
+
+    hoy = timezone.localdate()
+    orden = Case(*[When(prioridad=v, then=Value(i)) for i, v in enumerate(Ticket.Prioridad.values)], output_field=IntegerField())
+    urgentes = list(Ticket.objects.filter(estado__in=Ticket.ACTIVOS).select_related("reportado_por")
+                    .order_by(orden, "limite_solucion")[:6])
+    planes = [p for p in PlanMantenimiento.objects.filter(activo=True).exclude(equipo__estado=Equipo.Estado.BAJA)
+              .select_related("equipo").order_by("proxima_fecha")[:50] if p.situacion != "al_dia"][:6]
+    licencias = [lic for lic in Licencia.objects.filter(activa=True, fecha_vencimiento__isnull=False).order_by("fecha_vencimiento")[:50]
+                 if lic.situacion in ("vencida", "por_vencer")]
+    discos = estado_servidor.discos()
+    peor_disco = min(discos, key=lambda d: d.porcentaje_libre) if discos else None
+    prestamos_vencidos = sum(1 for a in servicios.prestamos_abiertos()
+                             if a.es_prestamo and a.devolucion_prevista and a.devolucion_prevista < hoy)
+    return render(request, "ti/panel.html", {
+        "tickets": soporte.resumen(), "urgentes": urgentes, "planes": planes, "licencias": licencias[:6],
+        "n_licencias": len(licencias), "mantenimiento": reglas.resumen(), "respaldo": respaldos.estado(dias=7),
+        "bloqueadas": len(ingresos.cuentas_bloqueadas()), "fallos_24h": registro_errores.contar_seguridad_desde(24),
+        "errores_24h": registro_errores.contar_desde(24), "peor_disco": peor_disco, "equipos": servicios.resumen(),
+        "prestamos_vencidos": prestamos_vencidos, "avisos": AvisoTI.objects.all()[:8], "hoy": hoy,
+    })

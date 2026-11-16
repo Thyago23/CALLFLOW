@@ -111,11 +111,12 @@
         </button>
         <div class="enlaces-grupo" id="grupo-menu-{{ clave }}"><div class="enlaces-grupo-interno">
         {% for m in grupo.modulos %}
-          <a class="enlace-menu {% if request.resolver_match.app_name == m.clave %}activo{% endif %}" href="{{ m.href }}" {% if request.resolver_match.app_name == m.clave %}aria-current="page"{% endif %}>
+          {% if m.vistas %}{% if request.resolver_match.view_name in m.vistas %}{% firstof "1" as menu_activo %}{% else %}{% firstof "" as menu_activo %}{% endif %}{% elif request.resolver_match.app_name == m.clave %}{% firstof "1" as menu_activo %}{% else %}{% firstof "" as menu_activo %}{% endif %}
+          <a class="enlace-menu {% if menu_activo %}activo{% endif %}" href="{{ m.href }}" {% if menu_activo %}aria-current="page"{% endif %}>
             <i class="bi bi-{{ m.icono }}" aria-hidden="true"></i><span class="texto-menu">{{ m.nombre }}</span>
             {% if m.clave == "mensajes" and mensajes_sin_leer is not None %}<span id="pendientes-mensajes" class="badge rounded-pill text-bg-danger ms-auto {% if not mensajes_sin_leer %}d-none{% endif %}" title="Mensajes sin leer">{{ mensajes_sin_leer }}</span>{% endif %}
             {% if m.clave == "cierre" and dami_sin_asignar is not None %}<span id="pendientes-cierre" class="badge rounded-pill text-bg-danger ms-auto {% if not dami_sin_asignar %}d-none{% endif %}" title="DAMI que le toca atender">{{ dami_sin_asignar }}</span>{% endif %}
-            {% if m.clave == "soporte" and tickets_sin_atender is not None %}<span id="pendientes-soporte" class="badge rounded-pill text-bg-danger ms-auto {% if not tickets_sin_atender %}d-none{% endif %}" title="Reportes sin atender">{{ tickets_sin_atender }}</span>{% endif %}
+            {% if m.url == "soporte:inicio" and tickets_sin_atender is not None %}<span id="pendientes-soporte" class="badge rounded-pill text-bg-danger ms-auto {% if not tickets_sin_atender %}d-none{% endif %}" title="Reportes sin atender">{{ tickets_sin_atender }}</span>{% endif %}
             {% if m.clave == "ventas" and solicitudes_base_pendientes is not None %}<span id="pendientes-bases-menu" class="badge rounded-pill text-bg-danger ms-auto {% if not solicitudes_base_pendientes %}d-none{% endif %}" title="Solicitudes de bases pendientes">{{ solicitudes_base_pendientes }}</span>{% endif %}
           </a>
         {% endfor %}

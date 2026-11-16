@@ -263,14 +263,19 @@ class Ticket(ModeloBase):
     """
 
     class Categoria(models.TextChoices):
-        AUDIO = "AUDIO", "Audio o diadema"
-        INTERNET = "INTERNET", "Internet o red"
-        TELEFONIA = "TELEFONIA", "Teléfono o llamadas"
-        COMPUTADOR = "COMPUTADOR", "Computador (lento, no enciende, pantalla)"
+        AUDIO = "AUDIO", "Audio o diadema: no escucho o no me escuchan"
+        TELEFONIA = "TELEFONIA", "Llamadas: no marca, se corta o no entran"
+        INTERNET = "INTERNET", "Internet: lento, se corta o no hay en mi puesto"
+        COMPUTADOR = "COMPUTADOR", "Computador lento, se congela o se reinicia"
+        NO_ENCIENDE = "NO_ENCIENDE", "Mi computador no prende o no da imagen"
+        PERIFERICO = "PERIFERICO", "Teclado, mouse o monitor"
         IMPRESORA = "IMPRESORA", "Impresora"
-        CALLFLOW = "CALLFLOW", "Sistema CALLFLOW"
+        CALLFLOW = "CALLFLOW", "CALLFLOW: un error o algo no carga"
         CUENTA = "CUENTA", "Cuenta, contraseña o acceso"
-        OTRO = "OTRO", "Otro"
+        OTRO = "OTRO", "Otra cosa"
+
+    # Fallas que impiden usar el propio equipo: se reportan desde otro equipo o el celular.
+    SIN_EQUIPO = (Categoria.NO_ENCIENDE,)
 
     class Prioridad(models.TextChoices):
         CRITICA = "CRITICA", "Crítica (afecta a varias personas)"
@@ -295,6 +300,14 @@ class Ticket(ModeloBase):
     prioridad = models.CharField(max_length=8, choices=Prioridad.choices, default=Prioridad.MEDIA)
     estado = models.CharField(max_length=12, choices=Estado.choices, default=Estado.ABIERTO)
     ip = models.GenericIPAddressField("IP desde la que se reportó", null=True, blank=True)
+    puesto = models.CharField("puesto o lugar", max_length=60, blank=True, default="",
+                              help_text="Dónde está el equipo que falla (ej.: Puesto 12, recepción).")
+    desde_otro_equipo = models.BooleanField(
+        "reportado desde otro equipo o el celular", default=False,
+        help_text="La IP no es la del equipo que falla: el equipo se toma del asignado a la persona.")
+    registrado_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+                                       related_name="+", verbose_name="registrado por TI",
+                                       help_text="Cuando la persona avisó en persona o por teléfono y TI lo registró.")
     equipo = models.ForeignKey(Equipo, on_delete=models.SET_NULL, null=True, blank=True, related_name="tickets",
                                help_text="Se reconoce solo por la IP; TI lo puede corregir.")
     asignado_a = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
@@ -313,8 +326,9 @@ class Ticket(ModeloBase):
         indexes = [models.Index(fields=["estado", "prioridad"], name="ticket_estado_prioridad_idx"),
                    models.Index(fields=["creado_en"], name="ticket_creado_idx")]
         constraints = [
-            models.CheckConstraint(condition=Q(categoria__in=["AUDIO", "INTERNET", "TELEFONIA", "COMPUTADOR", "IMPRESORA",
-                                                              "CALLFLOW", "CUENTA", "OTRO"]), name="ticket_categoria_valida"),
+            models.CheckConstraint(condition=Q(categoria__in=["AUDIO", "TELEFONIA", "INTERNET", "COMPUTADOR", "NO_ENCIENDE",
+                                                              "PERIFERICO", "IMPRESORA", "CALLFLOW", "CUENTA", "OTRO"]),
+                                   name="ticket_categoria_valida"),
             models.CheckConstraint(condition=Q(prioridad__in=["CRITICA", "ALTA", "MEDIA", "BAJA"]), name="ticket_prioridad_valida"),
             models.CheckConstraint(condition=Q(estado__in=["ABIERTO", "EN_PROCESO", "EN_ESPERA", "RESUELTO", "CERRADO"]),
                                    name="ticket_estado_valido"),

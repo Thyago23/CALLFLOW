@@ -13,7 +13,7 @@
   <h1 class="h3 mb-0">{{ t.titulo }}</h1>
   {% include "soporte/_estado.html" %} {% include "soporte/_prioridad.html" %}
 </div>
-<p class="text-body-secondary small mb-4"><span class="font-monospace">{{ t.numero }}</span> · {{ t.get_categoria_display }} · reportado por {{ t.reportado_por.get_full_name|default:t.reportado_por.username }} el {{ t.creado_en|date:"d/m/Y H:i" }}{% if t.asignado_a %} · lo atiende {{ t.asignado_a.get_full_name|default:t.asignado_a.username }}{% endif %}</p>
+<p class="text-body-secondary small mb-4"><span class="font-monospace">{{ t.numero }}</span> · {{ t.get_categoria_display }}{% if t.puesto %} · {{ t.puesto }}{% endif %} · reportado por {{ t.reportado_por.get_full_name|default:t.reportado_por.username }} el {{ t.creado_en|date:"d/m/Y H:i" }}{% if t.asignado_a %} · lo atiende {{ t.asignado_a.get_full_name|default:t.asignado_a.username }}{% endif %}</p>
 
 {% if puede_confirmar %}
 <section class="alert alert-success" aria-labelledby="titulo-confirmar">
@@ -115,8 +115,11 @@
     <section class="card" aria-labelledby="titulo-origen">
       <div class="card-header bg-body"><h2 class="h6 mb-0" id="titulo-origen">Desde dónde se reportó</h2></div>
       <div class="card-body small">
-        <p class="mb-1">IP: <span class="font-monospace">{{ t.ip|default:"desconocida" }}</span></p>
-        {% if t.equipo %}<p class="mb-1">Equipo: <a href="{% url 'ti:detalle' t.equipo.pk %}">{{ t.equipo }}</a></p>{% else %}<p class="mb-1 text-body-secondary">La IP no corresponde a ningún equipo del inventario.</p>{% endif %}
+        {% if t.registrado_por %}<p class="mb-1"><i class="bi bi-person-check me-1" aria-hidden="true"></i>Avisó en persona o por teléfono; lo registró {{ t.registrado_por.get_full_name|default:t.registrado_por.username }}.</p>
+        {% elif t.desde_otro_equipo %}<p class="mb-1"><i class="bi bi-phone me-1" aria-hidden="true"></i>Lo reportó desde otro equipo o el celular (IP <span class="font-monospace">{{ t.ip|default:"desconocida" }}</span>): el equipo se tomó del que tiene asignado.</p>
+        {% else %}<p class="mb-1">IP: <span class="font-monospace">{{ t.ip|default:"desconocida" }}</span></p>{% endif %}
+        {% if t.puesto %}<p class="mb-1">Puesto: {{ t.puesto }}</p>{% endif %}
+        {% if t.equipo %}<p class="mb-1">Equipo: <a href="{% url 'ti:detalle' t.equipo.pk %}">{{ t.equipo }}</a></p>{% else %}<p class="mb-1 text-body-secondary">No se pudo reconocer el equipo: elíjalo en «Gestionar».</p>{% endif %}
         {% if otros_del_equipo %}
         <p class="mt-2 mb-1 fw-semibold">Otros reportes de este equipo</p>
         <ul class="list-unstyled mb-0">{% for o in otros_del_equipo %}<li><a href="{% url 'soporte:detalle' o.pk %}">{{ o.numero }}</a> · {{ o.titulo }} <span class="text-body-secondary">({{ o.creado_en|date:"d/m/Y" }})</span></li>{% endfor %}</ul>
