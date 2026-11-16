@@ -7,7 +7,7 @@
   <div class="col-6 col-lg-3"><div class="card h-100"><div class="card-body"><div class="small text-body-secondary">Equipos entregados</div><div class="fs-3 fw-semibold">{{ abiertos|length }}</div><div class="small text-body-secondary">con acta de entrega</div></div></div></div>
   <div class="col-6 col-lg-3"><div class="card h-100"><div class="card-body"><div class="small text-body-secondary">Préstamos vigentes</div><div class="fs-3 fw-semibold">{{ n_prestamos }}</div><div class="small text-body-secondary">con fecha de devolución</div></div></div></div>
   <div class="col-6 col-lg-3"><div class="card h-100 {% if n_vencidos %}border-danger-subtle{% endif %}"><div class="card-body"><div class="small text-body-secondary">Préstamos vencidos</div><div class="fs-3 fw-semibold {% if n_vencidos %}text-danger{% endif %}">{{ n_vencidos }}</div><div class="small text-body-secondary">no devueltos a tiempo</div></div></div></div>
-  <div class="col-6 col-lg-3"><a href="?firma=pendiente#actas" class="card h-100 text-decoration-none tarjeta-resumen"><div class="card-body"><div class="small text-body-secondary">Actas sin firmar</div><div class="fs-3 fw-semibold">{{ n_sin_firma }}</div><div class="small text-body-secondary">falta subir la copia firmada</div></div></a></div>
+  <div class="col-6 col-lg-3"><a href="?firma=pendiente#actas" class="card h-100 text-decoration-none tarjeta-indicador"><div class="card-body"><div class="small text-body-secondary">Actas sin firmar</div><div class="fs-3 fw-semibold">{{ n_sin_firma }}</div><div class="small text-body-secondary">falta subir la copia firmada</div></div></a></div>
 </div>
 
 <section class="card mb-4">

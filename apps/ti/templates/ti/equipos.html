@@ -8,7 +8,7 @@
   <div class="col-6 col-lg"><div class="card h-100"><div class="card-body"><div class="small text-body-secondary">Operativos</div><div class="fs-3 fw-semibold">{{ resumen.operativos }}</div><div class="small text-body-secondary">{{ resumen.bodega }} en bodega</div></div></div></div>
   <div class="col-6 col-lg"><div class="card h-100"><div class="card-body"><div class="small text-body-secondary">En reparación</div><div class="fs-3 fw-semibold">{{ resumen.reparacion }}</div></div></div></div>
   <div class="col-6 col-lg"><div class="card h-100"><div class="card-body"><div class="small text-body-secondary">Garantías por vencer</div><div class="fs-3 fw-semibold">{{ resumen.garantia_por_vencer }}</div><div class="small text-body-secondary">en los próximos 30 días</div></div></div></div>
-  <div class="col-12 col-lg"><a href="{% url 'ti:conectados' %}" class="card h-100 text-decoration-none tarjeta-resumen"><div class="card-body"><div class="small text-body-secondary">Conectados ahora</div><div class="fs-3 fw-semibold"><i class="bi bi-circle-fill text-success fs-6 align-middle me-1" aria-hidden="true"></i>{{ resumen.conectados }}</div><div class="small text-body-secondary">personas con CALLFLOW abierto</div></div></a></div>
+  <div class="col-12 col-lg"><a href="{% url 'ti:conectados' %}" class="card h-100 text-decoration-none tarjeta-indicador"><div class="card-body"><div class="small text-body-secondary">Conectados ahora</div><div class="fs-3 fw-semibold"><i class="bi bi-circle-fill text-success fs-6 align-middle me-1" aria-hidden="true"></i>{{ resumen.conectados }}</div><div class="small text-body-secondary">personas con CALLFLOW abierto</div></div></a></div>
 </div>
 
 <form class="row g-2 mb-3" role="search" method="get" data-filtros-ti>

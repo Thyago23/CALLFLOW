@@ -2080,3 +2080,10 @@ a.enlace-modulo:hover { background: var(--cf-fondo); color: var(--bs-body-color)
 .opcion-falla { cursor: pointer; }
 .opcion-falla:hover { background: var(--bs-tertiary-bg); }
 .opcion-falla:has(input:checked) { border-color: var(--bs-primary) !important; background: var(--bs-primary-bg-subtle); }
+
+/* TI: tarjetas de indicadores que llevan a su sección. Etiqueta, valor y detalle uno debajo del otro
+   (las del inicio, .tarjeta-resumen, ponen el valor y el ícono en fila). */
+.tarjeta-indicador { transition: border-color var(--cf-transicion), box-shadow var(--cf-transicion); color: inherit; }
+.tarjeta-indicador:hover { border-color: #b9d6ee; box-shadow: 0 6px 20px rgba(0, 98, 168, 0.08); }
+.tarjeta-indicador .card-body { display: flex; flex-direction: column; gap: 0.15rem; }
+.tarjeta-indicador .fs-3, .tarjeta-indicador .fs-5 { line-height: 1.15; }

@@ -6,42 +6,42 @@
 {# ------------------------------------------------------------ indicadores: cada tarjeta lleva a su sección #}
 <div class="row g-3 mb-4">
   <div class="col-6 col-xl-2">
-    <a href="{% url 'soporte:inicio' %}" class="card h-100 text-decoration-none tarjeta-resumen {% if tickets.respuesta_vencida or tickets.solucion_vencida %}border-danger{% endif %}"><div class="card-body">
+    <a href="{% url 'soporte:inicio' %}" class="card h-100 text-decoration-none tarjeta-indicador {% if tickets.respuesta_vencida or tickets.solucion_vencida %}border-danger{% endif %}"><div class="card-body">
       <div class="small text-body-secondary"><i class="bi bi-headset me-1" aria-hidden="true"></i>Reportes abiertos</div>
       <div class="fs-3 fw-semibold">{{ tickets.activos }}</div>
       <div class="small {% if tickets.solucion_vencida %}text-danger{% else %}text-body-secondary{% endif %}">{% if tickets.solucion_vencida %}{{ tickets.solucion_vencida }} fuera de plazo{% else %}{{ tickets.sin_atender }} sin atender{% endif %}</div>
     </div></a>
   </div>
   <div class="col-6 col-xl-2">
-    <a href="{% url 'ti:mantenimiento' %}" class="card h-100 text-decoration-none tarjeta-resumen {% if mantenimiento.vencidos %}border-danger{% endif %}"><div class="card-body">
+    <a href="{% url 'ti:mantenimiento' %}" class="card h-100 text-decoration-none tarjeta-indicador {% if mantenimiento.vencidos %}border-danger{% endif %}"><div class="card-body">
       <div class="small text-body-secondary"><i class="bi bi-tools me-1" aria-hidden="true"></i>Mantenimientos</div>
       <div class="fs-3 fw-semibold {% if mantenimiento.vencidos %}text-danger{% endif %}">{{ mantenimiento.vencidos }}</div>
       <div class="small text-body-secondary">atrasados · {{ mantenimiento.por_vencer }} tocan pronto</div>
     </div></a>
   </div>
   <div class="col-6 col-xl-2">
-    <a href="{% url 'ti:licencias' %}" class="card h-100 text-decoration-none tarjeta-resumen {% if n_licencias %}border-warning{% endif %}"><div class="card-body">
+    <a href="{% url 'ti:licencias' %}" class="card h-100 text-decoration-none tarjeta-indicador {% if n_licencias %}border-warning{% endif %}"><div class="card-body">
       <div class="small text-body-secondary"><i class="bi bi-patch-check me-1" aria-hidden="true"></i>Licencias</div>
       <div class="fs-3 fw-semibold">{{ n_licencias }}</div>
       <div class="small text-body-secondary">vencidas o por vencer</div>
     </div></a>
   </div>
   <div class="col-6 col-xl-2">
-    <a href="{% url 'ti:respaldos' %}" class="card h-100 text-decoration-none tarjeta-resumen {% if respaldo.nivel == 'fallo' %}border-danger{% elif respaldo.nivel != 'ok' %}border-warning{% endif %}"><div class="card-body">
+    <a href="{% url 'ti:respaldos' %}" class="card h-100 text-decoration-none tarjeta-indicador {% if respaldo.nivel == 'fallo' %}border-danger{% elif respaldo.nivel != 'ok' %}border-warning{% endif %}"><div class="card-body">
       <div class="small text-body-secondary"><i class="bi bi-database-check me-1" aria-hidden="true"></i>Respaldos</div>
       <div class="fs-5 fw-semibold {% if respaldo.nivel == 'fallo' %}text-danger{% elif respaldo.nivel != 'ok' %}text-warning-emphasis{% endif %}">{% if respaldo.nivel == "fallo" %}Falló{% elif respaldo.nivel == "atrasado" %}Atrasados{% elif respaldo.nivel == "sin_datos" %}Sin respaldos{% else %}Al día{% endif %}</div>
       <div class="small text-body-secondary">{% if respaldo.ultimo_bueno %}último bueno {{ respaldo.ultimo_bueno|date:"d/m H:i" }}{% else %}—{% endif %}</div>
     </div></a>
   </div>
   <div class="col-6 col-xl-2">
-    <a href="{% url 'ti:accesos' %}" class="card h-100 text-decoration-none tarjeta-resumen {% if bloqueadas %}border-danger{% endif %}"><div class="card-body">
+    <a href="{% url 'ti:accesos' %}" class="card h-100 text-decoration-none tarjeta-indicador {% if bloqueadas %}border-danger{% endif %}"><div class="card-body">
       <div class="small text-body-secondary"><i class="bi bi-shield-lock me-1" aria-hidden="true"></i>Cuentas bloqueadas</div>
       <div class="fs-3 fw-semibold {% if bloqueadas %}text-danger{% endif %}">{{ bloqueadas }}</div>
       <div class="small text-body-secondary">{{ fallos_24h }} evento{{ fallos_24h|pluralize }} de seguridad en 24 h</div>
     </div></a>
   </div>
   <div class="col-6 col-xl-2">
-    <a href="{% url 'ti:servidor' %}" class="card h-100 text-decoration-none tarjeta-resumen {% if peor_disco.nivel == 'critico' or errores_24h %}border-danger{% elif peor_disco.nivel == 'bajo' %}border-warning{% endif %}"><div class="card-body">
+    <a href="{% url 'ti:servidor' %}" class="card h-100 text-decoration-none tarjeta-indicador {% if peor_disco.nivel == 'critico' or errores_24h %}border-danger{% elif peor_disco.nivel == 'bajo' %}border-warning{% endif %}"><div class="card-body">
       <div class="small text-body-secondary"><i class="bi bi-hdd-rack me-1" aria-hidden="true"></i>Servidor</div>
       <div class="fs-5 fw-semibold {% if peor_disco.nivel == 'critico' %}text-danger{% elif peor_disco.nivel == 'bajo' %}text-warning-emphasis{% endif %}">{% if peor_disco %}{{ peor_disco.porcentaje_libre|floatformat:0 }} % libre{% else %}—{% endif %}</div>
       <div class="small {% if errores_24h %}text-danger{% else %}text-body-secondary{% endif %}">{{ errores_24h }} error{{ errores_24h|pluralize:"es" }} en 24 h</div>
