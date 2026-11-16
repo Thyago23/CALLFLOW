@@ -20,3 +20,14 @@
     </div>
   </div>
 </form>
+{% if form.rango %}
+<script>
+  // Reportes con «Periodo»: al cambiar una fecha a mano, el periodo pasa a «Las fechas que elija».
+  (function () {
+    const rango = document.querySelector('select[name="rango"]');
+    document.querySelectorAll('input[name="desde"], input[name="hasta"]').forEach(function (campo) {
+      campo.addEventListener("change", function () { rango.value = "fechas"; });
+    });
+  })();
+</script>
+{% endif %}

@@ -97,6 +97,31 @@ def _lineas_recientes(desde, nombre: str = NOMBRE_ARCHIVO) -> list[dict]:
     return errores
 
 
+def errores_entre(desde, hasta) -> list[dict]:
+    """Errores sin agrupar con fecha en [desde, hasta) (datetimes con zona), del más viejo al más reciente."""
+    return sorted((e for e in _lineas_recientes(desde) if e["fecha"] < hasta), key=lambda e: e["fecha"])
+
+
+def seguridad_entre(desde, hasta) -> list[dict]:
+    return [e for e in _lineas_recientes(desde, ARCHIVO_SEGURIDAD) if e["fecha"] < hasta]
+
+
+def agrupar(errores: list[dict]) -> list[dict]:
+    """Los errores iguales juntos (misma firma), el más repetido primero."""
+    grupos: dict[str, dict] = {}
+    for error in errores:
+        firma = _firma(error)
+        grupo = grupos.get(firma)
+        if grupo is None:
+            grupo = grupos[firma] = error | {"firma": firma, "veces": 0, "primera": error["fecha"], "ultima": error["fecha"],
+                                             "usuarios": set()}
+        grupo["veces"] += 1
+        grupo["primera"], grupo["ultima"] = min(grupo["primera"], error["fecha"]), max(grupo["ultima"], error["fecha"])
+        if error.get("usuario"):
+            grupo["usuarios"].add(error["usuario"])
+    return sorted(grupos.values(), key=lambda g: (-g["veces"], -g["ultima"].timestamp()))
+
+
 def errores_recientes(dias: int = 7) -> list[dict]:
     """Errores agrupados (los iguales juntos), del más reciente al más viejo, con cuántas veces ocurrió cada uno."""
     desde = timezone.localtime() - timedelta(days=dias)

@@ -101,3 +101,42 @@ class ServidorTests(BaseTI):
             f.write("{esto no es json\n")
         mensajes = [e["mensaje"] for e in registro_errores.errores_recientes(30)]
         self.assertFalse(any(marca in m for m in mensajes))
+
+
+class ReporteErroresTests(ServidorTests):
+    """Reporte «Errores del sistema» (TI_ERRORES): últimos 7 días, el mes o las fechas que se elijan."""
+
+    def test_periodos_rapidos(self):
+        from datetime import date
+
+        from apps.reportes.filtros import fechas_de_rango
+
+        hoy = date(2026, 11, 16)
+        self.assertEqual(fechas_de_rango("7d", hoy), (date(2026, 11, 10), hoy))
+        self.assertEqual(fechas_de_rango("mes", hoy), (date(2026, 11, 1), hoy))
+        self.assertEqual(fechas_de_rango("mes_anterior", hoy), (date(2026, 10, 1), date(2026, 10, 31)))
+        self.assertIsNone(fechas_de_rango("fechas", hoy))
+
+    def test_el_reporte_agrupa_los_errores_del_periodo_y_se_descarga_en_pdf(self):
+        marca = uuid.uuid4().hex
+        for _ in range(3):
+            self.registrar_error(f"reporte {marca}")
+        url = reverse("reportes:reporte", args=["TI_ERRORES"])
+        for rango in ("7d", "mes"):
+            pagina = self.client.get(url, {"rango": rango})
+            self.assertContains(pagina, f"ValueError: reporte {marca}")  # la causa, no «Internal Server Error»
+            self.assertContains(pagina, "Errores por día")
+            hoy = timezone.localdate()
+            inicio = hoy - timedelta(days=6) if rango == "7d" else hoy.replace(day=1)
+            self.assertContains(pagina, f'name="desde" value="{inicio.isoformat()}"')  # las fechas muestran el periodo
+        fila = next(f for f in pagina.context["tabla"].filas if marca in f[2])
+        self.assertEqual((fila[0], fila[1], fila[3]), ("HTTP 500 · ValueError", "GET /ventas/bases/", 3))
+        # Con fechas viejas no aparece.
+        viejo = self.client.get(url, {"rango": "fechas", "desde": "2020-01-01", "hasta": "2020-01-31"})
+        self.assertNotContains(viejo, marca)
+        pdf = self.client.get(reverse("reportes:reporte_pdf", args=["TI_ERRORES"]), {"rango": "7d"})
+        self.assertEqual((pdf.status_code, pdf["Content-Type"]), (200, "application/pdf"))
+
+    def test_solo_ti(self):
+        self.client.force_login(self.admin)
+        self.assertEqual(self.client.get(reverse("reportes:reporte", args=["TI_ERRORES"])).status_code, 403)

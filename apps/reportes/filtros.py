@@ -9,7 +9,23 @@ from apps.core.models import Rol
 ETIQUETAS = {"desde": "Desde", "hasta": "Hasta", "mes": "Mes", "empleado": "Empleado", "vendedor": "Vendedor",
              "equipo": "Equipo", "estado": "Estado", "cargo": "Cargo", "categoria": "Categoría", "base": "Base comercial",
              "tipo_equipo": "Tipo de equipo", "usuario": "Usuario", "ciudad": "Ciudad", "tarjeta": "Categoría de tarjeta",
-             "llamado_desde": "Llamados desde", "llamado_hasta": "Llamados hasta"}
+             "llamado_desde": "Llamados desde", "llamado_hasta": "Llamados hasta", "rango": "Periodo"}
+
+# Periodos rápidos (filtro «rango»): reemplazan «desde» y «hasta» salvo con «fechas».
+RANGOS = [("7d", "Últimos 7 días"), ("mes", "Este mes"), ("mes_anterior", "Mes anterior"), ("fechas", "Las fechas que elija")]
+
+
+def fechas_de_rango(rango: str, hoy: date) -> tuple[date, date] | None:
+    from datetime import timedelta
+
+    if rango == "7d":
+        return hoy - timedelta(days=6), hoy
+    if rango == "mes":
+        return hoy.replace(day=1), hoy
+    if rango == "mes_anterior":
+        fin = hoy.replace(day=1) - timedelta(days=1)
+        return fin.replace(day=1), fin
+    return None
 
 
 def _mes_actual() -> str:
@@ -18,6 +34,11 @@ def _mes_actual() -> str:
 
 class FiltrosForm(forms.Form):
     def __init__(self, data, reporte, usuario):
+        if "rango" in reporte.filtros and data is not None:
+            # Las fechas en pantalla muestran el periodo elegido (7 días, el mes…), no las por defecto.
+            fechas = fechas_de_rango(data.get("rango") or "7d", timezone.localdate())
+            if fechas:
+                data = dict(data.items()) | {"desde": fechas[0].isoformat(), "hasta": fechas[1].isoformat()}
         super().__init__(data)
         self.reporte, self.usuario = reporte, usuario
         hoy = timezone.localdate()
@@ -35,6 +56,8 @@ class FiltrosForm(forms.Form):
 
         fecha = forms.DateInput(attrs={"type": "date", "class": "form-control"}, format="%Y-%m-%d")
         lista = {"class": "form-select"}
+        if nombre == "rango":
+            return forms.ChoiceField(choices=RANGOS, required=False, initial="7d", widget=forms.Select(attrs=lista))
         if nombre == "desde":
             return forms.DateField(required=False, widget=fecha, initial=hoy.replace(day=1))
         if nombre == "hasta":
@@ -103,6 +126,11 @@ class FiltrosForm(forms.Form):
         if "desde" in self.fields:
             desde, hasta = datos.get("desde") or hoy.replace(day=1), datos.get("hasta") or hoy
             datos["desde"], datos["hasta"] = (desde, hasta) if desde <= hasta else (hasta, desde)
+        if "rango" in self.fields:
+            datos["rango"] = datos.get("rango") or "7d"
+            rango = fechas_de_rango(datos["rango"], hoy)
+            if rango:
+                datos["desde"], datos["hasta"] = rango
         desde, hasta = datos.get("llamado_desde"), datos.get("llamado_hasta")
         if desde and hasta and desde > hasta:
             datos["llamado_desde"], datos["llamado_hasta"] = hasta, desde
@@ -118,7 +146,7 @@ class FiltrosForm(forms.Form):
         """'Equipo: Visado · Vendedor: Mora Lucía' (para el PDF; las fechas ya van en el periodo)."""
         partes = []
         for nombre in self.reporte.filtros:
-            if nombre in ("desde", "hasta", "mes", "llamado_desde", "llamado_hasta"):  # van en el periodo
+            if nombre in ("desde", "hasta", "mes", "llamado_desde", "llamado_hasta", "rango"):  # van en el periodo
                 continue
             valor = self.cleaned_data.get(nombre)
             if valor:

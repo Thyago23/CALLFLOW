@@ -575,13 +575,73 @@ def _ti_conexiones(f, usuario) -> Tabla:
     )
 
 
+def _ti_errores(f, usuario) -> Tabla:
+    """Errores del sistema en el periodo (logs/errores.jsonl), los iguales agrupados, más el resumen de seguridad."""
+    from datetime import datetime, time, timedelta
+
+    from apps.ti import registro_errores
+
+    zona = timezone.get_current_timezone()
+    desde = datetime.combine(f["desde"], time.min, tzinfo=zona)
+    hasta = datetime.combine(f["hasta"] + timedelta(days=1), time.min, tzinfo=zona)
+    errores = registro_errores.errores_entre(desde, hasta)
+    grupos = registro_errores.agrupar(errores)
+    filas = []
+    for g in grupos:
+        if str(g.get("origen", "")).startswith("respaldo."):
+            tipo, donde = "Respaldo fallido", g["origen"].split(".", 1)[1].capitalize()
+        else:
+            tipo = (f"HTTP {g['estado_http']} · " if g.get("estado_http") else "") + (g.get("excepcion") or g.get("nivel", "ERROR"))
+            donde = f"{g.get('metodo', '')} {g['ruta']}".strip() if g.get("ruta") else g.get("origen", "")
+        # La causa real está en la última línea de la traza («ValueError: …»); el mensaje suele ser «Internal Server Error».
+        causa = (g.get("traza") or "").strip().splitlines()[-1:] or [str(g.get("mensaje", ""))]
+        filas.append([tipo, donde, causa[0][:220], g["veces"], g["primera"], g["ultima"],
+                      ", ".join(sorted(g["usuarios"]))[:120]])
+
+    # Errores por día: para la vista en pantalla y una nota con el día con más errores.
+    por_dia: dict = {}
+    for e in errores:
+        dia = timezone.localtime(e["fecha"]).date()
+        por_dia[dia] = por_dia.get(dia, 0) + 1
+    dias, d = [], f["desde"]
+    while d <= f["hasta"]:
+        dias.append({"etiqueta": f"{('lun', 'mar', 'mié', 'jue', 'vie', 'sáb', 'dom')[d.weekday()]} {d:%d/%m}",
+                     "valor": por_dia.get(d, 0)})
+        d += timedelta(days=1)
+    maximo = max((x["valor"] for x in dias), default=0) or 1
+    for x in dias:
+        x["ancho"] = round(x["valor"] * 100 / maximo)
+
+    seguridad = registro_errores.seguridad_entre(desde, hasta)
+    conteo = {clave: sum(1 for e in seguridad if e.get("evento") == clave)
+              for clave in ("ingreso_fallido", "ingreso_bloqueado", "limite_peticiones")}
+    respaldos_fallidos = sum(g["veces"] for g in grupos if str(g.get("origen", "")).startswith("respaldo."))
+    notas = [f"{len(errores)} error{'es' if len(errores) != 1 else ''} en {len(grupos)} tipo{'s' if len(grupos) != 1 else ''} "
+             f"distinto{'s' if len(grupos) != 1 else ''}. Los errores iguales se agrupan (misma causa y misma página)."]
+    if errores:
+        peor = max(por_dia.items(), key=lambda x: x[1])
+        notas.append(f"Día con más errores: {peor[0]:%d/%m/%Y} ({peor[1]}).")
+    notas.append(f"Seguridad en el periodo: {conteo['ingreso_fallido']} ingresos fallidos, {conteo['ingreso_bloqueado']} cuentas "
+                 f"bloqueadas y {conteo['limite_peticiones']} rechazos por exceso de peticiones (detalle en TI › Accesos).")
+    notas.append("La traza completa de cada error está en TI › Monitoreo › Servidor.")
+    return Tabla(
+        columnas=[Columna("Tipo", peso=1.5), Columna("Dónde", peso=1.6), Columna("Mensaje", peso=3.2), Columna("Veces", "entero", .7),
+                  Columna("Primera vez", "fecha", 1.2), Columna("Última vez", "fecha", 1.2), Columna("Usuarios", peso=1.3)],
+        filas=filas, periodo=_periodo_rango(f), horizontal=True,
+        totales=["Totales", f"{len(grupos)} tipos", "", len(errores), None, None, ""] if filas else None,
+        notas=notas, vacio="No se registraron errores en el periodo.", vista="reportes/_errores_ti.html",
+        extra={"total": len(errores), "tipos": len(grupos), "dias": dias, "respaldos": respaldos_fallidos,
+               "seguridad": conteo, "dias_con_error": sum(1 for x in dias if x["valor"])},
+    )
+
+
 _CONSTRUCTORES = {
     "BASES_EFECTIVIDAD": _efectividad_bases, "BASES_GESTION": _gestion_bases,
     "PERSONAL_LISTADO": _personal, "ASISTENCIA_HISTORIAL": _asistencia, "INVENTARIO_STOCK": _inventario,
     "INVENTARIO_MOVIMIENTOS": _movimientos, "NOMINA_RESUMEN": _nomina, "NOMINA_COMISIONES": _comisiones,
     "NOMINA_ROL_PAGO": _rol_pago, "VENTAS_PRODUCCION": _produccion, "VENTAS_POR_VENDEDOR": _ventas,
     "VENTAS_FORMULARIOS": _formularios, "CIERRE_PANEL": _metas,
-    "TI_EQUIPOS": _ti_equipos, "TI_EVENTOS": _ti_eventos, "TI_CONEXIONES": _ti_conexiones,
+    "TI_EQUIPOS": _ti_equipos, "TI_EVENTOS": _ti_eventos, "TI_CONEXIONES": _ti_conexiones, "TI_ERRORES": _ti_errores,
 }
 _DOCUMENTOS = {"NOMINA_ROL_PAGO": _rol_pago_pdf}  # tienen su propio formato de PDF
 
@@ -639,6 +699,10 @@ REPORTES = {r.codigo: r for r in [
     Reporte("TI_CONEXIONES", "Conexiones al sistema por usuario", "TI",
             "Cuántas veces entró cada persona a CALLFLOW, desde cuántos equipos y su última actividad.",
             ("desde", "hasta", "usuario"), (T,), icono="wifi"),
+    Reporte("TI_ERRORES", "Errores del sistema", "TI",
+            "Todos los errores del sistema de los últimos 7 días, del mes o de las fechas que elija: cuántas veces pasó "
+            "cada uno, dónde, a quién y cuándo, más respaldos fallidos e intentos de ingreso.",
+            ("rango", "desde", "hasta"), (T,), icono="bug"),
 ]}
 
 # El panel de estadísticas se registra como tipo de reporte para usar los mismos permisos por rol.
