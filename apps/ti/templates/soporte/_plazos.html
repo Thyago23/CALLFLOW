@@ -1,0 +1,9 @@
+{% load ti_extras %}
+<details class="small text-body-secondary">
+  <summary style="cursor: pointer">¿Cuánto tarda TI en atender?</summary>
+  <table class="table table-sm small mt-2 mb-0">
+    <thead><tr><th scope="col">Prioridad</th><th scope="col">Primera respuesta</th><th scope="col">Solución</th></tr></thead>
+    <tbody>{% for p in plazos %}<tr><td>{{ p.prioridad }}</td><td>hasta {{ p.respuesta|duracion }}</td><td>hasta {{ p.solucion|duracion }}</td></tr>{% endfor %}</tbody>
+  </table>
+  <p class="mt-1 mb-0">Tiempo corrido desde que se envía el reporte.</p>
+</details>

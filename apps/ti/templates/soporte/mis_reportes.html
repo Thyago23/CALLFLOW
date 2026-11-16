@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block titulo %}Mesa de ayuda{% endblock %}
+{% block contenido %}
+<div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
+  <div>
+    <h1 class="h3 mb-0">Mesa de ayuda</h1>
+    <p class="text-body-secondary small mb-0">¿Algo no funciona? Repórtelo a TI y siga aquí su atención.</p>
+  </div>
+  <a href="{% url 'soporte:crear' %}" class="btn btn-primary"><i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Reportar una falla</a>
+</div>
+
+{% if por_confirmar %}
+<div class="alert alert-success d-flex gap-2 align-items-start" role="status">
+  <i class="bi bi-check-circle mt-1" aria-hidden="true"></i>
+  <div>TI marcó {{ por_confirmar }} reporte{{ por_confirmar|pluralize }} como resuelto{{ por_confirmar|pluralize }}. Ábralo{{ por_confirmar|pluralize:"s" }} y confirme si quedó bien.</div>
+</div>
+{% endif %}
+
+{% if pagina.object_list %}
+<div class="card mb-3">
+  <div class="list-group list-group-flush">
+    {% for t in pagina %}
+    <a href="{% url 'soporte:detalle' t.pk %}" class="list-group-item list-group-item-action py-3">
+      <div class="d-flex flex-wrap gap-2 align-items-baseline">
+        <span class="font-monospace small text-body-secondary">{{ t.numero }}</span>
+        <span class="fw-semibold">{{ t.titulo }}</span>
+        <span class="ms-auto">{% include "soporte/_estado.html" %}</span>
+      </div>
+      <div class="small text-body-secondary mt-1">{{ t.get_categoria_display }} · enviado el {{ t.creado_en|date:"d/m/Y H:i" }}{% if t.asignado_a %} · lo atiende {{ t.asignado_a.get_full_name|default:t.asignado_a.username }}{% endif %}</div>
+    </a>
+    {% endfor %}
+  </div>
+</div>
+{% include "soporte/_paginacion.html" with pagina=pagina extra="" %}
+{% else %}
+<div class="card mb-3"><div class="card-body text-center py-5">
+  <i class="bi bi-headset fs-1 text-body-secondary d-block mb-2" aria-hidden="true"></i>
+  <p class="mb-3">No ha reportado ninguna falla.</p>
+  <a href="{% url 'soporte:crear' %}" class="btn btn-primary">Reportar una falla</a>
+</div></div>
+{% endif %}
+{% include "soporte/_plazos.html" %}
+{% endblock %}

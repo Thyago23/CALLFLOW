@@ -67,6 +67,9 @@ MODULOS = [
            "Dar breaks a los vendedores y ver quién volvió tarde.", url="asistencia:breaks", exclusivo=True),
     Modulo("ti", "Equipos de TI", "TI", "pc-display", "ti.view_equipo",
            "Inventario de equipos, mantenimientos y equipos conectados al sistema.", url="ti:equipos", roles=("TI",)),
+    Modulo("soporte", "Mesa de ayuda", "TI", "headset", "",
+           "Reporte una falla (audio, internet, computador, sistema) y siga su atención.", url="soporte:inicio",
+           roles=("ADMINISTRADOR", "VENDEDOR", "ENCARGADO_CIERRE", "TI")),
     Modulo("mensajes", "Mensajes", "TI", "chat-dots", "",
            "Mensajería interna entre TI, administradores y supervisores.", url="mensajes:bandeja",
            roles=("ADMINISTRADOR", "ENCARGADO_CIERRE", "TI")),
@@ -97,7 +100,7 @@ GRUPOS = [
     ("Administración", ("personal", "asistencia", "documentos", "inventario", "nomina")),
     ("Comercial", ("ventas", "cierre", "tablero", "breaks", "chips")),
     ("Tecnología", ("ti",)),
-    ("Herramientas", ("mensajes", "agenda", "reportes")),
+    ("Herramientas", ("soporte", "mensajes", "agenda", "reportes")),
 ]
 
 

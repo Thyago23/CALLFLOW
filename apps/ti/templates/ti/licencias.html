@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block titulo %}Licencias y servicios · TI{% endblock %}
+{% block contenido %}
+{% include "ti/_subnav.html" with seccion="licencias" %}
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-lg-3"><div class="card h-100 {% if n_vencidas %}border-danger{% endif %}"><div class="card-body"><div class="small text-body-secondary">Vencidas</div><div class="fs-3 fw-semibold {% if n_vencidas %}text-danger{% endif %}">{{ n_vencidas }}</div></div></div></div>
+  <div class="col-6 col-lg-3"><div class="card h-100 {% if n_por_vencer %}border-warning{% endif %}"><div class="card-body"><div class="small text-body-secondary">Por vencer</div><div class="fs-3 fw-semibold">{{ n_por_vencer }}</div><div class="small text-body-secondary">dentro de sus días de aviso</div></div></div></div>
+  <div class="col-6 col-lg-3"><div class="card h-100"><div class="card-body"><div class="small text-body-secondary">Registradas</div><div class="fs-3 fw-semibold">{{ licencias|length }}</div></div></div></div>
+  <div class="col-6 col-lg-3"><div class="card h-100"><div class="card-body"><div class="small text-body-secondary">Costo por periodo</div><div class="fs-3 fw-semibold">$ {{ costo_anual|floatformat:2 }}</div><div class="small text-body-secondary">suma de las vigentes</div></div></div></div>
+</div>
+
+<div class="d-flex flex-wrap justify-content-between gap-2 mb-3">
+  <form class="d-flex flex-wrap gap-2" method="get">
+    <label class="visually-hidden" for="tipo">Tipo</label>
+    <select id="tipo" name="tipo" class="form-select form-select-sm" style="width: auto" onchange="this.form.submit()">
+      <option value="">Todos los tipos</option>{% for valor, nombre in tipos %}<option value="{{ valor }}" {% if valor == tipo %}selected{% endif %}>{{ nombre }}</option>{% endfor %}
+    </select>
+    <div class="form-check form-switch align-self-center mb-0"><input class="form-check-input" type="checkbox" id="ver-todas" name="ver" value="todas" {% if ver == "todas" %}checked{% endif %} onchange="this.form.submit()"><label class="form-check-label small" for="ver-todas">Incluir las que ya no se usan</label></div>
+    <noscript><button class="btn btn-sm btn-outline-secondary">Filtrar</button></noscript>
+  </form>
+  <a href="{% url 'ti:licencia_crear' %}" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Registrar licencia o servicio</a>
+</div>
+
+{% if licencias %}
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead><tr><th scope="col">Licencia / servicio</th><th scope="col" class="d-none d-md-table-cell">Proveedor</th><th scope="col">Vence</th><th scope="col">Situación</th><th scope="col" class="d-none d-lg-table-cell text-end">Costo</th><th scope="col" class="text-end">Acciones</th></tr></thead>
+      <tbody>
+        {% for l in licencias %}
+        <tr class="{% if not l.activa %}text-body-secondary{% endif %}">
+          <td><span class="fw-semibold">{{ l.nombre }}</span><div class="small text-body-secondary">{{ l.get_tipo_display }}{% if l.cantidad %} · {{ l.cantidad }} puesto{{ l.cantidad|pluralize }}{% endif %}{% if l.equipos.all %} · en {{ l.equipos.all|length }} equipo{{ l.equipos.all|length|pluralize }}{% endif %}{% if l.referencia %} · {{ l.referencia }}{% endif %}</div></td>
+          <td class="d-none d-md-table-cell small">{{ l.proveedor|default:"—" }}</td>
+          <td class="small text-nowrap">{{ l.fecha_vencimiento|date:"d/m/Y"|default:"—" }}{% if l.renovacion_automatica %}<div class="text-body-secondary">se renueva sola</div>{% endif %}</td>
+          <td>{% include "ti/_vence.html" with s=l.estado_actual dias=l.dias_restantes %}</td>
+          <td class="d-none d-lg-table-cell text-end small">{% if l.costo is not None %}$ {{ l.costo }}{% else %}—{% endif %}</td>
+          <td class="text-end"><a href="{% url 'ti:licencia_editar' l.pk %}" class="btn btn-sm btn-outline-secondary">Editar</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% else %}
+<div class="card"><div class="card-body text-center py-5"><i class="bi bi-patch-check fs-1 text-body-secondary d-block mb-2" aria-hidden="true"></i><p class="mb-3">Todavía no hay licencias ni servicios registrados.</p><a href="{% url 'ti:licencia_crear' %}" class="btn btn-primary">Registrar el primero</a></div></div>
+{% endif %}
+<p class="small text-body-secondary mt-3">TI recibe un aviso en la campana cuando una licencia entra en sus días de aviso y otro si llega a vencer. Al renovarla, cambie la fecha de vencimiento: el aviso se vuelve a programar solo.</p>
+{% endblock %}

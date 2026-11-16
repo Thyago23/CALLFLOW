@@ -19,6 +19,10 @@ def contadores(usuario) -> dict:
         from apps.ventas.servicios import solicitudes_pendientes
 
         datos["solicitudes_base_pendientes"] = solicitudes_pendientes()
+    if usuario.rol == Rol.TI:
+        from apps.ti.soporte import sin_atender
+
+        datos["tickets_sin_atender"] = sin_atender()  # reportes de la mesa de ayuda que nadie ha tomado
     if usuario.rol == Rol.VENDEDOR:
         # Aviso del break en curso (con «Volví del break»): llega con el sondeo de la campana.
         from apps.asistencia.breaks import pendiente_de, proximo_para

@@ -37,6 +37,13 @@ def generar_pendientes(usuario) -> None:
     except Exception:  # la revisión de asistencia nunca debe romper la campana
         logger.exception("No se pudieron revisar las jornadas sin salida")
 
+    from apps.ti.alertas import revisar_si_toca as revisar_avisos_ti
+
+    try:  # licencias por vencer, mantenimientos, respaldos y disco (como mucho cada 10 min)
+        revisar_avisos_ti()
+    except Exception:
+        logger.exception("No se pudieron revisar los avisos de TI")
+
     from apps.asistencia.breaks import procesar_programados
 
     try:  # breaks programados: recordatorio 10 o 5 min antes y arranque a la hora

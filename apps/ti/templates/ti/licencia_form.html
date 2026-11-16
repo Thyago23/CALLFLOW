@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block titulo %}{% if licencia %}Editar licencia{% else %}Nueva licencia{% endif %} · TI{% endblock %}
+{% block contenido %}
+<nav aria-label="Ruta" class="mb-2"><ol class="breadcrumb small mb-0">
+  <li class="breadcrumb-item"><a href="{% url 'ti:licencias' %}">Licencias y servicios</a></li>
+  <li class="breadcrumb-item active" aria-current="page">{% if licencia %}{{ licencia.nombre }}{% else %}Nueva{% endif %}</li>
+</ol></nav>
+<header class="cabecera-formulario">
+  <h1 class="h3 mb-1">{% if licencia %}Editar {{ licencia.nombre }}{% else %}Registrar licencia o servicio{% endif %}</h1>
+  <p class="text-body-secondary mb-0">Windows, Office, antivirus, dominio, internet… con su vencimiento para recibir el aviso a tiempo.</p>
+</header>
+<div class="contenedor-formulario">
+  {% for error in form.non_field_errors %}<div class="alert alert-danger">{{ error }}</div>{% endfor %}
+  <form method="post" novalidate class="card formulario">
+    {% csrf_token %}{{ form.huella_registro }}
+    <section class="formulario-seccion">
+      <div class="formulario-seccion-info"><span class="formulario-icono" aria-hidden="true"><i class="bi bi-patch-check"></i></span><h2>Qué es</h2><p>Nombre con el que la reconoce y quién la provee.</p></div>
+      <div class="row">
+        <div class="col-md-5">{% include "_campo.html" with campo=form.tipo %}</div>
+        <div class="col-md-7">{% include "_campo.html" with campo=form.nombre ayuda=form.nombre.help_text %}</div>
+        <div class="col-md-6">{% include "_campo.html" with campo=form.proveedor %}</div>
+        <div class="col-md-6">{% include "_campo.html" with campo=form.referencia ayuda=form.referencia.help_text %}</div>
+        <div class="col-md-6">{% include "_campo.html" with campo=form.cantidad %}</div>
+        <div class="col-md-6">{% include "_campo.html" with campo=form.costo %}</div>
+      </div>
+    </section>
+    <section class="formulario-seccion">
+      <div class="formulario-seccion-info"><span class="formulario-icono" aria-hidden="true"><i class="bi bi-calendar-event"></i></span><h2>Vigencia y aviso</h2><p>TI recibe el aviso los días que indique antes del vencimiento.</p></div>
+      <div class="row">
+        <div class="col-md-4">{% include "_campo.html" with campo=form.fecha_inicio %}</div>
+        <div class="col-md-4">{% include "_campo.html" with campo=form.fecha_vencimiento ayuda=form.fecha_vencimiento.help_text %}</div>
+        <div class="col-md-4">{% include "_campo.html" with campo=form.dias_aviso ayuda=form.dias_aviso.help_text %}</div>
+        <div class="col-md-6">{% include "ti/_casilla.html" with campo=form.renovacion_automatica %}</div>
+        <div class="col-md-6">{% include "ti/_casilla.html" with campo=form.activa %}</div>
+      </div>
+    </section>
+    <section class="formulario-seccion">
+      <div class="formulario-seccion-info"><span class="formulario-icono" aria-hidden="true"><i class="bi bi-pc-display"></i></span><h2>Dónde está instalada</h2><p>Opcional: los equipos que la usan.</p></div>
+      <div class="row">
+        <div class="col-12">{% include "_campo.html" with campo=form.equipos ayuda=form.equipos.help_text %}</div>
+        <div class="col-12">{% include "_campo.html" with campo=form.observacion %}</div>
+      </div>
+    </section>
+    <div class="formulario-acciones">
+      <a href="{% url 'ti:licencias' %}" class="btn btn-outline-secondary ms-auto">Cancelar</a>
+      <button type="submit" class="btn btn-primary"><i class="bi bi-check2" aria-hidden="true"></i> Guardar</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

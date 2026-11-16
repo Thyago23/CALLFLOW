@@ -1,0 +1,7 @@
+{% if pagina.has_other_pages %}
+<nav class="d-flex justify-content-between small mb-3" aria-label="Páginas">
+  {% if pagina.has_previous %}<a href="?{{ extra }}&pagina={{ pagina.previous_page_number }}">← Anteriores</a>{% else %}<span></span>{% endif %}
+  <span class="text-body-secondary">Página {{ pagina.number }} de {{ pagina.paginator.num_pages }}</span>
+  {% if pagina.has_next %}<a href="?{{ extra }}&pagina={{ pagina.next_page_number }}">Siguientes →</a>{% else %}<span></span>{% endif %}
+</nav>
+{% endif %}

@@ -64,6 +64,39 @@
         </dl>
       </div>
     </section>
+    <section class="card mt-4" id="mantenimiento">
+      <div class="card-header bg-body d-flex justify-content-between align-items-center">
+        <h2 class="h6 mb-0">Mantenimiento programado</h2>
+        <a href="{% url 'ti:plan_crear' %}?equipo={{ equipo.pk }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-plus-lg" aria-hidden="true"></i><span class="visually-hidden">Programar mantenimiento</span></a>
+      </div>
+      <ul class="list-group list-group-flush small">
+        {% for p in planes %}
+        <li class="list-group-item">
+          <div class="d-flex justify-content-between gap-2"><span class="fw-semibold">{{ p.actividad }}</span>{% include "ti/_vence.html" with s=p.situacion dias=p.dias_restantes %}</div>
+          <div class="text-body-secondary">Cada {{ p.cada_meses }} mes{{ p.cada_meses|pluralize:"es" }} · próximo {{ p.proxima_fecha|date:"d/m/Y" }}{% if not p.activo %} · pausado{% endif %}</div>
+          <a href="{% url 'ti:plan_realizado' p.pk %}?volver=equipo" class="small">Marcar como hecho</a>
+        </li>
+        {% empty %}
+        <li class="list-group-item text-body-secondary">Sin mantenimiento programado.</li>
+        {% endfor %}
+      </ul>
+    </section>
+    {% if licencias %}
+    <section class="card mt-4">
+      <div class="card-header bg-body"><h2 class="h6 mb-0">Licencias instaladas</h2></div>
+      <ul class="list-group list-group-flush small">
+        {% for l in licencias %}<li class="list-group-item d-flex justify-content-between gap-2"><a href="{% url 'ti:licencia_editar' l.pk %}">{{ l }}</a>{% include "ti/_vence.html" with s=l.situacion dias=l.dias_restantes %}</li>{% endfor %}
+      </ul>
+    </section>
+    {% endif %}
+    {% if tickets %}
+    <section class="card mt-4">
+      <div class="card-header bg-body"><h2 class="h6 mb-0">Fallas reportadas</h2></div>
+      <ul class="list-group list-group-flush small">
+        {% for t in tickets %}<li class="list-group-item"><a href="{% url 'soporte:detalle' t.pk %}">{{ t.numero }}</a> · {{ t.titulo }} <span class="text-body-secondary">({{ t.creado_en|date:"d/m/Y" }}, {{ t.get_estado_display|lower }})</span></li>{% endfor %}
+      </ul>
+    </section>
+    {% endif %}
   </div>
   <div class="col-lg-8">
     <section class="card mb-4">

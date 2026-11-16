@@ -10,7 +10,7 @@ from apps.personal.models import Empleado
 
 from apps.documentos.archivos import validar_archivo
 
-from .models import ActaEquipo, Equipo, EventoEquipo
+from .models import ActaEquipo, Equipo, EventoEquipo, Licencia, PlanMantenimiento, Ticket
 
 FECHA = {"type": "date"}
 
@@ -195,3 +195,188 @@ class ActaFirmadaForm(forms.Form):
         archivo = self.cleaned_data["archivo"]
         self.mime = validar_archivo(archivo)
         return archivo
+
+
+def _casillas(form):
+    """_estilizar pone form-control a todo; las casillas usan form-check-input."""
+    for campo in form.fields.values():
+        if isinstance(campo.widget, forms.CheckboxInput):
+            campo.widget.attrs["class"] = "form-check-input"
+
+
+# --------------------------------------------------------------------------- mesa de ayuda
+class TicketForm(FormularioEstilizado, forms.ModelForm):
+    class Meta:
+        model = Ticket
+        fields = ["categoria", "titulo", "descripcion", "prioridad"]
+        widgets = {"descripcion": forms.Textarea(attrs={"rows": 4})}
+        labels = {"prioridad": "¿Cuánto le afecta?"}
+
+    def __init__(self, *args, es_ti=False, **kwargs):
+        super().__init__(*args, **kwargs)
+        if not es_ti:  # la prioridad crítica (afecta a varias personas) la pone TI
+            self.fields["prioridad"].choices = [c for c in Ticket.Prioridad.choices if c[0] != Ticket.Prioridad.CRITICA]
+        _estilizar(self)
+        self.fields["titulo"].widget.attrs["placeholder"] = "Ej.: No tengo audio en la diadema"
+        self.fields["descripcion"].widget.attrs["placeholder"] = "Desde cuándo pasa, qué intentó, si le pasa a alguien más…"
+
+    def clean_titulo(self):
+        return (self.cleaned_data.get("titulo") or "").strip()
+
+
+class ComentarioTicketForm(FormularioEstilizado, forms.Form):
+    texto = forms.CharField(label="Mensaje", max_length=4000, widget=forms.Textarea(attrs={"rows": 3}))
+    interno = forms.BooleanField(label="Nota interna (solo la ve TI)", required=False)
+
+    def __init__(self, *args, es_ti=False, **kwargs):
+        super().__init__(*args, **kwargs)
+        if not es_ti:
+            del self.fields["interno"]
+        _estilizar(self)
+        _casillas(self)
+
+
+class GestionTicketForm(FormularioEstilizado, forms.Form):
+    estado = forms.ChoiceField(choices=Ticket.Estado.choices)
+    prioridad = forms.ChoiceField(choices=Ticket.Prioridad.choices)
+    asignado_a = forms.ModelChoiceField(label="Atiende", queryset=None, required=False, empty_label="Sin asignar")
+    equipo = forms.ModelChoiceField(queryset=Equipo.objects.exclude(estado=Equipo.Estado.BAJA), required=False,
+                                    empty_label="Sin equipo")
+    solucion = forms.CharField(label="Solución", required=False, max_length=4000, widget=forms.Textarea(attrs={"rows": 3}),
+                               help_text="Obligatoria para marcarlo como resuelto. La ve quien reportó.")
+    nota = forms.CharField(label="Mensaje para quien reportó (opcional)", required=False, max_length=4000,
+                           widget=forms.Textarea(attrs={"rows": 2}))
+
+    def __init__(self, *args, **kwargs):
+        from apps.core.models import Rol, Usuario
+
+        super().__init__(*args, **kwargs)
+        self.fields["asignado_a"].queryset = Usuario.objects.filter(rol=Rol.TI, is_active=True).order_by("first_name")
+        self.fields["asignado_a"].label_from_instance = lambda u: u.get_full_name() or u.username
+        _estilizar(self)
+
+    def clean(self):
+        datos = super().clean()
+        if datos.get("estado") in (Ticket.Estado.RESUELTO, Ticket.Estado.CERRADO) and not (datos.get("solucion") or "").strip():
+            self.add_error("solucion", "Escriba qué se hizo para resolverlo.")
+        return datos
+
+
+class ConfirmarTicketForm(forms.Form):
+    solucionado = forms.TypedChoiceField(choices=[("si", "Sí"), ("no", "No")], coerce=lambda v: v == "si")
+    texto = forms.CharField(required=False, max_length=4000)
+
+
+# --------------------------------------------------------------------------- licencias y servicios
+class LicenciaForm(ControlConcurrencia, FormularioEstilizado, forms.ModelForm):
+    class Meta:
+        model = Licencia
+        fields = ["tipo", "nombre", "proveedor", "referencia", "cantidad", "fecha_inicio", "fecha_vencimiento", "dias_aviso",
+                  "renovacion_automatica", "costo", "activa", "equipos", "observacion"]
+        widgets = {
+            "fecha_inicio": forms.DateInput(attrs=FECHA, format="%Y-%m-%d"),
+            "fecha_vencimiento": forms.DateInput(attrs=FECHA, format="%Y-%m-%d"),
+            "observacion": forms.Textarea(attrs={"rows": 2}),
+            "equipos": forms.SelectMultiple(attrs={"size": 6}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["equipos"].queryset = Equipo.objects.exclude(estado=Equipo.Estado.BAJA).order_by("codigo")
+        self.fields["equipos"].help_text = "Opcional. Ctrl + clic para elegir varios."
+        _estilizar(self)
+        self.fields["equipos"].widget.attrs["class"] = "form-select"
+        _casillas(self)
+
+    def clean_referencia(self):
+        valor = (self.cleaned_data.get("referencia") or "").strip()
+        # Una clave de producto completa (XXXXX-XXXXX-XXXXX-XXXXX-XXXXX) no se guarda en el sistema.
+        if re.fullmatch(r"(?:[A-Z0-9]{5}-){4}[A-Z0-9]{5}", valor.upper()):
+            raise ValidationError("No guarde la clave completa: escriba solo los últimos 5 caracteres o el n.º de contrato.")
+        return valor
+
+    def clean(self):
+        datos = super().clean()
+        inicio, vence = datos.get("fecha_inicio"), datos.get("fecha_vencimiento")
+        if inicio and vence and vence < inicio:
+            self.add_error("fecha_vencimiento", "El vencimiento no puede ser antes del inicio.")
+        if (datos.get("dias_aviso") or 0) > 365:
+            self.add_error("dias_aviso", "Como máximo 365 días.")
+        return datos
+
+
+# --------------------------------------------------------------------------- mantenimiento preventivo
+class PlanNuevoForm(FormularioEstilizado, forms.Form):
+    """Un plan para un equipo o, de una vez, para todos los equipos de un tipo."""
+
+    equipo = forms.ModelChoiceField(queryset=Equipo.objects.exclude(estado=Equipo.Estado.BAJA).order_by("codigo"),
+                                    required=False, empty_label="— Todos los equipos del tipo elegido —")
+    tipo = forms.ChoiceField(label="Tipo de equipo", choices=[("", "—")] + list(Equipo.Tipo.choices), required=False,
+                             help_text="Para crear el plan en todos los equipos de ese tipo (menos los dados de baja).")
+    actividad = forms.CharField(max_length=100, initial="Limpieza interna y externa")
+    cada_meses = forms.IntegerField(label="Cada (meses)", min_value=1, max_value=36, initial=6)
+    primera_fecha = forms.DateField(label="Primera fecha", widget=forms.DateInput(attrs=FECHA))
+    dias_aviso = forms.IntegerField(label="Avisar con (días)", min_value=0, max_value=90, initial=7)
+    observacion = forms.CharField(label="Observación", max_length=255, required=False)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        _estilizar(self)
+
+    def clean(self):
+        datos = super().clean()
+        if not datos.get("equipo") and not datos.get("tipo"):
+            raise ValidationError("Elija un equipo o un tipo de equipo.")
+        datos["actividad"] = (datos.get("actividad") or "").strip()
+        return datos
+
+    def equipos(self):
+        if self.cleaned_data.get("equipo"):
+            return [self.cleaned_data["equipo"]]
+        return list(Equipo.objects.filter(tipo=self.cleaned_data["tipo"]).exclude(estado=Equipo.Estado.BAJA).order_by("codigo"))
+
+
+class PlanForm(FormularioEstilizado, forms.ModelForm):
+    class Meta:
+        model = PlanMantenimiento
+        fields = ["actividad", "cada_meses", "proxima_fecha", "dias_aviso", "activo", "observacion"]
+        widgets = {"proxima_fecha": forms.DateInput(attrs=FECHA, format="%Y-%m-%d")}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        _estilizar(self)
+        _casillas(self)
+
+    def clean(self):
+        datos = super().clean()
+        cada = datos.get("cada_meses")
+        if cada is not None and not 1 <= cada <= 36:
+            self.add_error("cada_meses", "Entre 1 y 36 meses.")
+        if (datos.get("dias_aviso") or 0) > 90:
+            self.add_error("dias_aviso", "Como máximo 90 días.")
+        proxima, ultima = datos.get("proxima_fecha"), self.instance.ultima_fecha
+        if proxima and ultima and proxima <= ultima:
+            self.add_error("proxima_fecha", f"Debe ser después del último mantenimiento ({ultima:%d/%m/%Y}).")
+        actividad = (datos.get("actividad") or "").strip()
+        if actividad and PlanMantenimiento.objects.filter(equipo_id=self.instance.equipo_id, actividad__iexact=actividad
+                                                          ).exclude(pk=self.instance.pk).exists():
+            self.add_error("actividad", "Este equipo ya tiene un plan con esa actividad.")
+        return datos
+
+
+class MantenimientoRealizadoForm(FormularioEstilizado, forms.Form):
+    fecha = forms.DateField(widget=forms.DateInput(attrs=FECHA))
+    descripcion = forms.CharField(label="Qué se hizo (opcional)", required=False, max_length=2000,
+                                  widget=forms.Textarea(attrs={"rows": 3}))
+    realizado_por = forms.CharField(label="Realizado por", required=False, max_length=100)
+    costo = forms.DecimalField(label="Costo ($)", required=False, min_value=0, max_digits=10, decimal_places=2)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        _estilizar(self)
+
+    def clean_fecha(self):
+        fecha = self.cleaned_data["fecha"]
+        if fecha > timezone.localdate():
+            raise ValidationError("La fecha no puede ser futura.")
+        return fecha

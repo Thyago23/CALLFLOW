@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+{% load ti_extras %}
+{% block titulo %}{{ ticket.numero }} · Mesa de ayuda{% endblock %}
+{% block contenido %}
+<nav aria-label="Ruta" class="mb-2">
+  <ol class="breadcrumb small mb-0">
+    <li class="breadcrumb-item"><a href="{% url 'soporte:inicio' %}">Mesa de ayuda</a></li>
+    <li class="breadcrumb-item active" aria-current="page">{{ ticket.numero }}</li>
+  </ol>
+</nav>
+{% with t=ticket %}
+<div class="d-flex flex-wrap align-items-baseline gap-2 mb-1">
+  <h1 class="h3 mb-0">{{ t.titulo }}</h1>
+  {% include "soporte/_estado.html" %} {% include "soporte/_prioridad.html" %}
+</div>
+<p class="text-body-secondary small mb-4"><span class="font-monospace">{{ t.numero }}</span> · {{ t.get_categoria_display }} · reportado por {{ t.reportado_por.get_full_name|default:t.reportado_por.username }} el {{ t.creado_en|date:"d/m/Y H:i" }}{% if t.asignado_a %} · lo atiende {{ t.asignado_a.get_full_name|default:t.asignado_a.username }}{% endif %}</p>
+
+{% if puede_confirmar %}
+<section class="alert alert-success" aria-labelledby="titulo-confirmar">
+  <h2 class="h6" id="titulo-confirmar"><i class="bi bi-check-circle me-1" aria-hidden="true"></i>TI lo marcó como resuelto. ¿Quedó bien?</h2>
+  {% if t.solucion %}<p class="mb-2">{{ t.solucion|linebreaksbr }}</p>{% endif %}
+  <form method="post" action="{% url 'soporte:confirmar' t.pk %}" class="d-flex flex-wrap gap-2 align-items-center">
+    {% csrf_token %}
+    <label class="visually-hidden" for="texto-confirmar">Comentario (opcional)</label>
+    <input id="texto-confirmar" name="texto" class="form-control form-control-sm" style="max-width: 24rem" placeholder="Comentario (opcional)">
+    <button name="solucionado" value="si" class="btn btn-success btn-sm"><i class="bi bi-hand-thumbs-up me-1" aria-hidden="true"></i>Sí, quedó solucionado</button>
+    <button name="solucionado" value="no" class="btn btn-outline-danger btn-sm">No, sigue fallando</button>
+  </form>
+</section>
+{% endif %}
+
+<div class="row g-4">
+  <div class="{% if es_ti %}col-lg-7{% else %}col-lg-8{% endif %}">
+    {% if t.descripcion %}
+    <section class="card mb-3"><div class="card-body">
+      <h2 class="h6 text-body-secondary">Detalle</h2>
+      <p class="mb-0">{{ t.descripcion|linebreaksbr }}</p>
+    </div></section>
+    {% endif %}
+
+    <section class="card" aria-labelledby="titulo-conversacion">
+      <div class="card-header bg-body"><h2 class="h6 mb-0" id="titulo-conversacion">Seguimiento</h2></div>
+      <ol class="list-group list-group-flush">
+        {% for c in comentarios %}
+        <li class="list-group-item {% if c.interno %}bg-warning-subtle{% endif %}">
+          <div class="d-flex flex-wrap gap-2 small">
+            <span class="fw-semibold">{{ c.autor.get_full_name|default:c.autor.username }}</span>
+            {% if c.autor.rol == "TI" %}<span class="badge bg-primary-subtle text-primary-emphasis border border-primary-subtle">TI</span>{% endif %}
+            {% if c.interno %}<span class="badge text-bg-warning">Nota interna</span>{% endif %}
+            <span class="text-body-secondary ms-auto">{{ c.creado_en|date:"d/m/Y H:i" }}</span>
+          </div>
+          {% if c.cambio %}<div class="small text-body-secondary mt-1"><i class="bi bi-arrow-repeat me-1" aria-hidden="true"></i>{{ c.cambio }}</div>{% endif %}
+          {% if c.texto %}<p class="mb-0 mt-1">{{ c.texto|linebreaksbr }}</p>{% endif %}
+        </li>
+        {% empty %}
+        <li class="list-group-item text-body-secondary small">Todavía no hay respuestas.</li>
+        {% endfor %}
+      </ol>
+      {% if puede_escribir %}
+      <div class="card-body border-top">
+        <form method="post" novalidate>
+          {% csrf_token %}
+          {% include "_campo.html" with campo=form.texto %}
+          <div class="d-flex flex-wrap align-items-center gap-3">
+            {% if form.interno %}<div class="form-check mb-0">{{ form.interno }}<label class="form-check-label" for="{{ form.interno.id_for_label }}">{{ form.interno.label }}</label></div>{% endif %}
+            <button type="submit" class="btn btn-primary ms-auto"><i class="bi bi-send me-1" aria-hidden="true"></i>Enviar</button>
+          </div>
+        </form>
+      </div>
+      {% else %}
+      <div class="card-body border-top small text-body-secondary">Este reporte está cerrado. Si la falla volvió, <a href="{% url 'soporte:crear' %}">cree un reporte nuevo</a>.</div>
+      {% endif %}
+    </section>
+  </div>
+
+  <div class="{% if es_ti %}col-lg-5{% else %}col-lg-4{% endif %}">
+    <section class="card mb-3" aria-labelledby="titulo-tiempos">
+      <div class="card-header bg-body"><h2 class="h6 mb-0" id="titulo-tiempos">Tiempo de respuesta</h2></div>
+      <div class="card-body">
+        <dl class="row small mb-0">
+          <dt class="col-6 fw-normal text-body-secondary">Primera respuesta</dt>
+          <dd class="col-6">
+            {% if t.primera_respuesta_en %}{{ t.primera_respuesta_en|date:"d/m H:i" }}
+              <span class="badge {% if t.respuesta_atrasada %}bg-danger-subtle text-danger-emphasis border border-danger-subtle{% else %}bg-success-subtle text-success-emphasis border border-success-subtle{% endif %}">{% if t.respuesta_atrasada %}Tarde{% else %}A tiempo{% endif %}</span>
+            {% else %}Antes de {{ t.limite_respuesta|date:"d/m H:i" }}{% if t.respuesta_atrasada %} <span class="badge text-bg-danger">Vencida</span>{% endif %}{% endif %}
+          </dd>
+          <dt class="col-6 fw-normal text-body-secondary">Solución</dt>
+          <dd class="col-6 mb-0">
+            {% if t.resuelto_en %}{{ t.resuelto_en|date:"d/m H:i" }}
+              <span class="badge {% if t.solucion_atrasada %}bg-danger-subtle text-danger-emphasis border border-danger-subtle{% else %}bg-success-subtle text-success-emphasis border border-success-subtle{% endif %}">{% if t.solucion_atrasada %}Tarde{% else %}A tiempo{% endif %}</span>
+            {% else %}Antes de {{ t.limite_solucion|date:"d/m H:i" }}{% if t.solucion_atrasada %} <span class="badge text-bg-danger">Vencida</span>{% endif %}{% endif %}
+          </dd>
+        </dl>
+      </div>
+    </section>
+
+    {% if es_ti %}
+    <section class="card mb-3" aria-labelledby="titulo-gestion">
+      <div class="card-header bg-body"><h2 class="h6 mb-0" id="titulo-gestion">Gestionar</h2></div>
+      <div class="card-body">
+        <form method="post" action="{% url 'soporte:gestionar' t.pk %}" novalidate>
+          {% csrf_token %}
+          <div class="row">
+            <div class="col-sm-6">{% include "_campo.html" with campo=gestion.estado %}</div>
+            <div class="col-sm-6">{% include "_campo.html" with campo=gestion.prioridad %}</div>
+            <div class="col-sm-6">{% include "_campo.html" with campo=gestion.asignado_a %}</div>
+            <div class="col-sm-6">{% include "_campo.html" with campo=gestion.equipo %}</div>
+            <div class="col-12">{% include "_campo.html" with campo=gestion.solucion ayuda=gestion.solucion.help_text %}</div>
+            <div class="col-12">{% include "_campo.html" with campo=gestion.nota %}</div>
+          </div>
+          <button type="submit" class="btn btn-primary w-100"><i class="bi bi-check2 me-1" aria-hidden="true"></i>Guardar cambios</button>
+        </form>
+      </div>
+    </section>
+    <section class="card" aria-labelledby="titulo-origen">
+      <div class="card-header bg-body"><h2 class="h6 mb-0" id="titulo-origen">Desde dónde se reportó</h2></div>
+      <div class="card-body small">
+        <p class="mb-1">IP: <span class="font-monospace">{{ t.ip|default:"desconocida" }}</span></p>
+        {% if t.equipo %}<p class="mb-1">Equipo: <a href="{% url 'ti:detalle' t.equipo.pk %}">{{ t.equipo }}</a></p>{% else %}<p class="mb-1 text-body-secondary">La IP no corresponde a ningún equipo del inventario.</p>{% endif %}
+        {% if otros_del_equipo %}
+        <p class="mt-2 mb-1 fw-semibold">Otros reportes de este equipo</p>
+        <ul class="list-unstyled mb-0">{% for o in otros_del_equipo %}<li><a href="{% url 'soporte:detalle' o.pk %}">{{ o.numero }}</a> · {{ o.titulo }} <span class="text-body-secondary">({{ o.creado_en|date:"d/m/Y" }})</span></li>{% endfor %}</ul>
+        {% endif %}
+      </div>
+    </section>
+    {% elif t.solucion and not puede_confirmar %}
+    <section class="card"><div class="card-body">
+      <h2 class="h6 text-body-secondary">Solución</h2>
+      <p class="mb-0 small">{{ t.solucion|linebreaksbr }}</p>
+    </div></section>
+    {% endif %}
+  </div>
+</div>
+{% endwith %}
+{% endblock %}

@@ -1,7 +1,7 @@
 <div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
   <div>
     <h1 class="h3 mb-0">Tecnología (TI)</h1>
-    <p class="text-body-secondary small mb-0">Equipos de la empresa, su hoja de vida, préstamos con acta, quién está conectado y el estado del servidor.</p>
+    <p class="text-body-secondary small mb-0">Mesa de ayuda, equipos y su mantenimiento, licencias, accesos, respaldos y estado del servidor.</p>
   </div>
   <div class="d-flex flex-wrap gap-2">
     <a href="{% url 'reportes:centro' %}" class="btn btn-outline-secondary"><i class="bi bi-file-earmark-bar-graph me-1" aria-hidden="true"></i>Reportes</a>
@@ -9,8 +9,13 @@
   </div>
 </div>
 <ul class="nav nav-underline mb-4 subnav-modulo">
+  <li class="nav-item"><a class="nav-link {% if seccion == 'soporte' %}active{% endif %}" href="{% url 'soporte:inicio' %}"><i class="bi bi-headset me-1" aria-hidden="true"></i>Mesa de ayuda{% if tickets_sin_atender %} <span class="badge rounded-pill text-bg-danger">{{ tickets_sin_atender }}</span>{% endif %}</a></li>
   <li class="nav-item"><a class="nav-link {% if seccion == 'equipos' %}active{% endif %}" href="{% url 'ti:equipos' %}"><i class="bi bi-pc-display me-1" aria-hidden="true"></i>Equipos</a></li>
+  <li class="nav-item"><a class="nav-link {% if seccion == 'mantenimiento' %}active{% endif %}" href="{% url 'ti:mantenimiento' %}"><i class="bi bi-tools me-1" aria-hidden="true"></i>Mantenimiento</a></li>
   <li class="nav-item"><a class="nav-link {% if seccion == 'prestamos' %}active{% endif %}" href="{% url 'ti:prestamos' %}"><i class="bi bi-file-earmark-check me-1" aria-hidden="true"></i>Préstamos y actas</a></li>
-  <li class="nav-item"><a class="nav-link {% if seccion == 'conectados' %}active{% endif %}" href="{% url 'ti:conectados' %}"><i class="bi bi-wifi me-1" aria-hidden="true"></i>Conectados al sistema</a></li>
+  <li class="nav-item"><a class="nav-link {% if seccion == 'licencias' %}active{% endif %}" href="{% url 'ti:licencias' %}"><i class="bi bi-patch-check me-1" aria-hidden="true"></i>Licencias</a></li>
+  <li class="nav-item"><a class="nav-link {% if seccion == 'conectados' %}active{% endif %}" href="{% url 'ti:conectados' %}"><i class="bi bi-wifi me-1" aria-hidden="true"></i>Conectados</a></li>
+  <li class="nav-item"><a class="nav-link {% if seccion == 'accesos' %}active{% endif %}" href="{% url 'ti:accesos' %}"><i class="bi bi-shield-lock me-1" aria-hidden="true"></i>Accesos</a></li>
+  <li class="nav-item"><a class="nav-link {% if seccion == 'respaldos' %}active{% endif %}" href="{% url 'ti:respaldos' %}"><i class="bi bi-database-check me-1" aria-hidden="true"></i>Respaldos</a></li>
   <li class="nav-item"><a class="nav-link {% if seccion == 'servidor' %}active{% endif %}" href="{% url 'ti:servidor' %}"><i class="bi bi-hdd-rack me-1" aria-hidden="true"></i>Servidor</a></li>
 </ul>

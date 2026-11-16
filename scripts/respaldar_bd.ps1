@@ -12,6 +12,8 @@
   Con -CopiarA, además copia lo generado a un segundo lugar (disco USB, otro disco, carpeta de red o de OneDrive),
   para que un daño del disco o de la PC no se lleve también los respaldos.
   Si algo falla, lo anota en logs\errores.jsonl: TI lo ve en TI › Servidor junto con los demás errores.
+  Cada corrida (bien o mal) queda además en logsespaldos.jsonl: es el historial de TI › Respaldos, de donde
+  sale el aviso a TI cuando un respaldo falla o se atrasa.
 .EXAMPLE
   powershell -ExecutionPolicy Bypass -File scripts\respaldar_bd.ps1
   powershell -ExecutionPolicy Bypass -File scripts\respaldar_bd.ps1 -Tipo hora
@@ -32,6 +34,27 @@ $raiz = Split-Path -Parent $PSScriptRoot
 if ($Tipo -eq "hora") { $SinArchivos = $true }
 if ($Conservar -le 0) { $Conservar = if ($Tipo -eq "hora") { 50 } else { 30 } }
 $cfg = @{}
+$inicio = Get-Date
+$copia = ""        # "ok" o "fallo" si se pidió -CopiarA
+$generados = @()
+
+function Anotar-Respaldo([string]$resultado, [string]$mensaje) {
+    # Historial de TI › Respaldos (apps/ti/respaldos.py): una línea JSON por corrida.
+    try {
+        $logs = if ($cfg["LOGS_DIR"]) { $cfg["LOGS_DIR"] } else { Join-Path $raiz "logs" }
+        New-Item -ItemType Directory -Force -Path $logs | Out-Null
+        $existentes = @($generados | Where-Object { $_ -and (Test-Path $_) })
+        $tamano = 0
+        foreach ($g in $existentes) { $tamano += (Get-Item $g).Length }
+        $linea = [ordered]@{
+            fecha = $inicio.ToString("yyyy-MM-ddTHH:mm:sszzz"); tipo = $Tipo; resultado = $resultado
+            archivo = (($existentes | ForEach-Object { Split-Path $_ -Leaf }) -join ", "); tamano = $tamano
+            duracion_s = [int]((Get-Date) - $inicio).TotalSeconds; copia = $copia; destino_copia = $CopiarA
+            equipo = $env:COMPUTERNAME; mensaje = $mensaje
+        } | ConvertTo-Json -Compress
+        [System.IO.File]::AppendAllText((Join-Path $logs "respaldos.jsonl"), $linea + "`n", (New-Object System.Text.UTF8Encoding $false))
+    } catch { Write-Warning "No se pudo anotar el historial del respaldo: $_" }
+}
 
 function Anotar-Error([string]$mensaje) {
     # Mismo formato que apps/ti/registro_errores.py, para que aparezca en TI › Servidor.
@@ -109,7 +132,9 @@ if ($CopiarA) {
                 Select-Object -Skip $Conservar | Remove-Item -Force
         }
         Write-Host "Copia en el segundo destino: $CopiarA"
+        $copia = "ok"
     } catch {
+        $copia = "fallo"
         Anotar-Error "el respaldo local se hizo, pero no se pudo copiar a '$CopiarA': $($_.Exception.Message)"
         Write-Warning "No se pudo copiar a $CopiarA : $_"
     }
@@ -119,8 +144,11 @@ foreach ($patron in $patrones) {
     Get-ChildItem $Destino -Filter $patron | Sort-Object LastWriteTime -Descending |
         Select-Object -Skip $Conservar | Remove-Item -Force
 }
+$aviso = if ($copia -eq "fallo") { "El respaldo local se hizo, pero no se pudo copiar a '$CopiarA'." } else { "" }
+Anotar-Respaldo "ok" $aviso
 }
 catch {
     Anotar-Error $_.Exception.Message
+    Anotar-Respaldo "fallo" $_.Exception.Message
     throw
 }

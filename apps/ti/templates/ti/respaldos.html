@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block titulo %}Respaldos · TI{% endblock %}
+{% block contenido %}
+{% include "ti/_subnav.html" with seccion="respaldos" %}
+
+{% if estado.nivel == "fallo" %}
+<div class="alert alert-danger d-flex gap-2" role="alert"><i class="bi bi-x-octagon mt-1" aria-hidden="true"></i><div><strong>El último respaldo falló</strong> ({{ estado.fallo_reciente.tipo_nombre }}, {{ estado.fallo_reciente.fecha|date:"d/m/Y H:i" }}): {{ estado.fallo_reciente.mensaje }}</div></div>
+{% elif estado.nivel == "atrasado" %}
+<div class="alert alert-warning d-flex gap-2" role="alert"><i class="bi bi-exclamation-triangle mt-1" aria-hidden="true"></i><div><strong>Los respaldos están atrasados.</strong> El último bueno es del {{ estado.ultimo_bueno|date:"d/m/Y H:i" }} (se alerta a los {{ estado.dias_atrasado }} días). Revise el Programador de tareas en la PC que tiene la base.</div></div>
+{% elif estado.nivel == "sin_datos" %}
+<div class="alert alert-warning d-flex gap-2" role="alert"><i class="bi bi-exclamation-triangle mt-1" aria-hidden="true"></i><div><strong>No hay respaldos.</strong> Programe <span class="font-monospace">scripts\programar_respaldos.ps1</span> en la PC que tiene la base.</div></div>
+{% else %}
+<div class="alert alert-success d-flex gap-2" role="status"><i class="bi bi-check-circle mt-1" aria-hidden="true"></i><div>Los respaldos están al día. Último bueno: {{ estado.ultimo_bueno|date:"d/m/Y H:i" }}.</div></div>
+{% endif %}
+
+<div class="row g-3 mb-4">
+  {% for clave, t in estado.por_tipo.items %}
+  <div class="col-md-6 col-xl-3"><div class="card h-100 {% if t.ultima and not t.ultima.ok %}border-danger{% endif %}"><div class="card-body">
+    <div class="small text-body-secondary">{{ t.nombre }}</div>
+    {% if t.ultima %}
+    <div class="fs-5 fw-semibold {% if not t.ultima.ok %}text-danger{% endif %}">{% if t.ultima.ok %}Bien{% else %}Falló{% endif %} · {{ t.ultima.fecha|date:"d/m H:i" }}</div>
+    <div class="small text-body-secondary">{% if t.ultimo_ok %}Último bueno: {{ t.ultimo_ok.fecha|date:"d/m/Y H:i" }}{% if t.ultimo_ok.tamano %} · {{ t.ultimo_ok.tamano|filesizeformat }}{% endif %}{% else %}Ninguno bueno en el periodo{% endif %}</div>
+    {% else %}<div class="fs-5 fw-semibold text-body-secondary">Sin corridas</div><div class="small text-body-secondary">en los últimos {{ dias }} días</div>{% endif %}
+  </div></div></div>
+  {% endfor %}
+  <div class="col-md-6 col-xl-3"><div class="card h-100 {% if estado.fallos %}border-danger-subtle{% endif %}"><div class="card-body"><div class="small text-body-secondary">Fallos ({{ dias }} días)</div><div class="fs-3 fw-semibold {% if estado.fallos %}text-danger{% endif %}">{{ estado.fallos }}</div><div class="small text-body-secondary">de {{ estado.corridas|length }} corrida{{ estado.corridas|length|pluralize }}</div></div></div></div>
+  <div class="col-md-6 col-xl-3"><div class="card h-100"><div class="card-body"><div class="small text-body-secondary">En la carpeta</div><div class="fs-3 fw-semibold">{% if estado.carpeta.existe %}{{ estado.carpeta.total|filesizeformat }}{% else %}—{% endif %}</div><div class="small text-body-secondary">{% if estado.carpeta.existe %}{{ estado.carpeta.cantidad }} copia{{ estado.carpeta.cantidad|pluralize }} de la base{% else %}sin copias{% endif %}</div></div></div></div>
+</div>
+
+<section class="card mb-4" aria-labelledby="titulo-historial">
+  <div class="card-header bg-body d-flex flex-wrap justify-content-between align-items-center gap-2">
+    <h2 class="h6 mb-0" id="titulo-historial">Historial de respaldos</h2>
+    <ul class="nav nav-pills small">
+      <li class="nav-item"><a class="nav-link py-1 {% if dias == 7 %}active{% endif %}" href="?dias=7">7 días</a></li>
+      <li class="nav-item"><a class="nav-link py-1 {% if dias == 30 %}active{% endif %}" href="?dias=30">30 días</a></li>
+      <li class="nav-item"><a class="nav-link py-1 {% if dias == 90 %}active{% endif %}" href="?dias=90">90 días</a></li>
+    </ul>
+  </div>
+  {% if estado.corridas %}
+  <div class="table-responsive"><table class="table table-sm align-middle mb-0">
+    <thead><tr><th scope="col" class="ps-3">Fecha</th><th scope="col">Tipo</th><th scope="col">Resultado</th><th scope="col" class="d-none d-md-table-cell">Archivo</th><th scope="col" class="text-end">Tamaño</th><th scope="col" class="text-end d-none d-md-table-cell">Duración</th><th scope="col" class="pe-3">Segunda copia</th></tr></thead>
+    <tbody>{% for c in estado.corridas|slice:":200" %}
+      <tr class="{% if not c.ok %}table-danger{% endif %}">
+        <td class="ps-3 small text-nowrap">{{ c.fecha|date:"d/m/Y H:i" }}</td>
+        <td class="small">{{ c.tipo_nombre }}</td>
+        <td>{% if c.ok %}<span class="badge bg-success-subtle text-success-emphasis border border-success-subtle">Bien</span>{% else %}<span class="badge text-bg-danger">Falló</span><div class="small text-break">{{ c.mensaje }}</div>{% endif %}</td>
+        <td class="d-none d-md-table-cell small font-monospace text-break">{{ c.archivo|default:"—" }}</td>
+        <td class="text-end small">{% if c.tamano %}{{ c.tamano|filesizeformat }}{% else %}—{% endif %}</td>
+        <td class="text-end small d-none d-md-table-cell">{% if c.duracion_s is not None %}{{ c.duracion_s }} s{% else %}—{% endif %}</td>
+        <td class="small pe-3">{% if c.copia == "ok" %}<span class="text-success-emphasis">Copiada</span>{% elif c.copia == "fallo" %}<span class="text-danger">No se copió</span>{% else %}<span class="text-body-secondary">—</span>{% endif %}</td>
+      </tr>
+    {% endfor %}</tbody></table></div>
+  {% elif estado.hay_historial %}
+  <div class="card-body text-body-secondary small">Sin corridas en este periodo.</div>
+  {% else %}
+  <div class="card-body text-body-secondary small">Todavía no hay historial: aparece desde la próxima vez que corra <span class="font-monospace">scripts\respaldar_bd.ps1</span>. Abajo están las copias que ya hay en la carpeta.</div>
+  {% endif %}
+</section>
+
+<section class="card" aria-labelledby="titulo-copias">
+  <div class="card-header bg-body"><h2 class="h6 mb-0" id="titulo-copias">Copias en la carpeta</h2></div>
+  {% if copias %}
+  <div class="table-responsive"><table class="table table-sm align-middle mb-0">
+    <thead><tr><th scope="col" class="ps-3">Archivo</th><th scope="col">Tipo</th><th scope="col">Fecha</th><th scope="col" class="text-end pe-3">Tamaño</th></tr></thead>
+    <tbody>{% for c in copias %}<tr><td class="ps-3 font-monospace small text-break">{{ c.nombre }}</td><td class="small">{{ c.tipo }}</td><td class="small text-nowrap">{{ c.fecha|date:"d/m/Y H:i" }}</td><td class="text-end small pe-3">{{ c.tamano|filesizeformat }}</td></tr>{% endfor %}</tbody>
+  </table></div>
+  {% else %}<div class="card-body text-body-secondary small">No hay copias en la carpeta.</div>{% endif %}
+  <p class="small text-body-secondary px-3 py-2 mb-0">Carpeta: <span class="font-monospace text-break">{{ estado.carpeta.carpeta }}</span>. Si un respaldo falla o se atrasa, TI recibe un aviso en la campana.</p>
+</section>
+{% endblock %}
