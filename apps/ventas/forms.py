@@ -32,6 +32,8 @@ class FormularioDAMIForm(FormularioEstilizado, forms.Form):
     Fecha, código único y asesor los pone el sistema.
     """
 
+    # Concurrencia optimista: la versión del DAMI cuando se abrió el formulario (vacío en uno nuevo).
+    version = forms.IntegerField(widget=forms.HiddenInput, required=False, min_value=1)
     producto = forms.CharField(label="Producto", max_length=120, required=False)
     cedula = forms.CharField(label="Cédula", max_length=13, required=False)
     ruc = forms.CharField(label="RUC", max_length=13, required=False)
@@ -93,6 +95,7 @@ class FormularioDAMIForm(FormularioEstilizado, forms.Form):
             "cedula": c.cedula, "ruc": c.ruc_mostrar, "nombres": c.nombres, "apellidos": c.apellidos, "telefono": c.telefono,
             "direccion": c.direccion, "sector": c.sector, "ciudad": c.ciudad,
             "referencia": c.referencia, "email": c.email, "observaciones": f.observaciones, "producto": f.producto,
+            "version": f.version,
         }
         if tarjeta:
             inicial |= {"marca": tarjeta.marca, "banco": tarjeta.banco, "caducidad": tarjeta.caducidad,

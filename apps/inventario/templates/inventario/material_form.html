@@ -16,7 +16,7 @@
 <div class="contenedor-formulario">
   {% for error in form.non_field_errors %}<div class="alert alert-danger">{{ error }}</div>{% endfor %}
   <form method="post" novalidate class="card formulario">
-    {% csrf_token %}
+    {% csrf_token %}{{ form.huella_registro }}
     <section class="formulario-seccion">
       <div class="formulario-seccion-info">
         <span class="formulario-icono" aria-hidden="true"><i class="bi bi-tag"></i></span>

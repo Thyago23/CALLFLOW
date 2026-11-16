@@ -15,6 +15,8 @@ from django.http import FileResponse, Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
+from apps.core import validadores
+
 from . import servicios
 from .acceso import requiere_mensajeria
 from .models import Conversacion, Mensaje
@@ -211,7 +213,7 @@ def adjunto(request, pk):
 @requiere_mensajeria
 @require_POST
 def nueva_directa(request):
-    otro = servicios.contactos(request.user).filter(pk=request.POST.get("usuario")).first()
+    otro = servicios.contactos(request.user).filter(pk=validadores.entero(request.POST.get("usuario"))).first()
     if otro is None:
         messages.error(request, "Esa persona no está en la mensajería interna.")
         return redirect("mensajes:bandeja")
@@ -221,7 +223,7 @@ def nueva_directa(request):
 @requiere_mensajeria
 @require_POST
 def nuevo_grupo(request):
-    miembros = list(servicios.contactos(request.user).filter(pk__in=request.POST.getlist("miembros")))
+    miembros = list(servicios.contactos(request.user).filter(pk__in=validadores.enteros(request.POST.getlist("miembros"))))
     try:
         grupo = servicios.crear_grupo(request.user, request.POST.get("nombre", ""), miembros)
     except ValidationError as error:
@@ -236,7 +238,7 @@ def nuevo_grupo(request):
 @require_POST
 def agregar(request, pk):
     grupo = _conversacion(request, pk)
-    miembros = list(servicios.contactos(request.user).filter(pk__in=request.POST.getlist("miembros")))
+    miembros = list(servicios.contactos(request.user).filter(pk__in=validadores.enteros(request.POST.getlist("miembros"))))
     try:
         cantidad = servicios.agregar_miembros(request.user, grupo, miembros)
         messages.success(request, f"{cantidad} persona{'s' if cantidad != 1 else ''} agregada{'s' if cantidad != 1 else ''} al grupo.")

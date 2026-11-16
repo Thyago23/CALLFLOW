@@ -15,10 +15,12 @@ from django.urls import reverse
 from django.utils import timezone
 
 from apps.asistencia.models import RegistroAsistencia
+from apps.core.concurrencia import huella_actual
 from apps.core.models import CUENTAS_TI, Rol, Usuario
 from apps.personal.models import Cargo, Empleado
 
 from . import servicios
+from .forms import EquipoForm
 from .models import ActaEquipo, Equipo, EventoEquipo, SesionEquipo
 
 CLAVE = "Clave-Segura-2026"
@@ -156,7 +158,8 @@ class EquiposTests(BaseTI):
     def test_cambiar_estado_queda_en_la_hoja_de_vida(self):
         self.client.post(reverse("ti:crear"), self.datos())
         equipo = Equipo.objects.get()
-        self.client.post(reverse("ti:editar", args=[equipo.pk]), self.datos(codigo=equipo.codigo, estado="REPARACION"))
+        self.client.post(reverse("ti:editar", args=[equipo.pk]), self.datos(codigo=equipo.codigo, estado="REPARACION")
+                         | huella_actual(EquipoForm, equipo))
         tipos = list(equipo.eventos.order_by("pk").values_list("tipo", flat=True))
         self.assertEqual(tipos, ["ALTA", "CAMBIO_ESTADO"])
 
@@ -329,7 +332,7 @@ class ActasTests(BaseTI):
 
     def test_equipo_entregado_no_pasa_a_bodega_ni_baja_sin_devolucion(self):
         self.entregar()
-        datos = {"codigo": "EQ-0001", "tipo": "LAPTOP", "estado": "BAJA"}
+        datos = {"codigo": "EQ-0001", "tipo": "LAPTOP", "estado": "BAJA"} | huella_actual(EquipoForm, Equipo.objects.get(pk=self.equipo.pk))
         respuesta = self.client.post(reverse("ti:editar", args=[self.equipo.pk]), datos)
         self.assertIn("estado", respuesta.context["form"].errors)
 

@@ -45,6 +45,19 @@ class IngresoForm(AuthenticationForm):
         self.fields["password"].widget.attrs.update({"placeholder": "Ej.: LM48207153", "autocapitalize": "characters"})
         _estilizar(self)
 
+    def clean(self):
+        # Tras varios intentos fallidos la cuenta queda bloqueada unos minutos (ver apps.core.limite_peticiones).
+        from . import limite_peticiones
+
+        usuario = self.cleaned_data.get("username") or ""
+        segundos = limite_peticiones.ingreso_bloqueado(usuario)
+        if segundos:
+            minutos = max(1, round(segundos / 60))
+            raise ValidationError(f"Demasiados intentos fallidos. Espere {minutos} minuto{'s' if minutos != 1 else ''} "
+                                  "y vuelva a intentarlo.", code="bloqueado")
+        # Los fallos se cuentan con la señal user_login_failed y el bloqueo lo aplica el backend.
+        return super().clean()
+
     def confirm_login_allowed(self, user):
         if not user.is_active:
             raise ValidationError(self.error_messages["inactive"], code="inactive")

@@ -227,11 +227,12 @@ class TarjetaTests(BaseVentas):
         self.crear()
         f = FormularioDAMI.objects.get()
         antes = TarjetaDAMI.objects.get().numero_cifrado
-        self.client.post(reverse("ventas:formulario_editar", args=[f.pk]), CLIENTE | {"numero_tarjeta": "", "banco": "Produbanco"})
+        self.client.post(reverse("ventas:formulario_editar", args=[f.pk]), CLIENTE | {"numero_tarjeta": "", "banco": "Produbanco", "version": f.version})
         tarjeta = TarjetaDAMI.objects.get()
         self.assertEqual((tarjeta.banco, tarjeta.numero_cifrado), ("Produbanco", antes))
         form = self.client.post(reverse("ventas:formulario_editar", args=[f.pk]),
-                                CLIENTE | {"numero_tarjeta": "", "marca": "AMEX"}).context["form"]
+                                CLIENTE | {"numero_tarjeta": "", "marca": "AMEX",
+                                           "version": FormularioDAMI.objects.get().version}).context["form"]
         self.assertIn("vuelva a escribir el número", form.errors["numero_tarjeta"][0])
 
     def test_no_se_aceptan_numeros_de_tarjeta_en_textos(self):

@@ -221,6 +221,13 @@ class DashboardTests(TestCase):
         self.assertNotContains(respuesta, "Pronto")
         self.assertEqual([g["nombre"] for g in respuesta.context["menu_secciones"]], ["Administración", "Comercial", "Herramientas"])
 
+    def test_secciones_del_menu_plegables(self):
+        self.client.force_login(self.admin)
+        respuesta = self.client.get(reverse("usuarios"))
+        for clave in ("administracion", "comercial", "herramientas", "sistema"):
+            self.assertContains(respuesta, f'aria-controls="grupo-menu-{clave}"')
+            self.assertContains(respuesta, f'id="grupo-menu-{clave}"')
+
     def test_marcar_notificaciones_leidas(self):
         Notificacion.objects.create(destinatario=self.vendedor, titulo="Hola")
         self.client.force_login(self.vendedor)

@@ -72,6 +72,8 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    # Antes de las sesiones: una petición rechazada por exceso no consulta la base de datos.
+    "apps.core.limite_peticiones.LimitePeticionesMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -158,6 +160,19 @@ ASISTENCIA_BREAK_TOLERANCIA_MINUTOS = 0
 TI_MINUTOS_CONECTADO = 5
 TI_PROXY_CONFIABLE = env("TI_PROXY_CONFIABLE", "False").lower() in ("1", "true", "si", "yes")
 
+# --------------------------------------------------------------------------- límite de peticiones (rate limit)
+# Ver apps/core/limite_peticiones.py. Los contadores viven en memoria (no tocan la base de datos).
+CACHES = {"default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache", "LOCATION": "callflow"}}
+LIMITE_PETICIONES_ACTIVO = env("LIMITE_PETICIONES_ACTIVO", "True").lower() in ("1", "true", "si", "yes")
+# regla: (máximo de peticiones por IP, ventana en segundos)
+LIMITE_PETICIONES = {
+    "ingreso": (10, 300),   # intentos de inicio de sesión
+    "sondeo": (120, 60),    # consultas automáticas (campana, chat, breaks, tablero)
+    "general": (300, 60),   # todo lo demás
+}
+# Fallos de ingreso por cuenta: (intentos, ventana en s, bloqueo en s)
+LIMITE_FALLOS_INGRESO = (5, 15 * 60, 15 * 60)
+
 # Reporte de reposiciones de chips: quiénes firman (nombre, cargo), en ese orden.
 CHIPS_FIRMAS_REPORTE = [
     ("Raul Tapia", "Dueño"),
@@ -208,6 +223,8 @@ import tempfile  # noqa: E402
 PROBANDO = len(sys.argv) > 1 and sys.argv[1] == "test"
 LOGS_DIR = Path(tempfile.mkdtemp(prefix="callflow-logs-")) if PROBANDO else Path(env("LOGS_DIR", str(BASE_DIR / "logs")))
 LOGS_DIR.mkdir(parents=True, exist_ok=True)
+if PROBANDO:  # las pruebas hacen cientos de peticiones desde la misma IP; las del límite lo activan ellas mismas
+    LIMITE_PETICIONES_ACTIVO = False
 # Carpeta de las copias de seguridad (scripts/respaldar_bd.ps1), para mostrar el último respaldo.
 CARPETA_RESPALDOS = Path(env("CARPETA_RESPALDOS", str(BASE_DIR / "respaldos")))
 
@@ -225,8 +242,17 @@ LOGGING = {
             "maxBytes": 5 * 1024 * 1024, "backupCount": 5, "encoding": "utf-8", "delay": True,
             "formatter": "json", "level": "ERROR",
         },
+        # Eventos de seguridad: peticiones bloqueadas por exceso e intentos de ingreso fallidos (TI › Servidor).
+        "seguridad": {
+            "class": "logging.handlers.RotatingFileHandler", "filename": str(LOGS_DIR / "seguridad.jsonl"),
+            "maxBytes": 5 * 1024 * 1024, "backupCount": 5, "encoding": "utf-8", "delay": True,
+            "formatter": "json", "level": "WARNING",
+        },
     },
     "root": {"handlers": ["consola", "errores"], "level": "WARNING"},
     # Sin manejadores propios: lo de Django sube a la raíz (sin esto, en depuración cada aviso sale dos veces).
-    "loggers": {"django": {"handlers": [], "level": "INFO", "propagate": True}},
+    "loggers": {
+        "django": {"handlers": [], "level": "INFO", "propagate": True},
+        "callflow.seguridad": {"handlers": ["consola", "seguridad"], "level": "WARNING", "propagate": False},
+    },
 }

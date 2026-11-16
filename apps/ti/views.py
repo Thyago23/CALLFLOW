@@ -259,9 +259,11 @@ def servidor(request):
         base = {"error": str(error).strip().splitlines()[0] if str(error).strip() else error.__class__.__name__}
     archivos, n_archivos = estado.tamano_carpeta(Path(settings.MEDIA_ROOT))
     errores = registro_errores.errores_recientes(dias)
+    seguridad = registro_errores.eventos_seguridad(dias)
     return render(request, "ti/servidor.html", {
         "discos": estado.discos(), "base": base, "respaldo": estado.ultimo_respaldo(), "sistema": estado.sistema(),
         "archivos": archivos, "n_archivos": n_archivos, "errores": errores[:100], "n_grupos": len(errores),
         "n_ocurrencias": sum(e["veces"] for e in errores), "errores_24h": registro_errores.contar_desde(24),
+        "seguridad": seguridad[:100], "n_seguridad": len(seguridad), "seguridad_24h": registro_errores.contar_seguridad_desde(24),
         "dias": dias, "ahora": timezone.localtime(), "libre_critico": estado.LIBRE_CRITICO, "libre_bajo": estado.LIBRE_BAJO,
     })

@@ -520,8 +520,8 @@ def bases_seguimiento(request):
     _solo_gestion_bases(request)
     from apps.personal.models import Empleado
 
-    base = BaseComercial.objects.filter(pk=request.GET.get("base") or 0).first()
-    vendedor = Empleado.objects.filter(pk=request.GET.get("vendedor") or 0).first()
+    base = BaseComercial.objects.filter(pk=validadores.entero(request.GET.get("base"))).first()
+    vendedor = Empleado.objects.filter(pk=validadores.entero(request.GET.get("vendedor"))).first()
     filas = servicios.seguimiento(base=base, vendedor=vendedor)
     totales = {k: sum(f[k] for f in filas) for k in ("enviados", "gestionados", "pendientes", "no_contesto", "no_quiere", "no_entregada", "dami_sacado", "contestaron")}
     return render(request, "ventas/bases_seguimiento.html", {
@@ -637,7 +637,7 @@ def responder_solicitud(request, pk):
     solicitud = get_object_or_404(SolicitudBase, pk=pk)
     try:
         if request.POST.get("accion") == "atender":
-            base = get_object_or_404(BaseComercial, pk=request.POST.get("base") or 0)
+            base = get_object_or_404(BaseComercial, pk=validadores.entero(request.POST.get("base")))
             cantidad = request.POST.get("cantidad", "")
             cantidad = int(cantidad) if cantidad.isdigit() and int(cantidad) > 0 else None
             servicios.atender_solicitud(solicitud, base, request.user, request.POST.get("respuesta", ""), cantidad)

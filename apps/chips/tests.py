@@ -10,9 +10,11 @@ from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 
+from apps.core.concurrencia import huella_actual
 from apps.core.models import Rol, Usuario
 
 from . import servicios
+from .forms import ChipForm
 from .models import Chip, Reposicion
 
 
@@ -73,7 +75,8 @@ class ChipTests(BaseChips):
 
     def test_al_editar_no_se_cambia_el_numero(self):
         chip = self.chip()
-        self.client.post(reverse("chips:editar", args=[chip.pk]), {"numero": "0999999999", "operadora": "SUPERMAXI", "estado": "ACTIVO"})
+        self.client.post(reverse("chips:editar", args=[chip.pk]), {"numero": "0999999999", "operadora": "SUPERMAXI", "estado": "ACTIVO"}
+                         | huella_actual(ChipForm, chip))
         chip.refresh_from_db()
         self.assertEqual((chip.numero, chip.operadora), ("0991234567", "SUPERMAXI"))
 

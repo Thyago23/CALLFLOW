@@ -20,6 +20,12 @@ from django.conf import settings
 from django.utils import timezone
 
 NOMBRE_ARCHIVO = "errores.jsonl"
+ARCHIVO_SEGURIDAD = "seguridad.jsonl"
+EVENTOS_SEGURIDAD = {
+    "limite_peticiones": "Exceso de peticiones",
+    "ingreso_fallido": "Ingreso fallido",
+    "ingreso_bloqueado": "Cuenta bloqueada",
+}
 MAX_TRAZA = 20_000
 
 
@@ -47,6 +53,9 @@ class FormatoJSON(logging.Formatter):
             datos["usuario"] = _usuario(request)
         if getattr(record, "status_code", None):
             datos["estado_http"] = record.status_code
+        for campo in ("evento", "ip", "usuario_intentado"):  # eventos de seguridad (apps.core.limite_peticiones)
+            if getattr(record, campo, None):
+                datos[campo] = str(getattr(record, campo))[:150]
         return json.dumps(datos, ensure_ascii=False)
 
 
@@ -67,10 +76,10 @@ def _firma(error: dict) -> str:
     return hashlib.sha1(clave.encode("utf-8")).hexdigest()[:12]
 
 
-def _lineas_recientes(desde) -> list[dict]:
-    """Errores desde `desde`, leyendo el archivo actual y los rotados (errores.jsonl.1, .2…)."""
+def _lineas_recientes(desde, nombre: str = NOMBRE_ARCHIVO) -> list[dict]:
+    """Líneas desde `desde`, leyendo el archivo actual y los rotados (errores.jsonl.1, .2…)."""
     carpeta = carpeta_logs()
-    archivos = sorted(carpeta.glob(NOMBRE_ARCHIVO + "*"), key=lambda p: p.stat().st_mtime) if carpeta.exists() else []
+    archivos = sorted(carpeta.glob(nombre + "*"), key=lambda p: p.stat().st_mtime) if carpeta.exists() else []
     errores = []
     for archivo in archivos:
         if datetime.fromtimestamp(archivo.stat().st_mtime).astimezone() < desde:
@@ -107,3 +116,25 @@ def errores_recientes(dias: int = 7) -> list[dict]:
 
 def contar_desde(horas: int = 24) -> int:
     return len(_lineas_recientes(timezone.localtime() - timedelta(hours=horas)))
+
+
+def eventos_seguridad(dias: int = 7) -> list[dict]:
+    """
+    Peticiones bloqueadas por exceso e ingresos fallidos, agrupados por tipo + IP + usuario intentado,
+    del más reciente al más viejo.
+    """
+    desde = timezone.localtime() - timedelta(days=dias)
+    grupos: "OrderedDict[tuple, dict]" = OrderedDict()
+    for ev in sorted(_lineas_recientes(desde, ARCHIVO_SEGURIDAD), key=lambda e: e["fecha"], reverse=True):
+        clave = (ev.get("evento", ""), ev.get("ip", ""), ev.get("usuario_intentado", ""))
+        if clave in grupos:
+            grupos[clave]["veces"] += 1
+            grupos[clave]["primera"] = ev["fecha"]
+        else:
+            grupos[clave] = ev | {"veces": 1, "ultima": ev["fecha"], "primera": ev["fecha"],
+                                  "tipo": EVENTOS_SEGURIDAD.get(ev.get("evento", ""), ev.get("evento", "") or "Aviso")}
+    return list(grupos.values())
+
+
+def contar_seguridad_desde(horas: int = 24) -> int:
+    return len(_lineas_recientes(timezone.localtime() - timedelta(hours=horas), ARCHIVO_SEGURIDAD))

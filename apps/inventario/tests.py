@@ -10,9 +10,11 @@ from django.db import DatabaseError, transaction
 from django.test import TestCase
 from django.urls import reverse
 
+from apps.core.concurrencia import huella_actual
 from apps.core.models import Notificacion, Rol, Usuario
 
 from . import servicios
+from .forms import MaterialForm
 from .models import CategoriaMaterial, Material, MovimientoInventario
 
 Tipo = MovimientoInventario.Tipo
@@ -68,7 +70,8 @@ class MaterialesTests(BaseInventario):
         self.client.force_login(self.admin)
         self.client.post(reverse("inventario:material_editar", args=[resma.pk]), {
             "nombre": "Resma A4 75 g", "codigo": resma.codigo, "categoria": self.papeleria.pk,
-            "unidad_medida": "RESMA", "stock_minimo": "8", "stock_actual": "999", "descripcion": ""})
+            "unidad_medida": "RESMA", "stock_minimo": "8", "stock_actual": "999", "descripcion": ""}
+            | huella_actual(MaterialForm, resma))
         resma.refresh_from_db()
         self.assertEqual((resma.nombre, resma.stock_minimo, resma.stock_actual), ("Resma A4 75 g", 8, 20))
 

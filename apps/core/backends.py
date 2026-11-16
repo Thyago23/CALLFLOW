@@ -19,6 +19,11 @@ class UsuarioNombreBackend(ModelBackend):
     def authenticate(self, request, username=None, password=None, **kwargs):
         if not username or not password:
             return None
+        # Cuenta bloqueada por intentos fallidos: ni siquiera se revisa la contraseña (apps.core.limite_peticiones).
+        from .limite_peticiones import ingreso_bloqueado
+
+        if ingreso_bloqueado(username):
+            return None
         usuario_normalizado = normalizar_usuario(username)
         if not usuario_normalizado:
             return None

@@ -159,4 +159,35 @@
   <div class="card-body text-center text-body-secondary py-4"><i class="bi bi-check-circle fs-3 d-block mb-1 text-success" aria-hidden="true"></i>No se registraron errores {% if dias == 1 %}en el último día{% else %}en los últimos {{ dias }} días{% endif %}.</div>
   {% endif %}
 </section>
+
+{# ------------------------------------------------------------ seguridad #}
+<section class="card mt-4" id="seguridad">
+  <div class="card-header bg-body d-flex flex-wrap justify-content-between align-items-center gap-2">
+    <h2 class="h6 mb-0">Eventos de seguridad</h2>
+    <span class="small text-body-secondary">{{ seguridad_24h }} en las últimas 24 h · mismo periodo que los errores</span>
+  </div>
+  {% if seguridad %}
+  <p class="small text-body-secondary px-3 pt-3 mb-2">Peticiones rechazadas por exceso (HTTP 429), intentos de ingreso fallidos y cuentas bloqueadas temporalmente. Se agrupan por tipo, IP y usuario.</p>
+  <div class="table-responsive">
+    <table class="table table-sm align-middle mb-0">
+      <thead><tr><th>Tipo</th><th>IP</th><th>Usuario intentado</th><th>Detalle</th><th class="text-end">Veces</th><th class="text-end">Última vez</th></tr></thead>
+      <tbody>
+        {% for ev in seguridad %}
+        <tr>
+          <td><span class="badge {% if ev.evento == 'ingreso_fallido' %}bg-warning-subtle text-warning-emphasis border border-warning-subtle{% else %}bg-danger-subtle text-danger-emphasis border border-danger-subtle{% endif %}">{{ ev.tipo }}</span></td>
+          <td class="font-monospace small">{{ ev.ip|default:"—" }}</td>
+          <td class="small">{{ ev.usuario_intentado|default:"—" }}</td>
+          <td class="small text-break">{% if ev.ruta %}<span class="font-monospace">{{ ev.metodo }} {{ ev.ruta }}</span> · {% endif %}{{ ev.mensaje }}</td>
+          <td class="text-end">{{ ev.veces }}</td>
+          <td class="text-end small text-nowrap">{{ ev.ultima|date:"d/m/Y H:i:s" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if n_seguridad > 100 %}<p class="small text-body-secondary px-3 py-2 mb-0">Se muestran los 100 más recientes.</p>{% endif %}
+  {% else %}
+  <div class="card-body text-center text-body-secondary py-4"><i class="bi bi-shield-check fs-3 d-block mb-1 text-success" aria-hidden="true"></i>Sin eventos de seguridad {% if dias == 1 %}en el último día{% else %}en los últimos {{ dias }} días{% endif %}.</div>
+  {% endif %}
+</section>
 {% endblock %}

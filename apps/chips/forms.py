@@ -2,6 +2,7 @@ from django import forms
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 
+from apps.core.concurrencia import ControlConcurrencia
 from apps.core.forms import FormularioEstilizado, _estilizar
 from apps.personal.models import Empleado
 
@@ -12,7 +13,7 @@ def _solo_digitos(valor: str) -> str:
     return "".join(c for c in (valor or "") if c.isdigit())
 
 
-class ChipForm(FormularioEstilizado, forms.ModelForm):
+class ChipForm(ControlConcurrencia, FormularioEstilizado, forms.ModelForm):
     # Se acepta con espacios o guiones («099 123-4567»); se guardan solo los 10 dígitos.
     numero = forms.CharField(label="Número", max_length=16)
 

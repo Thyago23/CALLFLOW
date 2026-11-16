@@ -55,3 +55,15 @@ def normalizar_nombre(valor: str) -> str:
 def validar_nombre(valor: str) -> None:
     if not re.fullmatch(r"[A-Za-zÁÉÍÓÚÜÑáéíóúüñ' \-]{2,100}", valor):
         raise ValidationError("Use solo letras (se permiten tildes, ñ, espacios, apóstrofos y guiones).", code="nombre")
+
+
+# --------------------------------------------------------------------------- ids que llegan en la petición
+def entero(valor) -> int | None:
+    """Un id o número que llega por GET/POST, o None si no es un entero positivo (nunca lanza error)."""
+    texto = str(valor or "").strip()
+    return int(texto) if texto.isdigit() and len(texto) <= 18 else None
+
+
+def enteros(valores) -> list[int]:
+    """Lista de ids (getlist): descarta lo que no sea un entero positivo."""
+    return [n for n in (entero(v) for v in valores or []) if n is not None]

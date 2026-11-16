@@ -4,6 +4,7 @@ from django import forms
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 
+from apps.core.concurrencia import ControlConcurrencia
 from apps.core.forms import FormularioEstilizado, _estilizar
 from apps.personal.models import Empleado
 
@@ -14,7 +15,7 @@ from .models import ActaEquipo, Equipo, EventoEquipo
 FECHA = {"type": "date"}
 
 
-class EquipoForm(FormularioEstilizado, forms.ModelForm):
+class EquipoForm(ControlConcurrencia, FormularioEstilizado, forms.ModelForm):
     class Meta:
         model = Equipo
         fields = ["codigo", "tipo", "marca", "modelo", "numero_serie", "procesador", "memoria_ram_gb", "almacenamiento",
