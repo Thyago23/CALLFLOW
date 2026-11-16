@@ -4,9 +4,9 @@
 {% include "ti/_subnav.html" with seccion="mantenimiento" %}
 
 <div class="row g-3 mb-4">
-  <div class="col-6 col-lg-3"><a href="?situacion=vencido" class="card h-100 text-decoration-none tarjeta-resumen {% if resumen.vencidos %}border-danger{% endif %}"><div class="card-body"><div class="small text-body-secondary">Atrasados</div><div class="fs-3 fw-semibold {% if resumen.vencidos %}text-danger{% endif %}">{{ resumen.vencidos }}</div></div></a></div>
-  <div class="col-6 col-lg-3"><a href="?situacion=por_vencer" class="card h-100 text-decoration-none tarjeta-resumen"><div class="card-body"><div class="small text-body-secondary">Tocan pronto</div><div class="fs-3 fw-semibold">{{ resumen.por_vencer }}</div><div class="small text-body-secondary">dentro de sus días de aviso</div></div></a></div>
-  <div class="col-6 col-lg-3"><a href="?" class="card h-100 text-decoration-none tarjeta-resumen"><div class="card-body"><div class="small text-body-secondary">Planes activos</div><div class="fs-3 fw-semibold">{{ resumen.total }}</div></div></a></div>
+  <div class="col-6 col-lg-3"><a href="?situacion=vencido" class="card h-100 text-decoration-none tarjeta-indicador {% if resumen.vencidos %}border-danger{% endif %}"><div class="card-body"><div class="small text-body-secondary">Atrasados</div><div class="fs-3 fw-semibold {% if resumen.vencidos %}text-danger{% endif %}">{{ resumen.vencidos }}</div></div></a></div>
+  <div class="col-6 col-lg-3"><a href="?situacion=por_vencer" class="card h-100 text-decoration-none tarjeta-indicador"><div class="card-body"><div class="small text-body-secondary">Tocan pronto</div><div class="fs-3 fw-semibold">{{ resumen.por_vencer }}</div><div class="small text-body-secondary">dentro de sus días de aviso</div></div></a></div>
+  <div class="col-6 col-lg-3"><a href="?" class="card h-100 text-decoration-none tarjeta-indicador"><div class="card-body"><div class="small text-body-secondary">Planes activos</div><div class="fs-3 fw-semibold">{{ resumen.total }}</div></div></a></div>
   <div class="col-6 col-lg-3"><div class="card h-100"><div class="card-body"><div class="small text-body-secondary">Computadores sin plan</div><div class="fs-3 fw-semibold">{{ sin_plan }}</div><div class="small text-body-secondary">escritorio, laptop y servidor</div></div></div></div>
 </div>
 
