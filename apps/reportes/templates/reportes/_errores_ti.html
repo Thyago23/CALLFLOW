@@ -1,0 +1,18 @@
+{# Vista del reporte «Errores del sistema» (TI): resumen y errores por día. Recibe `v` = tabla.extra. #}
+<div class="row g-3 mb-3">
+  <div class="col-6 col-lg-3"><div class="card h-100 {% if v.total %}border-danger-subtle{% endif %}"><div class="card-body">
+    <div class="small text-body-secondary">Errores</div><div class="fs-3 fw-semibold {% if v.total %}text-danger{% endif %}">{{ v.total }}</div>
+    <div class="small text-body-secondary">en {{ v.tipos }} tipo{{ v.tipos|pluralize }} distinto{{ v.tipos|pluralize }}</div></div></div></div>
+  <div class="col-6 col-lg-3"><div class="card h-100"><div class="card-body">
+    <div class="small text-body-secondary">Días con errores</div><div class="fs-3 fw-semibold">{{ v.dias_con_error }}</div>
+    <div class="small text-body-secondary">de {{ v.dias|length }} del periodo</div></div></div></div>
+  <div class="col-6 col-lg-3"><div class="card h-100 {% if v.respaldos %}border-danger-subtle{% endif %}"><div class="card-body">
+    <div class="small text-body-secondary">Respaldos fallidos</div><div class="fs-3 fw-semibold {% if v.respaldos %}text-danger{% endif %}">{{ v.respaldos }}</div></div></div></div>
+  <div class="col-6 col-lg-3"><div class="card h-100"><div class="card-body">
+    <div class="small text-body-secondary">Ingresos fallidos</div><div class="fs-3 fw-semibold">{{ v.seguridad.ingreso_fallido }}</div>
+    <div class="small text-body-secondary">{{ v.seguridad.ingreso_bloqueado }} cuenta{{ v.seguridad.ingreso_bloqueado|pluralize }} bloqueada{{ v.seguridad.ingreso_bloqueado|pluralize }}</div></div></div></div>
+</div>
+<section class="card mb-4" aria-labelledby="titulo-errores-dia">
+  <div class="card-header bg-body"><h2 class="h6 mb-0" id="titulo-errores-dia">Errores por día</h2></div>
+  <div class="card-body">{% include "reportes/_barras.html" with filas=v.dias tipo="entero" %}</div>
+</section>

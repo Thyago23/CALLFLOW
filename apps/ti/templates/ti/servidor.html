@@ -129,6 +129,10 @@
 <section class="card mt-4" id="errores">
   <div class="card-header bg-body d-flex flex-wrap justify-content-between align-items-center gap-2">
     <h2 class="h6 mb-0">Errores recientes del sistema</h2>
+    <div class="d-flex flex-wrap gap-2 small">
+      <a href="{% url 'reportes:reporte' 'TI_ERRORES' %}?rango=7d" class="btn btn-sm btn-outline-secondary"><i class="bi bi-file-earmark-bar-graph me-1" aria-hidden="true"></i>Reporte 7 días</a>
+      <a href="{% url 'reportes:reporte' 'TI_ERRORES' %}?rango=mes" class="btn btn-sm btn-outline-secondary">Reporte del mes</a>
+    </div>
     <ul class="nav nav-pills small">
       <li class="nav-item"><a class="nav-link py-1 {% if dias == 1 %}active{% endif %}" href="?dias=1#errores">Último día</a></li>
       <li class="nav-item"><a class="nav-link py-1 {% if dias == 7 %}active{% endif %}" href="?dias=7#errores">7 días</a></li>
