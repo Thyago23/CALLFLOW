@@ -228,7 +228,8 @@ class CajaChicaVistasTests(BaseReportes):
             self.mov(EGRESO, "12.86", primero)
         self.client.force_login(self.admin)
         hoja = self.client.get(reverse("nomina:caja_chica"), {"mes": f"{self.hoy:%Y-%m}"})
-        for texto in ("Registro y control de caja chica", "$170,00", "$157,15", "$12,85", "Arqueo de caja"):
+        # El fondo inicial es una celda editable: su valor va en el campo, sin el signo $.
+        for texto in ("Registro y control de caja chica", 'value="170,00"', "$157,15", "$12,85", "Arqueo de caja"):
             self.assertContains(hoja, texto)
 
     def test_fondo_inicial_editable(self):
@@ -263,18 +264,19 @@ class CajaChicaVistasTests(BaseReportes):
             siguiente = (primero + timedelta(days=32)).replace(day=1)
             caja.fijar_fondo_inicial(self.admin, siguiente.year, siguiente.month, D("170"))
 
-    def test_recibo_con_valor_en_letras_y_dos_copias(self):
+    def test_recibo_de_un_gasto_con_el_formato_de_la_empresa(self):
+        """Desde el 12/11 el recibo sigue el Excel «Recibo Caja Chica» (sin valor en letras ni doble copia)."""
         self.client.force_login(self.admin)
         self.mov(INGRESO, "100")
         gasto = caja.registrar(self.admin, fecha=self.hoy, tipo=EGRESO, concepto="Compra de colada", valor=D("58.80"),
                                beneficiario="Panadería el Éxito", categoria="ALIMENTACION")
         recibo = self.client.get(reverse("nomina:caja_recibo", args=[gasto.pk]))
-        self.assertContains(recibo, f"N.º {gasto.numero_recibo}")
-        self.assertContains(recibo, "CINCUENTA Y OCHO DÓLARES CON 80/100", count=2)
-        self.assertContains(recibo, "Panadería el Éxito", count=2)
-        self.assertContains(recibo, "$41,20")  # saldo de caja después del gasto
+        self.assertContains(recibo, f"N.º M-{gasto.numero_recibo}")  # «M-»: recibo de un movimiento suelto
+        for texto in ("Panadería el Éxito", "Compra de colada", "$58,80", "Recibido por"):
+            self.assertContains(recibo, texto)
+        self.assertEqual(caja.saldo(), D("41.20"))  # saldo de caja después del gasto
         caja.anular(self.admin, gasto, "Duplicado")
-        self.assertContains(self.client.get(reverse("nomina:caja_recibo", args=[gasto.pk])), "sello-anulado")
+        self.assertContains(self.client.get(reverse("nomina:caja_recibo", args=[gasto.pk])), "ANULADO: Duplicado")
 
 
 class ArqueoCajaTests(BaseReportes):
