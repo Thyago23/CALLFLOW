@@ -8,7 +8,8 @@ para que la empresa pueda cambiarlos sin tocar el código. Ver nomina/migrations
 Reglas:
   - Comisión solo para vendedores, sobre el total de ventas cerradas del mes. El porcentaje del
     tramo alcanzado se aplica a TODO el total. Se paga aparte: no entra en el rol de pagos.
-  - Falta no justificada: % del sueldo base. Falta justificada: monto fijo.
+  - Falta no justificada: % del sueldo base. Falta justificada: un día de sueldo (sueldo ÷ 30),
+    proporcional a lo que gana cada persona; en las reglas anteriores (v1) era un monto fijo.
   - Atraso: multa según los minutos (cada minuto empezado cuenta); pasado el último tramo de
     multa, es llamado de atención. Desde la v2 de las reglas, ese atraso además tiene su propia
     multa (atraso_llamado_multa) y el día cuenta como falta no justificada (no ingresa a la
@@ -251,9 +252,15 @@ def estimar_mes(empleado, anio: int, mes: int) -> Estimacion:
     # Faltas
     pct_falta = Decimal(str(reglas.get("falta_no_justificada_porcentaje", "10")))
     monto_justificada = _dinero(reglas.get("falta_justificada_monto", "13.33"))
+    concepto_justificada = "Falta justificada"
+    dias_justificada = reglas.get("falta_justificada_dias")  # proporcional: días de sueldo por cada falta justificada
+    if dias_justificada is not None and sueldo:
+        monto_justificada = _dinero(sueldo * Decimal(str(dias_justificada)) / DIAS_DEL_MES)
+        concepto_justificada = "Falta justificada (un día de sueldo)" if Decimal(str(dias_justificada)) == 1 else (
+            f"Falta justificada ({_porcentaje(dias_justificada)} días de sueldo)")
     for n in novedades.filter(tipo=Tipo.AUSENCIA):
         if n.estado == Estado.JUSTIFICADA:
-            estimacion.descuentos.append(Linea("Falta justificada", monto_justificada, n.fecha, clase="falta_justificada"))
+            estimacion.descuentos.append(Linea(concepto_justificada, monto_justificada, n.fecha, clase="falta_justificada"))
         elif sueldo:
             estimacion.descuentos.append(Linea(
                 f"Falta no justificada ({_porcentaje(pct_falta)} % del sueldo)", _dinero(sueldo * pct_falta / 100), n.fecha,

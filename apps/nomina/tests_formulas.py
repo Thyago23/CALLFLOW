@@ -145,13 +145,38 @@ class PenalizacionesV2Tests(BaseRol):
         e = self.estimar(emp)
         self.assertEqual((e.valor_faltas_injustificadas, e.neto), (D("43.33"), D("390.00")))
 
-    def test_falta_justificada_es_monto_fijo_aunque_cambie_el_sueldo(self):
-        """La regla fija 13,33 (un día de 400/30). Con sueldo 600 un día vale 20,00, pero se descuenta 13,33."""
-        emp = self.crear_vendedor("1733333336", "600.00")
+    def test_falta_justificada_es_un_dia_del_sueldo_de_cada_persona(self):
+        """Proporcional al sueldo (sueldo ÷ 30): 400 → 13,33 · 460 → 15,33 · 600 → 20,00."""
+        casos = (("1733333336", "600.00", "20.00", "580.00"), ("0912345675", "460.00", "15.33", "444.67"),
+                 ("1755555551", "400.00", "13.33", "386.67"))
+        for cedula, sueldo, descuento, neto in casos:
+            with self.subTest(sueldo=sueldo):
+                emp = self.crear_vendedor(cedula, sueldo)
+                self.novedad(emp, date(2026, 11, 3), "AUSENCIA", "JUSTIFICADA")
+                e = self.estimar(emp)
+                self.assertEqual((e.valor_faltas_justificadas, e.ajuste_tope, e.neto), (D(descuento), D("0.00"), D(neto)))
+                self.assertEqual(e.dias_trabajados, 30)  # la justificada cuenta como trabajada
+                self.assertEqual(e.faltas_justificadas[0].concepto, "Falta justificada (un día de sueldo)")
+
+    def test_las_dos_faltas_son_proporcionales_al_sueldo(self):
+        """Sueldo 600: justificada 20,00 (un día) · no justificada 60,00 (10 %) → neto 520,00."""
+        emp = self.crear_vendedor("1766666663", "600.00")
         self.novedad(emp, date(2026, 11, 3), "AUSENCIA", "JUSTIFICADA")
+        self.novedad(emp, date(2026, 11, 4), "AUSENCIA")
         e = self.estimar(emp)
-        self.assertEqual((e.valor_faltas_justificadas, e.ajuste_tope, e.neto), (D("13.33"), D("0.00"), D("586.67")))
-        self.assertEqual(e.dias_trabajados, 30)  # la justificada cuenta como trabajada
+        self.assertEqual((e.valor_faltas_justificadas, e.valor_faltas_injustificadas, e.ajuste_tope, e.neto),
+                         (D("20.00"), D("60.00"), D("0.00"), D("520.00")))
+
+    def test_falta_no_justificada_es_el_10_por_ciento_de_lo_que_gana_cada_uno(self):
+        """Vendedor o administrativo: 10 % de su propio sueldo. Supervisor con 750 → 75,00 · vendedor con 460 → 46,00."""
+        HistorialSalario.objects.create(empleado=self.encargado, salario_base=D("750.00"), vigente_desde=date(2026, 1, 1))
+        vendedor = self.crear_vendedor("0912345675", "460.00")
+        for emp, descuento, neto in ((self.encargado, "75.00", "675.00"), (vendedor, "46.00", "414.00")):
+            with self.subTest(empleado=str(emp)):
+                self.novedad(emp, date(2026, 11, 3), "AUSENCIA")
+                e = self.estimar(emp)
+                self.assertEqual((e.valor_faltas_injustificadas, e.ajuste_tope, e.neto), (D(descuento), D("0.00"), D(neto)))
+        self.assertFalse(self.estimar(self.encargado).es_vendedor)
 
     def test_llamado_pendiente_se_cobra_y_se_marca(self):
         self.novedad(self.emp, date(2026, 11, 3), "ATRASO", "PENDIENTE", minutos=30)
@@ -216,6 +241,9 @@ class PenalizacionesV1Tests(BaseRol):
             self.novedad(self.emp, date(2026, 10, dia), "ATRASO", minutos=minutos)
         self.novedad(self.emp, date(2026, 10, 7), "AUSENCIA")
         self.novedad(self.emp, date(2026, 10, 8), "AUSENCIA")
+        otro = self.crear_vendedor("1733333336", "600.00")
+        self.novedad(otro, date(2026, 10, 7), "AUSENCIA", "JUSTIFICADA")
+        self.assertEqual(calculo.estimar_mes(otro, *OCT).valor_faltas_justificadas, D("13.33"))  # v1: monto fijo
         e = calculo.estimar_mes(self.emp, *OCT)
         self.assertEqual([d.valor for d in e.atrasos], [D("1.00"), D("5.00"), D("5.00")])
         self.assertEqual(len(e.llamados_mes), 1)
