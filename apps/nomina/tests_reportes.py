@@ -265,7 +265,7 @@ class CajaChicaVistasTests(BaseReportes):
             caja.fijar_fondo_inicial(self.admin, siguiente.year, siguiente.month, D("170"))
 
     def test_recibo_de_un_gasto_con_el_formato_de_la_empresa(self):
-        """Desde el 12/11 el recibo sigue el Excel «Recibo Caja Chica» (sin valor en letras ni doble copia)."""
+        """Recibo con el formato del Excel «Recibo Caja Chica», más el valor en letras y la opción de imprimir con copia."""
         self.client.force_login(self.admin)
         self.mov(INGRESO, "100")
         gasto = caja.registrar(self.admin, fecha=self.hoy, tipo=EGRESO, concepto="Compra de colada", valor=D("58.80"),
@@ -274,9 +274,13 @@ class CajaChicaVistasTests(BaseReportes):
         self.assertContains(recibo, f"N.º M-{gasto.numero_recibo}")  # «M-»: recibo de un movimiento suelto
         for texto in ("Panadería el Éxito", "Compra de colada", "$58,80", "Recibido por"):
             self.assertContains(recibo, texto)
+        self.assertContains(recibo, "CINCUENTA Y OCHO DÓLARES CON 80/100", count=1)
+        self.assertContains(recibo, "data-imprimir-copia")
         self.assertEqual(caja.saldo(), D("41.20"))  # saldo de caja después del gasto
         caja.anular(self.admin, gasto, "Duplicado")
-        self.assertContains(self.client.get(reverse("nomina:caja_recibo", args=[gasto.pk])), "ANULADO: Duplicado")
+        anulado = self.client.get(reverse("nomina:caja_recibo", args=[gasto.pk]))
+        self.assertContains(anulado, "ANULADO: Duplicado")
+        self.assertNotContains(anulado, "DÓLARES CON")  # un gasto anulado no lleva valor en letras
 
 
 class ArqueoCajaTests(BaseReportes):

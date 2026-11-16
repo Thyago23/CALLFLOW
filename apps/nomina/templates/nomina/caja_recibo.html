@@ -12,6 +12,7 @@
   </nav>
   <div class="d-flex gap-2 align-items-center">
     {% if not m %}<span class="badge {% if r.abierto %}estado-sobra{% else %}estado-cuadra{% endif %}">{{ r.get_estado_display }}</span>{% endif %}
+    <button type="button" class="btn btn-light border" data-imprimir-copia title="Imprime el recibo dos veces: original y copia"><i class="bi bi-files me-1" aria-hidden="true"></i>Imprimir con copia</button>
     <button type="button" class="btn btn-primary" onclick="window.print()"><i class="bi bi-printer me-1" aria-hidden="true"></i>Imprimir recibo</button>
   </div>
 </div>
@@ -121,6 +122,8 @@
     <div class="rx-fila"><span class="rx-et">Saldo pendiente de devolución</span><span class="rx-num rx-calc" data-saldo-pendiente>${{ r.saldo_pendiente|dinero }}</span></div>
   </div>
 
+  {% if valor_en_letras %}<div class="rx-letras"><span class="rx-rotulo">Son:</span> {{ valor_en_letras }}</div>{% endif %}
+
   <div class="rx-observaciones">
     <div class="rx-rotulo">Observaciones:</div>
     {% if editable %}
@@ -154,6 +157,24 @@
 </section>
 {% endif %}
 {% if not m %}<div class="mt-3 d-print-none">{% include "nomina/_caja_pestanas.html" with pestana="recibos" %}</div>{% endif %}
+<script>
+  // «Imprimir con copia»: duplica la hoja solo para la impresión (original + copia) y la quita al terminar.
+  (function () {
+    var boton = document.querySelector("[data-imprimir-copia]"), hoja = document.querySelector(".recibo-excel");
+    if (!boton || !hoja) return;
+    boton.addEventListener("click", function () {
+      var copia = hoja.cloneNode(true);
+      copia.classList.add("rx-copia");
+      copia.setAttribute("aria-hidden", "true");
+      copia.querySelectorAll("[id]").forEach(function (e) { e.removeAttribute("id"); });
+      var marca = copia.querySelector(".rx-titulo");
+      if (marca) marca.textContent += " · COPIA";
+      hoja.after(copia);
+      window.addEventListener("afterprint", function () { copia.remove(); }, { once: true });
+      window.print();
+    });
+  })();
+</script>
 {% if editable %}
 <script>
   // El saldo pendiente se recalcula mientras se escribe el valor devuelto (la base vuelve a verificar al liquidar).

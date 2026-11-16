@@ -903,6 +903,9 @@ details.anular-caja > summary::-webkit-details-marker { display: none; }
 .rx-barra { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem 1rem; padding: .5rem 0 0; }
 
 .rx-resumen { width: 68.75%; margin-top: 1.1rem; }
+.rx-letras { margin-top: .6rem; font-size: .85rem; font-weight: 600; color: var(--rx-navy); }
+.rx-copia { display: none; }
+@media print { .rx-copia { display: block; break-before: page; } }
 .rx-resumen-titulo { padding: .2rem; background: var(--rx-navy); color: #fff; text-align: center; font-size: .8rem; font-weight: 700; text-transform: uppercase; }
 .rx-fila { display: grid; grid-template-columns: 42% 38% 1fr; align-items: stretch; }
 .rx-fila .rx-et { display: flex; align-items: center; padding: 0 .4rem; min-height: 1.95rem; background: var(--rx-banda); color: var(--rx-navy);

@@ -289,7 +289,10 @@ def caja_recibo(request, pk):
         lineas_vista=[linea], total_entregado=m.valor if not m.anulado else Decimal("0"),
         total_gastado=m.valor if not m.anulado else Decimal("0"),
     )
+    from apps.documentos.contratos import dinero_en_letras
+
     return render(request, "nomina/caja_recibo.html", {"r": recibo, "m": m, "empresa": EMPRESA, "editable": False,
+                                                       "valor_en_letras": "" if m.anulado else dinero_en_letras(m.valor),
                                                        "filas_vacias": range(0), "primera_vacia": 0, "volver": f"{reverse('nomina:caja_chica')}?mes={m.fecha:%Y-%m}"})
 
 

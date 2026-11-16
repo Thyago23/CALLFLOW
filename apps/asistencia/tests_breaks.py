@@ -203,9 +203,10 @@ class BreaksProgramadosTests(BaseBreaks):
         pagina = self.en(a_las(10, 22), self.luis.usuario, "get", reverse("contadores"))  # la campana procesa y avisa
         self.assertContains(pagina, "Tu break de 15 min empieza a las 10:30")
         self.assertContains(pagina, "data-texto-vencido")
-        self.assertNotContains(pagina, "Volví del break")
+        # El aviso previo nombra el botón «Volví del break», pero todavía no lo muestra.
+        self.assertNotContains(pagina, reverse("asistencia:volvi_break"))
         empezado = self.en(a_las(10, 30, 2), self.luis.usuario, "get", reverse("contadores"))
-        self.assertContains(empezado, "Volví del break")
+        self.assertContains(empezado, reverse("asistencia:volvi_break"))
 
     def test_validaciones_al_programar(self):
         with self.assertRaises(ValidationError):
