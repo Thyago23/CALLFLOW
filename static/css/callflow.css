@@ -2026,6 +2026,30 @@ a.enlace-modulo:hover { background: var(--cf-fondo); color: var(--bs-body-color)
 }
 @media (prefers-reduced-motion: reduce) { .menu-lateral { transition: none; } }
 
+/* ---------------------------------------------------------------- secciones del menú plegables
+   El encabezado de cada sección es un botón; plegada, sus enlaces se ocultan con una animación de
+   altura (grid 1fr → 0fr). Con el menú en modo iconos las secciones se muestran siempre. */
+.menu-lateral .boton-grupo-menu {
+  display: flex; align-items: center; justify-content: space-between; width: 100%;
+  background: none; border: 0; border-radius: 0.4rem; text-align: left; cursor: pointer;
+}
+.menu-lateral .boton-grupo-menu:hover { color: #fff; }
+.menu-lateral .boton-grupo-menu:focus-visible { outline: 2px solid #9fcdf2; outline-offset: 1px; }
+.flecha-grupo { font-size: 0.7rem; transition: transform 0.2s ease; }
+.grupo-menu.cerrado .flecha-grupo { transform: rotate(-90deg); }
+.enlaces-grupo { display: grid; grid-template-rows: 1fr; transition: grid-template-rows 0.2s ease; }
+.enlaces-grupo-interno { min-height: 0; overflow: hidden; margin-left: -0.75rem; padding-left: 0.75rem; }  /* deja ver la barra rosa del activo */
+.grupo-menu.cerrado .enlaces-grupo { grid-template-rows: 0fr; }
+.grupo-menu.cerrado .enlaces-grupo-interno { visibility: hidden; }
+@media (min-width: 768px) {
+  html.menu-plegado .menu-lateral .boton-grupo-menu { pointer-events: none; }
+  html.menu-plegado .menu-lateral .flecha-grupo { display: none; }
+  html.menu-plegado .menu-lateral .grupo-menu.cerrado .enlaces-grupo { grid-template-rows: 1fr; }
+  html.menu-plegado .menu-lateral .grupo-menu.cerrado .enlaces-grupo-interno { visibility: visible; }
+}
+@media (prefers-reduced-motion: reduce) { .enlaces-grupo, .flecha-grupo { transition: none; } }
+
+
 /* Reporte de efectividad de bases: conexión con los clientes y desgloses */
 .conexion-barra { display: flex; height: 22px; border-radius: 6px; overflow: hidden; background: var(--cf-pendiente); font-size: .75rem; font-weight: 600; }
 .conexion-barra .seg { display: flex; align-items: center; justify-content: center; color: #fff; min-width: 0; white-space: nowrap; overflow: hidden; }
