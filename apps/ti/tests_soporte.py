@@ -56,6 +56,42 @@ class MesaAyudaTests(BaseTI):
             self.assertTrue(avisos_ti(ti, Notificacion.Tipo.SOPORTE).filter(titulo__contains=ticket.numero).exists())
         self.assertEqual(soporte.sin_atender(), 1)
 
+    def test_si_no_prende_se_toma_el_equipo_asignado_y_no_el_de_la_ip(self):
+        Equipo.objects.create(codigo="EQ-0101", tipo="ESCRITORIO", direccion_ip="127.0.0.1")  # el del compañero
+        suyo = Equipo.objects.create(codigo="EQ-0102", tipo="ESCRITORIO", asignado_a=self.empleado, ubicacion="Puesto 12")
+        self.reportar(categoria="NO_ENCIENDE", titulo="No prende mi PC")
+        ticket = Ticket.objects.get()
+        self.assertEqual((ticket.equipo, ticket.desde_otro_equipo, ticket.puesto), (suyo, True, "Puesto 12"))
+
+    def test_desde_el_celular_tampoco_se_usa_la_ip(self):
+        Equipo.objects.create(codigo="EQ-0101", tipo="ESCRITORIO", direccion_ip="127.0.0.1")
+        suyo = Equipo.objects.create(codigo="EQ-0102", tipo="LAPTOP", asignado_a=self.empleado)
+        self.client.post(reverse("soporte:crear"), {"categoria": "INTERNET", "titulo": "Sin internet", "prioridad": "ALTA"},
+                         HTTP_USER_AGENT="Mozilla/5.0 (Linux; Android 14) Mobile Safari/537.36")
+        ticket = Ticket.objects.get()
+        self.assertEqual((ticket.equipo, ticket.desde_otro_equipo), (suyo, True))
+
+    def test_ti_registra_el_reporte_de_quien_aviso_en_persona(self):
+        suyo = Equipo.objects.create(codigo="EQ-0102", tipo="ESCRITORIO", asignado_a=self.empleado)
+        Equipo.objects.create(codigo="EQ-0103", tipo="ESCRITORIO", direccion_ip="127.0.0.1")  # el de TI
+        self.client.force_login(self.santiago)
+        self.assertContains(self.client.get(reverse("soporte:crear")), "¿Quién avisó?")
+        self.client.post(reverse("soporte:crear"), {"reportado_por": self.vendedor.pk, "categoria": "NO_ENCIENDE",
+                                                    "titulo": "No prende", "prioridad": "CRITICA"})
+        ticket = Ticket.objects.get()
+        self.assertEqual((ticket.reportado_por, ticket.registrado_por, ticket.equipo, ticket.ip, ticket.prioridad),
+                         (self.vendedor, self.santiago, suyo, None, "CRITICA"))
+        self.assertTrue(avisos_ti(self.vendedor, Notificacion.Tipo.SOPORTE).filter(titulo__contains="TI registró").exists())
+        self.assertTrue(avisos_ti(self.nicolas, Notificacion.Tipo.SOPORTE).exists())
+        self.client.force_login(self.vendedor)  # la persona lo ve como suyo
+        self.assertEqual(self.client.get(reverse("soporte:detalle", args=[ticket.pk])).status_code, 200)
+
+    def test_el_formulario_explica_que_hacer_si_el_equipo_no_funciona(self):
+        pagina = self.client.get(reverse("soporte:crear"))
+        self.assertContains(pagina, "avise en persona a TI")
+        self.assertNotContains(pagina, "¿Quién avisó?")
+        self.assertNotContains(pagina, "---------")
+
     def test_la_prioridad_critica_solo_la_pone_ti(self):
         self.reportar(prioridad="CRITICA")
         self.assertFalse(Ticket.objects.exists())  # no es una opción válida en el formulario
@@ -344,3 +380,24 @@ class AvisosTests(BaseTI):
         self.assertFalse(alertas.avisar("prueba:1", "Hola"))
         self.assertEqual(avisos_ti(self.santiago).filter(titulo="Hola").count(), 1)
         self.assertFalse(avisos_ti(self.vendedor).exists())  # solo a TI
+
+
+class PanelTITests(BaseTI):
+    def test_el_panel_resume_lo_pendiente(self):
+        soporte.crear_ticket(usuario=self.vendedor, titulo="Sin audio", categoria="AUDIO", prioridad="ALTA")
+        Licencia.objects.create(tipo="DOMINIO", nombre="multivisa.com.ec", fecha_vencimiento=timezone.localdate() + timedelta(days=5))
+        pagina = self.client.get(reverse("ti:panel"))
+        self.assertContains(pagina, "Sin audio")
+        self.assertContains(pagina, "multivisa.com.ec")
+
+    def test_menu_de_ti_ordenado_en_secciones(self):
+        menu = self.client.get(reverse("ti:panel")).context["menu_secciones"]
+        tecnologia = next(g for g in menu if g["nombre"] == "Tecnología")
+        self.assertEqual([m.nombre for m in tecnologia["modulos"]], ["Panel de TI", "Mesa de ayuda", "Equipos y licencias", "Monitoreo"])
+        pagina = self.client.get(reverse("ti:respaldos")).content.decode()
+        self.assertIn('aria-current="page"', pagina)
+        self.assertNotIn(reverse("ti:licencias") + '"><i', pagina.split("subnav-modulo")[1])  # solo las pestañas de Monitoreo
+
+    def test_solo_ti(self):
+        self.client.force_login(self.admin)
+        self.assertEqual(self.client.get(reverse("ti:panel")).status_code, 403)

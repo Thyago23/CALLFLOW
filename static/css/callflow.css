@@ -2075,3 +2075,8 @@ a.enlace-modulo:hover { background: var(--cf-fondo); color: var(--bs-body-color)
 .badge.etapa-filtro { background: var(--bs-warning-bg-subtle); color: var(--bs-warning-text-emphasis); }
 .badge.etapa-gestion { background: var(--bs-info-bg-subtle); color: var(--bs-info-text-emphasis); }
 .badge.etapa-cierre { background: var(--bs-success-bg-subtle); color: var(--bs-success-text-emphasis); }
+
+/* Mesa de ayuda: categorías como opciones grandes, fáciles de tocar en el celular */
+.opcion-falla { cursor: pointer; }
+.opcion-falla:hover { background: var(--bs-tertiary-bg); }
+.opcion-falla:has(input:checked) { border-color: var(--bs-primary) !important; background: var(--bs-primary-bg-subtle); }

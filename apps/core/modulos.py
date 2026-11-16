@@ -20,6 +20,9 @@ class Modulo:
     url: str | None = None  # None = todavía no implementado
     exclusivo: bool = False  # solo con el permiso asignado directamente a la cuenta (ni superusuario ni grupos)
     roles: tuple = ()  # si se indica, solo esos roles lo ven (ni el superusuario): p. ej. el módulo de TI
+    # Rutas (namespace:nombre) en las que el enlace del menú queda marcado. Vacío = todo el namespace `clave`.
+    # Sirve cuando un mismo namespace se reparte en varias entradas del menú (TI).
+    vistas: tuple = ()
 
     @property
     def disponible(self) -> bool:
@@ -65,11 +68,25 @@ MODULOS = [
            "Chips del call, reposiciones y cambios de número, con reporte para firmar.", url="chips:lista", exclusivo=True),
     Modulo("breaks", "Breaks", "4.1", "cup-straw", "asistencia.gestionar_breaks",
            "Dar breaks a los vendedores y ver quién volvió tarde.", url="asistencia:breaks", exclusivo=True),
-    Modulo("ti", "Equipos de TI", "TI", "pc-display", "ti.view_equipo",
-           "Inventario de equipos, mantenimientos y equipos conectados al sistema.", url="ti:equipos", roles=("TI",)),
+    # TI: un panel con lo que necesita atención y tres secciones (mesa de ayuda, equipos, monitoreo).
+    Modulo("ti", "Panel de TI", "TI", "speedometer2", "",
+           "Lo que necesita atención hoy: reportes, mantenimientos, licencias, respaldos y servidor.", url="ti:panel",
+           roles=("TI",), vistas=("ti:panel",)),
+    Modulo("soporte_ti", "Mesa de ayuda", "TI", "headset", "",
+           "Reportes de fallas de la empresa: atenderlos a tiempo.", url="soporte:inicio", roles=("TI",),
+           vistas=("soporte:inicio", "soporte:crear", "soporte:detalle")),
+    Modulo("ti_equipos", "Equipos y licencias", "TI", "pc-display", "",
+           "Inventario, mantenimiento preventivo, préstamos con acta y licencias.", url="ti:equipos", roles=("TI",),
+           vistas=("ti:equipos", "ti:crear", "ti:detalle", "ti:editar", "ti:evento", "ti:entregar", "ti:devolver",
+                   "ti:prestamos", "ti:acta_pdf", "ti:acta_firmada", "ti:acta_firmada_subir", "ti:mantenimiento",
+                   "ti:plan_crear", "ti:plan_editar", "ti:plan_realizado", "ti:licencias", "ti:licencia_crear",
+                   "ti:licencia_editar")),
+    Modulo("ti_monitoreo", "Monitoreo", "TI", "activity", "",
+           "Quién está conectado, accesos y bloqueos, respaldos y estado del servidor.", url="ti:conectados", roles=("TI",),
+           vistas=("ti:conectados", "ti:cerrar_sesion", "ti:accesos", "ti:desbloquear", "ti:respaldos", "ti:servidor")),
     Modulo("soporte", "Mesa de ayuda", "TI", "headset", "",
            "Reporte una falla (audio, internet, computador, sistema) y siga su atención.", url="soporte:inicio",
-           roles=("ADMINISTRADOR", "VENDEDOR", "ENCARGADO_CIERRE", "TI")),
+           roles=("ADMINISTRADOR", "VENDEDOR", "ENCARGADO_CIERRE")),
     Modulo("mensajes", "Mensajes", "TI", "chat-dots", "",
            "Mensajería interna entre TI, administradores y supervisores.", url="mensajes:bandeja",
            roles=("ADMINISTRADOR", "ENCARGADO_CIERRE", "TI")),
@@ -99,7 +116,7 @@ def modulos_de(usuario) -> list[Modulo]:
 GRUPOS = [
     ("Administración", ("personal", "asistencia", "documentos", "inventario", "nomina")),
     ("Comercial", ("ventas", "cierre", "tablero", "breaks", "chips")),
-    ("Tecnología", ("ti",)),
+    ("Tecnología", ("ti", "soporte_ti", "ti_equipos", "ti_monitoreo")),
     ("Herramientas", ("soporte", "mensajes", "agenda", "reportes")),
 ]
 

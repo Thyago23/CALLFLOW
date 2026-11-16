@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% block titulo %}Panel de TI{% endblock %}
+{% block contenido %}
+{% include "ti/_subnav.html" with seccion="panel" %}
+
+{# ------------------------------------------------------------ indicadores: cada tarjeta lleva a su sección #}
+<div class="row g-3 mb-4">
+  <div class="col-6 col-xl-2">
+    <a href="{% url 'soporte:inicio' %}" class="card h-100 text-decoration-none tarjeta-resumen {% if tickets.respuesta_vencida or tickets.solucion_vencida %}border-danger{% endif %}"><div class="card-body">
+      <div class="small text-body-secondary"><i class="bi bi-headset me-1" aria-hidden="true"></i>Reportes abiertos</div>
+      <div class="fs-3 fw-semibold">{{ tickets.activos }}</div>
+      <div class="small {% if tickets.solucion_vencida %}text-danger{% else %}text-body-secondary{% endif %}">{% if tickets.solucion_vencida %}{{ tickets.solucion_vencida }} fuera de plazo{% else %}{{ tickets.sin_atender }} sin atender{% endif %}</div>
+    </div></a>
+  </div>
+  <div class="col-6 col-xl-2">
+    <a href="{% url 'ti:mantenimiento' %}" class="card h-100 text-decoration-none tarjeta-resumen {% if mantenimiento.vencidos %}border-danger{% endif %}"><div class="card-body">
+      <div class="small text-body-secondary"><i class="bi bi-tools me-1" aria-hidden="true"></i>Mantenimientos</div>
+      <div class="fs-3 fw-semibold {% if mantenimiento.vencidos %}text-danger{% endif %}">{{ mantenimiento.vencidos }}</div>
+      <div class="small text-body-secondary">atrasados · {{ mantenimiento.por_vencer }} tocan pronto</div>
+    </div></a>
+  </div>
+  <div class="col-6 col-xl-2">
+    <a href="{% url 'ti:licencias' %}" class="card h-100 text-decoration-none tarjeta-resumen {% if n_licencias %}border-warning{% endif %}"><div class="card-body">
+      <div class="small text-body-secondary"><i class="bi bi-patch-check me-1" aria-hidden="true"></i>Licencias</div>
+      <div class="fs-3 fw-semibold">{{ n_licencias }}</div>
+      <div class="small text-body-secondary">vencidas o por vencer</div>
+    </div></a>
+  </div>
+  <div class="col-6 col-xl-2">
+    <a href="{% url 'ti:respaldos' %}" class="card h-100 text-decoration-none tarjeta-resumen {% if respaldo.nivel == 'fallo' %}border-danger{% elif respaldo.nivel != 'ok' %}border-warning{% endif %}"><div class="card-body">
+      <div class="small text-body-secondary"><i class="bi bi-database-check me-1" aria-hidden="true"></i>Respaldos</div>
+      <div class="fs-5 fw-semibold {% if respaldo.nivel == 'fallo' %}text-danger{% elif respaldo.nivel != 'ok' %}text-warning-emphasis{% endif %}">{% if respaldo.nivel == "fallo" %}Falló{% elif respaldo.nivel == "atrasado" %}Atrasados{% elif respaldo.nivel == "sin_datos" %}Sin respaldos{% else %}Al día{% endif %}</div>
+      <div class="small text-body-secondary">{% if respaldo.ultimo_bueno %}último bueno {{ respaldo.ultimo_bueno|date:"d/m H:i" }}{% else %}—{% endif %}</div>
+    </div></a>
+  </div>
+  <div class="col-6 col-xl-2">
+    <a href="{% url 'ti:accesos' %}" class="card h-100 text-decoration-none tarjeta-resumen {% if bloqueadas %}border-danger{% endif %}"><div class="card-body">
+      <div class="small text-body-secondary"><i class="bi bi-shield-lock me-1" aria-hidden="true"></i>Cuentas bloqueadas</div>
+      <div class="fs-3 fw-semibold {% if bloqueadas %}text-danger{% endif %}">{{ bloqueadas }}</div>
+      <div class="small text-body-secondary">{{ fallos_24h }} evento{{ fallos_24h|pluralize }} de seguridad en 24 h</div>
+    </div></a>
+  </div>
+  <div class="col-6 col-xl-2">
+    <a href="{% url 'ti:servidor' %}" class="card h-100 text-decoration-none tarjeta-resumen {% if peor_disco.nivel == 'critico' or errores_24h %}border-danger{% elif peor_disco.nivel == 'bajo' %}border-warning{% endif %}"><div class="card-body">
+      <div class="small text-body-secondary"><i class="bi bi-hdd-rack me-1" aria-hidden="true"></i>Servidor</div>
+      <div class="fs-5 fw-semibold {% if peor_disco.nivel == 'critico' %}text-danger{% elif peor_disco.nivel == 'bajo' %}text-warning-emphasis{% endif %}">{% if peor_disco %}{{ peor_disco.porcentaje_libre|floatformat:0 }} % libre{% else %}—{% endif %}</div>
+      <div class="small {% if errores_24h %}text-danger{% else %}text-body-secondary{% endif %}">{{ errores_24h }} error{{ errores_24h|pluralize:"es" }} en 24 h</div>
+    </div></a>
+  </div>
+</div>
+
+<div class="row g-4">
+  {# ------------------------------------------------------------ qué atender #}
+  <div class="col-lg-7">
+    <section class="card mb-4" aria-labelledby="titulo-urgentes">
+      <div class="card-header bg-body d-flex justify-content-between align-items-center">
+        <h2 class="h6 mb-0" id="titulo-urgentes">Reportes por atender</h2>
+        <a href="{% url 'soporte:inicio' %}" class="small">Ver la mesa de ayuda</a>
+      </div>
+      <div class="list-group list-group-flush">
+        {% for t in urgentes %}
+        <a href="{% url 'soporte:detalle' t.pk %}" class="list-group-item list-group-item-action">
+          <div class="d-flex flex-wrap gap-2 align-items-baseline">
+            {% include "soporte/_prioridad.html" %}
+            <span class="fw-semibold">{{ t.titulo }}</span>
+            <span class="ms-auto small">{% include "soporte/_estado.html" %}</span>
+          </div>
+          <div class="small text-body-secondary">{{ t.numero }} · {{ t.reportado_por.get_full_name|default:t.reportado_por.username }}{% if t.puesto %} · {{ t.puesto }}{% endif %} ·
+            {% if not t.primera_respuesta_en %}{% if t.respuesta_atrasada %}<span class="text-danger">sin respuesta, plazo vencido</span>{% else %}responder antes de {{ t.limite_respuesta|date:"H:i" }}{% endif %}
+            {% elif t.solucion_atrasada %}<span class="text-danger">fuera de plazo</span>{% else %}resolver antes de {{ t.limite_solucion|date:"d/m H:i" }}{% endif %}</div>
+        </a>
+        {% empty %}
+        <div class="list-group-item text-body-secondary small"><i class="bi bi-check2-all text-success me-1" aria-hidden="true"></i>No hay reportes abiertos.</div>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="titulo-agenda">
+      <div class="card-header bg-body"><h2 class="h6 mb-0" id="titulo-agenda">Mantenimientos y licencias que tocan</h2></div>
+      <ul class="list-group list-group-flush small">
+        {% for p in planes %}
+        <li class="list-group-item d-flex flex-wrap gap-2 align-items-center">
+          <i class="bi bi-tools text-body-secondary" aria-hidden="true"></i>
+          <a class="font-monospace" href="{% url 'ti:detalle' p.equipo.pk %}">{{ p.equipo.codigo }}</a> {{ p.actividad }}
+          <span class="ms-auto">{% include "ti/_vence.html" with s=p.situacion dias=p.dias_restantes %}</span>
+          <a href="{% url 'ti:plan_realizado' p.pk %}" class="btn btn-sm btn-outline-success py-0">Hecho</a>
+        </li>
+        {% endfor %}
+        {% for l in licencias %}
+        <li class="list-group-item d-flex flex-wrap gap-2 align-items-center">
+          <i class="bi bi-patch-check text-body-secondary" aria-hidden="true"></i>
+          <a href="{% url 'ti:licencia_editar' l.pk %}">{{ l.nombre }}</a> <span class="text-body-secondary">{{ l.get_tipo_display }}</span>
+          <span class="ms-auto">{% include "ti/_vence.html" with s=l.situacion dias=l.dias_restantes %}</span>
+        </li>
+        {% endfor %}
+        {% if not planes and not licencias %}<li class="list-group-item text-body-secondary"><i class="bi bi-check2-all text-success me-1" aria-hidden="true"></i>Nada pendiente por ahora.</li>{% endif %}
+      </ul>
+    </section>
+  </div>
+
+  {# ------------------------------------------------------------ equipos y avisos #}
+  <div class="col-lg-5">
+    <section class="card mb-4" aria-labelledby="titulo-equipos">
+      <div class="card-header bg-body d-flex justify-content-between align-items-center">
+        <h2 class="h6 mb-0" id="titulo-equipos">Equipos</h2>
+        <a href="{% url 'ti:equipos' %}" class="small">Ver inventario</a>
+      </div>
+      <div class="card-body">
+        <dl class="row small mb-0">
+          <dt class="col-7 fw-normal text-body-secondary">En uso</dt><dd class="col-5 text-end">{{ equipos.total }}</dd>
+          <dt class="col-7 fw-normal text-body-secondary">En reparación</dt><dd class="col-5 text-end">{{ equipos.reparacion }}</dd>
+          <dt class="col-7 fw-normal text-body-secondary">Préstamos vencidos</dt><dd class="col-5 text-end {% if prestamos_vencidos %}text-danger fw-semibold{% endif %}"><a href="{% url 'ti:prestamos' %}" class="text-reset">{{ prestamos_vencidos }}</a></dd>
+          <dt class="col-7 fw-normal text-body-secondary">Garantías que vencen en 30 días</dt><dd class="col-5 text-end">{{ equipos.garantia_por_vencer }}</dd>
+          <dt class="col-7 fw-normal text-body-secondary">Personas conectadas ahora</dt><dd class="col-5 text-end mb-0"><a href="{% url 'ti:conectados' %}" class="text-reset">{{ equipos.conectados }}</a></dd>
+        </dl>
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="titulo-avisos">
+      <div class="card-header bg-body"><h2 class="h6 mb-0" id="titulo-avisos">Últimos avisos automáticos</h2></div>
+      <ul class="list-group list-group-flush small">
+        {% for a in avisos %}
+        <li class="list-group-item d-flex gap-2"><span>{{ a.titulo }}</span><span class="ms-auto text-body-secondary text-nowrap">{{ a.creado_en|date:"d/m H:i" }}</span></li>
+        {% empty %}
+        <li class="list-group-item text-body-secondary">Todavía no hay avisos.</li>
+        {% endfor %}
+      </ul>
+      <p class="small text-body-secondary px-3 py-2 mb-0">Llegan también a la campana: licencias, mantenimientos, respaldos, disco y cuentas bloqueadas.</p>
+    </section>
+  </div>
+</div>
+{% endblock %}

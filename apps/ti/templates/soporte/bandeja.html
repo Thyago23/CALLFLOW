@@ -20,7 +20,6 @@
     <li class="nav-item"><a class="nav-link py-1 {% if ver == 'por_confirmar' %}active{% endif %}" href="?ver=por_confirmar">Por confirmar</a></li>
     <li class="nav-item"><a class="nav-link py-1 {% if ver == 'todos' %}active{% endif %}" href="?ver=todos">Todos</a></li>
   </ul>
-  <a href="{% url 'soporte:crear' %}" class="btn btn-sm btn-outline-primary"><i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Registrar un reporte</a>
 </div>
 
 <form class="row g-2 mb-3" role="search" method="get">
@@ -39,7 +38,7 @@
       <tbody>
         {% for t in pagina %}
         <tr>
-          <td><a class="fw-semibold text-reset" href="{% url 'soporte:detalle' t.pk %}">{{ t.titulo }}</a><div class="small text-body-secondary"><span class="font-monospace">{{ t.numero }}</span> · {{ t.get_categoria_display }}{% if t.equipo %} · {{ t.equipo.codigo }}{% endif %} · {{ t.creado_en|date:"d/m H:i" }}</div></td>
+          <td><a class="fw-semibold text-reset" href="{% url 'soporte:detalle' t.pk %}">{{ t.titulo }}</a><div class="small text-body-secondary"><span class="font-monospace">{{ t.numero }}</span> · {{ t.get_categoria_display|truncatechars:40 }}{% if t.equipo %} · {{ t.equipo.codigo }}{% endif %}{% if t.puesto %} · {{ t.puesto }}{% endif %}{% if t.registrado_por %} · <i class="bi bi-person-check" title="Lo registró TI"></i>{% elif t.desde_otro_equipo %} · <i class="bi bi-phone" title="Reportado desde otro equipo o el celular"></i>{% endif %} · {{ t.creado_en|date:"d/m H:i" }}</div></td>
           <td>{% include "soporte/_prioridad.html" %}</td>
           <td>{% include "soporte/_estado.html" %}</td>
           <td class="d-none d-md-table-cell small">{{ t.reportado_por.get_full_name|default:t.reportado_por.username }}</td>

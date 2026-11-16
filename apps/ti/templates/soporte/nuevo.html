@@ -4,29 +4,72 @@
 <nav aria-label="Ruta" class="mb-2">
   <ol class="breadcrumb small mb-0">
     <li class="breadcrumb-item"><a href="{% url 'soporte:inicio' %}">Mesa de ayuda</a></li>
-    <li class="breadcrumb-item active" aria-current="page">Reportar una falla</li>
+    <li class="breadcrumb-item active" aria-current="page">{% if es_ti %}Registrar un reporte{% else %}Reportar una falla{% endif %}</li>
   </ol>
 </nav>
 <header class="cabecera-formulario">
-  <h1 class="h3 mb-1">Reportar una falla</h1>
-  <p class="text-body-secondary mb-0">TI recibe el aviso al momento. Se anota solo desde qué equipo lo envía.</p>
+  <h1 class="h3 mb-1">{% if es_ti %}Registrar un reporte{% else %}Reportar una falla{% endif %}</h1>
+  <p class="text-body-secondary mb-0">{% if es_ti %}Para cuando alguien avisa en persona o por teléfono, o una falla general que detectó TI.{% else %}TI recibe el aviso al momento y usted ve aquí cómo va.{% endif %}</p>
 </header>
 
 <div class="contenedor-formulario">
+  {% if not es_ti %}
+  <div class="alert alert-info d-flex gap-2 small" role="note">
+    <i class="bi bi-info-circle mt-1" aria-hidden="true"></i>
+    <div>
+      <strong>¿Su computador no prende o se quedó sin red?</strong> Repórtelo desde el celular (conectado al Wi-Fi de la oficina) o desde el computador de un compañero, y marque la casilla «Mi equipo no funciona».
+      Si no puede de ninguna forma, <strong>avise en persona a TI</strong>: lo registran a su nombre y le llega el seguimiento.
+      <div class="mt-1 text-body-secondary">Aunque se caiga el internet, CALLFLOW sigue abriendo dentro de la oficina.</div>
+    </div>
+  </div>
+  {% endif %}
   {% for error in form.non_field_errors %}<div class="alert alert-danger">{{ error }}</div>{% endfor %}
   <form method="post" novalidate class="card formulario">
     {% csrf_token %}
+    {% if form.reportado_por %}
+    <section class="formulario-seccion">
+      <div class="formulario-seccion-info">
+        <span class="formulario-icono" aria-hidden="true"><i class="bi bi-person"></i></span>
+        <h2>¿Quién avisó?</h2>
+        <p>Déjelo en «Yo mismo» si es una falla que encontró TI.</p>
+      </div>
+      <div class="row"><div class="col-md-8">{% include "_campo.html" with campo=form.reportado_por ayuda=form.reportado_por.help_text %}</div></div>
+    </section>
+    {% endif %}
     <section class="formulario-seccion">
       <div class="formulario-seccion-info">
         <span class="formulario-icono" aria-hidden="true"><i class="bi bi-headset"></i></span>
-        <h2>¿Qué pasa?</h2>
-        <p>Cuéntelo con sus palabras. Mientras más detalle, más rápido se resuelve.</p>
+        <h2>¿Qué falla?</h2>
+        <p>Elija lo que más se parezca. Si no está, «Otra cosa».</p>
       </div>
+      <fieldset class="mb-3">
+        <legend class="visually-hidden">{{ form.categoria.label }}</legend>
+        <div class="row g-2 opciones-falla">
+          {% for opcion in form.categoria %}
+          <div class="col-sm-6">
+            <label class="opcion-falla d-flex gap-2 align-items-start border rounded p-2 h-100 {% if form.categoria.errors %}border-danger{% endif %}" for="{{ opcion.id_for_label }}">
+              {{ opcion.tag }}<span class="small">{{ opcion.choice_label }}</span>
+            </label>
+          </div>
+          {% endfor %}
+        </div>
+        {% for error in form.categoria.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+      </fieldset>
       <div class="row">
-        <div class="col-md-6">{% include "_campo.html" with campo=form.categoria %}</div>
-        <div class="col-md-6">{% include "_campo.html" with campo=form.prioridad %}</div>
         <div class="col-12">{% include "_campo.html" with campo=form.titulo %}</div>
         <div class="col-12">{% include "_campo.html" with campo=form.descripcion %}</div>
+      </div>
+    </section>
+    <section class="formulario-seccion">
+      <div class="formulario-seccion-info">
+        <span class="formulario-icono" aria-hidden="true"><i class="bi bi-geo-alt"></i></span>
+        <h2>Dónde y cuánto afecta</h2>
+        <p>Para que TI llegue al puesto correcto y atienda primero lo más urgente.</p>
+      </div>
+      <div class="row">
+        <div class="col-md-6">{% include "_campo.html" with campo=form.prioridad %}</div>
+        <div class="col-md-6">{% include "_campo.html" with campo=form.puesto ayuda=form.puesto.help_text %}</div>
+        {% if form.desde_otro_equipo %}<div class="col-12">{% include "ti/_casilla.html" with campo=form.desde_otro_equipo %}</div>{% endif %}
         <div class="col-12">{% include "soporte/_plazos.html" %}</div>
       </div>
     </section>
@@ -36,4 +79,14 @@
     </div>
   </form>
 </div>
+{% if form.desde_otro_equipo %}
+<script>
+  // «No prende»: se marca sola la casilla de «reporto desde otro equipo».
+  document.querySelectorAll('input[name="categoria"]').forEach(function (r) {
+    r.addEventListener("change", function () {
+      if (r.checked && r.value === "NO_ENCIENDE") { document.getElementById("{{ form.desde_otro_equipo.id_for_label }}").checked = true; }
+    });
+  });
+</script>
+{% endif %}
 {% endblock %}

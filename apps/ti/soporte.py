@@ -63,20 +63,58 @@ def _nombre(usuario) -> str:
 
 
 # --------------------------------------------------------------------------- crear y conversar
+def equipo_asignado(usuario) -> Equipo | None:
+    """El computador entregado a la persona (si tiene varios, primero el de escritorio)."""
+    orden = [Equipo.Tipo.ESCRITORIO, Equipo.Tipo.LAPTOP]
+    equipos = list(Equipo.objects.filter(asignado_a__usuario=usuario).exclude(estado=Equipo.Estado.BAJA))
+    equipos.sort(key=lambda e: orden.index(e.tipo) if e.tipo in orden else len(orden))
+    return equipos[0] if equipos else None
+
+
+def _desde_celular(request) -> bool:
+    from .servicios import describir_agente
+
+    return describir_agente(request.META.get("HTTP_USER_AGENT", ""))["dispositivo"] != "Computador"
+
+
 @transaction.atomic
-def crear_ticket(*, usuario, titulo: str, categoria: str, prioridad: str, descripcion: str = "", request=None) -> Ticket:
-    if prioridad == Ticket.Prioridad.CRITICA and not es_ti(usuario):
+def crear_ticket(*, usuario, titulo: str, categoria: str, prioridad: str, descripcion: str = "", puesto: str = "",
+                 desde_otro_equipo: bool = False, reportado_por=None, request=None) -> Ticket:
+    """
+    Crea el reporte. ¿Qué equipo falla?
+    - Si la persona reporta desde su propio computador, se reconoce por la IP.
+    - Si su equipo no funciona (no prende, sin red), reporta desde otro computador o el celular: la IP no sirve,
+      así que se toma el equipo que tiene asignado.
+    - Si avisó en persona o por teléfono, TI lo registra a su nombre (`reportado_por`); tampoco sirve la IP de TI.
+    """
+    de_ti = es_ti(usuario)
+    persona = reportado_por if (de_ti and reportado_por) else usuario
+    if prioridad == Ticket.Prioridad.CRITICA and not de_ti:
         prioridad = Ticket.Prioridad.ALTA  # la prioridad crítica la pone TI (afecta a varias personas)
+    a_nombre_de_otro = persona.pk != usuario.pk
+    if categoria in Ticket.SIN_EQUIPO or (request is not None and _desde_celular(request)):
+        desde_otro_equipo = True
+    ip = ip_de(request) if request is not None and not a_nombre_de_otro else None
+    if a_nombre_de_otro or desde_otro_equipo or not ip:
+        equipo = equipo_asignado(persona)
+    else:
+        equipo = Equipo.objects.filter(direccion_ip=ip).first() or equipo_asignado(persona)
     ahora = timezone.now()
-    ip = ip_de(request) if request is not None else None
     respuesta, solucion = plazos(prioridad)
     ticket = Ticket.objects.create(
-        reportado_por=usuario, titulo=titulo.strip(), descripcion=descripcion.strip(), categoria=categoria, prioridad=prioridad,
-        ip=ip, equipo=Equipo.objects.filter(direccion_ip=ip).first() if ip else None,
+        reportado_por=persona, titulo=titulo.strip(), descripcion=descripcion.strip(), categoria=categoria, prioridad=prioridad,
+        ip=ip, equipo=equipo, puesto=(puesto or "").strip() or (equipo.ubicacion if equipo else ""),
+        desde_otro_equipo=desde_otro_equipo and not a_nombre_de_otro, registrado_por=usuario if a_nombre_de_otro else None,
         limite_respuesta=ahora + respuesta, limite_solucion=ahora + solucion,
     )
-    _notificar(usuarios_ti().exclude(pk=usuario.pk), ticket, f"Nuevo reporte {ticket.numero}: {ticket.titulo}",
-               f"{_nombre(usuario)} · {ticket.get_categoria_display()} · prioridad {ticket.get_prioridad_display().split(' (')[0].lower()}")
+    detalle = f"{_nombre(persona)} · {ticket.get_categoria_display()} · prioridad {ticket.get_prioridad_display().split(' (')[0].lower()}"
+    if ticket.puesto:
+        detalle += f" · {ticket.puesto}"
+    _notificar(usuarios_ti().exclude(pk=usuario.pk), ticket, f"Nuevo reporte {ticket.numero}: {ticket.titulo}", detalle)
+    if a_nombre_de_otro:
+        ComentarioTicket.objects.create(ticket=ticket, autor=usuario,
+                                        cambio=f"Registrado por TI ({_nombre(usuario)}) porque la persona avisó en persona o por teléfono")
+        _notificar([persona], ticket, f"TI registró su reporte {ticket.numero}", "Aquí puede seguir su atención.")
     return ticket
 
 
