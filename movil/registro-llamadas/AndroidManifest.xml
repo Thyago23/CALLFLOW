@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Registro de llamadas (CALLFLOW): app independiente, sin servidor ni internet.
+     Asesor: lee el historial de llamadas del teléfono y genera un PDF para enviar por WhatsApp.
+     Supervisor: registro a mano / por foto y une los PDF de los asesores. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.callflow.llamadas"
+    android:versionCode="7"
+    android:versionName="2.0">
+
+    <uses-sdk android:minSdkVersion="29" android:targetSdkVersion="36" />
+
+    <!-- Historial de llamadas (número, hora, duración, tipo, chip). Solo se pide en los teléfonos de asesores. -->
+    <uses-permission android:name="android.permission.READ_CALL_LOG" />
+    <!-- Saber qué chips tiene el teléfono (Chip 1 / Chip 2, operador) para separar la línea de trabajo de la personal. -->
+    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+    <!-- La copia automática del historial (CopiaLlamadas) sigue después de reiniciar el teléfono. -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
+    <!-- «Tomar foto» abre la app de cámara; «Enviar por WhatsApp» abre WhatsApp directamente. -->
+    <queries>
+        <intent><action android:name="android.media.action.IMAGE_CAPTURE" /></intent>
+        <package android:name="com.whatsapp" />
+        <package android:name="com.whatsapp.w4b" />
+    </queries>
+
+    <application
+        android:label="@string/app_name"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher"
+        android:theme="@style/Tema"
+        android:allowBackup="false"
+        android:supportsRtl="false">
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|smallestScreenSize"
+            android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <!-- El supervisor recibe los PDF de los asesores desde WhatsApp: mantener presionado › Compartir. -->
+            <intent-filter android:label="Unir al registro de llamadas">
+                <action android:name="android.intent.action.SEND" />
+                <action android:name="android.intent.action.SEND_MULTIPLE" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="application/pdf" />
+            </intent-filter>
+        </activity>
+        <provider
+            android:name=".ProveedorFotos"
+            android:authorities="com.callflow.llamadas.fotos"
+            android:exported="false"
+            android:grantUriPermissions="true" />
+        <service
+            android:name=".CopiaLlamadas"
+            android:exported="false"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
+    </application>
+</manifest>

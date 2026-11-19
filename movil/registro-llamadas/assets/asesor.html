@@ -1,0 +1,394 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>Mis llamadas</title>
+<link rel="stylesheet" href="estilo.css">
+<style>
+  .resumen-linea { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 12px; font-size: .88rem; color: var(--suave); }
+  .resumen-linea b { color: var(--texto); font-variant-numeric: tabular-nums; }
+  .chips-trabajo { margin-top: 10px; font-size: .82rem; color: var(--suave); }
+  .fechas { margin-top: 10px; }
+  .contador { margin-left: auto; text-align: right; }
+  .contador b { display: block; font-family: var(--letra-titulos); font-size: 1.55rem; line-height: 1; font-weight: 700; }
+  .contador span { font-size: .75rem; opacity: .85; }
+  .codigo { font-family: var(--letra-titulos); font-weight: 700; letter-spacing: .06em; color: var(--texto); }
+</style>
+</head>
+<body>
+<header>
+  <div class="fila">
+    <img class="logo" src="logo-multivisa.png" alt="Multivisa">
+    <div style="min-width:0">
+      <h1>Mis llamadas</h1>
+      <div class="usuario" id="asesor"></div>
+    </div>
+    <div class="derecha">
+      <div class="contador" aria-live="polite"><b id="total">0</b><span id="total-texto">llamadas</span></div>
+      <button type="button" class="icono-cab" id="ajustes" aria-label="Configuración">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+      </button>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="banda alerta" id="sin-permiso" hidden>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg>
+    <div>
+      <b>La app no puede leer las llamadas.</b><br><span id="sin-permiso-texto">Falta el permiso «Registro de llamadas».</span>
+      <button type="button" class="boton peligro" id="dar-permiso" style="width:100%">Dar permiso</button>
+    </div>
+  </div>
+
+  <section class="tarjeta">
+    <span class="etiqueta">Periodo del reporte</span>
+    <div class="chips" id="periodos" role="group">
+      <button type="button" class="chip" data-p="hoy">Hoy</button>
+      <button type="button" class="chip" data-p="ayer">Ayer</button>
+      <button type="button" class="chip" data-p="semana">Esta semana</button>
+      <button type="button" class="chip" data-p="mes">Este mes</button>
+      <button type="button" class="chip" data-p="otro">Otras fechas</button>
+    </div>
+    <div class="dos fechas" id="fechas" hidden>
+      <div><label for="desde">Desde</label><input type="date" id="desde"></div>
+      <div><label for="hasta">Hasta</label><input type="date" id="hasta"></div>
+    </div>
+    <label class="casilla" style="margin-top:10px">
+      <input type="checkbox" id="solo-horario">
+      <span>Solo horario de trabajo<small>De 9:00 a 18:00</small></span>
+    </label>
+    <div class="chips-trabajo" id="chips-trabajo"></div>
+  </section>
+
+  <div class="banda alerta" id="borradas" hidden>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>
+    <div id="borradas-texto"></div>
+  </div>
+
+  <section class="tarjeta" id="resumen">
+    <div class="kpis" id="kpis"></div>
+    <div class="resumen-linea" id="resumen-linea"></div>
+  </section>
+
+  <section class="tarjeta lista">
+    <h2>Llamadas <small id="lista-sub"></small></h2>
+    <div id="lista"></div>
+  </section>
+</main>
+
+<div class="barra">
+  <div class="contenido">
+    <button type="button" class="boton principal" id="generar" disabled>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M12 18v-6M9 15l3 3 3-3"/></svg>
+      <span id="generar-texto">Generar PDF para enviar</span>
+    </button>
+  </div>
+</div>
+
+<div class="fondo-modal" id="modal-listo" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="listo-titulo">
+    <div class="icono exito"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 7"/></svg></div>
+    <h3 id="listo-titulo">Reporte listo</h3>
+    <p>Se guardó en <b>Descargas › CALLFLOW</b>. Envíelo por WhatsApp al supervisor tal como está (no lo edite).</p>
+    <div class="archivo"><span id="listo-archivo"></span><br>Código: <span class="codigo" id="listo-codigo"></span></div>
+    <div class="acciones">
+      <button type="button" class="boton whatsapp" id="enviar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 1-13.4 7.8L3 21l1.3-4.4A9 9 0 1 1 21 12z"/></svg>
+        Enviar por WhatsApp
+      </button>
+      <div class="acciones fila">
+        <button type="button" class="boton secundario" id="abrir">Ver PDF</button>
+        <button type="button" class="boton secundario" data-cerrar>Listo</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="fondo-modal" id="modal-pin" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="pin-titulo">
+    <h3 id="pin-titulo">Configuración</h3>
+    <p>Escriba la clave de configuración (la tiene el supervisor).</p>
+    <input type="password" class="pin" id="pin" inputmode="numeric" maxlength="6" autocomplete="off">
+    <div class="error" id="error-pin"></div>
+    <div class="acciones fila" style="margin-top:16px">
+      <button type="button" class="boton secundario" data-cerrar>Cancelar</button>
+      <button type="button" class="boton principal" id="pin-entrar">Entrar</button>
+    </div>
+  </div>
+</div>
+
+<div class="aviso oculto" id="aviso" role="status"></div>
+
+<script src="comun.js"></script>
+<script>
+(function () {
+  "use strict";
+  const { $, app } = CF;
+  const config = app ? CF.json(app.configuracion(), {}) : { asesor: "Asesor de prueba" };
+  $("asesor").textContent = config.asesor || "";
+
+  let periodo = CF.leer("cf-asesor-periodo", "hoy");
+  if (periodo === "otro") periodo = "hoy";  // las fechas a mano no se recuerdan
+  let soloHorario = CF.leer("cf-asesor-horario", true);
+  let consulta = null, llamadas = [], mostrar = 150;
+  $("solo-horario").checked = soloHorario;
+
+  // ------------------------------------------------------------------ periodo
+  function fechas() {
+    if (periodo !== "otro") return CF.rango(periodo);
+    return [$("desde").value, $("hasta").value];
+  }
+  document.querySelectorAll("#periodos .chip").forEach(function (b) {
+    b.addEventListener("click", function () {
+      periodo = b.dataset.p;
+      if (periodo === "otro" && !$("desde").value) {
+        const [d, h] = CF.rango("semana");
+        $("desde").value = d;
+        $("hasta").value = h;
+      }
+      CF.escribir("cf-asesor-periodo", periodo);
+      cargar();
+    });
+  });
+  ["desde", "hasta"].forEach((id) => $(id).addEventListener("change", cargar));
+  $("solo-horario").addEventListener("change", function () { soloHorario = this.checked; CF.escribir("cf-asesor-horario", soloHorario); cargar(); });
+
+  // ------------------------------------------------------------------ cargar del teléfono
+  function cargar() {
+    document.querySelectorAll("#periodos .chip").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.p === periodo)));
+    $("fechas").hidden = periodo !== "otro";
+    const hoy = CF.fechaIso(new Date());
+    $("desde").max = $("hasta").max = hoy;
+    let [desde, hasta] = fechas();
+    if (!desde || !hasta) return;
+    if (hasta > hoy) hasta = hoy;
+    if (desde > hasta) { CF.avisar("La fecha «Desde» es posterior a «Hasta».", "error"); return; }
+    if (!app) { consulta = { permiso: true, llamadas: [], chipsTrabajo: [], borradas: 0, desde, hasta }; pintar(); return; }
+    const r = CF.json(app.consultar(desde, hasta, soloHorario), { ok: false, error: "Error" });
+    if (r.ok === false) { CF.avisar("No se pudieron leer las llamadas: " + r.error, "error"); return; }
+    consulta = r;
+    mostrar = 150;
+    pintar();
+  }
+
+  function pintar() {
+    const p = app ? CF.json(app.permisos(), {}) : { llamadas: true };
+    $("sin-permiso").hidden = !!p.llamadas;
+    $("dar-permiso").textContent = p.bloqueado ? "Abrir ajustes de la app" : "Dar permiso";
+    $("dar-permiso").dataset.ajustes = p.bloqueado ? "1" : "";
+    $("sin-permiso-texto").textContent = p.bloqueado ? "Abra Ajustes › Permisos y active «Registro de llamadas» y «Teléfono»." : "Falta el permiso «Registro de llamadas».";
+
+    llamadas = consulta.llamadas || [];
+    const e = CF.estadisticas(llamadas);
+    $("total").textContent = e.total;
+    $("total-texto").textContent = e.total === 1 ? "llamada" : "llamadas";
+    $("generar").disabled = !e.total;
+    $("generar-texto").textContent = e.total ? "Generar PDF para enviar (" + e.total + ")" : "Generar PDF para enviar";
+
+    const ct = consulta.chipsTrabajo || [];
+    $("chips-trabajo").textContent = ct.length ? "Chips de trabajo: " + ct.map((c) => c.nombre + (c.detalle ? " (" + c.detalle + ")" : "")).join(", ") : "";
+
+    $("borradas").hidden = !e.borradas;
+    $("borradas-texto").innerHTML = "<b></b> Igual salen en el reporte, marcadas como borradas.";
+    $("borradas-texto").querySelector("b").textContent = CF.plural(e.borradas, "llamada se borró", "llamadas se borraron") + " del historial del teléfono.";
+
+    const kpis = [["Llamadas", e.total, true], ["Contestadas", e.contestadas], ["No contestadas", e.noContestadas], ["Tiempo hablado", CF.duracion(e.tiempo)],
+                  ["Promedio", CF.reloj(e.promedio)], ["Entrantes", e.entrantes], ["Perdidas", e.perdidas], ["Números distintos", e.numeros]];
+    $("kpis").innerHTML = kpis.map((k) => '<div class="kpi' + (k[2] ? " destacado" : "") + '"><b></b><span></span></div>').join("");
+    $("kpis").querySelectorAll(".kpi").forEach(function (div, i) { div.querySelector("b").textContent = kpis[i][1]; div.querySelector("span").textContent = kpis[i][0]; });
+    const linea = [];
+    if (e.primera) {
+      const varios = e.dias > 1;
+      linea.push(["Primera", (varios ? CF.fechaCorta(e.primera.fecha).slice(0, 5) + " " : "") + e.primera.hora]);
+      linea.push(["Última", (varios ? CF.fechaCorta(e.ultima.fecha).slice(0, 5) + " " : "") + e.ultima.hora]);
+      linea.push(["Mayor pausa", CF.pausaTexto(e)]);
+    }
+    $("resumen-linea").innerHTML = linea.map(() => "<span><span></span> <b></b></span>").join("");
+    $("resumen-linea").querySelectorAll(":scope > span").forEach(function (s, i) { s.firstChild.textContent = linea[i][0] + ":"; s.querySelector("b").textContent = linea[i][1]; });
+
+    pintarLista();
+  }
+
+  function pintarLista() {
+    const caja = $("lista");
+    caja.textContent = "";
+    $("lista-sub").textContent = consulta ? CF.periodoTexto(consulta.desde, consulta.hasta) : "";
+    if (!llamadas.length) {
+      caja.innerHTML = '<div class="vacio">No hay llamadas en este periodo' + (soloHorario ? " (de 9:00 a 18:00)" : "") + ".</div>";
+      return;
+    }
+    const orden = llamadas.slice().sort((a, b) => b.t - a.t);
+    const porDia = CF.agrupar(orden, (l) => l.fecha);
+    let dia = null, ul = null;
+    orden.slice(0, mostrar).forEach(function (l) {
+      if (l.fecha !== dia) {
+        dia = l.fecha;
+        const cab = document.createElement("div");
+        cab.className = "dia";
+        const ed = CF.estadisticas(porDia[dia]);
+        cab.innerHTML = "<span></span><span></span>";
+        cab.firstChild.textContent = CF.nombreDia(dia);
+        cab.lastChild.textContent = CF.plural(ed.total, "llamada", "llamadas") + " · " + CF.duracion(ed.tiempo);
+        ul = document.createElement("ul");
+        caja.append(cab, ul);
+      }
+      ul.append(filaLlamada(l, consulta.chipsTrabajo && consulta.chipsTrabajo.length > 1));
+    });
+    if (orden.length > mostrar) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "mas";
+      b.textContent = "Ver " + Math.min(150, orden.length - mostrar) + " más (de " + (orden.length - mostrar) + ")";
+      b.addEventListener("click", () => { mostrar += 150; pintarLista(); });
+      caja.append(b);
+    }
+  }
+
+  function filaLlamada(l, conChip) {
+    const li = document.createElement("li");
+    li.className = "llamada" + (l.b ? " borrada" : "");
+    const noContesto = l.tp === "saliente" && !l.d;
+    li.innerHTML = '<div class="hora"></div><div class="tipo ' + l.tp + '">' + (CF.ICONOS[l.tp] || CF.ICONOS.otra) + '</div>'
+      + '<div class="datos"><div class="numero"></div><div class="detalle"></div></div><div class="duracion"><span></span><small></small></div>';
+    li.querySelector(".hora").textContent = l.hora;
+    li.querySelector(".numero").textContent = CF.mostrarNumero(l.n);
+    const det = [noContesto ? "No contestó" : CF.TIPOS[l.tp]];
+    if (l.c) det.unshift(l.c);
+    if (conChip) det.push(l.chip);
+    li.querySelector(".detalle").textContent = det.join(" · ");
+    if (l.b) li.querySelector(".detalle").insertAdjacentHTML("afterbegin", '<span class="etq mal">BORRADA</span> ');
+    li.querySelector(".duracion span").textContent = l.d ? CF.reloj(l.d) : "—";
+    li.querySelector(".duracion small").textContent = l.chip && conChip ? l.chip : "";
+    return li;
+  }
+
+  // ------------------------------------------------------------------ PDF
+  function tipoTexto(l) {
+    const t = l.tp === "saliente" && !l.d ? "No contestó" : CF.TIPOS[l.tp];
+    return l.b ? t + " · BORRADA" : t;
+  }
+  function documento() {
+    const e = CF.estadisticas(llamadas), varios = e.dias > 1;
+    const chipsUsados = new Set(llamadas.map((l) => l.chip));
+    const conChip = (consulta.chipsTrabajo || []).length > 1 || chipsUsados.size > 1;
+    const cuando = (l) => (varios ? CF.fechaCorta(l.fecha).slice(0, 5) + " " : "") + l.hora;
+    const ct = consulta.chipsTrabajo || [];
+    const bloques = [];
+    bloques.push({ t: "kpis", items: [
+      ["Llamadas", String(e.total)], ["Salientes", String(e.salientes)], ["Contestadas", String(e.contestadas)], ["No contestadas", String(e.noContestadas)],
+      ["Entrantes", String(e.entrantes)], ["Perdidas / rechazadas", String(e.perdidas)], ["Tiempo hablado", CF.duracion(e.tiempo)], ["Promedio por llamada", CF.reloj(e.promedio) + " min"],
+      ["Números distintos", String(e.numeros)], ["Primera llamada", cuando(e.primera)], ["Última llamada", cuando(e.ultima)], ["Mayor pausa", e.mayorPausa >= 60 ? CF.duracion(e.mayorPausa) : "—"]
+    ] });
+    if (e.mayorPausa >= 60) bloques.push({ t: "nota", texto: "Mayor pausa entre llamadas: " + CF.duracion(e.mayorPausa) + ", de " + e.pausaDesde + " a " + e.pausaHasta + (varios ? " del " + CF.fechaCorta(e.pausaDia) : "") + "." });
+    if (e.borradas) bloques.push({ t: "nota", alerta: true, texto: "Atención: " + CF.plural(e.borradas, "llamada fue borrada", "llamadas fueron borradas") + " del historial del teléfono después de hacerse. Igual se incluyen y van marcadas como BORRADA." });
+    if (varios) {
+      const g = CF.agrupar(llamadas, (l) => l.fecha);
+      bloques.push({ t: "titulo", texto: "Por día" });
+      bloques.push({ t: "tabla", cols: [{ t: "Día", w: 2.2, b: true }, { t: "Llamadas", w: 1, a: "d" }, { t: "Contestadas", w: 1.1, a: "d" }, { t: "No contestadas", w: 1.2, a: "d" },
+        { t: "Tiempo hablado", w: 1.4, a: "d" }, { t: "Primera", w: 0.9, a: "c" }, { t: "Última", w: 0.9, a: "c" }, { t: "Mayor pausa", w: 1.2, a: "d" }],
+        filas: Object.keys(g).sort().map(function (f) {
+          const d = CF.estadisticas(g[f]);
+          return [CF.diaSemana(f) + " " + CF.fechaCorta(f), String(d.total), String(d.contestadas), String(d.noContestadas), CF.duracion(d.tiempo), d.primera.hora, d.ultima.hora, d.mayorPausa >= 60 ? CF.duracion(d.mayorPausa) : "—"];
+        }) });
+    }
+    if (conChip) {
+      const g = CF.agrupar(llamadas, (l) => l.chip);
+      const detalle = {};
+      ct.forEach((c) => { detalle[c.nombre] = c.detalle; });
+      bloques.push({ t: "titulo", texto: "Por chip" });
+      bloques.push({ t: "tabla", cols: [{ t: "Chip", w: 2.4, b: true }, { t: "Llamadas", w: 1, a: "d" }, { t: "Contestadas", w: 1, a: "d" }, { t: "Tiempo hablado", w: 1.4, a: "d" }],
+        filas: Object.keys(g).sort().map(function (k) {
+          const d = CF.estadisticas(g[k]);
+          return [k + (detalle[k] ? " · " + detalle[k] : ""), String(d.total), String(d.contestadas), CF.duracion(d.tiempo)];
+        }) });
+    }
+    const porHora = CF.agrupar(llamadas, (l) => l.hora.slice(0, 2));
+    bloques.push({ t: "titulo", texto: "Por hora" });
+    bloques.push({ t: "tabla", cols: [{ t: "Hora", w: 1.6, b: true }, { t: "Llamadas", w: 1, a: "d" }, { t: "Contestadas", w: 1, a: "d" }, { t: "No contestadas", w: 1.1, a: "d" }, { t: "Tiempo hablado", w: 1.4, a: "d" }],
+      filas: Object.keys(porHora).sort().map(function (h) {
+        const d = CF.estadisticas(porHora[h]);
+        return [h + ":00 – " + h + ":59", String(d.total), String(d.contestadas), String(d.noContestadas), CF.duracion(d.tiempo)];
+      }) });
+    const cols = [{ t: "N.°", w: 0.5, a: "d" }, { t: "Fecha", w: 1.15 }, { t: "Hora", w: 0.65 }, { t: "Tipo", w: 1.5 }, { t: "Número", w: 1.45, b: true },
+                  { t: "Contacto", w: 1.8 }, { t: "Duración", w: 0.85, a: "d" }];
+    if (conChip) cols.push({ t: "Chip", w: 0.8 });
+    const alertas = [];
+    const filas = llamadas.map(function (l, i) {
+      if (l.b) alertas.push(i);
+      const f = [String(i + 1), CF.fechaCorta(l.fecha), l.hora, tipoTexto(l), CF.mostrarNumero(l.n), l.c || "", l.d ? CF.reloj(l.d) : "—"];
+      if (conChip) f.push(l.chip);
+      return f;
+    });
+    bloques.push({ t: "titulo", texto: "Detalle de llamadas" });
+    bloques.push({ t: "tabla", cols, filas, alertas });
+
+    const ahora = new Date();
+    return {
+      titulo: "Reporte de llamadas",
+      cabecera: [
+        "Asesor: " + config.asesor,
+        "Periodo: " + CF.periodoTexto(consulta.desde, consulta.hasta) + (soloHorario ? "  ·  Solo horario de 9:00 a 18:00" : "  ·  Todo el día"),
+        "Teléfono: " + (config.dispositivo || "") + (ct.length ? "  ·  Chips de trabajo: " + ct.map((c) => c.nombre + (c.detalle ? " (" + c.detalle + ")" : "")).join(", ") : ""),
+        "Generado: " + CF.fechaCorta(CF.fechaIso(ahora)) + " " + CF.horaIso(ahora) + "  ·  Tomado del historial de llamadas del teléfono"
+      ],
+      pie: "Multivisa · Reporte de llamadas · " + config.asesor,
+      bloques
+    };
+  }
+
+  let ultimo = null;
+  $("generar").addEventListener("click", function () {
+    if (!app || !llamadas.length) return;
+    const b = this;
+    b.disabled = true;
+    $("generar-texto").textContent = "Generando…";
+    setTimeout(function () {
+      const r = CF.json(app.generarReporte(JSON.stringify(documento())), { ok: false, error: "Error" });
+      b.disabled = false;
+      $("generar-texto").textContent = "Generar PDF para enviar (" + llamadas.length + ")";
+      if (!r.ok) { CF.avisar("No se pudo generar el PDF: " + r.error, "error"); return; }
+      ultimo = r;
+      $("listo-archivo").textContent = r.nombre;
+      $("listo-codigo").textContent = r.codigo;
+      CF.abrir("modal-listo");
+    }, 30);
+  });
+  $("enviar").addEventListener("click", () => { if (ultimo) app.enviarWhatsApp(ultimo.uri); });
+  $("abrir").addEventListener("click", () => { if (ultimo) app.abrirPdf(ultimo.uri); });
+
+  // ------------------------------------------------------------------ permiso y configuración
+  $("dar-permiso").addEventListener("click", function () { if (!app) return; if (this.dataset.ajustes) app.abrirAjustesApp(); else app.pedirPermisos(); });
+  window.permisosCambiaron = () => cargar();
+  document.addEventListener("visibilitychange", function () { if (!document.hidden) cargar(); });
+
+  $("ajustes").addEventListener("click", function () {
+    $("pin").value = "";
+    $("error-pin").textContent = "";
+    CF.abrir("modal-pin");
+    $("pin").focus();
+  });
+  function entrar() {
+    if (!app) return;
+    if (app.verificarPin($("pin").value.trim())) { CF.cerrar(); app.configurar(); }
+    else $("error-pin").textContent = "Clave incorrecta.";
+  }
+  $("pin-entrar").addEventListener("click", entrar);
+  $("pin").addEventListener("keydown", (e) => { if (e.key === "Enter") entrar(); });
+
+  let ultimoAtras = 0;
+  CF.alVolver = function () {
+    if (Date.now() - ultimoAtras < 2500) return false;
+    ultimoAtras = Date.now();
+    CF.avisar("Pulse «Atrás» otra vez para salir.");
+    return true;
+  };
+
+  cargar();
+  if (app && !CF.json(app.permisos(), {}).llamadas) app.pedirPermisos();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Teléfono con una lista: «registro de llamadas». Zona segura del icono adaptable: el centro de 66×66 de 108×108. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <!-- auricular -->
+    <path android:fillColor="#FFFFFF"
+        android:pathData="M40.2,34.5c1.4,-1.4 3.7,-1.4 5.1,0l4.6,4.6c1.3,1.3 1.4,3.4 0.2,4.8l-2.9,3.4c-0.6,0.7 -0.6,1.6 -0.1,2.3c2.3,3.4 5.2,6.3 8.6,8.6c0.7,0.5 1.7,0.5 2.3,-0.1l3.4,-2.9c1.4,-1.2 3.5,-1.1 4.8,0.2l4.6,4.6c1.4,1.4 1.4,3.7 0,5.1l-2.7,2.7c-2.3,2.3 -5.9,2.9 -8.8,1.4C52.8,66.6 42.4,56.2 37.4,45.7c-1.4,-2.9 -0.9,-6.4 1.4,-8.8z" />
+    <!-- líneas del registro -->
+    <path android:fillColor="#FF0066"
+        android:pathData="M58,34h14a2,2 0,0 1,0 4h-14a2,2 0,0 1,0 -4zM62,42h10a2,2 0,0 1,0 4h-10a2,2 0,0 1,0 -4z" />
+</vector>

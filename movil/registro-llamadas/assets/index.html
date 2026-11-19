@@ -1,0 +1,1054 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>Registro de llamadas</title>
+<style>
+  /* Poppins: la letra de los títulos de CALLFLOW (copiada de static/vendor/fonts, funciona sin internet). */
+  @font-face { font-family: "Poppins"; font-weight: 600; font-display: swap; src: url("fuentes/poppins-latin-600-normal.woff2") format("woff2"); }
+  @font-face { font-family: "Poppins"; font-weight: 700; font-display: swap; src: url("fuentes/poppins-latin-700-normal.woff2") format("woff2"); }
+
+  /* Colores de Multivisa / CALLFLOW (static/css/callflow.css): azul #0062A8, azul noche #0A2A4A, rosa #FF0066. */
+  :root {
+    --azul: #0062a8; --noche: #0a2a4a; --rosa: #ff0066;
+    --primario: var(--azul); --primario-suave: #e8f2fa; --primario-oscuro: #00528c; --sobre-primario: #ffffff;
+    --borde-foco: #7fb0db; --foco: rgba(0, 98, 168, .2);
+    --fondo: #f5f9fc; --tarjeta: #ffffff; --texto: var(--noche); --suave: #5b6f84; --borde: #cfdceb;
+    --peligro: #c62828; --peligro-suave: #fdecec; --exito: #1b7f3b; --exito-suave: #e7f6ec;
+    --aviso-fondo: #fff3cd; --aviso-texto: #6b4e00;
+    --sombra: 0 1px 2px rgba(10, 42, 74, .06), 0 4px 14px rgba(10, 42, 74, .07);
+    --radio: 14px;
+    --letra-titulos: "Poppins", "Segoe UI", system-ui, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --primario: #2f8ad6; --primario-suave: rgba(47, 138, 214, .18); --primario-oscuro: #5aa3e0; --sobre-primario: #ffffff;
+      --borde-foco: #6f9bd1; --foco: rgba(47, 138, 214, .3);
+      --fondo: #0b1d30; --tarjeta: #0f2a45; --texto: #e6eef6; --suave: #9db3c9; --borde: #24456a;
+      --peligro: #ff6b6b; --peligro-suave: rgba(255, 107, 107, .14); --exito: #5fd38a; --exito-suave: rgba(95, 211, 138, .14);
+      --aviso-fondo: rgba(255, 193, 7, .14); --aviso-texto: #ffd76a;
+      --sombra: none;
+    }
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; background: var(--fondo); color: var(--texto); }
+  body { font: 16px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; min-height: 100vh; display: flex; flex-direction: column; }
+  button, input { font: inherit; color: inherit; }
+
+  /* Cabecera como el panel de marca de CALLFLOW: degradado azul noche → azul con la línea rosa de Multivisa. */
+  header { background: linear-gradient(160deg, var(--noche) 0%, #0b3d6e 55%, var(--azul) 100%); color: #fff; padding: 12px 16px 14px;
+           border-bottom: 4px solid var(--rosa); }
+  header .fila { max-width: 1040px; margin: 0 auto; display: flex; align-items: center; gap: 12px; }
+  .logo { width: 46px; height: 46px; border-radius: 12px; background: #fff; padding: 3px; flex: none; object-fit: contain; }
+  header h1 { font-family: var(--letra-titulos); font-size: 1.08rem; margin: 0; font-weight: 600; letter-spacing: .01em; }
+  header .usuario { font-size: .82rem; opacity: .85; }
+  .contador { margin-left: auto; text-align: right; }
+  .contador b { display: block; font-family: var(--letra-titulos); font-size: 1.55rem; line-height: 1; font-weight: 700; }
+  .contador span { font-size: .75rem; opacity: .85; }
+
+  main { flex: 1; width: 100%; max-width: 1040px; margin: 0 auto; padding: 14px 14px 104px; display: grid; gap: 14px; align-content: start; }
+  @media (min-width: 860px) { main { grid-template-columns: minmax(340px, 420px) 1fr; align-items: start; } .formulario { position: sticky; top: 14px; } }
+
+  .tarjeta { background: var(--tarjeta); border: 1px solid var(--borde); border-radius: var(--radio); box-shadow: var(--sombra); }
+  .formulario { padding: 14px; }
+  .bloque { margin-bottom: 16px; }
+  .etiqueta { display: flex; justify-content: space-between; align-items: baseline; font-size: .8rem; font-weight: 700; color: var(--suave);
+              text-transform: uppercase; letter-spacing: .04em; margin-bottom: 8px; }
+  .etiqueta .texto { text-transform: none; letter-spacing: 0; font-size: .85rem; }
+
+  /* Chips (asesores y atajos de hora) */
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip { min-height: 44px; padding: 8px 14px; border-radius: 999px; border: 1.5px solid var(--borde); background: var(--tarjeta);
+          font-weight: 600; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; max-width: 100%; }
+  .chip .nombre { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .chip .cuenta { font-size: .75rem; font-weight: 700; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 11px; display: inline-grid; place-items: center;
+                  background: var(--primario-suave); color: var(--primario); }
+  .chip[aria-pressed="true"] { background: var(--primario); border-color: var(--primario); color: var(--sobre-primario); box-shadow: inset 0 -3px 0 var(--rosa); }
+  .chip[aria-pressed="true"] .cuenta { background: var(--rosa); color: #fff; }
+  .chip.agregar { border-style: dashed; color: var(--primario); }
+  .chip.pequeno { min-height: 38px; padding: 6px 12px; font-size: .9rem; }
+  .chips.invalido .chip:not(.agregar) { border-color: var(--peligro); }
+
+  input[type=tel], input[type=text], input[type=date], input[type=time] {
+    width: 100%; min-height: 48px; padding: 10px 12px; border: 1.5px solid var(--borde); border-radius: 10px; background: var(--tarjeta);
+  }
+  input[type=tel] { font-size: 1.5rem; font-weight: 600; letter-spacing: .04em; font-variant-numeric: tabular-nums; min-height: 56px; }
+  input:focus { outline: none; border-color: var(--borde-foco); box-shadow: 0 0 0 .25rem var(--foco); }
+  input.invalido { border-color: var(--peligro); }
+  .error { color: var(--peligro); font-size: .85rem; margin-top: 6px; }
+  .error:empty { display: none; }
+  .dos { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .dos label { display: block; font-size: .78rem; color: var(--suave); margin-bottom: 4px; }
+  .resumen-cuando { margin-top: 8px; font-size: .9rem; color: var(--suave); }
+  .resumen-cuando b { color: var(--texto); }
+  .resumen-cuando.fuera { background: var(--aviso-fondo); color: var(--aviso-texto); border-radius: 10px; padding: 8px 12px; font-weight: 600; }
+  .horario { color: var(--suave); font-weight: 400; }
+
+  /* Campo «Hora»: botón que abre el selector propio (24 h, solo horario de llamadas) */
+  .campo-hora { width: 100%; min-height: 48px; padding: 8px 12px; border: 1.5px solid var(--borde); border-radius: 10px; background: var(--tarjeta);
+                display: flex; align-items: center; justify-content: space-between; cursor: pointer; font-size: 1.1rem; font-weight: 600;
+                font-variant-numeric: tabular-nums; color: var(--texto); }
+  .campo-hora svg { color: var(--primario); }
+  .campo-hora:focus-visible { outline: none; border-color: var(--borde-foco); box-shadow: 0 0 0 .25rem var(--foco); }
+  .campo-hora.fuera { border-color: #e0a800; }
+
+  /* Selector de hora */
+  .vista-hora { display: flex; align-items: center; justify-content: center; gap: 14px; margin: 4px 0 16px; }
+  .vista-hora output { font-family: var(--letra-titulos); font-size: 2.6rem; font-weight: 700; color: var(--texto); font-variant-numeric: tabular-nums;
+                       min-width: 5ch; text-align: center; line-height: 1; }
+  .ajuste { width: 48px; height: 48px; border-radius: 50%; border: 1.5px solid var(--borde); background: var(--tarjeta); color: var(--primario);
+            font-weight: 700; font-size: .9rem; cursor: pointer; }
+  .ajuste:disabled { opacity: .35; }
+  .rotulo { font-size: .78rem; font-weight: 700; color: var(--suave); text-transform: uppercase; letter-spacing: .04em; margin: 0 0 8px; }
+  .rejilla { display: grid; gap: 8px; margin-bottom: 16px; }
+  .rejilla.horas { grid-template-columns: repeat(5, 1fr); }
+  .rejilla.minutos { grid-template-columns: repeat(6, 1fr); }
+  .rejilla button { min-height: 48px; border-radius: 10px; border: 1.5px solid var(--borde); background: var(--tarjeta); font-weight: 700;
+                    font-size: 1.05rem; font-variant-numeric: tabular-nums; cursor: pointer; color: var(--texto); }
+  .rejilla button[aria-pressed="true"] { background: var(--primario); border-color: var(--primario); color: var(--sobre-primario); box-shadow: inset 0 -3px 0 var(--rosa); }
+  .rejilla button:disabled { opacity: .3; cursor: default; }
+  .rejilla.horas button small { display: block; font-size: .62rem; font-weight: 600; opacity: .7; margin-top: -2px; }
+
+  .boton { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 52px; padding: 10px 16px; border-radius: 12px;
+           border: 1.5px solid transparent; font-weight: 700; cursor: pointer; }
+  .boton:disabled { opacity: .45; cursor: default; }
+  .principal { background: var(--primario); color: var(--sobre-primario); width: 100%; font-size: 1.05rem; }
+  .principal:active:not(:disabled) { background: var(--primario-oscuro); }
+  .secundario { background: transparent; border-color: var(--borde); color: var(--primario); }
+  .peligro { background: var(--peligro); color: #fff; }
+  svg { width: 20px; height: 20px; flex: none; }
+
+  .lista { padding: 14px 0 4px; }
+  .lista h2, .modal h3 { font-family: var(--letra-titulos); font-weight: 600; }
+  .lista h2 { font-size: 1rem; margin: 0 0 10px; padding: 0 14px; display: flex; justify-content: space-between; align-items: baseline; }
+  .lista h2 small { color: var(--suave); font-weight: 500; font-size: .8rem; }
+  .dia { font-size: .76rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--suave);
+         padding: 8px 14px 6px; background: var(--fondo); border-top: 1px solid var(--borde); border-bottom: 1px solid var(--borde); }
+  ul { list-style: none; margin: 0; padding: 0; }
+  li { display: flex; align-items: center; gap: 12px; padding: 9px 6px 9px 14px; border-bottom: 1px solid var(--borde); }
+  li:last-child { border-bottom: 0; }
+  li.nuevo { animation: nuevo 1.2s ease-out; }
+  @keyframes nuevo { from { background: rgba(255, 0, 102, .10); box-shadow: inset 4px 0 0 var(--rosa); } to { background: transparent; box-shadow: inset 4px 0 0 transparent; } }
+  .hora { font-weight: 700; font-variant-numeric: tabular-nums; min-width: 48px; color: var(--primario); }
+  .datos { flex: 1; min-width: 0; }
+  .numero { font-weight: 700; font-size: 1.05rem; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+  .quien { color: var(--suave); font-size: .85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .borrar { width: 44px; height: 44px; border-radius: 50%; border: 0; background: none; color: var(--suave); display: grid; place-items: center; cursor: pointer; flex: none; }
+  .borrar:active { background: var(--peligro-suave); color: var(--peligro); }
+  .vacio { text-align: center; color: var(--suave); padding: 26px 16px 30px; }
+
+  .barra { position: fixed; left: 0; right: 0; bottom: 0; padding: 10px 14px calc(10px + env(safe-area-inset-bottom)); background: var(--tarjeta);
+           border-top: 1px solid var(--borde); box-shadow: 0 -4px 14px rgba(16, 42, 69, .08); }
+  .barra .boton { width: 100%; max-width: 1040px; margin: 0 auto; display: flex; }
+
+  .fondo-modal { position: fixed; inset: 0; background: rgba(5, 15, 28, .55); display: flex; align-items: flex-end; justify-content: center; z-index: 20; }
+  .fondo-modal[hidden] { display: none; }
+  .modal { background: var(--tarjeta); width: 100%; max-width: 460px; max-height: 92vh; overflow: auto; border-radius: 18px 18px 0 0;
+           padding: 20px 16px calc(16px + env(safe-area-inset-bottom)); animation: subir .18s ease-out; }
+  @media (min-width: 600px) { .fondo-modal { align-items: center; } .modal { border-radius: 18px; } }
+  @keyframes subir { from { transform: translateY(24px); opacity: 0; } }
+  .modal h3 { margin: 0 0 8px; font-size: 1.15rem; }
+  .modal p { margin: 0 0 16px; color: var(--suave); }
+  .acciones { display: grid; gap: 10px; }
+  .acciones.fila { grid-template-columns: 1fr 1fr; }
+  .icono { width: 48px; height: 48px; border-radius: 50%; display: grid; place-items: center; background: var(--primario-suave); color: var(--primario); margin-bottom: 12px; }
+  .icono.exito { background: var(--exito-suave); color: var(--exito); }
+  .icono.alerta { background: var(--peligro-suave); color: var(--peligro); }
+  .archivo { font-size: .85rem; background: var(--fondo); border: 1px solid var(--borde); border-radius: 10px; padding: 10px 12px; margin: -4px 0 16px; overflow-wrap: anywhere; }
+  .agregar-fila { display: flex; gap: 8px; margin-bottom: 14px; }
+  .agregar-fila .boton { min-height: 48px; flex: none; }
+  .equipo li { padding: 6px 0 6px 4px; }
+  .equipo .nombre { flex: 1; font-weight: 600; overflow-wrap: anywhere; }
+  .equipo .nota { color: var(--suave); font-size: .82rem; }
+
+  /* Registrar desde una foto del historial del asesor */
+  .desde-foto { margin-top: 12px; border: 1.5px dashed var(--borde); border-radius: 12px; padding: 10px 12px; }
+  .desde-foto[hidden] { display: none; }
+  .desde-foto .texto-foto { font-size: .85rem; color: var(--suave); margin-bottom: 8px; }
+  .desde-foto .texto-foto b { color: var(--texto); }
+  .desde-foto .boton { min-height: 46px; width: 100%; padding: 8px 10px; font-size: .95rem; }
+  .progreso { height: 8px; border-radius: 4px; background: var(--primario-suave); overflow: hidden; margin: 0 0 16px; }
+  .progreso[hidden] { display: none; }
+  .progreso div { height: 100%; width: 0; background: var(--primario); transition: width .3s; }
+  .foto-vista { display: block; max-width: 100%; max-height: 180px; margin: 0 auto 14px; border-radius: 10px; border: 1px solid var(--borde); }
+  .foto-vista[hidden] { display: none; }
+  .revision { border: 1px solid var(--borde); border-radius: 12px; overflow: hidden; margin-bottom: 14px; }
+  .revision:empty { display: none; }
+  .revision .dia { border-top: 0; }
+  .leida { display: grid; grid-template-columns: 30px 1fr 132px; gap: 6px 8px; align-items: center; padding: 8px 10px; border-bottom: 1px solid var(--borde); }
+  .leida:last-child { border-bottom: 0; }
+  .leida input[type=checkbox] { width: 22px; height: 22px; accent-color: var(--primario); margin: 0; }
+  .leida input[type=tel] { font-size: 1.05rem; min-height: 44px; padding: 6px 8px; }
+  .leida input[type=time], .leida input[type=date] { min-height: 44px; padding: 6px 6px; }
+  .leida .detalle { grid-column: 2 / 4; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .leida .detalle input[type=date] { width: auto; min-height: 36px; font-size: .85rem; padding: 4px 6px; }
+  .leida .nota { font-size: .8rem; color: var(--suave); }
+  .leida .nota.mal { color: var(--peligro); font-weight: 600; }
+  .leida.apagada > input[type=tel], .leida.apagada > input[type=time], .leida.apagada .detalle { opacity: .5; }
+
+  .ir-reportes { grid-column: 1 / -1; display: flex; align-items: center; gap: 12px; padding: 12px 14px; color: var(--texto); text-decoration: none; }
+  .ir-reportes > svg { color: var(--primario); }
+  .icono-reportes { width: 42px; height: 42px; border-radius: 50%; background: var(--primario-suave); color: var(--primario); display: grid; place-items: center; flex: none; }
+  .texto-reportes { flex: 1; min-width: 0; }
+  .texto-reportes b { display: block; font-family: var(--letra-titulos); font-weight: 600; }
+  .texto-reportes span { color: var(--suave); font-size: .85rem; }
+  .aviso { position: fixed; left: 14px; right: 14px; bottom: 88px; margin: 0 auto; max-width: 420px; background: var(--noche); color: #fff; border-left: 4px solid var(--rosa); padding: 12px 16px;
+           border-radius: 12px; font-size: .92rem; z-index: 30; box-shadow: 0 6px 20px rgba(0,0,0,.25); transition: opacity .2s, transform .2s; }
+  .aviso.error { background: var(--peligro); }
+  .aviso[hidden] { display: block; opacity: 0; transform: translateY(8px); pointer-events: none; }
+</style>
+</head>
+<body>
+<header>
+  <div class="fila">
+    <img class="logo" src="logo-multivisa.png" alt="Multivisa">
+    <div>
+      <h1>Registro de llamadas</h1>
+      <div class="usuario" id="usuario">diego.mendoza</div>
+    </div>
+    <div class="contador" aria-live="polite"><b id="total">0</b><span id="total-texto">llamadas</span></div>
+  </div>
+</header>
+
+<main>
+  <!-- Reportes que mandan los asesores desde sus teléfonos (versión 2.0) -->
+  <a class="tarjeta ir-reportes" href="reportes.html">
+    <span class="icono-reportes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19V9M10 19V5M16 19v-7M22 19H2"/></svg></span>
+    <span class="texto-reportes"><b>Reportes de asesores</b><span>Unir los PDF que mandan por WhatsApp: llamadas por asesor, hora y tiempo</span></span>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"/></svg>
+  </a>
+  <form class="tarjeta formulario" id="form" novalidate autocomplete="off">
+    <!-- 1. Quién llamó: un toque -->
+    <div class="bloque">
+      <div class="etiqueta"><span id="titulo-asesor">Asesor que llamó</span></div>
+      <div class="chips" id="chips-asesores" role="group" aria-labelledby="titulo-asesor"></div>
+      <div class="error" id="error-asesor"></div>
+      <!-- Foto del historial de llamadas del celular del asesor: registra todas de una vez -->
+      <div class="desde-foto" id="desde-foto" hidden>
+        <div class="texto-foto">¿Muchas llamadas? Foto o captura del historial de llamadas de <b id="foto-asesor"></b></div>
+        <div class="dos">
+          <button type="button" class="boton secundario" id="tomar-foto">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>
+            Tomar foto
+          </button>
+          <button type="button" class="boton secundario" id="elegir-captura">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="2"/><circle cx="9" cy="9" r="1.5"/><path d="M20 15l-5-5L5 20"/></svg>
+            Elegir captura
+          </button>
+        </div>
+        <input type="file" id="archivo-camara" accept="image/*" capture="environment" hidden>
+        <input type="file" id="archivo-galeria" accept="image/*" hidden>
+      </div>
+    </div>
+
+    <!-- 2. A qué número -->
+    <div class="bloque">
+      <div class="etiqueta"><label for="numero">Número de teléfono</label></div>
+      <input type="tel" id="numero" inputmode="tel" placeholder="0991234567" maxlength="20" enterkeyhint="done">
+      <div class="error" id="error-numero"></div>
+    </div>
+
+    <!-- 3. Cuándo: se llena solo con la fecha y hora actuales; se puede cambiar a mano -->
+    <div class="bloque">
+      <div class="dos">
+        <div><label for="fecha">Día</label><input type="date" id="fecha"></div>
+        <div>
+          <label for="boton-hora">Hora <span class="horario">(9:00 a 18:00)</span></label>
+          <input type="hidden" id="hora">
+          <button type="button" class="campo-hora" id="boton-hora" aria-haspopup="dialog">
+            <span id="hora-texto">--:--</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="resumen-cuando" id="resumen-cuando"></div>
+      <div class="error" id="error-cuando"></div>
+    </div>
+
+    <button type="submit" class="boton principal">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+      Registrar llamada
+    </button>
+  </form>
+
+  <section class="tarjeta lista" aria-labelledby="titulo-lista">
+    <h2 id="titulo-lista">Llamadas registradas <small>en este teléfono</small></h2>
+    <div id="lista"></div>
+  </section>
+</main>
+
+<div class="barra">
+  <button type="button" class="boton principal" id="finalizar" disabled>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M12 18v-6M9 15l3 3 3-3"/></svg>
+    <span id="finalizar-texto">Finalizar y guardar PDF</span>
+  </button>
+</div>
+
+<!-- Ventanas -->
+<div class="fondo-modal" id="modal-equipo" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="equipo-titulo">
+    <h3 id="equipo-titulo">Asesores</h3>
+    <p>Agregue una vez a cada asesor; después se elige con un toque. La lista de nombres se mantiene aunque se guarde el PDF.</p>
+    <div class="agregar-fila">
+      <input type="text" id="nuevo-asesor" placeholder="Nombre del asesor" maxlength="60" autocapitalize="words" enterkeyhint="done">
+      <button type="button" class="boton secundario" id="agregar-asesor">Agregar</button>
+    </div>
+    <div class="error" id="error-nuevo" style="margin:-8px 0 12px"></div>
+    <ul class="equipo" id="equipo"></ul>
+    <div class="acciones" style="margin-top:14px"><button type="button" class="boton principal" data-cerrar>Listo</button></div>
+  </div>
+</div>
+
+<div class="fondo-modal" id="modal-hora" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="hora-titulo">
+    <h3 id="hora-titulo">Hora de la llamada</h3>
+    <div class="vista-hora">
+      <button type="button" class="ajuste" id="menos-minuto" aria-label="Un minuto menos">−1</button>
+      <output id="hora-vista" aria-live="polite">--:--</output>
+      <button type="button" class="ajuste" id="mas-minuto" aria-label="Un minuto más">+1</button>
+    </div>
+    <p class="rotulo">Hora</p>
+    <div class="rejilla horas" id="rejilla-horas"></div>
+    <p class="rotulo">Minutos</p>
+    <div class="rejilla minutos" id="rejilla-minutos"></div>
+    <div class="acciones fila">
+      <button type="button" class="boton secundario" id="hora-ahora">Ahora</button>
+      <button type="button" class="boton principal" id="hora-listo">Listo</button>
+    </div>
+  </div>
+</div>
+
+<div class="fondo-modal" id="modal-confirmar" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="confirmar-titulo">
+    <div class="icono"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg></div>
+    <h3 id="confirmar-titulo">¿Finalizar el registro?</h3>
+    <p id="confirmar-texto"></p>
+    <div class="acciones fila">
+      <button type="button" class="boton secundario" data-cerrar>Seguir registrando</button>
+      <button type="button" class="boton principal" id="confirmar-guardar">Guardar PDF</button>
+    </div>
+  </div>
+</div>
+
+<div class="fondo-modal" id="modal-borrar" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="borrar-titulo">
+    <div class="icono alerta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg></div>
+    <h3 id="borrar-titulo">¿Quitar esta llamada?</h3>
+    <p id="borrar-texto"></p>
+    <div class="acciones fila">
+      <button type="button" class="boton secundario" data-cerrar>Cancelar</button>
+      <button type="button" class="boton peligro" id="confirmar-borrar">Quitar</button>
+    </div>
+  </div>
+</div>
+
+<div class="fondo-modal" id="modal-listo" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="listo-titulo">
+    <div class="icono exito"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7"/></svg></div>
+    <h3 id="listo-titulo">PDF guardado</h3>
+    <p>Está en <b>Descargas › CALLFLOW</b>. Las llamadas del teléfono se borraron.</p>
+    <div class="archivo" id="listo-archivo"></div>
+    <div class="acciones">
+      <div class="acciones fila">
+        <button type="button" class="boton secundario" id="abrir">Abrir</button>
+        <button type="button" class="boton secundario" id="compartir">Compartir</button>
+      </div>
+      <button type="button" class="boton principal" data-cerrar>Listo</button>
+    </div>
+  </div>
+</div>
+
+<!-- data-fijo: no se cierra al tocar fuera (para no perder la revisión sin querer) -->
+<div class="fondo-modal" id="modal-foto" data-fijo hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="foto-titulo">
+    <h3 id="foto-titulo">Llamadas de la foto</h3>
+    <p id="foto-estado"></p>
+    <div class="progreso" id="foto-progreso" hidden><div></div></div>
+    <img class="foto-vista" id="foto-vista" alt="Foto del historial de llamadas" hidden>
+    <div class="revision" id="foto-lista"></div>
+    <div class="acciones fila">
+      <button type="button" class="boton secundario" data-cerrar>Cancelar</button>
+      <button type="button" class="boton principal" id="foto-registrar" disabled>Registrar</button>
+    </div>
+  </div>
+</div>
+
+<div class="aviso" id="aviso" role="status" hidden></div>
+
+<script>
+(function () {
+  "use strict";
+  const CLAVE = "cf-registro-llamadas";    // llamadas: se borran al guardar el PDF
+  const CLAVE_EQUIPO = "cf-asesores";      // solo nombres de los asesores: se mantienen
+  const CLAVE_ELEGIDO = "cf-asesor-elegido";
+  const DIAS = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
+  const MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+  const $ = (id) => document.getElementById(id);
+  const app = window.Android || null;  // puente con la app de Android (no existe al abrir el archivo en un navegador)
+
+  // ------------------------------------------------------------------ almacenamiento en el teléfono
+  function leer(clave, defecto) {
+    try { const v = JSON.parse(localStorage.getItem(clave)); return v == null ? defecto : v; } catch (e) { return defecto; }
+  }
+  function escribir(clave, valor) {
+    try { localStorage.setItem(clave, JSON.stringify(valor)); return true; } catch (e) { return false; }
+  }
+  // Al actualizar desde la versión 1.4: la app trae lo que se guardaba antes (ver migrar.html). No pisa lo que ya haya.
+  (function recogerMigracion() {
+    if (!app || !app.tomarMigracion) return;
+    try {
+      const json = app.tomarMigracion();
+      if (!json) return;
+      const datos = JSON.parse(json);
+      Object.keys(datos).forEach(function (k) { if (localStorage.getItem(k) == null) localStorage.setItem(k, datos[k]); });
+    } catch (e) {}
+  })();
+  let llamadas = (Array.isArray(leer(CLAVE, [])) ? leer(CLAVE, []) : []).map((l) => Object.assign({ asesor: "Sin asesor" }, l));
+  let equipo = Array.isArray(leer(CLAVE_EQUIPO, [])) ? leer(CLAVE_EQUIPO, []) : [];
+  let elegido = leer(CLAVE_ELEGIDO, "") || "";
+  // Asesores que aparecen en llamadas guardadas pero no en el equipo (p. ej. de la versión anterior).
+  llamadas.forEach((l) => { if (l.asesor !== "Sin asesor" && !equipo.includes(l.asesor)) equipo.push(l.asesor); });
+  if (!equipo.includes(elegido)) elegido = "";
+  function guardarLlamadas() {
+    if (!escribir(CLAVE, llamadas)) avisar("No se pudo guardar en el teléfono: no cierre la app hasta generar el PDF.", "error");
+  }
+
+  // ------------------------------------------------------------------ fechas
+  const dos = (n) => String(n).padStart(2, "0");
+  const fechaIso = (d) => d.getFullYear() + "-" + dos(d.getMonth() + 1) + "-" + dos(d.getDate());
+  const horaIso = (d) => dos(d.getHours()) + ":" + dos(d.getMinutes());
+  function deIso(fecha) { const [a, m, d] = fecha.split("-").map(Number); return new Date(a, m - 1, d); }
+  function nombreDia(fecha) {
+    const ayer = new Date(); ayer.setDate(ayer.getDate() - 1);
+    const d = deIso(fecha), texto = DIAS[d.getDay()] + " " + d.getDate() + " de " + MESES[d.getMonth()];
+    if (fecha === fechaIso(new Date())) return "Hoy · " + texto;
+    if (fecha === fechaIso(ayer)) return "Ayer · " + texto;
+    return texto + (d.getFullYear() !== new Date().getFullYear() ? " de " + d.getFullYear() : "");
+  }
+
+  // ------------------------------------------------------------------ horario de llamadas (igual que JORNADA_LABORAL de CALLFLOW)
+  const HORA_INICIO = "09:00", HORA_FIN = "18:00";
+  const enHorario = (h) => h >= HORA_INICIO && h <= HORA_FIN;  // "HH:MM" se compara bien como texto
+
+  // ------------------------------------------------------------------ día y hora
+  // modo 0: sigue al reloj (fecha y hora actuales); "manual": la persona cambió el día o la hora.
+  let modo = 0;
+  function aplicarModo() {
+    if (typeof modo === "number") {
+      const d = new Date();
+      $("fecha").value = fechaIso(d);
+      $("hora").value = horaIso(d);
+    }
+    const f = $("fecha").value, h = $("hora").value, caja = $("resumen-cuando");
+    const fuera = !!h && !enHorario(h);
+    $("hora-texto").textContent = h || "--:--";
+    $("boton-hora").classList.toggle("fuera", fuera);
+    caja.classList.toggle("fuera", fuera);
+    if (fuera) {
+      caja.textContent = "Las " + h + " está fuera del horario de llamadas (9:00 a 18:00). Cambie la hora para registrar.";
+    } else {
+      caja.innerHTML = f && h ? "Se registra: <b></b>" : "";
+      if (f && h) caja.querySelector("b").textContent = nombreDia(f).replace(" · ", ", ") + " a las " + h;
+    }
+    $("error-cuando").textContent = "";
+  }
+  $("fecha").addEventListener("input", function () { modo = "manual"; aplicarModo(); });
+
+  // ------------------------------------------------------------------ selector de hora (24 h, de 9:00 a 18:00)
+  // Dos toques: la hora y luego los minutos (de 5 en 5; al tocarlos se cierra). −1 / +1 para el minuto exacto.
+  const MIN_INICIO = 9 * 60, MIN_FIN = 18 * 60;
+  let selMin = MIN_INICIO;  // minutos desde las 00:00 de la hora que se está eligiendo
+  const textoHora = (t) => dos(Math.floor(t / 60)) + ":" + dos(t % 60);
+  const acotar = (t) => Math.min(MIN_FIN, Math.max(MIN_INICIO, t));
+  (function crearRejillas() {
+    const horas = $("rejilla-horas");
+    for (let h = 9; h <= 18; h++) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.dataset.h = h;
+      b.innerHTML = h + "<small>" + (h < 12 ? "a. m." : h === 12 ? "m." : (h - 12) + " p. m.") + "</small>";
+      b.addEventListener("click", function () {
+        selMin = acotar(h * 60 + (selMin % 60));
+        pintarSelector();
+      });
+      horas.append(b);
+    }
+    const minutos = $("rejilla-minutos");
+    for (let m = 0; m < 60; m += 5) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.dataset.m = m;
+      b.textContent = dos(m);
+      b.addEventListener("click", function () {
+        selMin = acotar(Math.floor(selMin / 60) * 60 + m);
+        aplicarHora();
+      });
+      minutos.append(b);
+    }
+  })();
+  function pintarSelector() {
+    const h = Math.floor(selMin / 60), m = selMin % 60;
+    $("hora-vista").textContent = textoHora(selMin);
+    document.querySelectorAll("#rejilla-horas button").forEach((b) => b.setAttribute("aria-pressed", String(Number(b.dataset.h) === h)));
+    document.querySelectorAll("#rejilla-minutos button").forEach(function (b) {
+      b.setAttribute("aria-pressed", String(Number(b.dataset.m) === m));
+      b.disabled = h === 18 && Number(b.dataset.m) > 0;  // a las 18 solo 18:00
+    });
+    $("menos-minuto").disabled = selMin <= MIN_INICIO;
+    $("mas-minuto").disabled = selMin >= MIN_FIN;
+  }
+  function abrirHora() {
+    const actual = $("hora").value || horaIso(new Date());
+    const [h, m] = actual.split(":").map(Number);
+    selMin = acotar(h * 60 + m);
+    pintarSelector();
+    abrir("modal-hora");
+  }
+  function aplicarHora() {
+    $("hora").value = textoHora(selMin);
+    modo = "manual";
+    aplicarModo();
+    cerrar();
+  }
+  $("boton-hora").addEventListener("click", abrirHora);
+  $("menos-minuto").addEventListener("click", () => { selMin = acotar(selMin - 1); pintarSelector(); });
+  $("mas-minuto").addEventListener("click", () => { selMin = acotar(selMin + 1); pintarSelector(); });
+  $("hora-listo").addEventListener("click", aplicarHora);
+  $("hora-ahora").addEventListener("click", function () {
+    const ahora = horaIso(new Date());
+    if (!enHorario(ahora)) { avisar("Ahora son las " + ahora + ": fuera del horario de llamadas (9:00 a 18:00).", "error"); return; }
+    modo = 0;  // vuelve a seguir al reloj
+    aplicarModo();
+    cerrar();
+  });
+  setInterval(function () { if (typeof modo === "number") aplicarModo(); }, 10000);  // sigue al reloj mientras no se cambie a mano
+
+  // ------------------------------------------------------------------ asesores
+  const nombreLimpio = (t) => t.trim().replace(/\s+/g, " ");
+  const sinTildes = (s) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+  function pintarAsesores() {
+    const caja = $("chips-asesores");
+    caja.textContent = "";
+    const cuentas = {};
+    llamadas.forEach((l) => { cuentas[l.asesor] = (cuentas[l.asesor] || 0) + 1; });
+    equipo.forEach(function (n) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "chip";
+      b.setAttribute("aria-pressed", String(n === elegido));
+      b.innerHTML = '<span class="nombre"></span>' + (cuentas[n] ? '<span class="cuenta"></span>' : "");
+      b.querySelector(".nombre").textContent = n;
+      if (cuentas[n]) { b.querySelector(".cuenta").textContent = cuentas[n]; b.setAttribute("aria-label", n + ", " + cuentas[n] + " llamadas"); }
+      b.addEventListener("click", function () {
+        elegido = n;
+        escribir(CLAVE_ELEGIDO, elegido);
+        $("error-asesor").textContent = "";
+        $("chips-asesores").classList.remove("invalido");
+        pintarAsesores();
+        $("numero").focus();  // siguiente paso: el número
+      });
+      caja.append(b);
+    });
+    const mas = document.createElement("button");
+    mas.type = "button";
+    mas.className = "chip agregar";
+    mas.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>'
+      + (equipo.length ? "Asesores" : "Agregar asesores");
+    mas.addEventListener("click", abrirEquipo);
+    caja.append(mas);
+    $("desde-foto").hidden = !elegido;
+    $("foto-asesor").textContent = elegido;
+  }
+  function pintarEquipo() {
+    const ul = $("equipo");
+    ul.textContent = "";
+    if (!equipo.length) { ul.innerHTML = '<li class="nota">Todavía no hay asesores.</li>'; return; }
+    equipo.forEach(function (n) {
+      const li = document.createElement("li");
+      const usadas = llamadas.filter((l) => l.asesor === n).length;
+      li.innerHTML = '<div class="nombre"></div>' + (usadas ? '<span class="nota"></span>' : "")
+        + '<button type="button" class="borrar" aria-label="Quitar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"/></svg></button>';
+      li.querySelector(".nombre").textContent = n;
+      if (usadas) li.querySelector(".nota").textContent = usadas + (usadas === 1 ? " llamada" : " llamadas");
+      li.querySelector(".borrar").addEventListener("click", function () {
+        // Quitarlo de la lista no borra sus llamadas ya registradas.
+        equipo = equipo.filter((x) => x !== n);
+        escribir(CLAVE_EQUIPO, equipo);
+        if (elegido === n) { elegido = ""; escribir(CLAVE_ELEGIDO, ""); }
+        pintarEquipo();
+        pintarAsesores();
+      });
+      ul.append(li);
+    });
+  }
+  function abrirEquipo() {
+    $("error-nuevo").textContent = "";
+    pintarEquipo();
+    abrir("modal-equipo");
+    $("nuevo-asesor").focus();
+  }
+  function agregarAsesor() {
+    const n = nombreLimpio($("nuevo-asesor").value);
+    let error = "";
+    if (n.length < 2) error = "Escriba el nombre del asesor.";
+    else if (!/\p{L}/u.test(n)) error = "El nombre debe tener letras.";
+    else if (equipo.some((x) => sinTildes(x) === sinTildes(n))) error = "Ese asesor ya está en la lista.";
+    $("error-nuevo").textContent = error;
+    if (error) return;
+    equipo.push(n);
+    equipo.sort((a, b) => a.localeCompare(b, "es"));
+    escribir(CLAVE_EQUIPO, equipo);
+    if (!elegido) { elegido = n; escribir(CLAVE_ELEGIDO, n); }
+    $("nuevo-asesor").value = "";
+    pintarEquipo();
+    pintar();  // también el texto de la lista vacía («Empiece agregando…» → «Elija al asesor…»)
+    $("nuevo-asesor").focus();
+  }
+  $("agregar-asesor").addEventListener("click", agregarAsesor);
+  $("nuevo-asesor").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); agregarAsesor(); } });
+
+  // ------------------------------------------------------------------ número
+  const limpiar = (t) => t.trim().replace(/[\s\-().]/g, "");
+  function validarNumero(t) {
+    const n = limpiar(t);
+    if (!n) return "Escriba el número de teléfono.";
+    if (!/^\+?\d+$/.test(n)) return "Use solo números (y + al inicio si es internacional).";
+    const digitos = n.replace("+", "").length;
+    if (digitos < 7) return "El número es muy corto: faltan dígitos.";
+    if (digitos > 15) return "El número es muy largo.";
+    return "";
+  }
+  /** 0991234567 → 099 123 4567 (celular de Ecuador); los demás quedan como están. */
+  function mostrarNumero(n) {
+    if (/^09\d{8}$/.test(n)) return n.slice(0, 3) + " " + n.slice(3, 6) + " " + n.slice(6);
+    return n;
+  }
+  $("numero").addEventListener("input", function () {
+    if ($("error-numero").textContent) { $("error-numero").textContent = ""; this.classList.remove("invalido"); }
+  });
+
+  // ------------------------------------------------------------------ lista
+  function pintar(nuevoId) {
+    const total = llamadas.length;
+    $("total").textContent = total;
+    $("total-texto").textContent = total === 1 ? "llamada" : "llamadas";
+    $("finalizar").disabled = total === 0;
+    $("finalizar-texto").textContent = total ? "Finalizar y guardar PDF (" + total + ")" : "Finalizar y guardar PDF";
+    pintarAsesores();
+
+    const caja = $("lista");
+    caja.textContent = "";
+    if (!total) {
+      caja.innerHTML = '<div class="vacio">Todavía no hay llamadas.<br>'
+        + (equipo.length ? "Elija al asesor, escriba el número y pulse «Registrar»." : "Empiece agregando a sus asesores.") + "</div>";
+      return;
+    }
+    const orden = llamadas.slice().sort((a, b) => (b.fecha + b.hora).localeCompare(a.fecha + a.hora));
+    let dia = null, ul = null;
+    orden.forEach(function (l) {
+      if (l.fecha !== dia) {
+        dia = l.fecha;
+        const cab = document.createElement("div");
+        cab.className = "dia";
+        cab.textContent = nombreDia(dia) + " · " + orden.filter((x) => x.fecha === dia).length;
+        ul = document.createElement("ul");
+        caja.append(cab, ul);
+      }
+      const li = document.createElement("li");
+      if (l.id === nuevoId) li.className = "nuevo";
+      li.innerHTML = '<div class="hora"></div><div class="datos"><div class="numero"></div><div class="quien"></div></div>'
+        + '<button type="button" class="borrar" aria-label="Quitar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"/></svg></button>';
+      li.querySelector(".hora").textContent = l.hora;
+      li.querySelector(".numero").textContent = mostrarNumero(l.numero);
+      li.querySelector(".quien").textContent = l.asesor;
+      li.querySelector(".borrar").addEventListener("click", () => pedirBorrar(l));
+      ul.append(li);
+    });
+  }
+
+  // ------------------------------------------------------------------ registrar
+  $("form").addEventListener("submit", function (e) {
+    e.preventDefault();
+    if (typeof modo === "number") aplicarModo();  // con el reloj de este instante
+    const errAsesor = elegido ? "" : (equipo.length ? "Toque el asesor que hizo la llamada." : "Primero agregue a sus asesores.");
+    $("error-asesor").textContent = errAsesor;
+    $("chips-asesores").classList.toggle("invalido", !!errAsesor);
+    const campo = $("numero"), errNum = validarNumero(campo.value);
+    $("error-numero").textContent = errNum;
+    campo.classList.toggle("invalido", !!errNum);
+    const fecha = $("fecha").value, hora = $("hora").value;
+    let errCuando = "";
+    if (!fecha || !hora) errCuando = "Elija el día y la hora de la llamada.";
+    else if (!enHorario(hora)) errCuando = "Solo se registran llamadas de 9:00 a 18:00.";
+    else if (fecha + "T" + hora > fechaIso(new Date()) + "T" + horaIso(new Date())) errCuando = "La llamada no puede ser en el futuro.";
+    $("error-cuando").textContent = errCuando;
+    if (errAsesor) { if (!equipo.length) abrirEquipo(); return; }
+    if (errNum) { campo.focus(); return; }
+    if (errCuando) { $("resumen-cuando").textContent = ""; $("resumen-cuando").classList.remove("fuera"); $("boton-hora").focus(); return; }
+
+    const numero = limpiar(campo.value);
+    if (llamadas.some((l) => l.numero === numero && l.fecha === fecha && l.hora === hora && l.asesor === elegido)) {
+      $("error-numero").textContent = "Esa llamada ya está registrada (mismo asesor, número, día y hora).";
+      return;
+    }
+    const nueva = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), asesor: elegido, numero, fecha, hora };
+    llamadas.push(nueva);
+    guardarLlamadas();
+    campo.value = "";
+    modo = 0;  // la siguiente vuelve a la fecha y hora actuales
+    aplicarModo();
+    pintar(nueva.id);
+    avisar("✓ " + elegido + " · " + mostrarNumero(numero) + " · " + hora);
+    campo.focus();  // listo para la siguiente
+  });
+
+  // ------------------------------------------------------------------ quitar una llamada
+  let porBorrar = null;
+  function pedirBorrar(l) {
+    porBorrar = l;
+    $("borrar-texto").textContent = l.asesor + " · " + mostrarNumero(l.numero) + " · " + nombreDia(l.fecha).replace(/^(Hoy|Ayer) · /, "") + " a las " + l.hora + ".";
+    abrir("modal-borrar");
+  }
+  $("confirmar-borrar").addEventListener("click", function () {
+    if (porBorrar) { llamadas = llamadas.filter((x) => x.id !== porBorrar.id); guardarLlamadas(); pintar(); avisar("Llamada quitada."); }
+    porBorrar = null;
+    cerrar();
+  });
+
+  // ------------------------------------------------------------------ finalizar: PDF y limpiar
+  let ultimoPdf = null;
+  $("finalizar").addEventListener("click", function () {
+    const n = llamadas.length, a = new Set(llamadas.map((l) => l.asesor)).size;
+    $("confirmar-texto").textContent = "Se guardará un PDF con " + n + (n === 1 ? " llamada" : " llamadas") + " de " + a
+      + (a === 1 ? " asesor" : " asesores") + " en Descargas › CALLFLOW. Después las llamadas de este teléfono se borran.";
+    abrir("modal-confirmar");
+  });
+  $("confirmar-guardar").addEventListener("click", function () {
+    const boton = this;
+    if (!app) { cerrar(); avisar("El PDF solo se puede generar desde la app del teléfono.", "error"); return; }
+    boton.disabled = true;
+    boton.textContent = "Guardando…";
+    setTimeout(function () {  // deja pintar «Guardando…» antes de generar
+      let r;
+      try {
+        const datos = llamadas.map((l) => ({ fecha: l.fecha, hora: l.hora, asesor: l.asesor, numero: l.numero }));
+        r = JSON.parse(app.guardarPdf(JSON.stringify(datos)));
+      } catch (e) {
+        r = { ok: false, error: String(e && e.message || e) };
+      }
+      boton.disabled = false;
+      boton.textContent = "Guardar PDF";
+      cerrar();
+      if (!r.ok) { avisar("No se pudo guardar el PDF: " + r.error + " Las llamadas siguen en el teléfono.", "error"); return; }
+      // Solo se borra después de confirmar que el PDF quedó guardado.
+      llamadas = [];
+      try { localStorage.removeItem(CLAVE); } catch (e) {}
+      pintar();
+      ultimoPdf = r.uri;
+      $("listo-archivo").textContent = r.nombre;
+      abrir("modal-listo");
+    }, 30);
+  });
+  $("abrir").addEventListener("click", () => { if (app && ultimoPdf) app.abrirPdf(ultimoPdf); });
+  $("compartir").addEventListener("click", () => { if (app && ultimoPdf) app.compartirPdf(ultimoPdf); });
+
+  // ------------------------------------------------------------------ registrar desde una foto del historial
+  // La foto se lee en el teléfono (assets/ocr/lector.js, Tesseract; se carga la primera vez que se usa). De las
+  // palabras leídas se arman filas como en la pantalla y de cada fila se saca el número, la hora y el día.
+  // Nada se registra sin revisarlo.
+  let lectorListo = null, lecturaId = 0;
+  let leidas = [], asesorFoto = "", urlFoto = null;
+
+  function cargarScript(src) {
+    return new Promise(function (ok, mal) {
+      const s = document.createElement("script");
+      s.src = src;
+      s.onload = ok;
+      s.onerror = () => mal(new Error("no se encontró " + src));
+      document.head.append(s);
+    });
+  }
+  function prepararLector() {
+    if (!lectorListo) {
+      lectorListo = cargarScript("ocr/tesseract.min.js").then(() => cargarScript("ocr/lector.js"))
+        .catch(function (e) { lectorListo = null; throw e; });
+    }
+    return lectorListo;
+  }
+
+  function elegirFoto(id) {
+    if (!elegido) { $("error-asesor").textContent = "Toque primero el asesor de la foto."; return; }
+    if (!app) { avisar("Leer fotos solo funciona en la app del teléfono.", "error"); return; }
+    $(id).value = "";
+    $(id).click();
+  }
+  $("tomar-foto").addEventListener("click", () => elegirFoto("archivo-camara"));
+  $("elegir-captura").addEventListener("click", () => elegirFoto("archivo-galeria"));
+  ["archivo-camara", "archivo-galeria"].forEach(function (id) {
+    $(id).addEventListener("change", function () { if (this.files && this.files[0]) leerFoto(this.files[0]); });
+  });
+
+  function leerFoto(archivo) {
+    asesorFoto = elegido;
+    leidas = [];
+    lecturaId++;
+    const id = lecturaId;
+    if (urlFoto) URL.revokeObjectURL(urlFoto);
+    urlFoto = URL.createObjectURL(archivo);
+    $("foto-vista").src = urlFoto;
+    $("foto-vista").hidden = false;
+    $("foto-titulo").textContent = "Llamadas de " + asesorFoto;
+    $("foto-estado").textContent = "Leyendo la foto… (la primera vez tarda unos segundos más)";
+    $("foto-progreso").hidden = false;
+    $("foto-progreso").firstElementChild.style.width = "5%";
+    $("foto-lista").textContent = "";
+    $("foto-registrar").disabled = true;
+    $("foto-registrar").textContent = "Registrar";
+    abrir("modal-foto");
+    prepararLector().then(function () {
+      return window.LectorFotos.leer(archivo, function (p) {
+        if (id === lecturaId) $("foto-progreso").firstElementChild.style.width = Math.round(10 + p * 90) + "%";
+      });
+    }).then(function (palabras) {
+      if (id === lecturaId) mostrarLeidas(interpretar(palabras));
+    }).catch(function (e) {
+      if (id === lecturaId) fotoError("No se pudo leer la foto (" + (e && e.message || e) + ").");
+    });
+  }
+  function fotoError(texto) {
+    $("foto-progreso").hidden = true;
+    $("foto-estado").textContent = texto + " Intente con otra foto o registre a mano.";
+  }
+
+  // ---------- interpretar lo leído
+  const MESES_CORTOS = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+  const RE_HORA = /(?:^|[^\d])([01]?\d|2[0-3])\s?[:.]\s?([0-5]\d)(?!\d)(?:\s*([ap])\.?\s?m\b\.?)?/gi;
+
+  /** Palabras → filas de texto (las que están a la misma altura en la pantalla van juntas, de izquierda a derecha). */
+  function filasDe(palabras) {
+    const ps = palabras.filter((p) => p.t && p.t.trim() && p.c > 20)
+      .map((p) => Object.assign({}, p, { cy: (p.y0 + p.y1) / 2, h: Math.max(1, p.y1 - p.y0) }))
+      .sort((a, b) => a.cy - b.cy);
+    const filas = [];
+    ps.forEach(function (p) {
+      const f = filas.slice(-3).find((f) => Math.abs(f.cy - p.cy) < Math.min(f.h, p.h) * 0.6);
+      if (f) { f.ps.push(p); f.h = Math.max(f.h, p.h); } else filas.push({ cy: p.cy, h: p.h, ps: [p] });
+    });
+    return filas.map((f) => f.ps.sort((a, b) => a.x0 - b.x0).map((p) => p.t).join(" "));
+  }
+  /** Corrige letras que el lector confunde con números, solo en palabras que son casi todas números. */
+  function corregirDigitos(fila) {
+    return fila.split(/\s+/).map(function (t) {
+      const digitos = (t.match(/\d/g) || []).length;
+      if (digitos < 2 || digitos < t.replace(/[^0-9A-Za-z]/g, "").length * 0.6) return t;
+      return t.replace(/[Oo]/g, "0").replace(/[Il|]/g, "1").replace(/S/g, "5").replace(/B/g, "8");
+    }).join(" ");
+  }
+  function horaDe(h, m, ap) {
+    h = Number(h);
+    if (ap) {
+      ap = ap.toLowerCase();
+      if (ap === "p" && h < 12) h += 12;
+      if (ap === "a" && h === 12) h = 0;
+    } else if (h >= 1 && h <= 6) {
+      h += 12;  // sin a. m./p. m.: de 1 a 6 solo puede ser de la tarde (horario 9:00 a 18:00)
+    }
+    return dos(h) + ":" + dos(Number(m));
+  }
+  /** Fecha escrita en la fila («Hoy», «Ayer», «15 nov», «15/11»), o null. */
+  function fechaDe(texto, hoy) {
+    const t = sinTildes(texto);
+    if (/\bhoy\b/.test(t)) return fechaIso(hoy);
+    if (/\bayer\b/.test(t)) { const d = new Date(hoy); d.setDate(d.getDate() - 1); return fechaIso(d); }
+    let m = t.match(/\b(\d{1,2})\s*(?:de\s+)?(ene|feb|mar|abr|may|jun|jul|ago|sep|set|oct|nov|dic)[a-z]*\.?(?:\s+(?:de\s+)?(\d{4}))?/);
+    if (m) return armarFecha(Number(m[1]), m[2] === "set" ? 8 : MESES_CORTOS.indexOf(m[2]), m[3] && Number(m[3]), hoy);
+    m = t.match(/\b(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?\b/);
+    if (m) return armarFecha(Number(m[1]), Number(m[2]) - 1, m[3] && (m[3].length === 2 ? 2000 + Number(m[3]) : Number(m[3])), hoy);
+    return null;
+  }
+  function armarFecha(dia, mes, anio, hoy) {
+    if (mes < 0 || mes > 11 || dia < 1 || dia > 31) return null;
+    const d = new Date(anio || hoy.getFullYear(), mes, dia);
+    if (!anio && d > hoy) d.setFullYear(d.getFullYear() - 1);  // «15 dic» visto en enero es del año pasado
+    return fechaIso(d);
+  }
+  /** Número de teléfono de la fila (sin las horas ni las fechas), o "". +593 9… se pasa a 09…. */
+  function numeroDe(fila) {
+    const t = fila.replace(RE_HORA, " | ").replace(/\b\d{1,2}\/\d{1,2}(\/\d{2,4})?\b/g, " | ")
+      .replace(/\b\d{1,2}\s*(?:de\s+)?[a-záéíóú]{3,}\.?/gi, " | ");
+    const trozos = t.match(/\+?\d[\d\s\-().]*\d/g) || [];
+    for (const trozo of trozos) {
+      let n = trozo.replace(/[^\d+]/g, "");
+      const d = n.replace("+", "");
+      if (d.length < 7 || d.length > 15) continue;
+      if (/^\+?593\d{9}$/.test(n)) n = "0" + n.replace(/^\+?593/, "");
+      return n;
+    }
+    return "";
+  }
+
+  function interpretar(palabras) {
+    const hoy = new Date();
+    const filas = filasDe(palabras).map(corregirDigitos);
+    const salida = [];
+    let fechaActual = fechaIso(hoy), ultima = null, desde = 99, sinNumero = 0;
+    filas.forEach(function (fila) {
+      const numero = numeroDe(fila);
+      RE_HORA.lastIndex = 0;
+      const h = RE_HORA.exec(fila);
+      let hora = h ? horaDe(h[1], h[2], h[3]) : "";
+      const rel = sinTildes(fila).match(/hace\s+(\d+)\s*(min|h)/);
+      if (!hora && rel) {
+        const d = new Date(hoy.getTime() - Number(rel[1]) * (rel[2] === "h" ? 3600000 : 60000));
+        hora = horaIso(d);
+      }
+      const fecha = fechaDe(fila, hoy);
+      desde++;
+      if (numero) {
+        ultima = { numero: numero, hora: hora, fecha: fecha || fechaActual, fechaPropia: !!fecha };
+        salida.push(ultima);
+        desde = 0;
+        return;
+      }
+      // Fila sin número: completa a la llamada de arriba (la hora o el día suelen ir en la línea de abajo)…
+      if (ultima && desde <= 2 && ((hora && !ultima.hora) || (fecha && !ultima.fechaPropia && !ultima.hora))) {
+        if (hora && !ultima.hora) ultima.hora = hora;
+        if (fecha && !ultima.fechaPropia) { ultima.fecha = fecha; ultima.fechaPropia = true; }
+        return;
+      }
+      // …o es un título de día («Hoy», «Ayer», «Lunes 17 de noviembre»), o una llamada a un contacto con nombre.
+      if (fecha && !hora) { fechaActual = fecha; return; }
+      if (hora && /\p{L}{3,}/u.test(fila)) sinNumero++;
+    });
+    // La misma llamada leída dos veces (p. ej. el número repetido en la línea de abajo) se deja una sola vez.
+    const vistas = new Set();
+    const unicas = salida.filter(function (l) {
+      const k = l.numero + "|" + l.fecha + "|" + l.hora;
+      if (vistas.has(k)) return false;
+      vistas.add(k);
+      return true;
+    });
+    return { llamadas: unicas, sinNumero: sinNumero };
+  }
+
+  // ---------- revisión
+  function problema(l, i) {
+    const errNum = validarNumero(l.numero);
+    if (errNum) return errNum;
+    if (!l.hora) return "No se leyó la hora: escríbala.";
+    if (!l.fecha) return "Falta el día.";
+    if (!enHorario(l.hora)) return "Fuera del horario (9:00 a 18:00).";
+    if (l.fecha + "T" + l.hora > fechaIso(new Date()) + "T" + horaIso(new Date())) return "Hora en el futuro: revise el día.";
+    const n = limpiar(l.numero);
+    if (llamadas.some((x) => x.numero === n && x.fecha === l.fecha && x.hora === l.hora && x.asesor === asesorFoto)) return "Ya estaba registrada.";
+    if (leidas.some((x, j) => j < i && x.marcada && limpiar(x.numero) === n && x.fecha === l.fecha && x.hora === l.hora)) return "Repetida en la foto.";
+    return "";
+  }
+  function mostrarLeidas(r) {
+    $("foto-progreso").hidden = true;
+    leidas = r.llamadas.map((l) => ({ numero: l.numero, fecha: l.fecha, hora: l.hora, marcada: true }));
+    leidas.forEach((l, i) => { l.marcada = !problema(l, i); });
+    const extra = r.sinNumero ? " " + r.sinNumero + (r.sinNumero === 1 ? " llamada es a un contacto guardado" : " llamadas son a contactos guardados")
+      + " con nombre: la foto no muestra el número, regístrela" + (r.sinNumero === 1 ? "" : "s") + " a mano." : "";
+    if (!leidas.length) {
+      $("foto-estado").textContent = "No se encontraron números de teléfono en la foto. Tome la foto de frente, con buena luz y que se vean los números." + extra;
+      $("foto-vista").hidden = false;
+      return;
+    }
+    $("foto-estado").textContent = "Se encontraron " + leidas.length + (leidas.length === 1 ? " llamada" : " llamadas")
+      + ". Compare con la foto, corrija lo que haga falta y desmarque las que no son." + extra;
+    pintarLeidas();
+  }
+  function pintarLeidas() {
+    const caja = $("foto-lista");
+    caja.textContent = "";
+    leidas.forEach(function (l, i) {
+      const fila = document.createElement("div");
+      fila.className = "leida";
+      fila.innerHTML = '<input type="checkbox" aria-label="Registrar esta llamada"><input type="tel" inputmode="tel" maxlength="20" aria-label="Número">'
+        + '<input type="time" aria-label="Hora"><div class="detalle"><input type="date" aria-label="Día"><span class="nota"></span></div>';
+      const [marca, numero, hora] = fila.querySelectorAll("input");
+      const dia = fila.querySelector("input[type=date]");
+      marca.checked = l.marcada;
+      numero.value = l.numero;
+      hora.value = l.hora;
+      dia.value = l.fecha;
+      marca.addEventListener("change", () => { l.marcada = marca.checked; revisarLeidas(); });
+      numero.addEventListener("input", () => { l.numero = numero.value; revisarLeidas(); });
+      hora.addEventListener("input", () => { l.hora = hora.value; revisarLeidas(); });
+      dia.addEventListener("input", () => { l.fecha = dia.value; revisarLeidas(); });
+      l.fila = fila;
+      caja.append(fila);
+    });
+    revisarLeidas();
+  }
+  function revisarLeidas() {
+    let listas = 0, conError = 0;
+    leidas.forEach(function (l, i) {
+      const p = problema(l, i), nota = l.fila.querySelector(".nota");
+      l.fila.classList.toggle("apagada", !l.marcada);
+      nota.textContent = p || (l.marcada ? "✓ " + nombreDia(l.fecha).replace(/ · .*/, "") : "No se registrará");
+      nota.classList.toggle("mal", !!p && l.marcada);
+      if (l.marcada) { if (p) conError++; else listas++; }
+    });
+    const b = $("foto-registrar");
+    b.disabled = !listas || conError > 0;
+    b.textContent = conError ? "Corrija " + conError + (conError === 1 ? " llamada" : " llamadas")
+      : "Registrar " + listas + (listas === 1 ? " llamada" : " llamadas");
+  }
+  $("foto-registrar").addEventListener("click", function () {
+    const nuevas = [];
+    leidas.forEach(function (l, i) {
+      if (!l.marcada || problema(l, i)) return;
+      nuevas.push({ id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), asesor: asesorFoto,
+                    numero: limpiar(l.numero), fecha: l.fecha, hora: l.hora });
+    });
+    if (!nuevas.length) return;
+    llamadas = llamadas.concat(nuevas);
+    guardarLlamadas();
+    leidas = [];
+    cerrar();
+    pintar();
+    avisar("✓ " + nuevas.length + (nuevas.length === 1 ? " llamada registrada" : " llamadas registradas") + " de " + asesorFoto);
+  });
+
+  // ------------------------------------------------------------------ ventanas y avisos
+  let abierta = null;
+  function abrir(id) { cerrar(); abierta = $(id); abierta.hidden = false; }
+  function cerrar() { if (abierta) { abierta.hidden = true; abierta = null; } }
+  document.querySelectorAll(".fondo-modal").forEach(function (m) {
+    m.addEventListener("click", (e) => { if ((e.target === m && !m.hasAttribute("data-fijo")) || e.target.closest("[data-cerrar]")) cerrar(); });
+  });
+  // Botón «Atrás» de Android: cierra la ventana abierta; si no hay, pide pulsarlo dos veces para salir
+  // (así no se sale sin querer mientras se registra).
+  let ultimoAtras = 0;
+  window.atras = function () {
+    if (abierta) { cerrar(); return true; }
+    if (Date.now() - ultimoAtras < 2500) return false;
+    ultimoAtras = Date.now();
+    avisar("Pulse «Atrás» otra vez para salir. Las llamadas quedan guardadas en el teléfono.");
+    return true;
+  };
+
+  let temporizador = null;
+  window.avisar = function (texto, tipo) {
+    const a = $("aviso");
+    a.textContent = texto;
+    a.className = "aviso" + (tipo === "error" ? " error" : "");
+    a.hidden = false;
+    clearTimeout(temporizador);
+    temporizador = setTimeout(() => { a.hidden = true; }, tipo === "error" ? 5000 : 2200);
+  };
+  const avisar = window.avisar;
+
+  // ------------------------------------------------------------------ inicio
+  if (app) { try { $("usuario").textContent = app.usuario(); } catch (e) {} }
+  escribir(CLAVE_EQUIPO, equipo);
+  aplicarModo();
+  pintar();
+})();
+</script>
+</body>
+</html>

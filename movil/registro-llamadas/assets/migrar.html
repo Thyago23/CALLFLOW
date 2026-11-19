@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="es">
+<head><meta charset="utf-8"><title>Actualizando</title></head>
+<body style="background:#f5f9fc">
+<!--
+  Se abre una sola vez, al actualizar desde la versión 1.4 o anterior: esas versiones guardaban las llamadas en la
+  página file:///android_asset/. Ahora la página se sirve desde https://appassets.androidplatform.net (para poder
+  leer fotos), que tiene su propio almacenamiento. Esto pasa los datos guardados a la app y ella los entrega a la
+  página nueva (index.html, al iniciar). Así no se pierden las llamadas que aún no estaban en un PDF.
+-->
+<script>
+(function () {
+  const datos = {};
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.indexOf("cf-") === 0) datos[k] = localStorage.getItem(k);
+    }
+  } catch (e) {}
+  Android.migrar(JSON.stringify(datos));
+})();
+</script>
+</body>
+</html>

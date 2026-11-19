@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Colores de Multivisa / CALLFLOW: azul #0062A8, azul noche #0A2A4A, rosa #FF0066. -->
+    <style name="Tema" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:colorPrimary">#0062a8</item>
+        <item name="android:colorPrimaryDark">#0a2a4a</item>
+        <item name="android:colorAccent">#0062a8</item>
+        <item name="android:windowBackground">#f5f9fc</item>
+        <item name="android:statusBarColor">#0a2a4a</item>
+        <item name="android:navigationBarColor">#ffffff</item>
+    </style>
+</resources>

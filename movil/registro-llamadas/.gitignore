@@ -1,0 +1,5 @@
+# Se generan con build.ps1
+build/
+salida/
+# Llave y clave de firma: NO subir al repositorio (guardar aparte, en un lugar seguro)
+firma/

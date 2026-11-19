@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <!-- Degradado azul noche → azul, como la cabecera de la app y el panel de marca de CALLFLOW. -->
+    <gradient android:angle="315" android:startColor="#0a2a4a" android:endColor="#0062a8" />
+</shape>
