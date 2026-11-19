@@ -1,0 +1,2 @@
+# build.sh debe quedar con saltos de línea de Linux aunque se clone en Windows
+*.sh text eol=lf
