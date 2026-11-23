@@ -99,7 +99,7 @@
         <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#menu-lateral" aria-label="Cerrar menú"></button>
       </div>
       <nav class="p-2">
-        <a class="enlace-menu {% if request.resolver_match.url_name == 'inicio' %}activo{% endif %}" href="{% url 'inicio' %}" {% if request.resolver_match.url_name == 'inicio' %}aria-current="page"{% endif %}>
+        <a class="enlace-menu {% if request.resolver_match.view_name == 'inicio' %}activo{% endif %}" href="{% url 'inicio' %}" {% if request.resolver_match.view_name == 'inicio' %}aria-current="page"{% endif %}>
           <i class="bi bi-grid-1x2" aria-hidden="true"></i><span class="texto-menu">Inicio</span>
         </a>
         {# Cada sección se pliega con su encabezado; se recuerda por navegador y la que tiene la página actual siempre queda abierta. #}
@@ -130,7 +130,7 @@
           <span>Sistema</span><i class="bi bi-chevron-down flecha-grupo" aria-hidden="true"></i>
         </button>
         <div class="enlaces-grupo" id="grupo-menu-sistema"><div class="enlaces-grupo-interno">
-        <a class="enlace-menu {% if request.resolver_match.url_name|slice:':7' == 'usuario' %}activo{% endif %}" href="{% url 'usuarios' %}">
+        <a class="enlace-menu {% if request.resolver_match.view_name|slice:':7' == 'usuario' %}activo{% endif %}" href="{% url 'usuarios' %}">
           <i class="bi bi-person-badge" aria-hidden="true"></i><span class="texto-menu">Usuarios</span>
         </a>
         </div></div>
