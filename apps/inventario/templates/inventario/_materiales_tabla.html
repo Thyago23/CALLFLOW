@@ -1,5 +1,36 @@
 {% if materiales %}
-<div class="card">
+{# Vista de tarjetas: cada material es un «estante» con su nivel de stock y botones de entrada y salida. #}
+<div class="rejilla-materiales">
+  {% for m in materiales %}
+  <article class="tarjeta-material nivel-{{ m.nivel }}">
+    <div class="tarjeta-material-cabeza">
+      <span class="etiqueta-estante">{{ m.codigo }}</span>
+      {% include "inventario/_estado_material.html" %}
+    </div>
+    <a class="nombre-material" href="{% url 'inventario:material_detalle' m.pk %}">{{ m.nombre }}</a>
+    <div>
+      <div class="stock-material mb-2">
+        <span class="cifra">{{ m.stock_actual|floatformat:"-2" }}</span>
+        <span class="unidad">{{ m.get_unidad_medida_display|lower }}</span>
+      </div>
+      {% include "inventario/_barra_nivel.html" %}
+    </div>
+    {% if m.activo and perms.inventario.add_movimientoinventario %}
+    <div class="acciones-material">
+      <button type="button" class="btn btn-sm btn-outline-secondary" {% if m.stock_actual <= 0 %}disabled{% endif %}
+              hx-get="{% url 'inventario:movimiento_rapido' m.pk %}?tipo=SALIDA" hx-target="#modal-movimiento-cuerpo"
+              data-bs-toggle="modal" data-bs-target="#modal-movimiento">Salida</button>
+      <button type="button" class="btn btn-sm btn-outline-secondary"
+              hx-get="{% url 'inventario:movimiento_rapido' m.pk %}?tipo=ENTRADA" hx-target="#modal-movimiento-cuerpo"
+              data-bs-toggle="modal" data-bs-target="#modal-movimiento">Entrada</button>
+    </div>
+    {% endif %}
+  </article>
+  {% endfor %}
+</div>
+
+{# Vista de lista: lo mismo en una tabla compacta. #}
+<div class="card lista-materiales">
   <div class="table-responsive">
     <table class="table table-hover align-middle mb-0">
       <thead>
@@ -7,7 +38,7 @@
           <th scope="col">Material</th>
           <th scope="col" class="d-none d-md-table-cell">Categoría</th>
           <th scope="col" class="text-end">Stock</th>
-          <th scope="col" class="text-end d-none d-sm-table-cell">Mínimo</th>
+          <th scope="col" class="d-none d-lg-table-cell" style="width: 11rem">Nivel</th>
           <th scope="col">Estado</th>
           {% if perms.inventario.add_movimientoinventario %}<th scope="col" class="text-end">Acciones</th>{% endif %}
         </tr>
@@ -17,21 +48,22 @@
         <tr class="{% if not m.activo %}text-body-secondary{% endif %}">
           <td>
             <a class="fw-semibold text-reset" href="{% url 'inventario:material_detalle' m.pk %}">{{ m.nombre }}</a>
-            <div class="small text-body-secondary">{{ m.codigo }}</div>
+            <span class="etiqueta-estante mt-1">{{ m.codigo }}</span>
           </td>
           <td class="d-none d-md-table-cell">{{ m.categoria }}</td>
-          <td class="text-end text-nowrap"><span class="fw-semibold {% if m.activo and m.stock_bajo %}text-danger{% endif %}">{{ m.stock_actual|floatformat:"-2" }}</span> <span class="small text-body-secondary">{{ m.get_unidad_medida_display|lower }}</span></td>
-          <td class="text-end d-none d-sm-table-cell">{{ m.stock_minimo|floatformat:"-2" }}</td>
-          <td>
-            {% if not m.activo %}<span class="badge text-bg-secondary">Inactivo</span>
-            {% elif m.stock_bajo %}<span class="badge bg-danger-subtle text-danger-emphasis border border-danger-subtle">Stock bajo</span>
-            {% else %}<span class="badge bg-success-subtle text-success-emphasis border border-success-subtle">Disponible</span>{% endif %}
-          </td>
+          <td class="text-end text-nowrap"><span class="fw-semibold">{{ m.stock_actual|floatformat:"-2" }}</span> <span class="small text-body-secondary">{{ m.get_unidad_medida_display|lower }}</span>
+            <div class="small text-body-secondary d-lg-none">mín. {{ m.stock_minimo|floatformat:"-2" }}</div></td>
+          <td class="d-none d-lg-table-cell">{% include "inventario/_barra_nivel.html" with compacta=True %}</td>
+          <td>{% include "inventario/_estado_material.html" %}</td>
           {% if perms.inventario.add_movimientoinventario %}
           <td class="text-end text-nowrap">
             {% if m.activo %}
-            <a class="btn btn-sm btn-outline-success" href="{% url 'inventario:movimiento_crear' %}?material={{ m.pk }}&tipo=ENTRADA" title="Registrar entrada"><i class="bi bi-plus-lg" aria-hidden="true"></i><span class="d-none d-xl-inline ms-1">Entrada</span></a>
-            <a class="btn btn-sm btn-outline-primary" href="{% url 'inventario:movimiento_crear' %}?material={{ m.pk }}&tipo=SALIDA" title="Registrar salida"><i class="bi bi-dash-lg" aria-hidden="true"></i><span class="d-none d-xl-inline ms-1">Salida</span></a>
+            <button type="button" class="btn btn-sm btn-outline-secondary" title="Salida" {% if m.stock_actual <= 0 %}disabled{% endif %}
+                    hx-get="{% url 'inventario:movimiento_rapido' m.pk %}?tipo=SALIDA" hx-target="#modal-movimiento-cuerpo"
+                    data-bs-toggle="modal" data-bs-target="#modal-movimiento"><i class="bi bi-dash-lg" aria-hidden="true"></i><span class="visually-hidden">Salida</span></button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" title="Entrada"
+                    hx-get="{% url 'inventario:movimiento_rapido' m.pk %}?tipo=ENTRADA" hx-target="#modal-movimiento-cuerpo"
+                    data-bs-toggle="modal" data-bs-target="#modal-movimiento"><i class="bi bi-plus-lg" aria-hidden="true"></i><span class="visually-hidden">Entrada</span></button>
             {% endif %}
           </td>
           {% endif %}
@@ -43,10 +75,14 @@
 </div>
 <p class="text-body-secondary small mt-2">{{ materiales|length }} material{{ materiales|length|pluralize:"es" }}.</p>
 {% elif q or categoria or estado %}
-<div class="text-center text-body-secondary py-5">No hay materiales que coincidan con la búsqueda.</div>
+<div class="bodega-vacia">
+  <p class="mb-0">No hay materiales que coincidan con la búsqueda.</p>
+</div>
 {% else %}
-<div class="text-center py-5">
-  <p class="text-body-secondary mb-3">Todavía no hay materiales registrados.</p>
+<div class="bodega-vacia">
+  <p class="fw-semibold text-body mb-1">Todavía no hay materiales</p>
+  <p class="text-body-secondary mb-3">Registre los suministros de oficina para controlar cuánto hay de cada uno.</p>
   {% if perms.inventario.add_material %}<a href="{% url 'inventario:material_crear' %}" class="btn btn-primary">Registrar el primer material</a>{% endif %}
 </div>
 {% endif %}
+{% if oob %}{% include "inventario/_resumen_bodega.html" %}{% endif %}

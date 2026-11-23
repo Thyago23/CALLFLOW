@@ -1,0 +1,16 @@
+{# Respuesta de la ventana rápida cuando el movimiento se guardó: el aviso va a la esquina (avisos flotantes) y la ventana se cierra. #}
+<div class="modal-body text-center py-4"><i class="bi bi-check-circle text-success fs-3" aria-hidden="true"></i><p class="mb-0 mt-2">{{ texto }}</p></div>
+<div hx-swap-oob="beforeend:#avisos-flotantes">
+  <div class="toast aviso-flotante {% if bajo %}tono-alerta{% else %}tono-exito{% endif %}" role="status" aria-live="polite" aria-atomic="true" data-bs-delay="10000">
+    <div class="aviso-cuerpo">
+      <span class="icono-notificacion {% if bajo %}tono-alerta{% else %}tono-exito{% endif %}" aria-hidden="true"><i class="bi bi-{% if bajo %}exclamation-triangle{% else %}check2-circle{% endif %}"></i></span>
+      <div class="min-w-0 flex-grow-1">
+        <div class="aviso-encabezado"><span>Bodega</span></div>
+        <a class="aviso-titulo stretched-link" href="{% url 'inventario:material_detalle' movimiento.material_id %}">{{ movimiento.get_tipo_display }} · {{ movimiento.material.nombre }}</a>
+        <p class="aviso-mensaje">{{ texto }}</p>
+      </div>
+      <button type="button" class="btn-close aviso-cerrar" data-bs-dismiss="toast" aria-label="Cerrar aviso"></button>
+    </div>
+    <div class="aviso-tiempo" aria-hidden="true"></div>
+  </div>
+</div>

@@ -1,0 +1,29 @@
+<form method="post" novalidate data-movimiento
+      data-stock="{{ material.stock_actual|stringformat:'s' }}" data-minimo="{{ material.stock_minimo|stringformat:'s' }}" data-unidad="{{ material.get_unidad_medida_display|lower }}"
+      hx-post="{% url 'inventario:movimiento_rapido' material.pk %}" hx-target="#modal-movimiento-cuerpo" hx-disabled-elt="find button[type=submit]">
+  {% csrf_token %}
+  <input type="hidden" name="origen" value="{{ origen }}">
+  <div class="modal-header">
+    <div class="d-flex align-items-center gap-2 min-w-0">
+      <div class="min-w-0">
+        <h2 class="modal-title h5 text-truncate" id="titulo-modal-movimiento">{{ material.nombre }}</h2>
+        <div class="small text-body-secondary mt-1"><span class="etiqueta-estante">{{ material.codigo }}</span> {{ material.categoria }}</div>
+      </div>
+    </div>
+    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+  </div>
+  <div class="modal-body">
+    {% if not material.activo %}
+    <div class="alert alert-secondary mb-0">Este material está inactivo y no admite movimientos.</div>
+    {% else %}
+    {% for error in form.non_field_errors %}<div class="alert alert-danger py-2">{{ error }}</div>{% endfor %}
+    {% include "inventario/_campos_movimiento.html" with unidad=material.get_unidad_medida_display|lower %}
+    {% endif %}
+  </div>
+  <div class="modal-footer">
+    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+    {% if material.activo %}
+    <button type="submit" class="btn btn-primary">Registrar</button>
+    {% endif %}
+  </div>
+</form>

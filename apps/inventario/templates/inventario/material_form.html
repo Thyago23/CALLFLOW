@@ -1,9 +1,9 @@
 {% extends "base.html" %}
-{% block titulo %}{% if nuevo %}Nuevo material{% else %}Editar {{ material.nombre }}{% endif %} · Inventario{% endblock %}
+{% block titulo %}{% if nuevo %}Nuevo material{% else %}Editar {{ material.nombre }}{% endif %} · Bodega{% endblock %}
 {% block contenido %}
 <nav aria-label="Ruta" class="mb-2">
   <ol class="breadcrumb small mb-0">
-    <li class="breadcrumb-item"><a href="{% url 'inventario:materiales' %}">Inventario</a></li>
+    <li class="breadcrumb-item"><a href="{% url 'inventario:materiales' %}">Bodega</a></li>
     {% if not nuevo %}<li class="breadcrumb-item"><a href="{% url 'inventario:material_detalle' material.pk %}">{{ material.nombre }}</a></li>{% endif %}
     <li class="breadcrumb-item active" aria-current="page">{% if nuevo %}Nuevo material{% else %}Editar{% endif %}</li>
   </ol>

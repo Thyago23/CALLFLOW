@@ -1,61 +1,57 @@
 {% extends "base.html" %}
-{% block titulo %}Registrar movimiento · Inventario{% endblock %}
+{% load estaticos %}
+{% block titulo %}Registrar movimiento · Bodega{% endblock %}
 {% block contenido %}
 <nav aria-label="Ruta" class="mb-2">
   <ol class="breadcrumb small mb-0">
-    <li class="breadcrumb-item"><a href="{% url 'inventario:materiales' %}">Inventario</a></li>
+    <li class="breadcrumb-item"><a href="{% url 'inventario:materiales' %}">Bodega</a></li>
     <li class="breadcrumb-item active" aria-current="page">Registrar movimiento</li>
   </ol>
 </nav>
 <header class="cabecera-formulario">
   <h1 class="h3 mb-1">Registrar movimiento</h1>
-  <p class="text-body-secondary mb-0">Cada entrada, salida o ajuste cambia el stock y queda en el historial del material.</p>
+  <p class="text-body-secondary mb-0">Elija el material, diga si entra o sale y cuánto. El stock se actualiza al guardar.</p>
 </header>
 
 <div class="contenedor-formulario">
   {% for error in form.non_field_errors %}<div class="alert alert-danger">{{ error }}</div>{% endfor %}
-  <form method="post" novalidate class="card formulario">
+  <form method="post" novalidate class="card formulario" data-movimiento data-stock="" data-minimo="" data-unidad="">
     {% csrf_token %}
     <section class="formulario-seccion">
       <div class="formulario-seccion-info">
-        <span class="formulario-icono" aria-hidden="true"><i class="bi bi-arrow-left-right"></i></span>
-        <h2>Movimiento</h2>
-        <p>Entrada: compras o devoluciones. Salida: entregas para uso. Ajustes: correcciones por conteo físico, daño o pérdida.</p>
+        <span class="formulario-icono" aria-hidden="true"><i class="bi bi-box-seam"></i></span>
+        <h2>Material</h2>
+        <p>Escriba para buscar por nombre o código. Solo aparecen los materiales activos.</p>
       </div>
       <div>
-        {% include "_campo.html" with campo=form.material %}
-        <fieldset class="mb-3">
-          <legend class="form-label fs-6">Tipo de movimiento <span class="text-danger" aria-hidden="true">*</span></legend>
-          <div class="row g-2">
-            {% for opcion in form.tipo %}
-            <div class="col-6 col-md-3">
-              {{ opcion.tag }}
-              <label class="btn btn-outline-primary w-100 opcion-movimiento" for="{{ opcion.id_for_label }}">{{ opcion.choice_label }}</label>
-            </div>
-            {% endfor %}
-          </div>
-          {% for error in form.tipo.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
-        </fieldset>
+        <label class="form-label" for="filtro-material">Material <span class="text-danger" aria-hidden="true">*</span></label>
+        <div class="buscador-bodega mb-2">
+          <i class="bi bi-search" aria-hidden="true"></i>
+          <input id="filtro-material" type="search" class="form-control" placeholder="Filtrar la lista…" autocomplete="off" data-filtrar-select="{{ form.material.id_for_label }}">
+        </div>
+        {{ form.material }}
+        {% for error in form.material.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+        <div class="material-elegido small mt-2" data-material-elegido hidden></div>
       </div>
     </section>
 
     <section class="formulario-seccion">
       <div class="formulario-seccion-info">
-        <span class="formulario-icono" aria-hidden="true"><i class="bi bi-123"></i></span>
-        <h2>Detalle</h2>
-        <p>La cantidad se suma o se resta del stock según el tipo elegido.</p>
+        <span class="formulario-icono" aria-hidden="true"><i class="bi bi-arrow-left-right"></i></span>
+        <h2>Movimiento</h2>
+        <p>Entrada: compras o devoluciones. Salida: entregas para uso. Ajustes: correcciones por conteo físico, daño o pérdida (piden motivo).</p>
       </div>
-      <div class="row">
-        <div class="col-sm-4">{% include "_campo.html" with campo=form.cantidad %}</div>
-        <div class="col-sm-8">{% include "_campo.html" with campo=form.motivo ayuda=form.motivo.help_text %}</div>
-      </div>
+      <div>{% include "inventario/_campos_movimiento.html" %}</div>
     </section>
 
     <div class="formulario-acciones">
       <span class="small text-body-secondary d-none d-sm-inline"><span class="text-danger">*</span> Campo obligatorio</span>
       <a href="{% url 'inventario:materiales' %}" class="btn btn-outline-secondary ms-auto">Cancelar</a>
+      <button type="submit" name="seguir" value="1" class="btn btn-outline-primary" title="Guarda y deja el formulario listo para el siguiente">Guardar y registrar otro</button>
       <button type="submit" class="btn btn-primary"><i class="bi bi-check2" aria-hidden="true"></i> Registrar movimiento</button>
     </div>
   </form>
 </div>
+{{ datos_materiales|json_script:"datos-materiales" }}
+<script src="{% estatico 'js/inventario.js' %}" defer></script>
 {% endblock %}

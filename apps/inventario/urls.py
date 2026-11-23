@@ -12,4 +12,5 @@ urlpatterns = [
     path("materiales/<int:pk>/estado/", views.material_estado, name="material_estado"),
     path("movimientos/", views.movimientos, name="movimientos"),
     path("movimientos/nuevo/", views.movimiento_crear, name="movimiento_crear"),
+    path("materiales/<int:pk>/movimiento/", views.movimiento_rapido, name="movimiento_rapido"),
 ]

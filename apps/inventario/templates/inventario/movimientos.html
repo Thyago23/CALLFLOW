@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block titulo %}Movimientos · Inventario{% endblock %}
+{% block titulo %}Movimientos · Bodega{% endblock %}
 {% block contenido %}
 {% include "inventario/_subnav.html" with seccion="movimientos" %}
 <form class="row g-2 align-items-end mb-3" hx-get="{% url 'inventario:movimientos' %}" hx-target="#tabla-movimientos" hx-trigger="change, submit" hx-push-url="true">

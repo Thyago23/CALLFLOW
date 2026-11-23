@@ -1,0 +1,45 @@
+{# Resumen de la bodega. Se vuelve a pintar (hx-swap-oob) después de cada filtro o movimiento. #}
+<div id="resumen-bodega"{% if oob %} hx-swap-oob="true"{% endif %}>
+  <div class="resumen-bodega">
+    <a href="?estado=activos">
+      <div class="etiqueta">Materiales activos</div>
+      <div class="cifra">{{ resumen.activos }}</div>
+    </a>
+    <a href="?estado=bajo">
+      <div class="etiqueta">Por reponer</div>
+      <div class="cifra {% if resumen.bajos %}alerta{% endif %}">{{ resumen.bajos }}</div>
+      <div class="contexto">en o bajo su mínimo</div>
+    </a>
+    <a href="?estado=agotados">
+      <div class="etiqueta">Agotados</div>
+      <div class="cifra {% if resumen.agotados %}peligro{% endif %}">{{ resumen.agotados }}</div>
+      <div class="contexto">sin unidades</div>
+    </a>
+    <a href="{% url 'inventario:movimientos' %}">
+      <div class="etiqueta">Movimientos, últimos 7 días</div>
+      <div class="cifra">{{ resumen.movimientos_semana }}</div>
+      <div class="contexto">{{ resumen.entradas_semana }} entrada{{ resumen.entradas_semana|pluralize }} · {{ resumen.salidas_semana }} salida{{ resumen.salidas_semana|pluralize }}</div>
+    </a>
+  </div>
+
+  {% if bajos %}
+  <section class="lista-reponer" aria-labelledby="titulo-reponer">
+    <div class="lista-reponer-titulo">
+      <h2 id="titulo-reponer">Por reponer</h2>
+      <span class="small text-body-secondary">{{ bajos|length }} material{{ bajos|length|pluralize:"es" }} en o bajo el stock mínimo</span>
+      {% if bajos|length > 6 %}<a href="?estado=bajo" class="ms-auto small">Ver los {{ bajos|length }}</a>{% endif %}
+    </div>
+    {% for m in bajos|slice:":6" %}
+    <div class="fila-reponer nivel-{{ m.nivel }}">
+      <a href="{% url 'inventario:material_detalle' m.pk %}" class="text-reset text-decoration-none text-truncate">{{ m.nombre }} <span class="etiqueta-estante ms-1">{{ m.codigo }}</span></a>
+      <span class="cantidad">quedan <strong>{{ m.stock_actual|floatformat:"-2" }}</strong> de mín. {{ m.stock_minimo|floatformat:"-2" }}</span>
+      {% if perms.inventario.add_movimientoinventario %}
+      <button type="button" class="btn btn-sm btn-outline-secondary"
+              hx-get="{% url 'inventario:movimiento_rapido' m.pk %}?tipo=ENTRADA" hx-target="#modal-movimiento-cuerpo"
+              data-bs-toggle="modal" data-bs-target="#modal-movimiento">Registrar entrada</button>
+      {% else %}<span></span>{% endif %}
+    </div>
+    {% endfor %}
+  </section>
+  {% endif %}
+</div>

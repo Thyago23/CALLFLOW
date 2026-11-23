@@ -1,9 +1,10 @@
 {% extends "base.html" %}
-{% block titulo %}{{ material.nombre }} · Inventario{% endblock %}
+{% load estaticos %}
+{% block titulo %}{{ material.nombre }} · Bodega{% endblock %}
 {% block contenido %}
 <nav aria-label="Ruta" class="mb-2">
   <ol class="breadcrumb small mb-0">
-    <li class="breadcrumb-item"><a href="{% url 'inventario:materiales' %}">Inventario</a></li>
+    <li class="breadcrumb-item"><a href="{% url 'inventario:materiales' %}">Bodega</a></li>
     <li class="breadcrumb-item active" aria-current="page">{{ material.nombre }}</li>
   </ol>
 </nav>
@@ -11,15 +12,18 @@
 <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
   <div>
     <h1 class="h3 mb-0">{{ material.nombre }}</h1>
-    <div class="text-body-secondary">{{ material.codigo }} · {{ material.categoria }}
+    <div class="text-body-secondary d-flex align-items-center gap-2 mt-1"><span class="etiqueta-estante">{{ material.codigo }}</span> {{ material.categoria }}
       {% if not material.activo %}<span class="badge text-bg-secondary ms-1">Inactivo</span>{% endif %}
     </div>
   </div>
   <div class="d-flex flex-wrap gap-2">
     {% if material.activo and perms.inventario.add_movimientoinventario %}
-    <a class="btn btn-success" href="{% url 'inventario:movimiento_crear' %}?material={{ material.pk }}&tipo=ENTRADA"><i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Entrada</a>
-    <a class="btn btn-primary" href="{% url 'inventario:movimiento_crear' %}?material={{ material.pk }}&tipo=SALIDA"><i class="bi bi-dash-lg me-1" aria-hidden="true"></i>Salida</a>
-    <a class="btn btn-outline-secondary" href="{% url 'inventario:movimiento_crear' %}?material={{ material.pk }}&tipo=AJUSTE_NEGATIVO">Ajuste</a>
+    <button type="button" class="btn btn-outline-secondary" hx-get="{% url 'inventario:movimiento_rapido' material.pk %}?tipo=ENTRADA&origen=detalle" hx-target="#modal-movimiento-cuerpo"
+            data-bs-toggle="modal" data-bs-target="#modal-movimiento">Registrar entrada</button>
+    <button type="button" class="btn btn-outline-secondary" {% if material.stock_actual <= 0 %}disabled{% endif %} hx-get="{% url 'inventario:movimiento_rapido' material.pk %}?tipo=SALIDA&origen=detalle" hx-target="#modal-movimiento-cuerpo"
+            data-bs-toggle="modal" data-bs-target="#modal-movimiento">Registrar salida</button>
+    <button type="button" class="btn btn-outline-secondary" hx-get="{% url 'inventario:movimiento_rapido' material.pk %}?tipo=AJUSTE_NEGATIVO&origen=detalle" hx-target="#modal-movimiento-cuerpo"
+            data-bs-toggle="modal" data-bs-target="#modal-movimiento">Ajuste</button>
     {% endif %}
     {% if perms.inventario.change_material %}
     <a class="btn btn-outline-secondary" href="{% url 'inventario:material_editar' material.pk %}"><i class="bi bi-pencil me-1" aria-hidden="true"></i>Editar</a>
@@ -33,15 +37,22 @@
 </div>
 
 <div class="row g-3 mb-4">
-  <div class="col-sm-4">
-    <div class="card resumen-dia h-100 {% if material.activo and material.stock_bajo %}border-danger-subtle{% endif %}"><div class="card-body">
-      <div class="small text-body-secondary">Stock actual</div>
-      <div class="valor {% if material.activo and material.stock_bajo %}text-danger{% endif %}">{{ material.stock_actual|floatformat:"-2" }} <span class="fs-6 fw-normal text-body-secondary">{{ material.get_unidad_medida_display|lower }}</span></div>
-      {% if material.activo and material.stock_bajo %}<div class="small text-danger mt-1"><i class="bi bi-exclamation-triangle me-1" aria-hidden="true"></i>En o bajo el mínimo</div>{% endif %}
+  <div class="col-lg-6">
+    <div class="card h-100 ficha-stock nivel-{{ material.nivel }}"><div class="card-body">
+      <div class="d-flex justify-content-between align-items-start gap-2">
+        <div>
+          <div class="small text-body-secondary">Stock actual</div>
+          <div class="stock-material"><span class="cifra">{{ material.stock_actual|floatformat:"-2" }}</span> <span class="unidad">{{ material.get_unidad_medida_display|lower }}</span></div>
+        </div>
+        {% include "inventario/_estado_material.html" with m=material %}
+      </div>
+      {% include "inventario/_barra_nivel.html" with m=material compacta=True %}
+      <div class="barra-nivel-texto"><span>Mínimo {{ material.stock_minimo|floatformat:"-2" }}</span></div>
+      {% if material.nivel == "bajo" or material.nivel == "agotado" %}<div class="small mt-2 texto-nivel">En o bajo el mínimo, conviene reponer</div>{% endif %}
     </div></div>
   </div>
-  <div class="col-sm-4"><div class="card resumen-dia h-100"><div class="card-body"><div class="small text-body-secondary">Stock mínimo</div><div class="valor">{{ material.stock_minimo|floatformat:"-2" }}</div></div></div></div>
-  <div class="col-sm-4"><div class="card resumen-dia h-100"><div class="card-body"><div class="small text-body-secondary">Movimientos</div><div class="valor">{{ movimientos|length }}</div></div></div></div>
+  <div class="col-6 col-lg-3"><div class="card resumen-dia h-100"><div class="card-body"><div class="small text-body-secondary">Stock mínimo</div><div class="valor">{{ material.stock_minimo|floatformat:"-2" }}</div><div class="small text-body-secondary">al llegar aquí se avisa a administración</div></div></div></div>
+  <div class="col-6 col-lg-3"><div class="card resumen-dia h-100"><div class="card-body"><div class="small text-body-secondary">Movimientos</div><div class="valor">{{ movimientos|length }}</div><div class="small text-body-secondary">{% with ultimo=movimientos|first %}{% if ultimo %}último {{ ultimo.fecha|date:"d/m H:i" }}{% else %}sin movimientos{% endif %}{% endwith %}</div></div></div></div>
 </div>
 {% if material.descripcion %}<p class="text-body-secondary">{{ material.descripcion }}</p>{% endif %}
 
@@ -52,4 +63,6 @@
   </div>
   {% include "inventario/_movimientos_filas.html" with movimientos=movimientos mostrar_material=False %}
 </section>
+{% include "inventario/_modal_movimiento.html" %}
+<script src="{% estatico 'js/inventario.js' %}" defer></script>
 {% endblock %}

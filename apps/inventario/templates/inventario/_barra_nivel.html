@@ -1,0 +1,7 @@
+<div class="barra-nivel nivel-{{ m.nivel }}">
+  <div class="barra-nivel-pista" role="img" aria-label="Stock {{ m.stock_actual|floatformat:'-2' }}, mínimo {{ m.stock_minimo|floatformat:'-2' }}">
+    <span class="barra-nivel-relleno" style="width: {{ m.nivel_porcentaje }}%"></span>
+    {% if m.minimo_porcentaje is not None %}<span class="barra-nivel-minimo" style="left: {{ m.minimo_porcentaje }}%"></span>{% endif %}
+  </div>
+  {% if not compacta %}<div class="barra-nivel-texto"><span>Mínimo {{ m.stock_minimo|floatformat:"-2" }}</span><span>{{ m.categoria }}</span></div>{% endif %}
+</div>

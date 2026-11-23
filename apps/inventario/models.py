@@ -58,6 +58,31 @@ class Material(ModeloBase):
     def stock_bajo(self) -> bool:
         return self.stock_actual <= self.stock_minimo
 
+    @property
+    def nivel(self) -> str:
+        """inactivo · agotado · bajo · ok (para colorear tarjetas y barras)."""
+        if not self.activo:
+            return "inactivo"
+        if self.stock_actual <= 0:
+            return "agotado"
+        return "bajo" if self.stock_bajo else "ok"
+
+    @property
+    def _tope_barra(self):
+        # La barra se llena al triple del mínimo: así el mínimo queda en el primer tercio.
+        return self.stock_minimo * 3 if self.stock_minimo > 0 else None
+
+    @property
+    def nivel_porcentaje(self) -> int:
+        tope = self._tope_barra
+        if tope is None:
+            return 100 if self.stock_actual > 0 else 0
+        return int(min(100, self.stock_actual * 100 / tope))
+
+    @property
+    def minimo_porcentaje(self) -> int | None:
+        return 33 if self._tope_barra is not None else None
+
 
 class MovimientoInventario(models.Model):
     """

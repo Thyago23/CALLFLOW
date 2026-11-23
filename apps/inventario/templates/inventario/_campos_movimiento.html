@@ -1,0 +1,58 @@
+{# Campos de un movimiento: tipo (mosaicos), cantidad (con − / + y atajos), motivo (con sugerencias) y vista previa del stock. #}
+<fieldset class="mb-3">
+  <legend class="form-label fs-6">Tipo de movimiento <span class="text-danger" aria-hidden="true">*</span></legend>
+  <div class="tipos-movimiento">
+    {% for opcion in form.tipo %}
+    {{ opcion.tag }}
+    <label class="tipo-mosaico tipo-{{ opcion.data.value|lower }}" for="{{ opcion.id_for_label }}">
+      {% if opcion.data.value == "ENTRADA" %}<span class="nombre">Entrada</span><span class="pista">Llega a bodega</span>
+      {% elif opcion.data.value == "SALIDA" %}<span class="nombre">Salida</span><span class="pista">Se entrega a un área</span>
+      {% elif opcion.data.value == "AJUSTE_POSITIVO" %}<span class="nombre">Ajuste +</span><span class="pista">Sobró al contar</span>
+      {% else %}<span class="nombre">Ajuste −</span><span class="pista">Faltó, se dañó o se perdió</span>{% endif %}
+    </label>
+    {% endfor %}
+  </div>
+  {% for error in form.tipo.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+</fieldset>
+
+<div class="row g-3">
+  <div class="col-sm-6">
+    <label class="form-label" for="{{ form.cantidad.id_for_label }}">Cantidad <span class="text-danger" aria-hidden="true">*</span></label>
+    <div class="input-group selector-cantidad">
+      <button type="button" class="btn btn-outline-secondary" data-paso="-1" aria-label="Uno menos"><i class="bi bi-dash-lg" aria-hidden="true"></i></button>
+      {{ form.cantidad }}
+      <button type="button" class="btn btn-outline-secondary" data-paso="1" aria-label="Uno más"><i class="bi bi-plus-lg" aria-hidden="true"></i></button>
+    </div>
+    <div class="atajos-cantidad" aria-label="Cantidades frecuentes">
+      <button type="button" data-cantidad="1">1</button><button type="button" data-cantidad="5">5</button><button type="button" data-cantidad="10">10</button><button type="button" data-cantidad="20">20</button><button type="button" data-cantidad="50">50</button>
+      <button type="button" data-cantidad="todo" data-para="SALIDA AJUSTE_NEGATIVO" title="Sacar todo lo que hay">Todo</button>
+    </div>
+    {% for error in form.cantidad.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+  </div>
+  <div class="col-sm-6">
+    <div class="vista-previa-stock" data-vista-previa aria-live="polite">
+      <div class="paso"><span class="etiqueta">Hay</span><strong data-antes>—</strong></div>
+      <i class="bi bi-arrow-right flecha" aria-hidden="true"></i>
+      <div class="paso"><span class="etiqueta">Quedarán</span><strong data-despues>—</strong></div>
+      <div class="aviso" data-aviso></div>
+    </div>
+  </div>
+</div>
+
+<div class="mt-3">
+  <label class="form-label" for="{{ form.motivo.id_for_label }}">Motivo <span class="text-danger d-none" data-motivo-obligatorio aria-hidden="true">*</span>
+    <span class="small text-body-secondary fw-normal" data-motivo-opcional>(opcional)</span></label>
+  {{ form.motivo }}
+  {% for error in form.motivo.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
+  <div class="sugerencias-motivo" aria-label="Motivos frecuentes">
+    <button type="button" data-motivo="Compra" data-para="ENTRADA">Compra</button>
+    <button type="button" data-motivo="Devolución de un área" data-para="ENTRADA">Devolución</button>
+    <button type="button" data-motivo="Entrega al área de ventas" data-para="SALIDA">Área de ventas</button>
+    <button type="button" data-motivo="Entrega a administración" data-para="SALIDA">Administración</button>
+    <button type="button" data-motivo="Entrega a TI" data-para="SALIDA">TI</button>
+    <button type="button" data-motivo="Uso de oficina" data-para="SALIDA">Uso de oficina</button>
+    <button type="button" data-motivo="Conteo físico" data-para="AJUSTE_POSITIVO AJUSTE_NEGATIVO">Conteo físico</button>
+    <button type="button" data-motivo="Material dañado" data-para="AJUSTE_NEGATIVO">Dañado</button>
+    <button type="button" data-motivo="Pérdida" data-para="AJUSTE_NEGATIVO">Pérdida</button>
+  </div>
+</div>

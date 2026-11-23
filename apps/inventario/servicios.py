@@ -6,11 +6,13 @@ aquí solo se valida antes para dar mensajes claros. La base sigue siendo la úl
 rechaza salidas mayores al stock, materiales inactivos y la edición de movimientos.
 """
 import re
+from datetime import timedelta
 from decimal import Decimal
 
 from django.core.exceptions import ValidationError
 from django.db import DatabaseError, connection, transaction
-from django.db.models import F
+from django.db.models import Count, F, Q
+from django.utils import timezone
 
 from .models import CategoriaMaterial, Material, MovimientoInventario
 
@@ -21,6 +23,23 @@ TIPOS_CON_MOTIVO = {Tipo.AJUSTE_POSITIVO, Tipo.AJUSTE_NEGATIVO}
 
 def materiales_stock_bajo():
     return Material.objects.filter(activo=True, stock_actual__lte=F("stock_minimo"))
+
+
+def resumen_bodega() -> dict:
+    """Indicadores de la cabecera de la bodega."""
+    activos = Material.objects.filter(activo=True)
+    semana = MovimientoInventario.objects.filter(fecha__gte=timezone.now() - timedelta(days=7)).aggregate(
+        entradas=Count("pk", filter=Q(tipo__in=TIPOS_QUE_SUMAN)),
+        salidas=Count("pk", filter=~Q(tipo__in=TIPOS_QUE_SUMAN)),
+    )
+    return {
+        "activos": activos.count(),
+        "bajos": materiales_stock_bajo().count(),
+        "agotados": activos.filter(stock_actual__lte=0).count(),
+        "entradas_semana": semana["entradas"],
+        "salidas_semana": semana["salidas"],
+        "movimientos_semana": semana["entradas"] + semana["salidas"],
+    }
 
 
 def siguiente_codigo() -> str:

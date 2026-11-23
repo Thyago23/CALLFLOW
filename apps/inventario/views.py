@@ -2,13 +2,15 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required, permission_required
 from django.core.exceptions import ValidationError
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import Count, Q
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils.dateparse import parse_date
 from django.views.decorators.http import require_POST
 
 from . import servicios
-from .forms import MaterialForm, MovimientoForm
+from .forms import MaterialForm, MovimientoForm, MovimientoRapidoForm
 from .models import CategoriaMaterial, Material, MovimientoInventario
 
 
@@ -30,6 +32,8 @@ def materiales(request):
     estado = request.GET.get("estado", "")
     if estado == "bajo":
         qs = qs.filter(pk__in=servicios.materiales_stock_bajo())
+    elif estado == "agotados":
+        qs = qs.filter(activo=True, stock_actual__lte=0)
     elif estado == "inactivos":
         qs = qs.filter(activo=False)
     elif estado == "activos":
@@ -37,8 +41,11 @@ def materiales(request):
 
     contexto = {
         "materiales": qs, "q": texto, "categoria": categoria, "estado": estado,
-        "categorias": CategoriaMaterial.objects.order_by("nombre"),
-        "bajos": servicios.materiales_stock_bajo().order_by("nombre"),
+        "categorias": CategoriaMaterial.objects.annotate(
+            n=Count("materiales", filter=Q(materiales__activo=True))).filter(n__gt=0).order_by("nombre"),
+        "bajos": servicios.materiales_stock_bajo().order_by("stock_actual", "nombre"),
+        "resumen": servicios.resumen_bodega(),
+        "oob": _es_htmx(request),
     }
     plantilla = "inventario/_materiales_tabla.html" if _es_htmx(request) else "inventario/materiales.html"
     return render(request, plantilla, contexto)
@@ -142,12 +149,58 @@ def movimiento_crear(request):
         except ValidationError as error:
             form.add_error(None, error)
         else:
-            m = movimiento.material
-            texto = (f"{movimiento.get_tipo_display()} de {movimiento.cantidad.normalize():f} registrada. "
-                     f"Stock de «{m.nombre}»: {movimiento.stock_resultante.normalize():f}.")
-            if m.activo and m.stock_actual <= m.stock_minimo:
-                messages.warning(request, texto + f" Quedó en o bajo el mínimo ({m.stock_minimo.normalize():f}): se avisó a los administradores.")
-            else:
-                messages.success(request, texto)
-            return redirect("inventario:material_detalle", pk=m.pk)
-    return render(request, "inventario/movimiento_form.html", {"form": form})
+            _avisar_movimiento(request, movimiento)
+            if request.POST.get("seguir"):  # «Guardar y registrar otro»
+                return redirect(f"{request.path}?tipo={movimiento.tipo}")
+            return redirect("inventario:material_detalle", pk=movimiento.material_id)
+    materiales_activos = form.fields["material"].queryset
+    datos_materiales = {str(m.pk): {"stock": float(m.stock_actual), "minimo": float(m.stock_minimo),
+                                    "unidad": m.get_unidad_medida_display().lower(), "categoria": str(m.categoria)}
+                        for m in materiales_activos}
+    return render(request, "inventario/movimiento_form.html", {"form": form, "datos_materiales": datos_materiales})
+
+
+def _texto_movimiento(movimiento) -> tuple[str, bool]:
+    """Mensaje para el usuario y si el material quedó en o bajo el mínimo."""
+    m = movimiento.material
+    texto = (f"{movimiento.get_tipo_display()} de {movimiento.cantidad.normalize():f} registrada. "
+             f"Stock de «{m.nombre}»: {movimiento.stock_resultante.normalize():f}.")
+    if m.activo and m.stock_actual <= m.stock_minimo:
+        return texto + f" Quedó en o bajo el mínimo ({m.stock_minimo.normalize():f}): se avisó a los administradores.", True
+    return texto, False
+
+
+def _avisar_movimiento(request, movimiento):
+    texto, bajo = _texto_movimiento(movimiento)
+    (messages.warning if bajo else messages.success)(request, texto)
+
+
+@login_required
+@permission_required("inventario.add_movimientoinventario", raise_exception=True)
+def movimiento_rapido(request, pk):
+    """Ventana rápida (HTMX) para registrar una entrada o salida sin salir de la bodega."""
+    material = get_object_or_404(Material.objects.select_related("categoria"), pk=pk)
+    tipo = request.GET.get("tipo")
+    if not _es_htmx(request):
+        destino = f"{reverse('inventario:movimiento_crear')}?material={material.pk}"
+        return redirect(destino + (f"&tipo={tipo}" if tipo in MovimientoInventario.Tipo.values else ""))
+    inicial = {"tipo": tipo if tipo in MovimientoInventario.Tipo.values else MovimientoInventario.Tipo.SALIDA}
+    form = MovimientoRapidoForm(request.POST or None, initial=inicial)
+    origen = request.POST.get("origen") or request.GET.get("origen", "")
+    if request.method == "POST" and form.is_valid():
+        d = form.cleaned_data
+        try:
+            movimiento = servicios.registrar_movimiento(material, d["tipo"], d["cantidad"], d["motivo"], request.user)
+        except ValidationError as error:
+            form.add_error(None, error)
+        else:
+            if origen == "detalle":  # la ficha se recarga entera para mostrar el historial nuevo
+                _avisar_movimiento(request, movimiento)
+                return HttpResponse(headers={"HX-Refresh": "true"})
+            texto, bajo = _texto_movimiento(movimiento)
+            respuesta = render(request, "inventario/_movimiento_hecho.html",
+                               {"texto": texto, "bajo": bajo, "movimiento": movimiento})
+            respuesta["HX-Trigger"] = "inventarioActualizado"
+            return respuesta
+        material.refresh_from_db()
+    return render(request, "inventario/_movimiento_rapido.html", {"form": form, "material": material, "origen": origen})

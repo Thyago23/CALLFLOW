@@ -159,6 +159,86 @@ class StockBajoTests(BaseInventario):
         self.assertContains(tablero, reverse("inventario:materiales") + "?estado=bajo")
 
 
+class BodegaTests(BaseInventario):
+    """Pantalla de bodega: niveles, indicadores y la ventana rápida de entradas y salidas."""
+    HTMX = {"HTTP_HX_REQUEST": "true"}
+
+    def test_nivel_del_material(self):
+        resma = self.material(minimo=5)
+        self.assertEqual((resma.nivel, resma.nivel_porcentaje, resma.minimo_porcentaje), ("ok", 100, 33))
+        servicios.registrar_movimiento(resma, Tipo.SALIDA, D("16"), "", self.admin)
+        self.assertEqual((resma.nivel, resma.nivel_porcentaje), ("bajo", 26))
+        servicios.registrar_movimiento(resma, Tipo.SALIDA, D("4"), "", self.admin)
+        self.assertEqual((resma.nivel, resma.nivel_porcentaje), ("agotado", 0))
+        sin_minimo = self.material("Clips", minimo=0, inicial=D("3"))
+        self.assertEqual((sin_minimo.nivel_porcentaje, sin_minimo.minimo_porcentaje), (100, None))
+        self.assertEqual(servicios.cambiar_estado(sin_minimo).nivel, "inactivo")
+
+    def test_indicadores_y_filtro_de_agotados(self):
+        resma, esferos = self.material(minimo=5), self.material("Esferos", minimo=2, inicial=D("3"))
+        servicios.registrar_movimiento(esferos, Tipo.SALIDA, D("3"), "", self.admin)
+        self.client.force_login(self.admin)
+        respuesta = self.client.get(reverse("inventario:materiales"))
+        resumen = respuesta.context["resumen"]
+        self.assertEqual((resumen["activos"], resumen["bajos"], resumen["agotados"]), (2, 1, 1))
+        self.assertEqual((resumen["entradas_semana"], resumen["salidas_semana"]), (2, 1))
+        agotados = self.client.get(reverse("inventario:materiales"), {"estado": "agotados"})
+        self.assertEqual(list(agotados.context["materiales"]), [esferos])
+        parcial = self.client.get(reverse("inventario:materiales"), {"q": "resma"}, **self.HTMX)
+        self.assertTemplateUsed(parcial, "inventario/_materiales_tabla.html")
+        self.assertContains(parcial, 'id="resumen-bodega" hx-swap-oob="true"')
+        self.assertEqual(list(parcial.context["materiales"]), [resma])
+
+    def test_ventana_rapida_registra_y_avisa(self):
+        resma = self.material(minimo=5)
+        self.client.force_login(self.admin)
+        url = reverse("inventario:movimiento_rapido", args=[resma.pk])
+        ventana = self.client.get(url, {"tipo": "ENTRADA"}, **self.HTMX)
+        self.assertContains(ventana, "Resma A4")
+        self.assertEqual(ventana.context["form"]["tipo"].value(), "ENTRADA")
+        hecho = self.client.post(url, {"tipo": "SALIDA", "cantidad": "16", "motivo": "Entrega a TI"}, **self.HTMX)
+        self.assertEqual(hecho.headers["HX-Trigger"], "inventarioActualizado")
+        self.assertContains(hecho, "Stock de «Resma A4»: 4")
+        self.assertContains(hecho, "tono-alerta")  # quedó bajo el mínimo
+        resma.refresh_from_db()
+        self.assertEqual(resma.stock_actual, 4)
+
+    def test_ventana_rapida_muestra_errores_sin_guardar(self):
+        resma = self.material()
+        self.client.force_login(self.admin)
+        url = reverse("inventario:movimiento_rapido", args=[resma.pk])
+        respuesta = self.client.post(url, {"tipo": "SALIDA", "cantidad": "100"}, **self.HTMX)
+        self.assertNotIn("HX-Trigger", respuesta.headers)
+        self.assertContains(respuesta, "Stock insuficiente")
+        respuesta = self.client.post(url, {"tipo": "AJUSTE_NEGATIVO", "cantidad": "1"}, **self.HTMX)
+        self.assertContains(respuesta, "deben indicar el motivo")
+        self.assertEqual(resma.movimientos.count(), 1)
+
+    def test_ventana_rapida_desde_la_ficha_recarga(self):
+        resma = self.material()
+        self.client.force_login(self.admin)
+        url = reverse("inventario:movimiento_rapido", args=[resma.pk])
+        respuesta = self.client.post(url, {"tipo": "ENTRADA", "cantidad": "2", "origen": "detalle"}, **self.HTMX)
+        self.assertEqual(respuesta.headers["HX-Refresh"], "true")
+        ficha = self.client.get(reverse("inventario:material_detalle", args=[resma.pk]))
+        self.assertContains(ficha, "Stock de «Resma A4»: 22")
+
+    def test_sin_htmx_lleva_al_formulario_completo(self):
+        resma = self.material()
+        self.client.force_login(self.admin)
+        respuesta = self.client.get(reverse("inventario:movimiento_rapido", args=[resma.pk]), {"tipo": "ENTRADA"})
+        self.assertRedirects(respuesta, reverse("inventario:movimiento_crear") + f"?material={resma.pk}&tipo=ENTRADA")
+
+    def test_guardar_y_registrar_otro(self):
+        resma = self.material()
+        self.client.force_login(self.admin)
+        respuesta = self.client.post(reverse("inventario:movimiento_crear"), {
+            "material": resma.pk, "tipo": "ENTRADA", "cantidad": "1", "seguir": "1"})
+        self.assertRedirects(respuesta, reverse("inventario:movimiento_crear") + "?tipo=ENTRADA")
+        formulario = self.client.get(reverse("inventario:movimiento_crear"))
+        self.assertIn(str(resma.pk), formulario.context["datos_materiales"])
+
+
 class PermisosTests(BaseInventario):
     def test_vendedor_no_accede(self):
         resma = self.material()
@@ -166,5 +246,7 @@ class PermisosTests(BaseInventario):
         for url in [reverse("inventario:materiales"), reverse("inventario:movimientos"),
                     reverse("inventario:material_detalle", args=[resma.pk]), reverse("inventario:movimiento_crear")]:
             self.assertEqual(self.client.get(url).status_code, 403, url)
+        self.assertEqual(self.client.get(reverse("inventario:movimiento_rapido", args=[resma.pk]),
+                                         HTTP_HX_REQUEST="true").status_code, 403)
         self.assertEqual(self.client.post(reverse("inventario:movimiento_crear"),
                                           {"material": resma.pk, "tipo": "SALIDA", "cantidad": "1"}).status_code, 403)

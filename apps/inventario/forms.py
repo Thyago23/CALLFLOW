@@ -53,18 +53,29 @@ class MaterialForm(ControlConcurrencia, FormularioEstilizado, forms.ModelForm):
         return datos
 
 
-class MovimientoForm(FormularioEstilizado, forms.Form):
+class MovimientoRapidoForm(FormularioEstilizado, forms.Form):
+    """Entrada o salida de un material ya elegido (ventana rápida de la bodega)."""
+
+    tipo = forms.ChoiceField(label="Tipo de movimiento", choices=MovimientoInventario.Tipo.choices, widget=forms.RadioSelect)
+    cantidad = forms.DecimalField(label="Cantidad", **_CANTIDAD,
+                                  widget=forms.NumberInput(attrs={"inputmode": "decimal", "step": "any", "min": "0"}))
+    motivo = forms.CharField(label="Motivo", required=False, max_length=255,
+                             widget=forms.TextInput(attrs={"placeholder": "Ej.: entrega al área de ventas", "autocomplete": "off"}))
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        _estilizar(self)
+        self.fields["tipo"].widget.attrs["class"] = "btn-check"
+
+
+class MovimientoForm(MovimientoRapidoForm):
     """SCRUM-26 · Entradas, salidas y ajustes."""
 
     material = forms.ModelChoiceField(label="Material", queryset=Material.objects.none(), empty_label="Seleccione…")
-    tipo = forms.ChoiceField(label="Tipo de movimiento", choices=MovimientoInventario.Tipo.choices, widget=forms.RadioSelect)
-    cantidad = forms.DecimalField(label="Cantidad", **_CANTIDAD)
-    motivo = forms.CharField(label="Motivo", required=False, max_length=255,
-                             help_text="Obligatorio en los ajustes. Ej.: entrega al área de ventas, compra factura 123.")
+    field_order = ["material", "tipo", "cantidad", "motivo"]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["material"].queryset = Material.objects.filter(activo=True).select_related("categoria").order_by("nombre")
-        self.fields["material"].label_from_instance = lambda m: f"{m.nombre} ({m.codigo}) · stock {m.stock_actual.normalize():f}"
-        _estilizar(self)
-        self.fields["tipo"].widget.attrs["class"] = "btn-check"
+        self.fields["material"].label_from_instance = lambda m: f"{m.nombre} ({m.codigo})"
+        self.fields["material"].widget.attrs["class"] = "form-select"
