@@ -462,3 +462,38 @@ class LineaRecibo(ModeloBase):
 
     def __str__(self):
         return self.concepto
+
+
+class MultaManual(ModeloBase):
+    """
+    Multa que registra el administrador a mano, para casos que no salen de la asistencia (faltas y atrasos).
+    Se descuenta en el rol de pagos del mes de su fecha y no entra en el tope de multas y faltas.
+    Como la caja chica, no se modifica ni se borra: se anula con un motivo (migración nomina/0014).
+    """
+
+    empleado = models.ForeignKey("personal.Empleado", on_delete=models.PROTECT, related_name="multas_manuales")
+    fecha = models.DateField(help_text="El rol de pagos del mes de esta fecha la descuenta.")
+    concepto = models.CharField("motivo", max_length=200)
+    valor = models.DecimalField(**DINERO)
+    registrada_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    anulada = models.BooleanField(default=False)
+    motivo_anulacion = models.CharField(max_length=255, blank=True, default="")
+    anulada_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    anulada_en = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = "multa manual"
+        verbose_name_plural = "multas manuales"
+        ordering = ["fecha", "pk"]
+        indexes = [models.Index(fields=["empleado", "fecha"], name="multa_empleado_fecha_idx")]
+        constraints = [
+            models.CheckConstraint(condition=Q(valor__gt=0), name="multa_valor_positivo"),
+            models.CheckConstraint(condition=~Q(concepto=""), name="multa_concepto_obligatorio"),
+            models.CheckConstraint(
+                condition=Q(anulada=False) | (Q(anulada_en__isnull=False) & ~Q(motivo_anulacion="")),
+                name="multa_anulada_con_motivo",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.empleado} · {self.concepto}"

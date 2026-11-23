@@ -19,6 +19,8 @@ Reglas:
     oficina). Un atraso justificado no tiene multa ni llamado.
   - Tope (v2): las multas por atraso más las faltas no justificadas del mes no superan el
     porcentaje del sueldo de tope_penalizaciones_porcentaje; lo que pase se descuenta como ajuste.
+  - Multas manuales: las registra el administrador para lo que no sale de la asistencia. Se descuentan
+    en el mes de su fecha, completas: no entran en el tope (son una decisión expresa, no automática).
   - Lo que no está justificado se descuenta: las novedades pendientes de revisar cuentan como
     no justificadas, y se marcan para que el administrador las clasifique antes de pagar.
 """
@@ -101,7 +103,8 @@ class Linea:
     valor: Decimal
     fecha: date | None = None
     pendiente: bool = False  # novedad sin clasificar: se cobra, pero hay que revisarla
-    clase: str = ""  # falta_justificada | falta_injustificada | atraso | anticipo
+    clase: str = ""  # falta_justificada | falta_injustificada | atraso | multa_manual | anticipo
+    registrada_por: str = ""  # multas manuales: quién la puso
 
 
 @dataclass
@@ -144,6 +147,10 @@ class Estimacion:
         return self._de("atraso")
 
     @property
+    def multas_manuales(self) -> list:
+        return self._de("multa_manual")
+
+    @property
     def total_atrasos(self) -> int:
         """Todos los atrasos no justificados del mes: con multa y los que pasaron a llamado de atención."""
         return self.cantidad_atrasos
@@ -167,6 +174,10 @@ class Estimacion:
     @property
     def valor_atrasos(self) -> Decimal:
         return self.suma(self.atrasos)
+
+    @property
+    def valor_multas_manuales(self) -> Decimal:
+        return self.suma(self.multas_manuales)
 
     @property
     def total_descuentos_y_anticipos(self) -> Decimal:
@@ -313,8 +324,15 @@ def estimar_mes(empleado, anio: int, mes: int) -> Estimacion:
         if tope is not None and penalizaciones > tope:
             estimacion.ajuste_tope = _dinero(penalizaciones - tope)
 
+    # Multas manuales del administrador (después del tope: no lo cuentan ni se recortan)
+    from .models import MultaManual, NovedadNomina
+
+    for m in (MultaManual.objects.filter(empleado=empleado, fecha__range=(inicio, fin), anulada=False)
+              .select_related("registrada_por").order_by("fecha", "pk")):
+        estimacion.descuentos.append(Linea(f"Multa: {m.concepto}", _dinero(m.valor), m.fecha, clase="multa_manual",
+                                           registrada_por=m.registrada_por.get_full_name() if m.registrada_por else ""))
+
     # Anticipos aprobados de algún periodo de nómina que cae en el mes
-    from .models import NovedadNomina
 
     for a in (NovedadNomina.objects.filter(empleado=empleado, tipo__codigo="ANTICIPO", estado=NovedadNomina.Estado.APROBADA,
                                            periodo__fecha_inicio__lte=fin, periodo__fecha_fin__gte=inicio)
@@ -590,6 +608,8 @@ def rol_de_pagos_pdf(e: Estimacion) -> bytes:
     filas = [("Faltas justificadas", len(e.faltas_justificadas), dinero(e.valor_faltas_justificadas)),
              ("Faltas injustificadas", len(e.faltas_injustificadas), dinero(e.valor_faltas_injustificadas)),
              ("Atrasos", e.total_atrasos, dinero(e.valor_atrasos))]
+    if e.multas_manuales:
+        filas.append(("Multas registradas por administración", len(e.multas_manuales), dinero(e.valor_multas_manuales)))
     if e.llamados_mes:
         filas.append(("Llamados de atención por atraso", len(e.llamados_mes), ""))
     filas.append(("Días trabajados", e.dias_trabajados, ""))

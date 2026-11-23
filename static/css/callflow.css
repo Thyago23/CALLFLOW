@@ -2225,3 +2225,10 @@ a.enlace-modulo:hover { background: var(--cf-fondo); color: var(--bs-body-color)
 /* aviso flotante para movimientos guardados */
 .aviso-flotante.tono-exito { --aviso-acento: var(--cf-exito); --aviso-texto: var(--cf-exito-texto); }
 .icono-notificacion.tono-exito { background: var(--cf-exito-suave); color: var(--cf-exito-texto); }
+
+/* multas manuales (rol de pagos) */
+.tabla-multas { margin-bottom: 16px; }
+.anular-multa { display: inline-block; }
+.anular-multa[open] { display: block; }
+.anular-multa[open] .form-control { min-width: 9rem; }
+.tabla-multas + .nueva-multa { padding-top: 16px; border-top: 1px solid var(--bs-border-color-translucent); }

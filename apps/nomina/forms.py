@@ -81,3 +81,32 @@ class LineaReciboForm(FormularioEstilizado, forms.Form):
         if not (datos.get("valor_entregado") or datos.get("valor_gastado")):
             raise forms.ValidationError("Escriba el valor entregado o el valor gastado.")
         return datos
+
+
+class MultaManualForm(FormularioEstilizado, forms.Form):
+    """Multa que el administrador registra a mano; se descuenta en el rol del mes de su fecha."""
+    fecha = forms.DateField(label="Fecha", widget=forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"),
+                            help_text="Se descuenta en el rol de este mes.")
+    concepto = forms.CharField(label="Motivo", max_length=200,
+                               widget=forms.TextInput(attrs={"placeholder": "Ej.: Daño de audífonos asignados"}))
+    valor = forms.DecimalField(label="Valor ($)", min_value=Decimal("0.01"), max_digits=12, decimal_places=2,
+                               widget=forms.NumberInput(attrs={"step": "0.01", "inputmode": "decimal", "placeholder": "0,00"}))
+
+    def __init__(self, *args, empleado=None, **kwargs):
+        self.empleado = empleado
+        super().__init__(*args, **kwargs)
+        _estilizar(self)
+
+    def clean_concepto(self):
+        concepto = self.cleaned_data["concepto"].strip()
+        if not concepto:
+            raise forms.ValidationError("Escriba el motivo de la multa.")
+        return concepto
+
+    def clean_fecha(self):
+        fecha = self.cleaned_data["fecha"]
+        e = self.empleado
+        if e is not None and (fecha < e.fecha_ingreso or (e.fecha_salida and fecha > e.fecha_salida)):
+            hasta = f" y el {e.fecha_salida:%d/%m/%Y}" if e.fecha_salida else ""
+            raise forms.ValidationError(f"La fecha debe estar dentro del contrato: entre el {e.fecha_ingreso:%d/%m/%Y}{hasta or ' y hoy en adelante'}.")
+        return fecha

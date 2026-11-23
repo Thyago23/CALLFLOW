@@ -337,3 +337,75 @@ class EstimacionMesTests(TestCase):
         self.client.force_login(Usuario.objects.create_user("vend2", None, "clave-segura-123", rol=Rol.VENDEDOR))
         self.assertEqual(self.client.get(reverse("nomina:resumen")).status_code, 403)
         self.assertEqual(self.client.get(reverse("nomina:rol_pdf", args=[self.vendedor.pk])).status_code, 403)
+
+
+class MultasManualesTests(TestCase):
+    """El administrador registra multas que no salen de la asistencia; se descuentan en el rol del mes."""
+
+    # mismos datos y ayudas que EstimacionMesTests, sin volver a correr sus pruebas
+    setUpTestData = classmethod(EstimacionMesTests.setUpTestData.__func__)
+    novedad = EstimacionMesTests.novedad
+    estimar = EstimacionMesTests.estimar
+
+    def test_multa_manual_se_descuenta_completa_y_fuera_del_tope(self):
+        from .models import MultaManual
+        self.novedad(0, "AUSENCIA", "NO_JUSTIFICADA")  # 40 = el tope del 10 % de 400
+        MultaManual.objects.create(empleado=self.vendedor, fecha=self.inicio + timedelta(days=4), concepto="Daño de audífonos",
+                                   valor=D("25.00"), registrada_por=self.admin)
+        e = self.estimar()
+        self.assertEqual([(d.clase, d.valor) for d in e.multas_manuales], [("multa_manual", D("25.00"))])
+        self.assertEqual(e.ajuste_tope, D("0.00"))  # la multa manual no cuenta para el tope
+        self.assertEqual((e.total_descuentos, e.neto), (D("65.00"), D("335.00")))
+        # una multa de otro mes no entra
+        anterior = self.inicio - timedelta(days=1)
+        MultaManual.objects.create(empleado=self.vendedor, fecha=anterior, concepto="Otra", valor=D("5.00"))
+        self.assertEqual(self.estimar().valor_multas_manuales, D("25.00"))
+
+    def test_administrador_registra_y_anula_desde_el_rol(self):
+        from .models import MultaManual
+        self.client.force_login(self.admin)
+        mes = f"{self.anio}-{self.mes:02d}"
+        url = reverse("nomina:multa_registrar", args=[self.vendedor.pk])
+        respuesta = self.client.post(url, {"mes": mes, "fecha": self.inicio.isoformat(), "concepto": "Uso de celular en llamada",
+                                           "valor": "10.00"})
+        self.assertRedirects(respuesta, f"{reverse('nomina:rol', args=[self.vendedor.pk])}?mes={mes}")
+        multa = MultaManual.objects.get()
+        self.assertEqual((multa.valor, multa.registrada_por), (D("10.00"), self.admin))
+        rol = self.client.get(reverse("nomina:rol", args=[self.vendedor.pk]), {"mes": mes})
+        self.assertContains(rol, "Multa: Uso de celular en llamada")
+        self.assertEqual(rol.context["e"].neto, D("390.00"))
+
+        # sin motivo no se anula; con motivo deja de descontarse
+        self.client.post(reverse("nomina:multa_anular", args=[multa.pk]), {"motivo": ""})
+        multa.refresh_from_db()
+        self.assertFalse(multa.anulada)
+        self.client.post(reverse("nomina:multa_anular", args=[multa.pk]), {"motivo": "Se registró por error"})
+        multa.refresh_from_db()
+        self.assertTrue(multa.anulada)
+        self.assertEqual(self.estimar().neto, D("400.00"))
+
+    def test_fecha_fuera_del_contrato_y_valor_invalido(self):
+        self.client.force_login(self.admin)
+        url = reverse("nomina:multa_registrar", args=[self.vendedor.pk])
+        antes = self.client.post(url, {"fecha": "2025-12-31", "concepto": "X", "valor": "5"})
+        self.assertEqual(antes.status_code, 400)
+        self.assertContains(antes, "dentro del contrato", status_code=400)
+        cero = self.client.post(url, {"fecha": self.inicio.isoformat(), "concepto": "X", "valor": "0"})
+        self.assertEqual(cero.status_code, 400)
+
+    def test_la_base_no_deja_borrar_ni_editar_multas(self):
+        from django.db import DatabaseError, transaction
+
+        from .models import MultaManual
+        multa = MultaManual.objects.create(empleado=self.vendedor, fecha=self.inicio, concepto="Daño", valor=D("5.00"))
+        with self.assertRaises(DatabaseError), transaction.atomic():
+            MultaManual.objects.filter(pk=multa.pk).update(valor=D("1.00"))
+        with self.assertRaises(DatabaseError), transaction.atomic():
+            MultaManual.objects.filter(pk=multa.pk).delete()
+        with self.assertRaises(DatabaseError), transaction.atomic():  # antes del ingreso del empleado
+            MultaManual.objects.create(empleado=self.vendedor, fecha=date(2025, 12, 31), concepto="X", valor=D("5.00"))
+
+    def test_solo_el_administrador_registra_multas(self):
+        self.client.force_login(Usuario.objects.create_user("vend3", None, "clave-segura-123", rol=Rol.VENDEDOR))
+        url = reverse("nomina:multa_registrar", args=[self.vendedor.pk])
+        self.assertEqual(self.client.post(url, {"fecha": self.inicio.isoformat(), "concepto": "X", "valor": "5"}).status_code, 403)

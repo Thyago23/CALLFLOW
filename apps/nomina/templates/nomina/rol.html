@@ -42,6 +42,63 @@
   </div>
 </div>
 
+{% if multas or perms.nomina.add_multamanual %}
+<div class="card mt-3" style="max-width: 48rem" id="multas">
+  <div class="card-body">
+    <h2 class="h6 mb-1">Multas manuales</h2>
+    <p class="small text-body-secondary mb-3">Para lo que no sale de la asistencia. Se descuentan completas en el rol del mes de su fecha, sin tope.</p>
+
+    {% if multas %}
+    <table class="table table-sm align-middle tabla-multas">
+      <thead><tr><th scope="col">Fecha</th><th scope="col">Motivo</th><th scope="col" class="text-end">Valor</th><th scope="col"><span class="visually-hidden">Anular</span></th></tr></thead>
+      <tbody>
+        {% for m in multas %}
+        <tr{% if m.anulada %} class="text-body-secondary"{% endif %}>
+          <td class="text-nowrap">{{ m.fecha|date:"d/m/Y" }}</td>
+          <td>
+            {% if m.anulada %}<s>{{ m.concepto }}</s> <span class="badge text-bg-secondary">Anulada</span>
+              <div class="small">{{ m.motivo_anulacion }}{% if m.anulada_por %} · {{ m.anulada_por.get_full_name|default:m.anulada_por.username }}{% endif %}</div>
+            {% else %}{{ m.concepto }}
+              {% if m.registrada_por %}<div class="small text-body-secondary">Registró {{ m.registrada_por.get_full_name|default:m.registrada_por.username }}</div>{% endif %}
+            {% endif %}
+          </td>
+          <td class="text-end text-nowrap">{% if m.anulada %}<s>$ {{ m.valor }}</s>{% else %}− $ {{ m.valor }}{% endif %}</td>
+          <td class="text-end">
+            {% if not m.anulada and perms.nomina.change_multamanual %}
+            <details class="anular-caja anular-multa">
+              <summary class="btn btn-sm btn-light border text-danger" title="Anular esta multa"><i class="bi bi-x-lg" aria-hidden="true"></i><span class="visually-hidden">Anular la multa {{ m.concepto }}</span></summary>
+              <form method="post" action="{% url 'nomina:multa_anular' m.pk %}" class="mt-1 d-flex gap-1">
+                {% csrf_token %}
+                <label class="visually-hidden" for="motivo-multa-{{ m.pk }}">Motivo de la anulación</label>
+                <input id="motivo-multa-{{ m.pk }}" name="motivo" class="form-control form-control-sm" placeholder="Motivo" required maxlength="255">
+                <button type="submit" class="btn btn-sm btn-danger">Anular</button>
+              </form>
+            </details>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
+
+    {% if perms.nomina.add_multamanual %}
+    <form method="post" action="{% url 'nomina:multa_registrar' e.empleado.pk %}#multas" novalidate class="nueva-multa">
+      {% csrf_token %}
+      <input type="hidden" name="mes" value="{{ mes_consultado }}">
+      {% for error in form_multa.non_field_errors %}<div class="alert alert-danger small py-2">{{ error }}</div>{% endfor %}
+      <div class="row g-2 align-items-start">
+        <div class="col-sm-3">{% include "_campo.html" with campo=form_multa.fecha %}</div>
+        <div class="col-sm-6">{% include "_campo.html" with campo=form_multa.concepto %}</div>
+        <div class="col-sm-3">{% include "_campo.html" with campo=form_multa.valor %}</div>
+      </div>
+      <button type="submit" class="btn btn-outline-danger"><i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Registrar multa</button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+
 {% if e.es_vendedor %}
 <div class="card mt-3" style="max-width: 48rem">
   <div class="card-body d-flex flex-wrap align-items-center justify-content-between gap-3">

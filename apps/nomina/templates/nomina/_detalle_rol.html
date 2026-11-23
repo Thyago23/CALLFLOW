@@ -22,11 +22,12 @@
       <th scope="row">
         {{ d.concepto }} <span class="small text-body-secondary">· {{ d.fecha|date:"D d/m" }}</span>
         {% if d.pendiente %}<span class="badge text-bg-warning ms-1">Sin clasificar</span>{% endif %}
+        {% if d.clase == "multa_manual" %}<span class="small text-body-secondary">· manual{% if d.registrada_por %}, {{ d.registrada_por }}{% endif %}</span>{% endif %}
       </th>
       <td class="text-end">− $ {{ d.valor }}</td>
     </tr>
     {% empty %}
-    <tr><th scope="row" class="text-body-secondary">Sin descuentos por faltas ni atrasos</th><td class="text-end">$ 0,00</td></tr>
+    <tr><th scope="row" class="text-body-secondary">Sin descuentos por faltas, atrasos ni multas</th><td class="text-end">$ 0,00</td></tr>
     {% endfor %}
     {% if e.ajuste_tope %}
     <tr class="text-success-emphasis">

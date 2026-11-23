@@ -6,7 +6,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required, permission_required
 from django.core.exceptions import ValidationError
 from django.http import Http404, HttpResponse, JsonResponse
-from django.db import transaction
+from django.db import DatabaseError, transaction
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -20,8 +20,8 @@ from apps.ventas.templatetags.humanize_cf import dinero
 
 from . import caja_chica as caja
 from . import calculo
-from .forms import ArqueoCajaForm, LineaReciboForm, MovimientoCajaForm, ReciboCajaForm
-from .models import DENOMINACIONES, ArqueoCaja, LineaRecibo, MovimientoCajaChica, ReciboCaja
+from .forms import ArqueoCajaForm, LineaReciboForm, MovimientoCajaForm, MultaManualForm, ReciboCajaForm
+from .models import DENOMINACIONES, ArqueoCaja, LineaRecibo, MovimientoCajaChica, MultaManual, ReciboCaja
 
 
 def _mes(request) -> tuple[int, int]:
@@ -61,11 +61,70 @@ def resumen(request):
 def rol(request, empleado_pk):
     anio, mes = _mes(request)
     empleado = get_object_or_404(Empleado.objects.select_related("cargo"), pk=empleado_pk)
+    return _render_rol(request, empleado, anio, mes)
+
+
+def _render_rol(request, empleado, anio, mes, form_multa=None, status=200):
+    inicio, fin = date(anio, mes, 1), calculo.ultimo_dia(anio, mes)
+    if form_multa is None:
+        # Por defecto, hoy si cae en el mes consultado; si no, el último día del mes (dentro del contrato).
+        fecha = min(max(timezone.localdate(), inicio), fin)
+        fecha = max(fecha, empleado.fecha_ingreso)
+        if empleado.fecha_salida:
+            fecha = min(fecha, empleado.fecha_salida)
+        form_multa = MultaManualForm(empleado=empleado, initial={"fecha": fecha})
     return render(request, "nomina/rol.html", {
         "e": calculo.estimar_mes(empleado, anio, mes),
         "mes_consultado": f"{anio:04d}-{mes:02d}",
         "nombre_mes": calculo.nombre_mes(anio, mes),
-    })
+        "multas": MultaManual.objects.filter(empleado=empleado, fecha__range=(inicio, fin))
+                  .select_related("registrada_por", "anulada_por").order_by("fecha", "pk"),
+        "form_multa": form_multa,
+    }, status=status)
+
+
+@login_required
+@permission_required("nomina.add_multamanual", raise_exception=True)
+@require_POST
+def multa_registrar(request, empleado_pk):
+    """El administrador registra una multa que no sale de la asistencia; se descuenta en el rol del mes de su fecha."""
+    empleado = get_object_or_404(Empleado.objects.select_related("cargo"), pk=empleado_pk)
+    form = MultaManualForm(request.POST, empleado=empleado)
+    if not form.is_valid():
+        anio, mes = _mes_de(request.POST.get("mes", ""))
+        return _render_rol(request, empleado, anio, mes, form_multa=form, status=400)
+    datos = form.cleaned_data
+    try:
+        with transaction.atomic():
+            multa = MultaManual.objects.create(empleado=empleado, registrada_por=request.user, **datos)
+    except DatabaseError as error:  # lo que rechace la base (p. ej. fuera del contrato)
+        form.add_error(None, caja._mensaje_bd(error))
+        anio, mes = _mes_de(request.POST.get("mes", ""))
+        return _render_rol(request, empleado, anio, mes, form_multa=form, status=400)
+    messages.success(request, f"Multa de ${dinero(multa.valor)} registrada: se descuenta en el rol de "
+                              f"{calculo.nombre_mes(multa.fecha.year, multa.fecha.month)}.")
+    return redirect(f"{reverse('nomina:rol', args=[empleado.pk])}?mes={multa.fecha:%Y-%m}")
+
+
+@login_required
+@permission_required("nomina.change_multamanual", raise_exception=True)
+@require_POST
+def multa_anular(request, pk):
+    """Una multa no se borra ni se edita: se anula con un motivo y deja de descontarse."""
+    multa = get_object_or_404(MultaManual.objects.select_related("empleado"), pk=pk)
+    destino = f"{reverse('nomina:rol', args=[multa.empleado_id])}?mes={multa.fecha:%Y-%m}"
+    motivo = request.POST.get("motivo", "").strip()[:255]
+    if multa.anulada:
+        messages.info(request, "Esa multa ya estaba anulada.")
+    elif not motivo:
+        messages.error(request, "Para anular la multa escriba el motivo.")
+    else:
+        multa.anulada, multa.motivo_anulacion = True, motivo
+        multa.anulada_por, multa.anulada_en = request.user, timezone.now()
+        with transaction.atomic():
+            multa.save(update_fields=["anulada", "motivo_anulacion", "anulada_por", "anulada_en", "actualizado_en"])
+        messages.success(request, f"Multa «{multa.concepto}» anulada: ya no se descuenta del rol.")
+    return redirect(destino)
 
 
 @login_required
