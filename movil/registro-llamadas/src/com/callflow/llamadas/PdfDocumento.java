@@ -29,7 +29,9 @@ import java.util.Set;
  * { "titulo": "…", "horizontal": false, "cabecera": ["en negrita", "normal", …], "pie": "…", "codigo": "…",
  *   "bloques": [ {"t":"titulo","texto":"…"},
  *                {"t":"kpis","items":[["Llamadas","45"], …]},
- *                {"t":"tabla","cols":[{"t":"Asesor","w":3,"a":"i|d|c","b":true}],"filas":[["…"]],"alertas":[índices]},
+ *                {"t":"tabla","cols":[{"t":"Asesor","w":3,"a":"i|d|c","b":true}],"filas":[["…"]],"alertas":[índices],
+ *                 "marcas":[[fila, columna], …]},   (marcas: celdas sueltas en rojo)
+ *                {"t":"destacado","titulo":"…","items":[["Etiqueta","valor","detalle", rojo?], …],"nota":"…"},
  *                {"t":"nota","texto":"…","alerta":true} ] }
  * </pre>
  * Se dibuja dos veces: la primera en blanco solo para contar páginas («Página x de y»), la segunda en el PDF.
@@ -39,6 +41,8 @@ final class PdfDocumento {
     private static final int AZUL = Color.parseColor("#0062a8"), AZUL_SUAVE = Color.parseColor("#e8f2fa"), CEBRA = Color.parseColor("#f6f9fc");
     private static final int NOCHE = Color.parseColor("#0a2a4a"), ROSA = Color.parseColor("#ff0066"), ROJO = Color.parseColor("#c62828");
     private static final int GRIS = Color.parseColor("#5b6f84"), LINEA = Color.parseColor("#cfdceb"), AVISO = Color.parseColor("#fdecec");
+    // Recuadro destacado (tiempo muerto): naranja para que salte a la vista.
+    private static final int NARANJA = Color.parseColor("#e65100"), NARANJA_SUAVE = Color.parseColor("#fff3e0"), NARANJA_OSCURO = Color.parseColor("#a63a00");
 
     private PdfDocumento() {
     }
@@ -67,6 +71,9 @@ final class PdfDocumento {
         final Paint negrita = texto(8.6f, true, NOCHE), rojo = texto(8.6f, false, ROJO), rojoNegrita = texto(8.6f, true, ROJO);
         final Paint suave = texto(8, false, GRIS), cabecera = texto(8, true, AZUL), linea1 = texto(10, true, NOCHE), linea = texto(9.5f, false, NOCHE);
         final Paint valor = texto(13, true, NOCHE), relleno = new Paint(Paint.ANTI_ALIAS_FLAG), trazo = new Paint();
+        final Paint tituloDestacado = texto(9.5f, true, Color.WHITE), valorDestacado = texto(15, true, NARANJA_OSCURO), valorMal = texto(15, true, ROJO);
+        final Paint etiquetaDestacado = texto(8, true, NOCHE), notaDestacado = texto(7.6f, false, NARANJA_OSCURO);
+        final Paint bordeDestacado = new Paint(Paint.ANTI_ALIAS_FLAG);
         int paginas = 0, y;
         Canvas c;
         PdfDocument.Page pagina;
@@ -82,6 +89,9 @@ final class PdfDocumento {
             alto = horizontal ? 595 : 842;
             trazo.setColor(LINEA);
             trazo.setStrokeWidth(0.6f);
+            bordeDestacado.setColor(NARANJA);
+            bordeDestacado.setStyle(Paint.Style.STROKE);
+            bordeDestacado.setStrokeWidth(1.8f);
         }
 
         void dibujar() throws JSONException {
@@ -96,6 +106,7 @@ final class PdfDocumento {
                         case "kpis": kpis(b.optJSONArray("items")); break;
                         case "tabla": tabla(b); break;
                         case "nota": nota(b.optString("texto"), b.optBoolean("alerta")); break;
+                        case "destacado": destacado(b); break;
                         default: break;
                     }
                 }
@@ -211,6 +222,14 @@ final class PdfDocumento {
             Set<Integer> alertas = new HashSet<>();
             JSONArray a = b.optJSONArray("alertas");
             if (a != null) for (int i = 0; i < a.length(); i++) alertas.add(a.optInt(i));
+            Set<Long> marcas = new HashSet<>();
+            JSONArray m = b.optJSONArray("marcas");
+            if (m != null) {
+                for (int i = 0; i < m.length(); i++) {
+                    JSONArray par = m.optJSONArray(i);
+                    if (par != null) marcas.add(par.optLong(0) * 1000 + par.optLong(1));
+                }
+            }
 
             if (!cabe(CAB_TABLA + FILA)) salto();
             cabeceraTabla(cols, x);
@@ -234,6 +253,11 @@ final class PdfDocumento {
                     JSONObject col = cols.getJSONObject(k);
                     boolean bold = col.optBoolean("b");
                     Paint p = alerta ? (bold ? rojoNegrita : rojo) : (bold ? negrita : normal);
+                    if (marcas.contains(i * 1000L + k)) {
+                        relleno.setColor(AVISO);
+                        c.drawRect(x[k] + 1, y + 1, x[k + 1] - 1, y + FILA - 1, relleno);
+                        p = rojoNegrita;
+                    }
                     celda(fila.optString(k), p, x[k], x[k + 1], col.optString("a"), y + 12);
                 }
                 y += FILA;
@@ -259,6 +283,51 @@ final class PdfDocumento {
             else if ("c".equals(alineacion)) x = (x0 + x1 - w) / 2;
             else x = x0 + 4;
             c.drawText(t, x, base, p);
+        }
+
+        /** Recuadro con borde y banda naranja, cifras grandes y una nota al pie. No se parte entre páginas. */
+        void destacado(JSONObject b) {
+            JSONArray items = b.optJSONArray("items");
+            int n = items == null ? 0 : items.length();
+            int porFila = ancho > alto ? 6 : 3, pad = 10, gap = 6, banda = 22, celda = 46;
+            int filas = (n + porFila - 1) / porFila;
+            List<String> lineasNota = partir(b.optString("nota"), notaDestacado, contenido() - 2 * pad);
+            if (b.optString("nota").isEmpty()) lineasNota.clear();
+            int h = banda + pad + filas * celda + Math.max(0, filas - 1) * gap + (lineasNota.isEmpty() ? 0 : 6 + lineasNota.size() * 11) + pad;
+            if (!cabe(h)) salto();
+            float x0 = MARGEN, x1 = derecha();
+            relleno.setColor(NARANJA_SUAVE);
+            c.drawRoundRect(new RectF(x0, y, x1, y + h), 8, 8, relleno);
+            relleno.setColor(NARANJA);
+            c.drawRoundRect(new RectF(x0, y, x1, y + banda), 8, 8, relleno);
+            c.drawRect(x0, y + banda - 8, x1, y + banda, relleno);  // esquinas de abajo de la banda, rectas
+            c.drawText(recortar(b.optString("titulo").toUpperCase(), tituloDestacado, contenido() - 2 * pad), x0 + pad, y + 15, tituloDestacado);
+            c.drawRoundRect(new RectF(x0, y, x1, y + h), 8, 8, bordeDestacado);
+
+            float w = (contenido() - 2 * pad - gap * (porFila - 1)) / (float) porFila;
+            int yy = y + banda + pad;
+            for (int i = 0; i < n; i++) {
+                int col = i % porFila;
+                if (col == 0 && i > 0) yy += celda + gap;
+                JSONArray it = items.optJSONArray(i);
+                float x = x0 + pad + col * (w + gap);
+                relleno.setColor(Color.WHITE);
+                c.drawRoundRect(new RectF(x, yy, x + w, yy + celda), 6, 6, relleno);
+                boolean mal = it.optBoolean(3);
+                Paint v = mal ? valorMal : valorDestacado;
+                c.drawText(recortar(it.optString(1), v, w - 14), x + 7, yy + 19, v);
+                c.drawText(recortar(it.optString(0), etiquetaDestacado, w - 14), x + 7, yy + 31, etiquetaDestacado);
+                c.drawText(recortar(it.optString(2), suave, w - 14), x + 7, yy + 41, suave);
+            }
+            yy += celda;
+            if (!lineasNota.isEmpty()) {
+                yy += 6;
+                for (String l : lineasNota) {
+                    yy += 11;
+                    c.drawText(l, x0 + pad, yy - 2, notaDestacado);
+                }
+            }
+            y += h + 12;
         }
 
         void nota(String texto, boolean alerta) {

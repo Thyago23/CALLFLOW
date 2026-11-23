@@ -202,6 +202,12 @@ public class MainActivity extends Activity {
         if (r.isEmpty()) return BASE + "inicio.html";
         if (ROL_ASESOR.equals(r)) {
             if (RegistroTelefono.permisoLlamadas(this)) CopiaLlamadas.programar(this);
+            Vigilante.actualizar(this);
+            // Asesores que ya tenían la app (versión 2.1 o antes): se les pide una vez el permiso de notificaciones.
+            if (Build.VERSION.SDK_INT >= 33 && !permisoNotificaciones() && !preferencias().getBoolean("notificaciones-pedidas", false)) {
+                preferencias().edit().putBoolean("notificaciones-pedidas", true).apply();
+                requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, PEDIR_PERMISOS);
+            }
             return BASE + "asesor.html";
         }
         // Primera vez con la página https: pasar lo guardado por la versión 1.4 (página file://), ver migrar.html.
@@ -304,6 +310,7 @@ public class MainActivity extends Activity {
         if (pedido != PEDIR_PERMISOS) return;
         boolean llamadas = RegistroTelefono.permisoLlamadas(this);
         if (llamadas && ROL_ASESOR.equals(rol())) CopiaLlamadas.programar(this);
+        Vigilante.actualizar(this);
         web.evaluateJavascript("window.permisosCambiaron && window.permisosCambiaron(" + estadoPermisos() + ")", null);
     }
 
@@ -313,7 +320,23 @@ public class MainActivity extends Activity {
         boolean pedido = preferencias().getBoolean("permisos-pedidos", false);
         boolean bloqueado = pedido && ((!llamadas && !shouldShowRequestPermissionRationale(Manifest.permission.READ_CALL_LOG))
                 || (!telefono && !shouldShowRequestPermissionRationale(Manifest.permission.READ_PHONE_STATE)));
-        return "{\"llamadas\":" + llamadas + ",\"telefono\":" + telefono + ",\"bloqueado\":" + bloqueado + "}";
+        return "{\"llamadas\":" + llamadas + ",\"telefono\":" + telefono + ",\"bloqueado\":" + bloqueado
+                + ",\"notificaciones\":" + permisoNotificaciones() + "}";
+    }
+
+    private boolean instalada(String paquete) {
+        try {
+            getPackageManager().getPackageInfo(paquete, 0);
+            return true;
+        } catch (PackageManager.NameNotFoundException e) {
+            return false;
+        }
+    }
+
+    private boolean permisoNotificaciones() {
+        if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return false;
+        android.app.NotificationManager nm = getSystemService(android.app.NotificationManager.class);
+        return nm == null || nm.areNotificationsEnabled();
     }
 
     private static String tipoArchivo(String ruta) {
@@ -424,6 +447,7 @@ public class MainActivity extends Activity {
                 JSONArray chips = o.optJSONArray("chips");
                 preferencias().edit().putString(ROL, r).putString(NOMBRE_ASESOR, ROL_ASESOR.equals(r) ? nombre : "")
                         .putString(CHIPS, chips == null ? "[]" : chips.toString()).putString(PIN, pinGuardado).commit();
+                Vigilante.actualizar(MainActivity.this);  // arranca en el asesor, se detiene en el supervisor
                 runOnUiThread(() -> web.loadUrl(paginaInicial()));
                 return "{\"ok\":true}";
             } catch (Exception e) {
@@ -453,7 +477,82 @@ public class MainActivity extends Activity {
         @JavascriptInterface
         public void pedirPermisos() {
             preferencias().edit().putBoolean("permisos-pedidos", true).apply();
-            runOnUiThread(() -> requestPermissions(new String[]{Manifest.permission.READ_CALL_LOG, Manifest.permission.READ_PHONE_STATE}, PEDIR_PERMISOS));
+            String[] lista = Build.VERSION.SDK_INT >= 33
+                    ? new String[]{Manifest.permission.READ_CALL_LOG, Manifest.permission.READ_PHONE_STATE, Manifest.permission.POST_NOTIFICATIONS}
+                    : new String[]{Manifest.permission.READ_CALL_LOG, Manifest.permission.READ_PHONE_STATE};
+            runOnUiThread(() -> requestPermissions(lista, PEDIR_PERMISOS));
+        }
+
+        // ---------------------------------------------------------------- avisos de pausa (ntfy)
+
+        /** Asesor: activar las notificaciones (pide el permiso o, si ya se negó, abre los ajustes de notificaciones). */
+        @JavascriptInterface
+        public void pedirNotificaciones() {
+            runOnUiThread(() -> {
+                if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+                        && shouldShowRequestPermissionRationale(Manifest.permission.POST_NOTIFICATIONS)) {
+                    requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, PEDIR_PERMISOS);
+                    return;
+                }
+                try {
+                    startActivity(new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, getPackageName()));
+                } catch (Exception e) {
+                    abrirAjustesApp();
+                }
+            });
+        }
+
+        /** Supervisor: datos para suscribirse a los avisos. {servidor, tema, web, limite, repetir} */
+        @JavascriptInterface
+        public String avisos() {
+            try {
+                return new JSONObject().put("servidor", Vigilante.SERVIDOR).put("tema", TemaAvisos.VALOR)
+                        .put("web", Vigilante.SERVIDOR + "/" + TemaAvisos.VALOR)
+                        .put("limite", Vigilante.LIMITE_MIN).put("repetir", Vigilante.REPETIR_MIN)
+                        .put("ntfyInstalado", instalada("io.heckel.ntfy")).toString();
+            } catch (Exception e) {
+                return "{}";
+            }
+        }
+
+        /** Supervisor: abre ntfy suscrito al canal de avisos; si no está instalada, abre la tienda para instalarla. */
+        @JavascriptInterface
+        public void abrirNtfy() {
+            runOnUiThread(() -> {
+                String host = Uri.parse(Vigilante.SERVIDOR).getHost();
+                Intent[] intentos = {
+                        new Intent(Intent.ACTION_VIEW, Uri.parse("ntfy://" + host + "/" + TemaAvisos.VALOR)),
+                        new Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=io.heckel.ntfy")),
+                        new Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=io.heckel.ntfy"))};
+                for (Intent i : intentos) {
+                    try {
+                        startActivity(i);
+                        return;
+                    } catch (Exception ignorada) {
+                        // probar el siguiente
+                    }
+                }
+                avisar("No se pudo abrir ntfy ni la tienda de apps.");
+            });
+        }
+
+        /** Supervisor: manda un aviso de prueba al canal. Responde en window.avisoProbado(ok). */
+        @JavascriptInterface
+        public void probarAviso() {
+            new Thread(() -> {
+                boolean ok;
+                try {
+                    String hora = new SimpleDateFormat("HH:mm", Locale.US).format(new Date());
+                    ok = Vigilante.publicar(new JSONObject().put("topic", TemaAvisos.VALOR)
+                            .put("title", "Aviso de prueba")
+                            .put("message", "Si ve esto, los avisos de pausa de los asesores le van a llegar aquí (" + hora + ").")
+                            .put("tags", new JSONArray().put("white_check_mark")));
+                } catch (Exception e) {
+                    ok = false;
+                }
+                boolean r = ok;
+                runOnUiThread(() -> web.evaluateJavascript("window.avisoProbado && window.avisoProbado(" + r + ")", null));
+            }).start();
         }
 
         @JavascriptInterface

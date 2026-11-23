@@ -10,6 +10,8 @@
 #   registro-llamadas.jks + clave.txt  llave del APK: para instalar una versión nueva encima hay que firmar con la misma.
 #   sello.txt                          llave de los reportes de asesores: todos los teléfonos deben tener un APK con la
 #                                      misma, o el supervisor rechaza sus PDF.
+#   ntfy-tema.txt                      canal de ntfy de los avisos de pausa: si cambia, los supervisores tienen que
+#                                      volver a suscribirse y los asesores necesitan el APK nuevo.
 set -euo pipefail
 raiz="$(cd "$(dirname "$0")" && pwd)"
 
@@ -46,6 +48,20 @@ cat > "$tmp/gen/com/callflow/llamadas/LlaveSello.java" <<EOF
 package com.callflow.llamadas;
 // Generado por build.sh desde firma/sello.txt. No se sube al repositorio.
 final class LlaveSello { static final String VALOR = "$valor"; private LlaveSello() {} }
+EOF
+
+# Canal privado de ntfy para los avisos de pausa (Vigilante): los asesores publican ahí y los supervisores se
+# suscriben. Quien conozca el nombre puede leer los avisos, por eso es largo y al azar y va en firma/.
+tema="$raiz/firma/ntfy-tema.txt"
+if [ ! -f "$tema" ]; then
+    printf 'callflow-%s' "$(LC_ALL=C tr -dc 'a-z0-9' < /dev/urandom | head -c 24)" > "$tema"
+    echo "   Canal de avisos creado en firma/ntfy-tema.txt (guárdelo junto con la llave de firma)."
+fi
+valorTema="$(tr -d '\r\n' < "$tema")"
+cat > "$tmp/gen/com/callflow/llamadas/TemaAvisos.java" <<EOF
+package com.callflow.llamadas;
+// Generado por build.sh desde firma/ntfy-tema.txt. No se sube al repositorio.
+final class TemaAvisos { static final String VALOR = "$valorTema"; private TemaAvisos() {} }
 EOF
 
 echo "2/6 Java (javac)"

@@ -1,11 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Registro de llamadas (CALLFLOW): app independiente, sin servidor ni internet.
-     Asesor: lee el historial de llamadas del teléfono y genera un PDF para enviar por WhatsApp.
+<!-- Registro de llamadas (CALLFLOW): app independiente, sin servidor propio.
+     Asesor: lee el historial de llamadas del teléfono y genera un PDF para enviar por WhatsApp. Si pasan 8 min
+     sin llamar avisa en el teléfono y al supervisor por ntfy (Vigilante): es lo único que usa internet.
      Supervisor: registro a mano / por foto y une los PDF de los asesores. -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.callflow.llamadas"
-    android:versionCode="7"
-    android:versionName="2.0">
+    android:versionCode="9"
+    android:versionName="2.2">
 
     <uses-sdk android:minSdkVersion="29" android:targetSdkVersion="36" />
 
@@ -15,12 +16,24 @@
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
     <!-- La copia automática del historial (CopiaLlamadas) sigue después de reiniciar el teléfono. -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- Avisos de pausa (Vigilante): enviarlos al supervisor por ntfy, mostrarlos en el teléfono del asesor y seguir
+         vigilando con la pantalla apagada (servicio en primer plano + alarma exacta a la hora en que se cumplen los 8 min). -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
 
     <!-- «Tomar foto» abre la app de cámara; «Enviar por WhatsApp» abre WhatsApp directamente. -->
     <queries>
         <intent><action android:name="android.media.action.IMAGE_CAPTURE" /></intent>
         <package android:name="com.whatsapp" />
         <package android:name="com.whatsapp.w4b" />
+        <!-- El supervisor se suscribe a los avisos con la app ntfy (enlace ntfy://). -->
+        <package android:name="io.heckel.ntfy" />
+        <intent><action android:name="android.intent.action.VIEW" /><data android:scheme="ntfy" /></intent>
+        <intent><action android:name="android.intent.action.VIEW" /><data android:scheme="market" /></intent>
     </queries>
 
     <application
@@ -57,5 +70,21 @@
             android:name=".CopiaLlamadas"
             android:exported="false"
             android:permission="android.permission.BIND_JOB_SERVICE" />
+        <service
+            android:name=".Vigilante"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Avisa al asesor y al supervisor cuando pasan 8 minutos sin llamadas en horario de trabajo." />
+        </service>
+        <receiver
+            android:name=".Arranque"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
     </application>
 </manifest>

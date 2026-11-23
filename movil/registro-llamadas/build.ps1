@@ -47,6 +47,21 @@ package com.callflow.llamadas;
 final class LlaveSello { static final String VALOR = "$valorSello"; private LlaveSello() {} }
 "@
 
+# Canal privado de ntfy para los avisos de pausa (Vigilante): los asesores publican ahí y los supervisores se
+# suscriben. Quien conozca el nombre puede leer los avisos, por eso es largo y al azar y va en firma\.
+$tema = "$raiz\firma\ntfy-tema.txt"
+if (-not (Test-Path $tema)) {
+    $nuevo = "callflow-" + (-join ((48..57) + (97..122) | Get-Random -Count 24 | ForEach-Object { [char]$_ }))
+    Set-Content -Path $tema -Value $nuevo -Encoding ascii -NoNewline
+    Write-Host "   Canal de avisos creado en firma\ntfy-tema.txt (guárdelo junto con la llave de firma)."
+}
+$valorTema = (Get-Content $tema -Raw).Trim()
+Set-Content -Path "$tmp\gen\com\callflow\llamadas\TemaAvisos.java" -Encoding ascii -Value @"
+package com.callflow.llamadas;
+// Generado por build.ps1 desde firma\ntfy-tema.txt. No se sube al repositorio.
+final class TemaAvisos { static final String VALOR = "$valorTema"; private TemaAvisos() {} }
+"@
+
 Write-Host "2/6 Java (javac)"
 $fuentes = @(Get-ChildItem "$raiz\src", "$tmp\gen" -Recurse -Filter *.java | ForEach-Object { $_.FullName })
 Ejecutar "javac" (@("-encoding", "UTF-8", "--release", "17", "-classpath", $plataforma, "-d", "$tmp\clases", "-Xlint:-options") + $fuentes)

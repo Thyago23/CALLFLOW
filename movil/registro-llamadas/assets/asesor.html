@@ -15,6 +15,11 @@
   .contador b { display: block; font-family: var(--letra-titulos); font-size: 1.55rem; line-height: 1; font-weight: 700; }
   .contador span { font-size: .75rem; opacity: .85; }
   .codigo { font-family: var(--letra-titulos); font-weight: 700; letter-spacing: .06em; color: var(--texto); }
+  .mas-datos { margin-top: 10px; }
+  .mas-datos summary { cursor: pointer; color: var(--primario); font-weight: 700; font-size: .9rem; min-height: 40px; display: flex; align-items: center; }
+  .mas-datos .kpis { margin-top: 4px; }
+  .paso { display: flex; align-items: center; gap: 8px; font-size: .8rem; font-weight: 700; color: var(--suave); text-transform: uppercase; letter-spacing: .04em; margin: 0 0 8px; }
+  .paso b { width: 22px; height: 22px; border-radius: 50%; background: var(--primario); color: var(--sobre-primario); display: inline-grid; place-items: center; font-size: .75rem; letter-spacing: 0; }
 </style>
 </head>
 <body>
@@ -43,8 +48,16 @@
     </div>
   </div>
 
+  <div class="banda info" id="sin-notificaciones" hidden>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+    <div>
+      <b>Active las notificaciones.</b><br><span id="sin-notificaciones-texto"></span>
+      <button type="button" class="boton secundario" id="activar-notificaciones" style="width:100%">Activar notificaciones</button>
+    </div>
+  </div>
+
   <section class="tarjeta">
-    <span class="etiqueta">Periodo del reporte</span>
+    <span class="paso"><b>1</b>Elija el día del reporte</span>
     <div class="chips" id="periodos" role="group">
       <button type="button" class="chip" data-p="hoy">Hoy</button>
       <button type="button" class="chip" data-p="ayer">Ayer</button>
@@ -69,8 +82,13 @@
   </div>
 
   <section class="tarjeta" id="resumen">
+    <span class="paso"><b>2</b>Revise su resumen</span>
     <div class="kpis" id="kpis"></div>
     <div class="resumen-linea" id="resumen-linea"></div>
+    <details class="mas-datos">
+      <summary>Ver más datos</summary>
+      <div class="kpis" id="kpis-mas"></div>
+    </details>
   </section>
 
   <section class="tarjeta lista">
@@ -83,7 +101,7 @@
   <div class="contenido">
     <button type="button" class="boton principal" id="generar" disabled>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M12 18v-6M9 15l3 3 3-3"/></svg>
-      <span id="generar-texto">Generar PDF para enviar</span>
+      <span id="generar-texto">Generar reporte</span>
     </button>
   </div>
 </div>
@@ -180,25 +198,32 @@
     $("dar-permiso").textContent = p.bloqueado ? "Abrir ajustes de la app" : "Dar permiso";
     $("dar-permiso").dataset.ajustes = p.bloqueado ? "1" : "";
     $("sin-permiso-texto").textContent = p.bloqueado ? "Abra Ajustes › Permisos y active «Registro de llamadas» y «Teléfono»." : "Falta el permiso «Registro de llamadas».";
+    $("sin-notificaciones").hidden = !p.llamadas || p.notificaciones !== false;
+    $("sin-notificaciones-texto").textContent = "Así la app le avisa cuando lleva " + CF.LARGA_TXT + " sin llamar. El supervisor recibe el aviso igual.";
 
     llamadas = consulta.llamadas || [];
     const e = CF.estadisticas(llamadas);
     $("total").textContent = e.total;
     $("total-texto").textContent = e.total === 1 ? "llamada" : "llamadas";
     $("generar").disabled = !e.total;
-    $("generar-texto").textContent = e.total ? "Generar PDF para enviar (" + e.total + ")" : "Generar PDF para enviar";
+    $("generar-texto").textContent = textoBoton(e.total);
 
     const ct = consulta.chipsTrabajo || [];
-    $("chips-trabajo").textContent = ct.length ? "Chips de trabajo: " + ct.map((c) => c.nombre + (c.detalle ? " (" + c.detalle + ")" : "")).join(", ") : "";
+    $("chips-trabajo").textContent = (ct.length ? "Chips de trabajo: " + ct.map((c) => c.nombre + (c.detalle ? " (" + c.detalle + ")" : "")).join(", ") + ". " : "")
+      + (p.llamadas ? "Si pasan " + CF.LARGA_TXT + " sin llamar (de 9:00 a 18:00, sin el almuerzo), se le avisa a usted y al supervisor." : "");
 
     $("borradas").hidden = !e.borradas;
     $("borradas-texto").innerHTML = "<b></b> Igual salen en el reporte, marcadas como borradas.";
     $("borradas-texto").querySelector("b").textContent = CF.plural(e.borradas, "llamada se borró", "llamadas se borraron") + " del historial del teléfono.";
 
-    const kpis = [["Llamadas", e.total, true], ["Contestadas", e.contestadas], ["No contestadas", e.noContestadas], ["Tiempo hablado", CF.duracion(e.tiempo)],
-                  ["Promedio", CF.reloj(e.promedio)], ["Entrantes", e.entrantes], ["Perdidas", e.perdidas], ["Números distintos", e.numeros]];
-    $("kpis").innerHTML = kpis.map((k) => '<div class="kpi' + (k[2] ? " destacado" : "") + '"><b></b><span></span></div>').join("");
-    $("kpis").querySelectorAll(".kpi").forEach(function (div, i) { div.querySelector("b").textContent = kpis[i][1]; div.querySelector("span").textContent = kpis[i][0]; });
+    // Lo principal a la vista; el resto, en «Ver más datos».
+    const kpis = [["Llamadas", e.total, "destacado"], ["Contestadas", e.contestadas], ["Tiempo hablado", CF.duracion(e.tiempo)],
+                  ["Tiempo muerto", e.pausas ? CF.duracion(e.tiempoMuerto) : "—", "muerto"]];
+    const mas = [["No contestadas", e.noContestadas], ["Promedio por llamada", CF.reloj(e.promedio)], ["Entrantes", e.entrantes], ["Perdidas", e.perdidas],
+                 ["Números distintos", e.numeros], ["Promedio entre llamadas", e.pausas ? CF.duracion(e.promedioMuerto) : "—"],
+                 ["Pausas de " + CF.LARGA_TXT + " o más", e.pausasLargas, e.pausasLargas ? "muerto" : ""], ["Tiempo en llamada", e.pausas ? CF.porcentaje(e.ocupacion) : "—"]];
+    pintarKpis("kpis", kpis);
+    pintarKpis("kpis-mas", mas);
     const linea = [];
     if (e.primera) {
       const varios = e.dias > 1;
@@ -212,6 +237,25 @@
     pintarLista();
   }
 
+  function pintarKpis(id, kpis) {
+    $(id).innerHTML = kpis.map((k) => '<div class="kpi' + (k[2] ? " " + k[2] : "") + '"><b></b><span></span></div>').join("");
+    $(id).querySelectorAll(".kpi").forEach(function (div, i) { div.querySelector("b").textContent = kpis[i][1]; div.querySelector("span").textContent = kpis[i][0]; });
+  }
+
+  const TEXTO_PERIODO = { hoy: "de hoy", ayer: "de ayer", semana: "de esta semana", mes: "de este mes", otro: "" };
+  function textoBoton(n) {
+    return "Generar reporte " + (TEXTO_PERIODO[periodo] || "") + (n ? " (" + CF.plural(n, "llamada", "llamadas") + ")" : "");
+  }
+
+  /** Aviso entre dos llamadas de la lista cuando hubo un tiempo muerto largo. */
+  function filaPausa(seg, almuerzo) {
+    const li = document.createElement("li");
+    li.className = "pausa" + (seg >= CF.PAUSA_LARGA ? " larga" : "");
+    li.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span></span>';
+    li.querySelector("span").textContent = CF.duracion(seg) + " sin llamadas" + (almuerzo ? " (sin contar el almuerzo)" : "");
+    return li;
+  }
+
   function pintarLista() {
     const caja = $("lista");
     caja.textContent = "";
@@ -222,6 +266,7 @@
     }
     const orden = llamadas.slice().sort((a, b) => b.t - a.t);
     const porDia = CF.agrupar(orden, (l) => l.fecha);
+    const muertos = CF.tiemposMuertos(llamadas);
     let dia = null, ul = null;
     orden.slice(0, mostrar).forEach(function (l) {
       if (l.fecha !== dia) {
@@ -231,11 +276,14 @@
         const ed = CF.estadisticas(porDia[dia]);
         cab.innerHTML = "<span></span><span></span>";
         cab.firstChild.textContent = CF.nombreDia(dia);
-        cab.lastChild.textContent = CF.plural(ed.total, "llamada", "llamadas") + " · " + CF.duracion(ed.tiempo);
+        cab.lastChild.textContent = CF.plural(ed.total, "llamada", "llamadas") + " · " + CF.duracion(ed.tiempo) + (ed.pausas ? " · muerto " + CF.duracion(ed.tiempoMuerto) : "");
         ul = document.createElement("ul");
         caja.append(cab, ul);
       }
       ul.append(filaLlamada(l, consulta.chipsTrabajo && consulta.chipsTrabajo.length > 1));
+      // La lista va de la más nueva a la más vieja: el tiempo muerto antes de esta llamada se ve debajo de ella.
+      const seg = muertos.get(l);
+      if (seg >= CF.PAUSA_VISIBLE) ul.append(filaPausa(seg, muertos.almuerzo.has(l)));
     });
     if (orden.length > mostrar) {
       const b = document.createElement("button");
@@ -277,22 +325,32 @@
     const cuando = (l) => (varios ? CF.fechaCorta(l.fecha).slice(0, 5) + " " : "") + l.hora;
     const ct = consulta.chipsTrabajo || [];
     const bloques = [];
+    const muertos = CF.tiemposMuertos(llamadas);
+    bloques.push(CF.bloqueTiempoMuerto(e));
     bloques.push({ t: "kpis", items: [
       ["Llamadas", String(e.total)], ["Salientes", String(e.salientes)], ["Contestadas", String(e.contestadas)], ["No contestadas", String(e.noContestadas)],
       ["Entrantes", String(e.entrantes)], ["Perdidas / rechazadas", String(e.perdidas)], ["Tiempo hablado", CF.duracion(e.tiempo)], ["Promedio por llamada", CF.reloj(e.promedio) + " min"],
-      ["Números distintos", String(e.numeros)], ["Primera llamada", cuando(e.primera)], ["Última llamada", cuando(e.ultima)], ["Mayor pausa", e.mayorPausa >= 60 ? CF.duracion(e.mayorPausa) : "—"]
+      ["Números distintos", String(e.numeros)], ["Primera llamada", cuando(e.primera)], ["Última llamada", cuando(e.ultima)], ["Tiempo muerto", CF.duracion(e.tiempoMuerto)]
     ] });
-    if (e.mayorPausa >= 60) bloques.push({ t: "nota", texto: "Mayor pausa entre llamadas: " + CF.duracion(e.mayorPausa) + ", de " + e.pausaDesde + " a " + e.pausaHasta + (varios ? " del " + CF.fechaCorta(e.pausaDia) : "") + "." });
+    if (e.largas.length) {
+      bloques.push({ t: "titulo", texto: "Pausas de " + CF.LARGA_TXT + " o más" });
+      bloques.push({ t: "tabla", cols: [{ t: "Día", w: 2 }, { t: "Desde", w: 1, a: "c" }, { t: "Hasta", w: 1, a: "c" }, { t: "Tiempo muerto", w: 1.5, a: "d", b: true }],
+        filas: e.largas.map((p) => [CF.diaSemana(p.fecha) + " " + CF.fechaCorta(p.fecha), p.desde, p.hasta, CF.pausaLargaTexto(p)]),
+        marcas: e.largas.map((p, i) => [i, 3]) });
+    }
     if (e.borradas) bloques.push({ t: "nota", alerta: true, texto: "Atención: " + CF.plural(e.borradas, "llamada fue borrada", "llamadas fueron borradas") + " del historial del teléfono después de hacerse. Igual se incluyen y van marcadas como BORRADA." });
     if (varios) {
       const g = CF.agrupar(llamadas, (l) => l.fecha);
       bloques.push({ t: "titulo", texto: "Por día" });
-      bloques.push({ t: "tabla", cols: [{ t: "Día", w: 2.2, b: true }, { t: "Llamadas", w: 1, a: "d" }, { t: "Contestadas", w: 1.1, a: "d" }, { t: "No contestadas", w: 1.2, a: "d" },
-        { t: "Tiempo hablado", w: 1.4, a: "d" }, { t: "Primera", w: 0.9, a: "c" }, { t: "Última", w: 0.9, a: "c" }, { t: "Mayor pausa", w: 1.2, a: "d" }],
-        filas: Object.keys(g).sort().map(function (f) {
+      const dias = Object.keys(g).sort();
+      bloques.push({ t: "tabla", cols: [{ t: "Día", w: 2.1, b: true }, { t: "Llamadas", w: 0.9, a: "d" }, { t: "Contestadas", w: 1, a: "d" }, { t: "No contest.", w: 0.95, a: "d" },
+        { t: "Tiempo hablado", w: 1.3, a: "d" }, { t: "Tiempo muerto", w: 1.3, a: "d", b: true }, { t: "Primera", w: 0.8, a: "c" }, { t: "Última", w: 0.8, a: "c" }, { t: "Mayor pausa", w: 1.2, a: "d" }],
+        filas: dias.map(function (f) {
           const d = CF.estadisticas(g[f]);
-          return [CF.diaSemana(f) + " " + CF.fechaCorta(f), String(d.total), String(d.contestadas), String(d.noContestadas), CF.duracion(d.tiempo), d.primera.hora, d.ultima.hora, d.mayorPausa >= 60 ? CF.duracion(d.mayorPausa) : "—"];
-        }) });
+          return [CF.diaSemana(f) + " " + CF.fechaCorta(f), String(d.total), String(d.contestadas), String(d.noContestadas), CF.duracion(d.tiempo),
+                  d.pausas ? CF.duracion(d.tiempoMuerto) : "—", d.primera.hora, d.ultima.hora, d.mayorPausa >= 60 ? CF.duracion(d.mayorPausa) : "—"];
+        }),
+        marcas: dias.map((f, i) => CF.estadisticas(g[f]).mayorPausa >= CF.PAUSA_LARGA ? [i, 8] : null).filter(Boolean) });
     }
     if (conChip) {
       const g = CF.agrupar(llamadas, (l) => l.chip);
@@ -312,18 +370,20 @@
         const d = CF.estadisticas(porHora[h]);
         return [h + ":00 – " + h + ":59", String(d.total), String(d.contestadas), String(d.noContestadas), CF.duracion(d.tiempo)];
       }) });
-    const cols = [{ t: "N.°", w: 0.5, a: "d" }, { t: "Fecha", w: 1.15 }, { t: "Hora", w: 0.65 }, { t: "Tipo", w: 1.5 }, { t: "Número", w: 1.45, b: true },
-                  { t: "Contacto", w: 1.8 }, { t: "Duración", w: 0.85, a: "d" }];
+    const cols = [{ t: "N.°", w: 0.5, a: "d" }, { t: "Fecha", w: 1.15 }, { t: "Hora", w: 0.65 }, { t: "Tipo", w: 1.45 }, { t: "Número", w: 1.4, b: true },
+                  { t: "Contacto", w: 1.5 }, { t: "Duración", w: 0.8, a: "d" }, { t: "T. muerto antes", w: 1.2, a: "d" }];
     if (conChip) cols.push({ t: "Chip", w: 0.8 });
-    const alertas = [];
+    const alertas = [], marcas = [];
     const filas = llamadas.map(function (l, i) {
       if (l.b) alertas.push(i);
-      const f = [String(i + 1), CF.fechaCorta(l.fecha), l.hora, tipoTexto(l), CF.mostrarNumero(l.n), l.c || "", l.d ? CF.reloj(l.d) : "—"];
+      const seg = muertos.get(l);
+      if (seg >= CF.PAUSA_LARGA) marcas.push([i, 7]);
+      const f = [String(i + 1), CF.fechaCorta(l.fecha), l.hora, tipoTexto(l), CF.mostrarNumero(l.n), l.c || "", l.d ? CF.reloj(l.d) : "—", seg === undefined ? "—" : CF.duracion(seg)];
       if (conChip) f.push(l.chip);
       return f;
     });
     bloques.push({ t: "titulo", texto: "Detalle de llamadas" });
-    bloques.push({ t: "tabla", cols, filas, alertas });
+    bloques.push({ t: "tabla", cols, filas, alertas, marcas });
 
     const ahora = new Date();
     return {
@@ -348,7 +408,7 @@
     setTimeout(function () {
       const r = CF.json(app.generarReporte(JSON.stringify(documento())), { ok: false, error: "Error" });
       b.disabled = false;
-      $("generar-texto").textContent = "Generar PDF para enviar (" + llamadas.length + ")";
+      $("generar-texto").textContent = textoBoton(llamadas.length);
       if (!r.ok) { CF.avisar("No se pudo generar el PDF: " + r.error, "error"); return; }
       ultimo = r;
       $("listo-archivo").textContent = r.nombre;
@@ -360,6 +420,7 @@
   $("abrir").addEventListener("click", () => { if (ultimo) app.abrirPdf(ultimo.uri); });
 
   // ------------------------------------------------------------------ permiso y configuración
+  $("activar-notificaciones").addEventListener("click", () => { if (app) app.pedirNotificaciones(); });
   $("dar-permiso").addEventListener("click", function () { if (!app) return; if (this.dataset.ajustes) app.abrirAjustesApp(); else app.pedirPermisos(); });
   window.permisosCambiaron = () => cargar();
   document.addEventListener("visibilitychange", function () { if (!document.hidden) cargar(); });

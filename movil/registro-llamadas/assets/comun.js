@@ -53,12 +53,49 @@
     return [C.fechaIso(hoy), C.fechaIso(hoy)];
   };
 
+  // ------------------------------------------------------------------ tiempo muerto
+  // Tiempo muerto = tiempo entre el fin de una llamada y el inicio de la siguiente, el mismo día.
+  // Solo cuentan como actividad del asesor las llamadas que hizo (salientes, contesten o no) y las que contestó;
+  // una entrante perdida o rechazada no corta el tiempo muerto.
+  C.PAUSA_LARGA = 8 * 60;    // desde aquí la pausa se marca en rojo (8 min sin timbrar); igual a Vigilante.LIMITE_MIN
+  C.LARGA_TXT = (C.PAUSA_LARGA / 60) + " min";
+  C.PAUSA_VISIBLE = 5 * 60;  // desde aquí se muestra en la lista del asesor
+  C.esActividad = (l) => l.tp === "saliente" || l.d > 0;
+  // Hora de almuerzo: no cuenta como tiempo muerto.
+  C.ALMUERZO = ["13:00", "14:00"];
+  const enMs = (fecha, hhmm) => { const d = C.deIso(fecha); d.setHours(+hhmm.slice(0, 2), +hhmm.slice(3, 5), 0, 0); return d.getTime(); };
+  /**
+   * Map llamada → segundos de tiempo muerto antes de ella (la primera llamada de cada día no tiene), sin la hora de
+   * almuerzo. Además: m.inicio (llamada → ms en que empezó la pausa) y m.almuerzo (llamadas cuya pausa incluía el almuerzo).
+   */
+  C.tiemposMuertos = function (llamadas) {
+    const m = new Map(), porDia = C.agrupar(llamadas.filter(C.esActividad), (l) => l.fecha);
+    m.inicio = new Map();
+    m.almuerzo = new Set();
+    Object.keys(porDia).forEach(function (f) {
+      const a0 = enMs(f, C.ALMUERZO[0]), a1 = enMs(f, C.ALMUERZO[1]);
+      let fin = null;  // el fin más tardío hasta ahora (por si una llamada se solapa con otra)
+      porDia[f].slice().sort((a, b) => a.t - b.t).forEach(function (l) {
+        if (fin !== null) {
+          const hueco = Math.max(0, l.t - fin), almuerzo = Math.max(0, Math.min(l.t, a1) - Math.max(fin, a0));
+          m.set(l, Math.round((hueco - almuerzo) / 1000));
+          m.inicio.set(l, fin);
+          if (almuerzo > 0) m.almuerzo.add(l);
+        }
+        fin = Math.max(fin === null ? 0 : fin, l.t + (l.d || 0) * 1000);
+      });
+    });
+    return m;
+  };
+  C.porcentaje = (x) => Math.round((x || 0) * 100) + " %";
+
   // ------------------------------------------------------------------ estadísticas
   // Llamada: {t (ms), fecha, hora, n, c, tp: saliente|entrante|perdida|rechazada|otra, d (seg), chip, b (1 = borrada del historial)}
   // Contestada = saliente con duración > 0 (Android solo cuenta el tiempo desde que el cliente contesta).
   C.estadisticas = function (llamadas) {
     const e = { total: llamadas.length, salientes: 0, contestadas: 0, noContestadas: 0, entrantes: 0, perdidas: 0, tiempo: 0,
-                conDuracion: 0, numeros: 0, borradas: 0, primera: null, ultima: null, mayorPausa: 0, pausaDesde: "", pausaHasta: "", dias: 0 };
+                conDuracion: 0, numeros: 0, borradas: 0, primera: null, ultima: null, mayorPausa: 0, pausaDesde: "", pausaHasta: "", dias: 0,
+                tiempoMuerto: 0, pausas: 0, promedioMuerto: 0, pausasLargas: 0, tiempoPausasLargas: 0, largas: [], ocupacion: 0 };
     const numeros = new Set(), porDia = {};
     llamadas.forEach(function (l) {
       if (l.tp === "saliente") { e.salientes++; if (l.d > 0) e.contestadas++; else e.noContestadas++; }
@@ -75,14 +112,19 @@
     e.numeros = numeros.size;
     e.dias = Object.keys(porDia).length;
     e.promedio = e.conDuracion ? e.tiempo / e.conDuracion : 0;
-    // Mayor pausa: el tiempo más largo entre el fin de una llamada y el inicio de la siguiente, el mismo día.
-    Object.keys(porDia).forEach(function (f) {
-      const ls = porDia[f].slice().sort((a, b) => a.t - b.t);
-      for (let i = 1; i < ls.length; i++) {
-        const fin = ls[i - 1].t + (ls[i - 1].d || 0) * 1000, pausa = (ls[i].t - fin) / 1000;
-        if (pausa > e.mayorPausa) { e.mayorPausa = pausa; e.pausaDesde = C.horaIso(new Date(fin)); e.pausaHasta = ls[i].hora; e.pausaDia = f; }
-      }
+    // Tiempo muerto: total, promedio entre llamadas, mayor pausa y pausas largas (de C.PAUSA_LARGA o más).
+    const muertos = C.tiemposMuertos(llamadas);
+    muertos.forEach(function (seg, l) {
+      e.pausas++;
+      e.tiempoMuerto += seg;
+      const desde = C.horaIso(new Date(muertos.inicio.get(l))), almuerzo = muertos.almuerzo.has(l);
+      if (seg >= C.PAUSA_LARGA) { e.pausasLargas++; e.tiempoPausasLargas += seg; e.largas.push({ fecha: l.fecha, desde, hasta: l.hora, seg, almuerzo }); }
+      if (seg > e.mayorPausa) { e.mayorPausa = seg; e.pausaDesde = desde; e.pausaHasta = l.hora; e.pausaDia = l.fecha; e.pausaAlmuerzo = almuerzo; }
     });
+    e.largas.sort((a, b) => (a.fecha + a.hasta).localeCompare(b.fecha + b.hasta));
+    e.promedioMuerto = e.pausas ? e.tiempoMuerto / e.pausas : 0;
+    // Del tiempo entre la primera y la última llamada de cada día, qué parte fue en llamada.
+    e.ocupacion = e.tiempo + e.tiempoMuerto ? e.tiempo / (e.tiempo + e.tiempoMuerto) : 0;
     return e;
   };
   C.agrupar = function (lista, clave) {
@@ -90,7 +132,23 @@
     lista.forEach((x) => { const k = clave(x); (g[k] = g[k] || []).push(x); });
     return g;
   };
-  C.pausaTexto = (e) => e.mayorPausa >= 60 ? C.duracion(e.mayorPausa) + " (" + e.pausaDesde + "–" + e.pausaHasta + ")" : "—";
+  /** Recuadro destacado de tiempo muerto para los PDF (bloque «destacado» de PdfDocumento). */
+  C.bloqueTiempoMuerto = function (e, titulo) {
+    const varios = e.dias > 1, hay = e.mayorPausa >= 60;
+    return { t: "destacado", titulo: titulo || "Tiempo muerto entre llamadas", items: [
+      ["Tiempo muerto total", C.duracion(e.tiempoMuerto), C.plural(e.pausas, "pausa entre llamadas", "pausas entre llamadas")],
+      ["Tiempo hablado", C.duracion(e.tiempo), "en " + C.plural(e.total, "llamada", "llamadas")],
+      ["Tiempo en llamada", C.porcentaje(e.ocupacion), "entre la primera y la última llamada"],
+      ["Promedio entre llamadas", e.pausas ? C.duracion(e.promedioMuerto) : "—", "de una llamada a la siguiente"],
+      ["Mayor tiempo muerto", hay ? C.duracion(e.mayorPausa) : "—", hay ? "de " + e.pausaDesde + " a " + e.pausaHasta + (varios ? " del " + C.fechaCorta(e.pausaDia).slice(0, 5) : "") + (e.pausaAlmuerzo ? ", sin almuerzo" : "") : ""],
+      ["Pausas de " + C.LARGA_TXT + " o más", String(e.pausasLargas), e.pausasLargas ? "suman " + C.duracion(e.tiempoPausasLargas) : "ninguna", e.pausasLargas > 0]
+    ], nota: "Tiempo muerto: el tiempo sin llamadas entre el fin de una llamada y el inicio de la siguiente, el mismo día. "
+      + "No cuenta la hora de almuerzo (" + C.ALMUERZO[0] + " a " + C.ALMUERZO[1] + ") y no lo cortan las entrantes perdidas o rechazadas. "
+      + "En rojo, las pausas de " + C.LARGA_TXT + " o más." };
+  };
+  C.pausaTexto = (e) => e.mayorPausa >= 60 ? C.duracion(e.mayorPausa) + " (" + e.pausaDesde + "–" + e.pausaHasta + (e.pausaAlmuerzo ? ", sin almuerzo" : "") + ")" : "—";
+  /** Duración de una pausa larga, avisando si se le descontó el almuerzo. */
+  C.pausaLargaTexto = (p) => C.duracion(p.seg) + (p.almuerzo ? " (sin almuerzo)" : "");
 
   // ------------------------------------------------------------------ ventanas, avisos y «Atrás»
   let abierta = null;
