@@ -7,7 +7,8 @@
   <table class="tabla-rol-pago">
     <tbody>
       <tr class="fila-seccion"><th colspan="2" scope="colgroup">Ingresos</th></tr>
-      <tr><td>Sueldo base</td><td>{% if e.sueldo_base %}${{ e.sueldo_base|dinero }}{% else %}<span class="text-danger">Sin sueldo</span>{% endif %}</td></tr>
+      <tr><td>Sueldo base mensual</td><td>{% if e.sueldo_base %}${{ e.sueldo_base|dinero }}{% else %}<span class="text-danger">Sin sueldo</span>{% endif %}</td></tr>
+      {% if e.sueldo_proporcional %}<tr><td>Sueldo por {{ e.dias_contrato }} de 30 días de contrato</td><td>${{ e.sueldo_del_mes|dinero }}</td></tr>{% endif %}
       <tr class="fila-subtotal"><td>Total ingresos</td><td>${{ e.total_ingresos|dinero }}</td></tr>
       <tr class="fila-seccion"><th colspan="2" scope="colgroup">Descuentos</th></tr>
       {% for d in e.descuentos %}

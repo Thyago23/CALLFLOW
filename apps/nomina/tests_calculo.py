@@ -261,7 +261,33 @@ class EstimacionMesTests(TestCase):
                                                                motivo_salida="RENUNCIA")
         empleados = list(calculo.empleados_del_mes(self.anio, self.mes))
         self.assertNotIn(self.encargado, empleados)
+
+    def test_quien_no_trabaja_el_mes_completo_cobra_proporcional(self):
+        # Contrato desde el 16 de marzo de 2026 con $ 600: cobra 15 de 30 días = $ 300.
+        nuevo = Empleado.objects.create(identificacion="1700000001", nombres="Eva", apellidos="Mora",
+                                        cargo=self.vendedor.cargo, fecha_ingreso=date(2026, 3, 16))
+        HistorialSalario.objects.create(empleado=nuevo, salario_base=D("600.00"), vigente_desde=date(2026, 3, 16))
+        marzo = calculo.estimar_mes(nuevo, 2026, 3)
+        self.assertEqual((marzo.dias_contrato, marzo.sueldo_proporcional), (15, True))
+        self.assertEqual((marzo.sueldo_base, marzo.sueldo_del_mes, marzo.total_ingresos), (D("600.00"), D("300.00"), D("300.00")))
+        self.assertEqual(marzo.neto, D("300.00"))
+        abril = calculo.estimar_mes(nuevo, 2026, 4)  # primer mes completo: sueldo entero
+        self.assertEqual((abril.sueldo_proporcional, abril.total_ingresos), (False, D("600.00")))
+        self.assertEqual(calculo.ResumenNomina([marzo, abril]).total_sueldos, D("900.00"))
+
+    def test_ex_empleado_sale_de_la_nomina_desde_el_mes_de_su_salida(self):
+        # Ingresó el 1 de enero y renunció el 13 de marzo: está en enero y febrero, no en marzo ni después.
+        Empleado.objects.filter(pk=self.encargado.pk).update(estado="DESVINCULADO", fecha_salida=date(2026, 3, 13),
+                                                               motivo_salida="RENUNCIA")
         self.assertIn(self.encargado, list(calculo.empleados_del_mes(2026, 1)))
+        self.assertIn(self.encargado, list(calculo.empleados_del_mes(2026, 2)))
+        self.assertNotIn(self.encargado, list(calculo.empleados_del_mes(2026, 3)))
+        self.assertNotIn(self.encargado, list(calculo.empleados_del_mes(2026, 4)))
+        resumen = calculo.nomina_del_mes(2026, 3)  # tampoco suma en los totales
+        self.assertNotIn(self.encargado, [r.empleado for r in resumen.roles])
+        self.client.force_login(self.admin)
+        roles = self.client.get(reverse("nomina:resumen"), {"mes": "2026-03"}).context["roles"]
+        self.assertNotIn(self.encargado, [r.empleado for r in roles])
 
     def test_rol_de_pagos_y_pdf(self):
         import io

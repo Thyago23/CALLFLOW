@@ -17,7 +17,7 @@
 {# ---------------------------------------------------------------- totales #}
 <div class="row g-3 mb-3">
   <div class="col-6 col-lg-3"><div class="card h-100 indicador"><div class="card-body">
-    <div class="small text-body-secondary">Sueldos base</div><div class="fs-4 fw-semibold">$ {{ nomina.total_sueldos }}</div>
+    <div class="small text-body-secondary">Sueldos del mes</div><div class="fs-4 fw-semibold">$ {{ nomina.total_sueldos }}</div>
     <div class="small text-body-secondary">{{ nomina.roles|length }} empleado{{ nomina.roles|length|pluralize }}</div>
   </div></div></div>
   <div class="col-6 col-lg-3"><div class="card h-100 indicador"><div class="card-body">
@@ -67,7 +67,7 @@
         <tr>
           <th scope="col">Empleado</th>
           <th scope="col" class="d-none d-md-table-cell">Equipo</th>
-          <th scope="col" class="text-end">Sueldo base</th>
+          <th scope="col" class="text-end">Sueldo del mes</th>
           <th scope="col" class="text-end d-none d-lg-table-cell">Ventas</th>
           <th scope="col" class="text-end">Comisión</th>
           <th scope="col" class="text-end">Descuentos</th>
@@ -85,7 +85,7 @@
             {% if r.requiere_visto_bueno %}<span class="badge text-bg-danger">Visto bueno</span>{% endif %}
           </td>
           <td class="d-none d-md-table-cell">{% if r.esquema %}{{ r.esquema }}{% else %}<span class="text-body-secondary small">Administrativo</span>{% endif %}</td>
-          <td class="text-end text-nowrap">{% if r.sueldo_base %}$ {{ r.sueldo_base }}{% else %}<span class="text-danger small">Sin sueldo</span>{% endif %}</td>
+          <td class="text-end text-nowrap">{% if r.sueldo_base %}$ {{ r.sueldo_del_mes }}{% if r.sueldo_proporcional %}<div class="small text-body-secondary">{{ r.dias_contrato }} de 30 días</div>{% endif %}{% else %}<span class="text-danger small">Sin sueldo</span>{% endif %}</td>
           <td class="text-end text-nowrap d-none d-lg-table-cell">{% if r.es_vendedor %}$ {{ r.total_ventas }}{% else %}—{% endif %}</td>
           <td class="text-end text-nowrap">{% if r.es_vendedor %}$ {{ r.comision }}{% if r.porcentaje_comision %} <span class="small text-body-secondary">({{ r.porcentaje_comision|floatformat:"-2" }} %)</span>{% endif %}{% else %}—{% endif %}</td>
           <td class="text-end text-nowrap {% if r.total_descuentos_y_anticipos %}text-danger-emphasis{% endif %}">{% if r.total_descuentos_y_anticipos %}− $ {{ r.total_descuentos_y_anticipos }}{% else %}$ 0,00{% endif %}</td>

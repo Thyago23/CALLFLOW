@@ -63,7 +63,7 @@
           <th scope="col">Empleado</th>
           <th scope="col">Identificación</th>
           <th scope="col">Cargo</th>
-          <th scope="col" class="text-end">Sueldo base</th>
+          <th scope="col" class="text-end">Sueldo del mes</th>
           <th scope="col" class="text-end">Descuentos</th>
           <th scope="col" class="text-end">Anticipos</th>
           <th scope="col" class="text-center">Días</th>
@@ -78,7 +78,7 @@
           <td class="fw-semibold">{{ r.empleado.apellidos }} {{ r.empleado.nombres }}</td>
           <td>{{ r.empleado.identificacion }}</td>
           <td>{{ r.empleado.cargo }}{% if r.esquema %}<div class="small text-body-secondary">{{ r.esquema }}</div>{% endif %}</td>
-          <td class="text-end text-nowrap">{% if r.sueldo_base %}${{ r.sueldo_base|dinero }}{% else %}<span class="text-danger">Sin sueldo</span>{% endif %}</td>
+          <td class="text-end text-nowrap">{% if r.sueldo_base %}${{ r.sueldo_del_mes|dinero }}{% if r.sueldo_proporcional %}<div class="small text-body-secondary">{{ r.dias_contrato }} de 30 días</div>{% endif %}{% else %}<span class="text-danger">Sin sueldo</span>{% endif %}</td>
           <td class="text-end text-nowrap">{% if r.total_descuentos %}−${{ r.total_descuentos|dinero }}{% if r.pendientes %}<span class="d-print-none text-warning-emphasis" title="Incluye novedades sin clasificar"> *</span>{% endif %}{% else %}$0,00{% endif %}</td>
           <td class="text-end text-nowrap">{% if r.total_anticipos %}−${{ r.total_anticipos|dinero }}{% else %}$0,00{% endif %}</td>
           <td class="text-center">{{ r.dias_trabajados }}</td>

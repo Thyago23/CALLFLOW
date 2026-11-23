@@ -215,10 +215,10 @@ def _nomina(f, usuario) -> Tabla:
     from .formato import dinero
 
     nomina = _roles(f)
-    filas = [[_nombre(r.empleado), str(r.empleado.cargo), str(r.esquema or ""), r.sueldo_base, r.total_descuentos,
+    filas = [[_nombre(r.empleado), str(r.empleado.cargo), str(r.esquema or ""), r.sueldo_del_mes, r.total_descuentos,
               r.total_anticipos, r.dias_trabajados, r.neto] for r in nomina.roles]
     return Tabla(
-        columnas=[Columna("Empleado", peso=2.5), Columna("Cargo", peso=1.7), Columna("Equipo", peso=1.2), Columna("Sueldo base", "dinero"),
+        columnas=[Columna("Empleado", peso=2.5), Columna("Cargo", peso=1.7), Columna("Equipo", peso=1.2), Columna("Sueldo del mes", "dinero"),
                   Columna("Descuentos", "dinero"), Columna("Anticipos", "dinero"), Columna("Días", "entero", .6),
                   Columna("Neto del rol", "dinero", 1.1)],
         filas=filas, periodo=_periodo_mes(f), horizontal=True,
@@ -250,7 +250,9 @@ def _rol_pago(f, usuario) -> Tabla:
     from apps.nomina import calculo
 
     e = calculo.estimar_mes(f["empleado"], *f["mes"])
-    filas = [["Sueldo base", e.sueldo_base or Decimal("0")]]
+    filas = [["Sueldo base mensual", e.sueldo_base or Decimal("0")]]
+    if e.sueldo_proporcional:
+        filas = [[f"Sueldo por {e.dias_contrato} de {calculo.DIAS_DEL_MES} días de contrato (base {e.sueldo_base})", e.sueldo_del_mes]]
     filas += [[f"{d.concepto} ({d.fecha:%d/%m/%Y})", -d.valor] for d in e.descuentos]
     if e.ajuste_tope:
         filas.append([f"Ajuste por tope de multas y faltas ({e.tope_porcentaje.normalize():f} % del sueldo)", e.ajuste_tope])

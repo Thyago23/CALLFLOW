@@ -8,6 +8,9 @@ para que la empresa pueda cambiarlos sin tocar el código. Ver nomina/migrations
 Reglas:
   - Comisión solo para vendedores, sobre el total de ventas cerradas del mes. El porcentaje del
     tramo alcanzado se aplica a TODO el total. Se paga aparte: no entra en el rol de pagos.
+  - Sueldo proporcional: quien no estuvo contratado todo el mes (ingresó o salió a mitad de mes)
+    cobra el sueldo base × días de contrato ÷ 30. Las faltas no se restan aquí: tienen su propio
+    descuento. Los porcentajes (faltas, tope) se calculan sobre el sueldo base mensual.
   - Falta no justificada: % del sueldo base. Falta justificada: un día de sueldo (sueldo ÷ 30),
     proporcional a lo que gana cada persona; en las reglas anteriores (v1) era un monto fijo.
   - Atraso: multa según los minutos (cada minuto empezado cuenta); pasado el último tramo de
@@ -119,6 +122,7 @@ class Estimacion:
     aviso_multas_porcentaje: Decimal = Decimal("10")
     anticipos: list = field(default_factory=list)  # Linea: anticipos aprobados del mes (se descuentan)
     dias_trabajados: int = DIAS_DEL_MES
+    dias_contrato: int = DIAS_DEL_MES  # días del mes en que tuvo contrato (mes comercial de 30)
     cantidad_atrasos: int = 0
     llamado_desde_minutos: int = 11  # atrasos de estos minutos o más son llamado de atención
     tope_porcentaje: Decimal | None = None  # tope de multas por atraso + faltas no justificadas
@@ -179,9 +183,22 @@ class Estimacion:
         return _dinero(self.sueldo_base * self.tope_porcentaje / 100)
 
     @property
+    def sueldo_proporcional(self) -> bool:
+        return bool(self.sueldo_base) and self.dias_contrato < DIAS_DEL_MES
+
+    @property
+    def sueldo_del_mes(self) -> Decimal:
+        """Sueldo base proporcional a los días de contrato: quien no trabajó el mes completo no cobra el mes completo."""
+        if not self.sueldo_base:
+            return Decimal("0.00")
+        if not self.sueldo_proporcional:
+            return _dinero(self.sueldo_base)
+        return _dinero(self.sueldo_base * self.dias_contrato / DIAS_DEL_MES)
+
+    @property
     def total_ingresos(self) -> Decimal:
         """Ingresos del rol de pagos: la comisión va aparte."""
-        return _dinero(self.sueldo_base or 0)
+        return self.sueldo_del_mes
 
     @property
     def neto(self) -> Decimal:
@@ -305,6 +322,7 @@ def estimar_mes(empleado, anio: int, mes: int) -> Estimacion:
         estimacion.anticipos.append(Linea(a.descripcion or "Anticipo", _dinero(a.valor), a.aprobada_en and a.aprobada_en.date(),
                                           clase="anticipo"))
 
+    estimacion.dias_contrato = dias_trabajados(empleado, anio, mes, 0)
     estimacion.dias_trabajados = dias_trabajados(empleado, anio, mes, len(estimacion.faltas_injustificadas))
 
     # Llamados de atención acumulados (atrasos largos + llamados registrados a mano en Observaciones)
@@ -341,13 +359,19 @@ def dias_trabajados(empleado, anio: int, mes: int, faltas_injustificadas: int) -
 
 # --------------------------------------------------------------------------- nómina de todos
 def empleados_del_mes(anio: int, mes: int):
-    """Empleados que trabajaron en algún momento del mes (ingresaron antes de que termine y no salieron antes)."""
+    """
+    Empleados que forman parte de la nómina del mes: ingresaron antes de que termine y seguían en la
+    empresa al cerrarlo. Los ex empleados quedan fuera desde el mes en que salieron (incluido ese mes):
+    lo que se les debe se paga en su liquidación, no en el rol de pagos. En los meses anteriores a su
+    salida sí aparecen, para que el historial no cambie.
+    """
     from apps.personal.models import Empleado
 
-    inicio, fin = date(anio, mes, 1), ultimo_dia(anio, mes)
+    fin = ultimo_dia(anio, mes)
     return (
         Empleado.objects.filter(fecha_ingreso__lte=fin)
-        .filter(Q(fecha_salida__isnull=True) | Q(fecha_salida__gte=inicio))
+        .filter(Q(fecha_salida__isnull=True) | Q(fecha_salida__gt=fin))
+        .exclude(Q(estado=Empleado.Estado.DESVINCULADO) & Q(fecha_salida__isnull=True))  # por si falta la fecha
         .select_related("cargo").order_by("apellidos", "nombres")
     )
 
@@ -361,7 +385,7 @@ class ResumenNomina:
 
     @property
     def total_sueldos(self):
-        return self._suma("sueldo_base")
+        return self._suma("sueldo_del_mes")
 
     @property
     def total_comisiones(self):
@@ -538,7 +562,9 @@ def rol_de_pagos_pdf(e: Estimacion) -> bytes:
 
     pdf, ancho = _documento_pdf("ROL DE PAGOS", "Rol de pagos", e)
     _pdf_seccion(pdf, ancho, "Ingresos")
-    _pdf_fila(pdf, ancho, "Sueldo base", dinero(e.sueldo_base or Decimal("0")))
+    _pdf_fila(pdf, ancho, "Sueldo base mensual", dinero(e.sueldo_base or Decimal("0")))
+    if e.sueldo_proporcional:
+        _pdf_fila(pdf, ancho, f"Sueldo por {e.dias_contrato} de {DIAS_DEL_MES} días de contrato", dinero(e.sueldo_del_mes))
     _pdf_fila(pdf, ancho, "Total ingresos", dinero(e.total_ingresos), negrita=True)
     _pdf_seccion(pdf, ancho, "Descuentos")
     for d in e.descuentos:

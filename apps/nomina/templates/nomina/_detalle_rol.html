@@ -12,7 +12,10 @@
 
 <table class="table table-sm align-middle mb-0 tabla-pago">
   <tbody>
-    <tr><th scope="row">Sueldo base</th><td class="text-end">$ {{ e.sueldo_base|default:"0,00" }}</td></tr>
+    <tr><th scope="row">Sueldo base mensual</th><td class="text-end">$ {{ e.sueldo_base|default:"0,00" }}</td></tr>
+    {% if e.sueldo_proporcional %}
+    <tr><th scope="row">Sueldo por {{ e.dias_contrato }} de 30 días de contrato <span class="small text-body-secondary">· no trabajó el mes completo</span></th><td class="text-end">$ {{ e.sueldo_del_mes }}</td></tr>
+    {% endif %}
     <tr class="fila-total"><th scope="row">Total ingresos</th><td class="text-end fw-semibold">$ {{ e.total_ingresos }}</td></tr>
     {% for d in e.descuentos %}
     <tr class="text-danger-emphasis">
