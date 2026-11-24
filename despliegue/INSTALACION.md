@@ -75,6 +75,7 @@ sudo mkdir -p /datos/media /datos/logs /respaldos/callflow
 sudo chown -R callflow:callflow /datos/media /datos/logs /respaldos/callflow /srv/callflow
 sudo chmod 750 /datos/media /datos/logs /respaldos/callflow
 sudo install -d -o callflow -g callflow -m 750 /var/cache/callflow   # límite de peticiones (también la crea systemd)
+sudo chmod 755 /srv/callflow   # Nginx (www-data) tiene que poder entrar a staticfiles/; el .env queda en 600
 
 # como callflow
 sudo -iu callflow
