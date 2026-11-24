@@ -252,7 +252,8 @@
     const li = document.createElement("li");
     li.className = "pausa" + (seg >= CF.PAUSA_LARGA ? " larga" : "");
     li.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span></span>';
-    li.querySelector("span").textContent = CF.duracion(seg) + " sin llamadas" + (almuerzo ? " (sin contar el almuerzo)" : "");
+    li.querySelector("span").textContent = CF.duracion(seg) + " sin llamadas" + (almuerzo ? " (sin contar el almuerzo)" : "")
+      + (seg > CF.GRACIA ? " · " + CF.duracion(CF.muertoDe(seg)) + " de tiempo muerto" : "");
     return li;
   }
 
@@ -334,7 +335,7 @@
     ] });
     if (e.largas.length) {
       bloques.push({ t: "titulo", texto: "Pausas de " + CF.LARGA_TXT + " o más" });
-      bloques.push({ t: "tabla", cols: [{ t: "Día", w: 2 }, { t: "Desde", w: 1, a: "c" }, { t: "Hasta", w: 1, a: "c" }, { t: "Tiempo muerto", w: 1.5, a: "d", b: true }],
+      bloques.push({ t: "tabla", cols: [{ t: "Día", w: 1.8 }, { t: "Desde", w: 0.8, a: "c" }, { t: "Hasta", w: 0.8, a: "c" }, { t: "Tiempo muerto", w: 3, a: "d", b: true }],
         filas: e.largas.map((p) => [CF.diaSemana(p.fecha) + " " + CF.fechaCorta(p.fecha), p.desde, p.hasta, CF.pausaLargaTexto(p)]),
         marcas: e.largas.map((p, i) => [i, 3]) });
     }
@@ -378,7 +379,7 @@
       if (l.b) alertas.push(i);
       const seg = muertos.get(l);
       if (seg >= CF.PAUSA_LARGA) marcas.push([i, 7]);
-      const f = [String(i + 1), CF.fechaCorta(l.fecha), l.hora, tipoTexto(l), CF.mostrarNumero(l.n), l.c || "", l.d ? CF.reloj(l.d) : "—", seg === undefined ? "—" : CF.duracion(seg)];
+      const f = [String(i + 1), CF.fechaCorta(l.fecha), l.hora, tipoTexto(l), CF.mostrarNumero(l.n), l.c || "", l.d ? CF.reloj(l.d) : "—", seg === undefined ? "—" : CF.duracion(CF.muertoDe(seg))];
       if (conChip) f.push(l.chip);
       return f;
     });

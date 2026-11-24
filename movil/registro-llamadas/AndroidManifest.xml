@@ -5,8 +5,8 @@
      Supervisor: registro a mano / por foto y une los PDF de los asesores. -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.callflow.llamadas"
-    android:versionCode="9"
-    android:versionName="2.2">
+    android:versionCode="10"
+    android:versionName="2.3">
 
     <uses-sdk android:minSdkVersion="29" android:targetSdkVersion="36" />
 

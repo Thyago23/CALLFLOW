@@ -462,7 +462,7 @@
     porMuerto.forEach(([k, a]) => a.largas.forEach((p) => largas.push([k, p])));
     if (largas.length) {
       bloques.push({ t: "titulo", texto: "Pausas de " + CF.LARGA_TXT + " o más" });
-      bloques.push({ t: "tabla", cols: [{ t: "Asesor", w: 2.4, b: true }, { t: "Día", w: 1.6 }, { t: "Desde", w: 0.8, a: "c" }, { t: "Hasta", w: 0.8, a: "c" }, { t: "Tiempo muerto", w: 1.3, a: "d", b: true }],
+      bloques.push({ t: "tabla", cols: [{ t: "Asesor", w: 2.2, b: true }, { t: "Día", w: 1.4 }, { t: "Desde", w: 0.7, a: "c" }, { t: "Hasta", w: 0.7, a: "c" }, { t: "Tiempo muerto", w: 3.2, a: "d", b: true }],
         filas: largas.map(([k, p]) => [nombres[k], CF.diaSemana(p.fecha).slice(0, 3) + " " + CF.fechaCorta(p.fecha), p.desde, p.hasta, CF.pausaLargaTexto(p)]),
         marcas: largas.map((x, i) => [i, 4]) });
     }
@@ -510,7 +510,7 @@
           const seg = muertos.get(l);
           if (seg >= CF.PAUSA_LARGA) marcas.push([filas.length, 7]);
           filas.push([nombres[k], CF.diaSemana(l.fecha).slice(0, 3) + " " + CF.fechaCorta(l.fecha), l.hora, tipoTexto(l), CF.mostrarNumero(l.n), l.c || "", l.d ? CF.reloj(l.d) : "—",
-                      seg === undefined ? "—" : CF.duracion(seg), l.chip || ""]);
+                      seg === undefined ? "—" : CF.duracion(CF.muertoDe(seg)), l.chip || ""]);
         });
       });
       bloques.push({ t: "titulo", texto: "Detalle de llamadas" });
@@ -558,7 +558,7 @@
       const seg = muertos.get(l);
       // ="099…": así Excel no le quita el 0 inicial al número
       filas.push([nombres[l.ak], CF.fechaCorta(l.fecha), CF.diaSemana(l.fecha), l.hora, CF.TIPOS[l.tp], l.tp === "saliente" ? (l.d ? "Sí" : "No") : "", /^\d+$/.test(l.n) ? '="' + l.n + '"' : l.n, l.c || "",
-                  l.d || 0, CF.reloj(l.d), seg === undefined ? "" : seg, seg === undefined ? "" : CF.duracion(seg), l.chip || "", l.b ? "Sí" : ""]);
+                  l.d || 0, CF.reloj(l.d), seg === undefined ? "" : CF.muertoDe(seg), seg === undefined ? "" : CF.duracion(CF.muertoDe(seg)), l.chip || "", l.b ? "Sí" : ""]);
     });
     // Separador «;»: el que usa Excel en Ecuador (la coma es el decimal).
     const texto = filas.map((f) => f.map(campo).join(";")).join("\r\n");
