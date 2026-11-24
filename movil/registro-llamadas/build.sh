@@ -61,7 +61,17 @@ valorTema="$(tr -d '\r\n' < "$tema")"
 cat > "$tmp/gen/com/callflow/llamadas/TemaAvisos.java" <<EOF
 package com.callflow.llamadas;
 // Generado por build.sh desde firma/ntfy-tema.txt. No se sube al repositorio.
-final class TemaAvisos { static final String VALOR = "$valorTema"; private TemaAvisos() {} }
+final class TemaAvisos {
+    private static final String BASE = "$valorTema";
+    /** En el emulador los avisos van a un canal de pruebas aparte, para no llegarles a los supervisores reales. */
+    static final String VALOR = BASE.isEmpty() ? "" : BASE + (esEmulador() ? "-prueba" : "");
+    private static boolean esEmulador() {
+        String h = android.os.Build.HARDWARE, f = android.os.Build.FINGERPRINT, p = android.os.Build.PRODUCT;
+        return "ranchu".equals(h) || "goldfish".equals(h) || f.startsWith("generic") || f.contains("emulator")
+                || p.startsWith("sdk_") || p.contains("_sdk");
+    }
+    private TemaAvisos() {}
+}
 EOF
 
 echo "2/6 Java (javac)"

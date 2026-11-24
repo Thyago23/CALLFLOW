@@ -59,7 +59,17 @@ $valorTema = (Get-Content $tema -Raw).Trim()
 Set-Content -Path "$tmp\gen\com\callflow\llamadas\TemaAvisos.java" -Encoding ascii -Value @"
 package com.callflow.llamadas;
 // Generado por build.ps1 desde firma\ntfy-tema.txt. No se sube al repositorio.
-final class TemaAvisos { static final String VALOR = "$valorTema"; private TemaAvisos() {} }
+final class TemaAvisos {
+    private static final String BASE = "$valorTema";
+    /** En el emulador los avisos van a un canal de pruebas aparte, para no llegarles a los supervisores reales. */
+    static final String VALOR = BASE.isEmpty() ? "" : BASE + (esEmulador() ? "-prueba" : "");
+    private static boolean esEmulador() {
+        String h = android.os.Build.HARDWARE, f = android.os.Build.FINGERPRINT, p = android.os.Build.PRODUCT;
+        return "ranchu".equals(h) || "goldfish".equals(h) || f.startsWith("generic") || f.contains("emulator")
+                || p.startsWith("sdk_") || p.contains("_sdk");
+    }
+    private TemaAvisos() {}
+}
 "@
 
 Write-Host "2/6 Java (javac)"
