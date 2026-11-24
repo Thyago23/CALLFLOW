@@ -550,20 +550,54 @@
   });
   $("excel").addEventListener("click", function () {
     if (!app || !vista.llamadas.length) return;
-    const campo = (v) => '"' + String(v == null ? "" : v).replace(/"/g, '""') + '"';
-    const filas = [["Asesor", "Fecha", "Día", "Hora", "Tipo", "Contestada", "Número", "Contacto", "Duración (segundos)", "Duración", "Tiempo muerto antes (segundos)", "Tiempo muerto antes", "Chip", "Borrada del historial"]];
+    const b = this;
+    b.disabled = true;
+    setTimeout(function () {
+      const r = CF.json(app.guardarExcel(nombreArchivo("xlsx"), JSON.stringify(libroExcel())), { ok: false, error: "Error" });
+      b.disabled = false;
+      listo(r, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    }, 30);
+  });
+  /** Libro de Excel: hoja «Resumen» (una fila por asesor y el total) y hoja «Llamadas» (una fila por llamada). Ver ExcelXlsx.java. */
+  function libroExcel() {
+    const ahora = new Date();
+    const sub = CF.periodoTexto(vista.desde, vista.hasta) + " · " + CF.plural(vista.llamadas.length, "llamada", "llamadas")
+      + " · Generado el " + CF.fechaCorta(CF.fechaIso(ahora)) + " a las " + CF.horaIso(ahora);
+    const orden = Object.keys(vista.porAsesor).sort((a, b) => nombres[a].localeCompare(nombres[b], "es"));
+
+    // Resumen por asesor
+    const fila = (nombre, e) => [nombre, e.total, e.salientes, e.contestadas, e.noContestadas, e.entrantes, e.perdidas, e.tiempo,
+                                 e.pausas ? e.tiempoMuerto : "", e.pausasLargas];
+    const resumen = [], alertasRes = [];
+    orden.forEach(function (k, i) {
+      const e = CF.estadisticas(vista.porAsesor[k]);
+      if (e.pausasLargas) alertasRes.push([i, 8], [i, 9]);
+      resumen.push(fila(nombres[k], e));
+    });
+    const hojaResumen = { nombre: "Resumen", titulo: "Resumen de llamadas por asesor", subtitulo: sub,
+      cols: [{ t: "Asesor", w: 28, k: "t" }, { t: "Llamadas", w: 11, k: "n" }, { t: "Salientes", w: 11, k: "n" }, { t: "Contestadas", w: 12, k: "n" },
+             { t: "No contestadas", w: 13, k: "n" }, { t: "Entrantes", w: 11, k: "n" }, { t: "Perdidas", w: 11, k: "n" },
+             { t: "Tiempo hablado", w: 15, k: "d" }, { t: "Tiempo muerto", w: 15, k: "d" }, { t: "Pausas de " + CF.LARGA_TXT + " o más", w: 15, k: "n" }],
+      filas: resumen, alertas: alertasRes, total: fila("Total", CF.estadisticas(vista.llamadas)) };
+
+    // Detalle de llamadas
     const muertos = new Map();
     Object.values(vista.porAsesor).forEach((ls) => CF.tiemposMuertos(ls).forEach((seg, l) => muertos.set(l, seg)));
+    const filas = [], alertas = [];
     vista.llamadas.slice().sort((a, b) => nombres[a.ak].localeCompare(nombres[b.ak], "es") || a.t - b.t).forEach(function (l) {
-      const seg = muertos.get(l);
-      // ="099…": así Excel no le quita el 0 inicial al número
-      filas.push([nombres[l.ak], CF.fechaCorta(l.fecha), CF.diaSemana(l.fecha), l.hora, CF.TIPOS[l.tp], l.tp === "saliente" ? (l.d ? "Sí" : "No") : "", /^\d+$/.test(l.n) ? '="' + l.n + '"' : l.n, l.c || "",
-                  l.d || 0, CF.reloj(l.d), seg === undefined ? "" : CF.muertoDe(seg), seg === undefined ? "" : CF.duracion(CF.muertoDe(seg)), l.chip || "", l.b ? "Sí" : ""]);
+      const seg = muertos.get(l), i = filas.length;
+      if (seg >= CF.PAUSA_LARGA) alertas.push([i, 9]);
+      if (l.b) alertas.push([i, 11]);
+      filas.push([nombres[l.ak], l.fecha, CF.diaSemana(l.fecha), l.hora, CF.TIPOS[l.tp], l.tp === "saliente" ? (l.d ? "Sí" : "No") : "",
+                  String(l.n || ""), l.c || "", l.d || 0, seg === undefined ? "" : CF.muertoDe(seg), l.chip || "", l.b ? "Sí" : ""]);
     });
-    // Separador «;»: el que usa Excel en Ecuador (la coma es el decimal).
-    const texto = filas.map((f) => f.map(campo).join(";")).join("\r\n");
-    listo(CF.json(app.guardarCsv(nombreArchivo("csv"), texto), { ok: false, error: "Error" }), "text/csv");
-  });
+    const hojaLlamadas = { nombre: "Llamadas", titulo: "Detalle de llamadas", subtitulo: sub + " · En rojo: pausas de " + CF.LARGA_TXT + " o más y llamadas borradas del historial",
+      cols: [{ t: "Asesor", w: 26, k: "t" }, { t: "Fecha", w: 12, k: "f" }, { t: "Día", w: 11, k: "t" }, { t: "Hora", w: 8, k: "h" }, { t: "Tipo", w: 12, k: "t" },
+             { t: "Contestada", w: 11, k: "t" }, { t: "Número", w: 15, k: "t" }, { t: "Contacto", w: 24, k: "t" }, { t: "Duración", w: 11, k: "d" },
+             { t: "Tiempo muerto antes", w: 13, k: "d" }, { t: "Chip", w: 14, k: "t" }, { t: "Borrada del historial", w: 12, k: "t" }],
+      filas, alertas };
+    return { hojas: [hojaResumen, hojaLlamadas] };
+  }
   $("abrir").addEventListener("click", () => { if (ultimo) app.abrirArchivo(ultimo.uri, ultimo.tipo); });
   $("compartir").addEventListener("click", () => { if (ultimo) app.compartir(ultimo.uri, ultimo.tipo); });
 

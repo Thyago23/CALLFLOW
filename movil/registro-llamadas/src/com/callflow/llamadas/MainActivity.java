@@ -59,6 +59,7 @@ public class MainActivity extends Activity {
     private static final String MIGRADO = "migrado-a-https", DATOS_MIGRADOS = "datos-migrados";
     private static final String ROL = "rol", NOMBRE_ASESOR = "asesor-nombre", CHIPS = "chips-trabajo", PIN = "pin";
     static final String ROL_ASESOR = "asesor", ROL_SUPERVISOR = "supervisor";
+    static final String TIPO_EXCEL = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
     private SharedPreferences preferencias() {
         return getSharedPreferences("app", MODE_PRIVATE);
@@ -692,12 +693,12 @@ public class MainActivity extends Activity {
             }
         }
 
-        /** CSV para Excel (con BOM: así Excel respeta las tildes). Devuelve {ok, uri, nombre}. */
+        /** Libro de Excel (.xlsx) con formato a partir de la descripción de sus hojas (ver ExcelXlsx). Devuelve {ok, uri, nombre}. */
         @JavascriptInterface
-        public String guardarCsv(String nombre, String contenido) {
+        public String guardarExcel(String nombre, String libro) {
             try {
-                byte[] texto = ("﻿" + contenido).getBytes(StandardCharsets.UTF_8);
-                return guardado(Archivos.guardar(MainActivity.this, nombre, "text/csv", texto));
+                byte[] xlsx = ExcelXlsx.crear(new JSONObject(libro));
+                return guardado(Archivos.guardar(MainActivity.this, nombre, TIPO_EXCEL, xlsx));
             } catch (Exception e) {
                 return error(e);
             }
