@@ -3,6 +3,7 @@ from datetime import date
 from decimal import Decimal as D
 
 from cryptography.fernet import Fernet
+from django.conf import settings
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.management import call_command
 from django.db import connection
@@ -517,7 +518,7 @@ class SolicitudBaseNotificacionTests(BaseCierre):
         self.assertContains(respuesta, 'title="Solicitudes de bases pendientes">1</span>')
         self.assertContains(respuesta, "bg-danger contador")
         pagina = self.client.get(reverse("inicio"))
-        self.assertContains(pagina, 'hx-trigger="load, every 5s"')  # al abrir la página y cada 5 s
+        self.assertContains(pagina, f'hx-trigger="load, every {settings.CAMPANA_SEGUNDOS}s"')  # al abrir la página y cada N s
         self.assertContains(pagina, "Solicitudes de bases pendientes")
         self.assertEqual(SolicitudBase.objects.count(), 1)
 

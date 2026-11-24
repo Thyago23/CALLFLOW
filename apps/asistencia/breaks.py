@@ -167,7 +167,7 @@ def detalle(descanso: Descanso, ahora: datetime | None = None) -> dict:
 # --------------------------------------------------------------------------- breaks programados
 # El coordinador programa un break para una hora: `aviso_minutos` antes (10 o 5) se les recuerda a los
 # vendedores con la jornada abierta y a la hora empieza solo, como un break normal. No hay un proceso
-# aparte: lo hace `procesar_programados`, que corre con el sondeo de la campana (cada 5 s en cada
+# aparte: lo hace `procesar_programados`, que corre con el sondeo de la campana (cada CAMPANA_SEGUNDOS en cada
 # navegador abierto) y con el comando `procesar_breaks` (para un cron, si se quiere).
 PROGRAMAR_HASTA_DIAS = 30
 

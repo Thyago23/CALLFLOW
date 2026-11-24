@@ -2,6 +2,7 @@
 import re
 from datetime import date
 
+from django.conf import settings
 from django.core.management import call_command
 from django.test import TestCase
 from django.urls import NoReverseMatch, reverse
@@ -258,7 +259,7 @@ class NotificacionesEnPantallaTests(TestCase):
         respuesta = self.client.get(reverse("inicio"))
         self.assertContains(respuesta, 'id="avisos-flotantes"')
         self.assertContains(respuesta, 'class="avisos-flotantes"')
-        self.assertContains(respuesta, 'hx-trigger="load, every 5s"')
+        self.assertContains(respuesta, f'hx-trigger="load, every {settings.CAMPANA_SEGUNDOS}s"')
 
     def test_cada_notificacion_nueva_aparece_una_sola_vez(self):
         self.consultar()  # al entrar: nada nuevo

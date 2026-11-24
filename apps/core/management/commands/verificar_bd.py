@@ -9,6 +9,7 @@ from decimal import Decimal
 
 from django.core.management.base import BaseCommand, CommandError
 from django.db import DatabaseError, connection, transaction
+from django.db.models import Q
 from django.utils import timezone
 
 from apps.asistencia.models import NovedadAsistencia
@@ -176,6 +177,10 @@ class Command(BaseCommand):
                     HistorialEstadoFormulario.objects.filter(formulario=dami).count() == 3)
         self.rechaza("Eliminar una gestión de cierre", lambda: GestionCierre.objects.filter(formulario=dami).delete())
         MetaMensual.objects.create(vendedor=vendedor, anio=registro.fecha.year, mes=registro.fecha.month, monto_meta=Decimal("1000.00"))
-        resumen = ResumenVendedorMes.objects.get(vendedor=vendedor, anio=registro.fecha.year, mes=registro.fecha.month)
+        del_mes = ResumenVendedorMes.objects.filter(anio=registro.fecha.year, mes=registro.fecha.month)
+        resumen = del_mes.get(vendedor=vendedor)
+        # Con datos reales puede haber vendedores que vendieron más este mes: el de prueba va después de ellos.
+        posicion_esperada = 1 + del_mes.exclude(vendedor=vendedor).filter(
+            Q(total_vendido__gt=150) | Q(total_vendido=150, ventas_cerradas__gt=resumen.ventas_cerradas)).count()
         self.cumple("Panel: total vendido, pendiente de meta y ranking",
-                    resumen.total_vendido == 150 and resumen.pendiente_meta == 850 and resumen.posicion == 1)
+                    resumen.total_vendido == 150 and resumen.pendiente_meta == 850 and resumen.posicion == posicion_esperada)

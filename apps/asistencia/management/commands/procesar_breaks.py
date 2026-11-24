@@ -1,7 +1,7 @@
 """
 Envía los recordatorios y empieza los breaks programados que ya llegaron a su hora.
 
-Normalmente no hace falta: lo hace la campana de cada navegador abierto (cada 5 s). Sirve para
+Normalmente no hace falta: lo hace la campana de cada navegador abierto (cada CAMPANA_SEGUNDOS). Sirve para
 un cron o una tarea programada de Windows cada minuto, si se quiere que ocurra aunque nadie tenga
 CALLFLOW abierto:  python manage.py procesar_breaks
 """

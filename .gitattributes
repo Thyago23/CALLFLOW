@@ -1,0 +1,5 @@
+# Lo que corre en el servidor Linux va siempre con saltos de línea LF (con CRLF, bash y cron fallan).
+*.sh            text eol=lf
+despliegue/*    text eol=lf
+*.ps1           text eol=crlf
+*.bat           text eol=crlf

@@ -1,0 +1,34 @@
+# CALLFLOW con Gunicorn. Instalar:
+#   sudo cp despliegue/callflow.service /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now callflow
+# Después de actualizar el código:  sudo systemctl reload callflow   (reinicia los procesos sin cortar a nadie)
+[Unit]
+Description=CALLFLOW (Django + Gunicorn)
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=notify
+User=callflow
+Group=callflow
+WorkingDirectory=/srv/callflow
+ExecStart=/srv/callflow/.venv/bin/gunicorn -c despliegue/gunicorn.conf.py callflow.wsgi:application
+ExecReload=/bin/kill -s HUP $MAINPID
+Restart=always
+RestartSec=5
+KillMode=mixed
+TimeoutStopSec=40
+UMask=0027
+# /var/cache/callflow: contadores del límite de peticiones (DJANGO_CACHE=archivos), compartidos entre procesos.
+CacheDirectory=callflow
+CacheDirectoryMode=0750
+
+# Endurecimiento: el proceso solo puede escribir donde CALLFLOW guarda cosas.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/datos/media /datos/logs /respaldos/callflow
+
+[Install]
+WantedBy=multi-user.target

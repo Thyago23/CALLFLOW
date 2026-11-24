@@ -222,15 +222,12 @@ class PenalizacionesV2Tests(BaseRol):
         self.anticipo(self.emp, "450", *NOV)
         self.assertEqual(self.estimar().neto, D("-50.00"))
 
-    def test_ingreso_a_mitad_de_mes_cobra_el_sueldo_completo(self):
-        """
-        HALLAZGO: los días trabajados se calculan (15), pero el neto usa el sueldo completo (400).
-        Si la empresa paga proporcional, debería ser 400 × 15 / 30 = 200.
-        """
+    def test_ingreso_a_mitad_de_mes_cobra_sueldo_proporcional(self):
+        """Quien entra a mitad de mes cobra solo los días de contrato: 400 × 15 / 30 = 200."""
         emp = self.crear_vendedor("1744444448", "400.00", ingreso=date(2026, 11, 16))
         e = self.estimar(emp)
         self.assertEqual(e.dias_trabajados, 15)
-        self.assertEqual(e.neto, D("400.00"))
+        self.assertEqual(e.neto, D("200.00"))
 
 
 class PenalizacionesV1Tests(BaseRol):

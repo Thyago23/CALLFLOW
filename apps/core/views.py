@@ -382,7 +382,7 @@ def service_worker(request):
 @never_cache
 def contadores(request):
     """
-    HTMX cada 5 s (y al abrir cada página): campana, contadores del menú y avisos flotantes
+    HTMX cada CAMPANA_SEGUNDOS (y al abrir cada página): campana, contadores del menú y avisos flotantes
     de las notificaciones nuevas, sin recargar la página (SCRUM-60).
     """
     from .context_processors import contadores as calcular

@@ -1,0 +1,24 @@
+# Tareas programadas de CALLFLOW (reemplazan a las del Programador de tareas de Windows). Instalar como el usuario callflow:
+#   sudo crontab -u callflow despliegue/crontab
+# Revisar:  sudo crontab -u callflow -l     Salida de cada tarea: /datos/logs/cron_<tarea>.log
+SHELL=/bin/bash
+PATH=/usr/local/bin:/usr/bin:/bin
+CRON_TZ=America/Guayaquil
+
+# Cada minuto: push del navegador, avisos de agenda y breaks programados (aunque nadie tenga CALLFLOW abierto)
+* * * * *     cd /srv/callflow && .venv/bin/python manage.py enviar_push          >> /datos/logs/cron_enviar_push.log 2>&1
+* * * * *     cd /srv/callflow && .venv/bin/python manage.py enviar_avisos_agenda >> /datos/logs/cron_avisos_agenda.log 2>&1
+* * * * *     cd /srv/callflow && .venv/bin/python manage.py procesar_breaks      >> /datos/logs/cron_procesar_breaks.log 2>&1
+# Cada 15 minutos: jornadas sin «Finalizar día»
+*/15 * * * *  cd /srv/callflow && .venv/bin/python manage.py revisar_salidas      >> /datos/logs/cron_revisar_salidas.log 2>&1
+# Cada hora: avisos a TI (licencias, mantenimientos, respaldos fallidos, poco disco)
+5 * * * *     cd /srv/callflow && .venv/bin/python manage.py revisar_alertas_ti   >> /datos/logs/cron_alertas_ti.log 2>&1
+# Cada noche: contactos repetidos
+0 2 * * *     cd /srv/callflow && .venv/bin/python manage.py buscar_repetidos     >> /datos/logs/cron_buscar_repetidos.log 2>&1
+# Cada domingo: borra las sesiones vencidas (la tabla crece sin esto)
+30 2 * * 0    cd /srv/callflow && .venv/bin/python manage.py clearsessions        >> /datos/logs/cron_clearsessions.log 2>&1
+
+# Respaldos (scripts/respaldar.sh): solo la base cada hora de la jornada (L-V 09:00-19:00; poner 1-6 si se trabaja
+# el sábado) y completo (base + archivos) cada noche. Para la copia fuera de la oficina: --copiar-a /mnt/usb/callflow
+0 9-19 * * 1-5  /srv/callflow/scripts/respaldar.sh --tipo hora   >> /datos/logs/cron_respaldo.log 2>&1
+30 23 * * *     /srv/callflow/scripts/respaldar.sh --tipo diario >> /datos/logs/cron_respaldo.log 2>&1

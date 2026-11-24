@@ -1,0 +1,3 @@
+# Dependencias del servidor Linux: las mismas de la app + Gunicorn (reemplaza a runserver).
+-r requirements.txt
+gunicorn>=23.0,<24

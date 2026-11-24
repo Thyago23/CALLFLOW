@@ -1,3 +1,5 @@
+from django.conf import settings
+
 from .modulos import menu_de
 from .models import Notificacion, Rol
 
@@ -80,7 +82,8 @@ def navegacion(request):
         return {"almuerzo_en_curso": _almuerzo_en_curso(request)} if usuario is not None else {}
     from .push import clave_publica
 
-    contexto = {"menu_secciones": menu_de(usuario), "vapid_publica": clave_publica()} | contadores(usuario)
+    contexto = {"menu_secciones": menu_de(usuario), "vapid_publica": clave_publica(),
+                "campana_segundos": settings.CAMPANA_SEGUNDOS} | contadores(usuario)
     contexto["jornada_abierta"] = jornada = _jornada_abierta(usuario)
     # «Salir a almorzar»: una vez por día, con la jornada abierta.
     contexto["puede_almorzar"] = jornada is not None and jornada.almuerzo_inicio is None

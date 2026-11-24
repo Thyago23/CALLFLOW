@@ -188,36 +188,36 @@ Conviene hacerlo **antes** de abrir la primera sucursal, para que los datos nazc
 
 ## 6. Cambios a preparar en el proyecto
 
-Nada de esto está hecho todavía. Es lo que hay que construir antes de instalar.
+Hecho el 24/11/2026 y probado en contenedores Linux (PostgreSQL 18 + Gunicorn + Nginx con HTTPS) restaurando un respaldo real. La guía de instalación paso a paso es `despliegue/INSTALACION.md`.
 
 ### 6.1 Ajustes de `callflow/settings.py`
 
-- [ ] `CONN_MAX_AGE` (por ejemplo 60 s) y `CONN_HEALTH_CHECKS = True`, para no abrir una conexión nueva a PostgreSQL en cada petición.
-- [ ] `SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")`, porque Nginx entrega las peticiones a Gunicorn por HTTP interno.
-- [ ] `SECURE_SSL_REDIRECT` y `SECURE_HSTS_SECONDS` (desde `.env`).
+- [x] `CONN_MAX_AGE` (`DB_CONN_MAX_AGE`, 60 s en el servidor) y `CONN_HEALTH_CHECKS = True`, para no abrir una conexión nueva a PostgreSQL en cada petición.
+- [x] `SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")` (solo con `TI_PROXY_CONFIABLE=True`), porque Nginx entrega las peticiones a Gunicorn por HTTP interno.
+- [x] `SECURE_SSL_REDIRECT` y `SECURE_HSTS_SECONDS` (desde `.env`: `DJANGO_SSL_REDIRECT`, `DJANGO_HSTS_SEGUNDOS`).
 - [x] `CSRF_TRUSTED_ORIGINS` desde `DJANGO_CSRF_TRUSTED_ORIGINS` y `connect_timeout` desde `DB_CONNECT_TIMEOUT` (commit `5b754b8`).
-- [ ] Revisar la cantidad de conexiones: con `max_connections = 100` en PostgreSQL y conexiones persistentes, el total de procesos de Gunicorn por hilos debe quedar muy por debajo de 100.
-- [ ] **Registro de errores con varios procesos**: `RotatingFileHandler` no es seguro cuando varios procesos de Gunicorn escriben en el mismo archivo, porque al rotar pueden perderse o mezclarse líneas. Opciones: `WatchedFileHandler` con rotación por `logrotate` (recomendada en Linux), o un archivo por proceso. `registro_errores.py` ya lee `errores.jsonl*`, así que sigue funcionando.
+- [x] Revisar la cantidad de conexiones (4 procesos × 4 hilos = 16, límite de `callflow_app` 50): con `max_connections = 100` en PostgreSQL y conexiones persistentes, el total de procesos de Gunicorn por hilos debe quedar muy por debajo de 100.
+- [x] **Registro de errores con varios procesos** (`LOGS_ROTACION=externa` → `WatchedFileHandler` + logrotate): `RotatingFileHandler` no es seguro cuando varios procesos de Gunicorn escriben en el mismo archivo, porque al rotar pueden perderse o mezclarse líneas. Opciones: `WatchedFileHandler` con rotación por `logrotate` (recomendada en Linux), o un archivo por proceso. `registro_errores.py` ya lee `errores.jsonl*`, así que sigue funcionando.
 
 ### 6.2 Carga con 100 personas
 
-- [ ] La campana de notificaciones consulta al servidor **cada 5 segundos** (`templates/base.html`, `every 5s`). Con 100 personas son unas 20 peticiones por segundo solo por eso. Propuesta: subirlo a 20–30 segundos, porque las push ya avisan al instante.
-- [ ] Gunicorn: 4–5 procesos (`workers`) con 2–4 hilos cada uno (`gthread`), y luego ajustar mirando TI → Servidor.
+- [x] La campana de notificaciones consultaba al servidor **cada 5 segundos** (ahora `CAMPANA_SEGUNDOS`, 20 por defecto) (`templates/base.html`, `every 5s`). Con 100 personas son unas 20 peticiones por segundo solo por eso. Propuesta: subirlo a 20–30 segundos, porque las push ya avisan al instante.
+- [x] Gunicorn: 4 procesos (`workers`) con 2–4 hilos cada uno (`gthread`), y luego ajustar mirando TI → Servidor.
 
 ### 6.3 Archivos nuevos (carpeta `despliegue/`)
 
-- [ ] `requirements-servidor.txt`: agregar `gunicorn`.
-- [ ] `despliegue/gunicorn.conf.py`
-- [ ] `despliegue/callflow.service` (systemd)
-- [ ] `despliegue/nginx-callflow.conf`: límite de subida de 10 MB (`client_max_body_size`), `/static/` directo y cabeceras de seguridad.
-- [ ] `despliegue/logrotate-callflow`
-- [ ] `despliegue/crontab`: tareas programadas (sección 6.4).
-- [ ] `despliegue/.env.produccion.ejemplo`
-- [ ] Versiones Bash de los scripts de Windows:
+- [x] `requirements-servidor.txt`: agregar `gunicorn`.
+- [x] `despliegue/gunicorn.conf.py`
+- [x] `despliegue/callflow.service` (systemd)
+- [x] `despliegue/nginx-callflow.conf`: límite de subida de 10 MB (`client_max_body_size`), `/static/` directo y cabeceras de seguridad.
+- [x] `despliegue/logrotate-callflow`
+- [x] `despliegue/crontab`: tareas programadas (sección 6.4).
+- [x] `despliegue/.env.produccion.ejemplo`
+- [x] Versiones Bash de los scripts de Windows:
   - `scripts/crear_bd.sh` ← `crear_bd.ps1` + `crear_bd.sql` (el SQL sirve tal cual)
-  - `scripts/respaldar.sh` ← `respaldar_bd.ps1`, más el `rsync` de media y la retención mensual
+  - `scripts/respaldar.sh` ← `respaldar_bd.ps1`, con el mismo .zip de archivos (TI › Respaldos lo reconoce) y la retención mensual
   - `scripts/restaurar_bd.sh` ← `restaurar_bd.ps1`, con opción de restaurar en base de prueba
-- [ ] `despliegue/INSTALACION.md`: guía paso a paso para instalar desde cero.
+- [x] `despliegue/INSTALACION.md`: guía paso a paso para instalar desde cero.
 
 ### 6.4 Tareas programadas (cron)
 

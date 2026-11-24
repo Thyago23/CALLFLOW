@@ -118,6 +118,10 @@ DATABASES = {
         "ATOMIC_REQUESTS": True,
         # connect_timeout: si la base está en otra computadora y no responde, falla en segundos en vez de colgarse.
         "OPTIONS": {"options": "-c timezone=America/Guayaquil", "connect_timeout": int(env("DB_CONNECT_TIMEOUT", "5"))},
+        # Conexiones persistentes (segundos). 0 = una conexión nueva por petición, como con runserver.
+        # En el servidor (Gunicorn) conviene 60: ahorra abrir una conexión a PostgreSQL en cada petición.
+        "CONN_MAX_AGE": int(env("DB_CONN_MAX_AGE", "0")),
+        "CONN_HEALTH_CHECKS": True,
     }
 }
 
@@ -170,7 +174,15 @@ TI_MESA_PLAZOS = {
 
 # --------------------------------------------------------------------------- límite de peticiones (rate limit)
 # Ver apps/core/limite_peticiones.py. Los contadores viven en memoria (no tocan la base de datos).
-CACHES = {"default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache", "LOCATION": "callflow"}}
+# Con runserver (un solo proceso) basta la memoria. Con Gunicorn (varios procesos) cada proceso tendría sus propios
+# contadores y el límite se multiplicaría por la cantidad de procesos: en el servidor usar DJANGO_CACHE=archivos
+# (carpeta CACHE_DIR, compartida por todos los procesos). No se usa la base a propósito: una petición rechazada
+# por exceso no debe consultar PostgreSQL.
+if env("DJANGO_CACHE", "memoria").lower() == "archivos":
+    CACHES = {"default": {"BACKEND": "django.core.cache.backends.filebased.FileBasedCache",
+                          "LOCATION": env("CACHE_DIR", "/var/cache/callflow"), "OPTIONS": {"MAX_ENTRIES": 20000}}}
+else:
+    CACHES = {"default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache", "LOCATION": "callflow"}}
 LIMITE_PETICIONES_ACTIVO = env("LIMITE_PETICIONES_ACTIVO", "True").lower() in ("1", "true", "si", "yes")
 # regla: (máximo de peticiones por IP, ventana en segundos)
 LIMITE_PETICIONES = {
@@ -216,6 +228,24 @@ CSRF_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SECURE = not DEBUG
 CSRF_COOKIE_SECURE = not DEBUG
 
+# --------------------------------------------------------------------------- HTTPS detrás de Nginx (servidor Linux)
+# Ver despliegue/INSTALACION.md. Nginx atiende el HTTPS y le pasa la petición a Gunicorn por HTTP interno,
+# con la cabecera X-Forwarded-Proto. Solo se confía en ella si TI_PROXY_CONFIABLE está activo (más abajo).
+_si = ("1", "true", "si", "yes")
+if env("TI_PROXY_CONFIABLE", "False").lower() in _si:
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+SECURE_SSL_REDIRECT = env("DJANGO_SSL_REDIRECT", "False").lower() in _si
+# HSTS: el navegador recuerda que solo debe entrar por HTTPS. Activarlo (31536000 = un año) solo cuando el HTTPS ya
+# funciona bien en todas las PCs: mientras dure, un certificado vencido deja a todos sin entrar.
+SECURE_HSTS_SECONDS = int(env("DJANGO_HSTS_SEGUNDOS", "0"))
+SECURE_HSTS_INCLUDE_SUBDOMAINS = False
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_REFERRER_POLICY = "same-origin"
+
+# Cada cuántos segundos la campana consulta avisos y contadores (también procesa los breaks programados).
+# Con ~100 personas, 5 s son unas 20 peticiones por segundo solo por la campana; las push avisan al instante.
+CAMPANA_SEGUNDOS = int(env("CAMPANA_SEGUNDOS", "20"))
+
 # Notificaciones push del navegador (Web Push). Generarlas con: python manage.py generar_claves_push --guardar
 # Sin claves no se envían push; los avisos dentro del sistema funcionan igual.
 VAPID_PUBLIC_KEY = env("VAPID_PUBLIC_KEY", "")
@@ -238,6 +268,13 @@ TI_ALERTAS_AUTOMATICAS = not PROBANDO
 # Carpeta de las copias de seguridad (scripts/respaldar_bd.ps1), para mostrar el último respaldo.
 CARPETA_RESPALDOS = Path(env("CARPETA_RESPALDOS", str(BASE_DIR / "respaldos")))
 
+# En Linux con Gunicorn varios procesos escriben el mismo archivo: RotatingFileHandler puede perder líneas al rotar.
+# Con LOGS_ROTACION=externa se usa WatchedFileHandler y rota logrotate (despliegue/logrotate-callflow).
+if env("LOGS_ROTACION", "interna").lower() == "externa":
+    _ARCHIVO_LOG = {"class": "logging.handlers.WatchedFileHandler"}
+else:
+    _ARCHIVO_LOG = {"class": "logging.handlers.RotatingFileHandler", "maxBytes": 5 * 1024 * 1024, "backupCount": 5}
+
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
@@ -248,14 +285,12 @@ LOGGING = {
     "handlers": {
         "consola": {"class": "logging.StreamHandler", "formatter": "simple", "level": "WARNING"},
         "errores": {
-            "class": "logging.handlers.RotatingFileHandler", "filename": str(LOGS_DIR / "errores.jsonl"),
-            "maxBytes": 5 * 1024 * 1024, "backupCount": 5, "encoding": "utf-8", "delay": True,
+            **_ARCHIVO_LOG, "filename": str(LOGS_DIR / "errores.jsonl"), "encoding": "utf-8", "delay": True,
             "formatter": "json", "level": "ERROR",
         },
         # Eventos de seguridad: peticiones bloqueadas por exceso e intentos de ingreso fallidos (TI › Servidor).
         "seguridad": {
-            "class": "logging.handlers.RotatingFileHandler", "filename": str(LOGS_DIR / "seguridad.jsonl"),
-            "maxBytes": 5 * 1024 * 1024, "backupCount": 5, "encoding": "utf-8", "delay": True,
+            **_ARCHIVO_LOG, "filename": str(LOGS_DIR / "seguridad.jsonl"), "encoding": "utf-8", "delay": True,
             "formatter": "json", "level": "WARNING",
         },
     },
