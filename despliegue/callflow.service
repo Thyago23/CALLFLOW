@@ -9,6 +9,7 @@ Wants=postgresql.service
 
 [Service]
 Type=notify
+NotifyAccess=main
 User=callflow
 Group=callflow
 WorkingDirectory=/srv/callflow
