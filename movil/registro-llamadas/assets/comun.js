@@ -148,9 +148,7 @@
       ["Promedio entre llamadas", e.pausas ? C.duracion(e.promedioMuerto) : "—", "de una llamada a la siguiente"],
       ["Mayor tiempo muerto", hay ? C.duracion(e.mayorPausa) : "—", hay ? "de " + e.pausaDesde + " a " + e.pausaHasta + (varios ? " del " + C.fechaCorta(e.pausaDia).slice(0, 5) : "") + (e.pausaAlmuerzo ? ", sin almuerzo" : "") : ""],
       ["Pausas de " + C.LARGA_TXT + " o más", String(e.pausasLargas), e.pausasLargas ? "suman " + C.duracion(e.tiempoPausasLargas) : "ninguna", e.pausasLargas > 0]
-    ], nota: "Tiempo muerto: de cada pausa entre el fin de una llamada y el inicio de la siguiente (el mismo día), solo lo que pasa de "
-      + C.GRACIA_TXT + "; una pausa de " + C.GRACIA_TXT + " o menos no suma. "
-      + "No cuenta la hora de almuerzo (" + C.ALMUERZO[0] + " a " + C.ALMUERZO[1] + ") y no lo cortan las entrantes perdidas o rechazadas. "
+    ], nota: "No cuenta la hora de almuerzo (" + C.ALMUERZO[0] + " a " + C.ALMUERZO[1] + ") y no lo cortan las entrantes perdidas o rechazadas. "
       + "En rojo, las pausas de " + C.LARGA_TXT + " o más." };
   };
   C.pausaTexto = (e) => e.mayorPausa >= 60 ? C.duracion(e.mayorPausa) + " (" + e.pausaDesde + "–" + e.pausaHasta + (e.pausaAlmuerzo ? ", sin almuerzo" : "") + ")" : "—";
