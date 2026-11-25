@@ -1,3 +1,5 @@
+"""Entrega los avisos de la agenda que ya vencieron mientras el usuario navega."""
+
 import time
 
 from .servicios import generar_avisos

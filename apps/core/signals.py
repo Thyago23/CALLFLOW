@@ -1,3 +1,5 @@
+"""Señales del núcleo: mantiene a cada usuario en el grupo de permisos de su rol."""
+
 from django.contrib.auth.models import Group
 from django.db.models.signals import post_save
 from django.dispatch import receiver

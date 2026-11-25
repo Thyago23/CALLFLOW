@@ -33,6 +33,7 @@ class Revision:
 
 @dataclass
 class Resultado:
+    """Resultado de revisar un número de tarjeta: marca, banco emisor y cada revisión hecha."""
     digitos: int = 0
     mascara: str = ""
     marca: str | None = None
@@ -72,6 +73,7 @@ def buscar_bin(numero: str) -> RangoBIN | None:
 
 
 def analizar(numero: str, caducidad: str = "", hoy: date | None = None) -> Resultado:
+    """Revisa el número de tarjeta (dígitos, marca, Luhn, BIN conocido y caducidad)."""
     numero = tarjetas.solo_digitos(numero)
     r = Resultado(digitos=len(numero))
     if not numero:

@@ -1,3 +1,5 @@
+"""Filtros de plantilla para los montos del panel y del tablero de ventas."""
+
 from django import template
 
 from apps.ventas.templatetags.humanize_cf import dinero

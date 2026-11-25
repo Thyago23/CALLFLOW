@@ -10,6 +10,7 @@ CANTIDAD = {"max_digits": 12, "decimal_places": 2}
 
 
 class CategoriaMaterial(ModeloBase):
+    """Agrupa los materiales del inventario (papelería, limpieza…)."""
     nombre = models.CharField(max_length=80, unique=True)
 
     class Meta:
@@ -22,6 +23,7 @@ class CategoriaMaterial(ModeloBase):
 
 
 class Material(ModeloBase):
+    """Material de oficina con su código, stock actual y stock mínimo."""
     class Unidad(models.TextChoices):
         UNIDAD = "UNIDAD", "Unidad"
         CAJA = "CAJA", "Caja"

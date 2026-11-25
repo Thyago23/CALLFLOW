@@ -130,6 +130,7 @@ _CENTENAS = ["", "CIENTO", "DOSCIENTOS", "TRESCIENTOS", "CUATROCIENTOS", "QUINIE
 
 
 def _hasta_999(n: int) -> str:
+    """Número de 0 a 999 en letras mayúsculas."""
     if n == 100:
         return "CIEN"
     centena, resto = divmod(n, 100)
@@ -160,6 +161,7 @@ def numero_en_letras(n: int) -> str:
 
 
 def dinero_en_letras(valor: Decimal | None) -> str:
+    """Monto en letras para el contrato: «CUATROCIENTOS SESENTA DÓLARES CON 00/100»."""
     if valor is None:
         return ""
     valor = valor.quantize(Decimal("0.01"), ROUND_HALF_UP)
@@ -351,6 +353,7 @@ def _sin_subrayado(texto: str) -> str:
 
 
 def generar_pdf(texto: str, *, titulo: str = "Contrato", estilo: str = "SIMPLE") -> bytes:
+    """Genera el PDF del contrato a partir del texto ya llenado, con el estilo de la plantilla."""
     e = ESTILOS.get(estilo, ESTILOS["SIMPLE"])
     pdf = _PDFContrato(format="A4")
     e = _cargar_fuentes(pdf, e)

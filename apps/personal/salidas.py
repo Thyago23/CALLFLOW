@@ -60,6 +60,7 @@ def reintegrar(empleado: Empleado) -> Resultado:
 
 
 def _desactivar_cuenta(empleado: Empleado) -> list[str]:
+    """Desactiva la cuenta del ex empleado. Devuelve avisos si no se pudo (cuentas fijas de TI)."""
     usuario = empleado.usuario
     if not usuario or not usuario.is_active:
         return []

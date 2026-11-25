@@ -300,6 +300,7 @@ def guardar_aprobacion(usuario, registro_id: int, texto: str) -> RegistroProducc
 
 
 def totales(registros) -> dict:
+    """Totales de una hoja de producción: enviados, cerradas, no concretadas, pendientes y monto."""
     estados = [r.estado for r in registros]
     cerradas = estados.count("VENTA_CERRADA")
     no_concretadas = estados.count("NO_CONCRETADA")
@@ -318,6 +319,7 @@ def totales(registros) -> dict:
 # --------------------------------------------------------------------------- panel del vendedor (SCRUM-45)
 @dataclass
 class Panel:
+    """Panel del vendedor: su mes, el mes anterior, su meta y pendientes."""
     mes: dict
     anterior: dict
     meta: Decimal | None
@@ -348,6 +350,7 @@ def _mes_anterior(anio: int, mes: int) -> tuple[int, int]:
 
 
 def panel_vendedor(empleado, hoy: date | None = None) -> Panel:
+    """Arma el panel del vendedor para el mes actual."""
     from apps.cierre.models import MetaMensual
 
     hoy = hoy or timezone.localdate()
@@ -369,6 +372,7 @@ def bases_del_vendedor(empleado):
 
 @transaction.atomic
 def solicitar_base(usuario, mensaje: str) -> SolicitudBase:
+    """El vendedor pide una base nueva; se avisa a los encargados. Solo una solicitud pendiente a la vez."""
     empleado = empleado_de(usuario)
     if not es_vendedor(usuario):
         raise PermissionDenied("Solo los vendedores solicitan bases comerciales.")
@@ -408,6 +412,7 @@ def _usuario_del_vendedor(solicitud):
 @transaction.atomic
 def atender_solicitud(solicitud: SolicitudBase, base: BaseComercial, usuario, respuesta: str = "",
                       cantidad: int | None = None) -> SolicitudBase:
+    """Atiende la solicitud asignando contactos de una base al vendedor y le avisa."""
     solicitud = SolicitudBase.objects.select_for_update().get(pk=solicitud.pk)
     if solicitud.estado != SolicitudBase.Estado.PENDIENTE:
         raise ValidationError("Esta solicitud ya fue respondida.")
@@ -436,6 +441,7 @@ def atender_solicitud(solicitud: SolicitudBase, base: BaseComercial, usuario, re
 
 @transaction.atomic
 def rechazar_solicitud(solicitud: SolicitudBase, usuario, motivo: str) -> SolicitudBase:
+    """Rechaza la solicitud de base con su motivo y le avisa al vendedor."""
     if not motivo.strip():
         raise ValidationError("Indique el motivo del rechazo.")
     solicitud = SolicitudBase.objects.select_for_update().get(pk=solicitud.pk)
@@ -555,6 +561,7 @@ def usuarios_gestion_bases():
 
 
 def _avisar_repetidos(base, de_otras_bases: int, del_archivo: int, usuario=None, ya_enviados: int = 0) -> None:
+    """Avisa a los encargados cuántos contactos repetidos quedaron retenidos para revisión."""
     total = de_otras_bases + del_archivo
     partes = []
     if de_otras_bases:
@@ -970,6 +977,7 @@ def ayuda_aceptada(empleado, contacto_id) -> SolicitudAyuda | None:
 
 @transaction.atomic
 def pedir_ayuda(usuario, contacto_id: int, ayudante_id, mensaje: str = "") -> SolicitudAyuda:
+    """El vendedor pide a un compañero que le ayude con uno de sus contactos."""
     from .forms import sin_numero_de_tarjeta
 
     empleado = empleado_de(usuario)
@@ -996,6 +1004,7 @@ def pedir_ayuda(usuario, contacto_id: int, ayudante_id, mensaje: str = "") -> So
 
 @transaction.atomic
 def responder_ayuda(usuario, solicitud_id: int, aceptar: bool) -> SolicitudAyuda:
+    """El compañero acepta o rechaza ayudar con el contacto."""
     empleado = empleado_de(usuario)
     solicitud = (SolicitudAyuda.objects.select_for_update(of=("self",)).select_related("contacto", "solicitante__usuario")
                  .filter(pk=solicitud_id, ayudante=empleado).first() if empleado else None)

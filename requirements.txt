@@ -6,3 +6,5 @@ cryptography>=42
 pywebpush>=2.0,<3
 openpyxl>=3.1,<4
 xlrd>=2.0,<3
+# Fotos de perfil (recorte y validación de la imagen) y logos en los PDF.
+Pillow>=10.0

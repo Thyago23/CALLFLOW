@@ -61,6 +61,7 @@ def _clave_sesion(request) -> str | None:
 
 
 def registrar_inicio(request, usuario) -> SesionEquipo | None:
+    """Registra la sesión del equipo al iniciar sesión (IP, navegador y sistema)."""
     clave = _clave_sesion(request)
     if not clave:
         return None
@@ -174,6 +175,7 @@ def guardar_equipo(equipo: Equipo, *, usuario, anterior: dict | None = None) -> 
 
 
 def resumen() -> dict:
+    """Contadores del panel de TI: equipos por estado, garantías por vencer y conectados."""
     hoy = timezone.localdate()
     en_uso = Equipo.objects.exclude(estado=Equipo.Estado.BAJA)
     return {
@@ -260,6 +262,7 @@ def devolver_equipo(equipo: Equipo, *, fecha, condicion, estado_destino, accesor
 
 @transaction.atomic
 def adjuntar_acta_firmada(acta: ActaEquipo, archivo, *, mime: str, usuario) -> ActaEquipo:
+    """Guarda el acta firmada; si reemplaza otra, la anterior se borra al confirmar la transacción."""
     anterior = acta.firmada.name if acta.firmada else ""
     acta.firmada.save(archivo.name, archivo, save=False)
     acta.firmada_mime, acta.firmada_en, acta.firmada_subida_por = mime, timezone.now(), usuario

@@ -41,6 +41,7 @@ def _resumen(valor) -> str:
 
 
 def _mostrar(instancia, nombre: str) -> str:
+    """Valor de un campo en texto legible para el aviso de «otro usuario lo cambió»."""
     campo = instancia._meta.get_field(nombre)
     if campo.many_to_many:
         texto = ", ".join(str(o) for o in getattr(instancia, nombre).all())

@@ -21,6 +21,7 @@ def tiene_permiso_directo(usuario, permiso: str) -> bool:
 
 
 def requiere_permiso_directo(permiso: str, mensaje: str = "No tiene acceso a esta sección."):
+    """Decorador de vista: exige sesión y el permiso asignado directamente a la cuenta."""
     def decorador(vista):
         @login_required
         @wraps(vista)

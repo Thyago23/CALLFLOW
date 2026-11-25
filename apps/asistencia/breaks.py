@@ -70,6 +70,7 @@ def _usuarios_coordinadores(descanso: Descanso):
 
 @transaction.atomic
 def dar_break(usuario, minutos: int, mensaje: str = "", ahora: datetime | None = None) -> Descanso:
+    """El coordinador da un break ahora a los vendedores con la jornada abierta."""
     if not tiene_permiso_directo(usuario, PERMISO):
         raise ValidationError("Solo el coordinador puede dar breaks.")
     if not 1 <= int(minutos) <= DURACION_MAXIMA:
@@ -115,6 +116,7 @@ def pendiente_de(empleado, ahora: datetime | None = None) -> RegresoDescanso | N
 
 @transaction.atomic
 def volver_de_break(empleado, ahora: datetime | None = None) -> RegresoDescanso:
+    """Marca el regreso del vendedor de su break; si llega tarde queda registrado."""
     from apps.core.models import Notificacion
 
     ahora = ahora or timezone.now()
@@ -189,6 +191,7 @@ def _se_cruzan(inicio: datetime, minutos: int, excluir=None) -> DescansoPrograma
 @transaction.atomic
 def programar_break(usuario, inicio: datetime, minutos: int, aviso: int = 10, mensaje: str = "",
                     ahora: datetime | None = None) -> DescansoProgramado:
+    """Programa un break para más tarde, con recordatorio 10 o 5 minutos antes."""
     if not tiene_permiso_directo(usuario, PERMISO):
         raise ValidationError("Solo el coordinador puede programar breaks.")
     ahora = ahora or timezone.now()
@@ -213,6 +216,7 @@ def programar_break(usuario, inicio: datetime, minutos: int, aviso: int = 10, me
 
 @transaction.atomic
 def cancelar_programado(usuario, pk: int, ahora: datetime | None = None) -> DescansoProgramado:
+    """Cancela un break programado que todavía no empezó."""
     from apps.core.models import Notificacion
 
     if not tiene_permiso_directo(usuario, PERMISO):
@@ -235,6 +239,7 @@ def cancelar_programado(usuario, pk: int, ahora: datetime | None = None) -> Desc
 
 
 def _recordar(p: DescansoProgramado, ahora: datetime) -> None:
+    """Envía el recordatorio del break programado a los vendedores."""
     from apps.core.models import Notificacion
 
     vendedores = list(participantes(ahora))
@@ -252,6 +257,7 @@ def _recordar(p: DescansoProgramado, ahora: datetime) -> None:
 
 
 def _omitir(p: DescansoProgramado, motivo: str) -> None:
+    """Deja el break programado como omitido y le avisa a quien lo programó."""
     from apps.core.models import Notificacion
 
     p.estado, p.motivo = DescansoProgramado.Estado.OMITIDO, motivo[:200]
@@ -263,6 +269,7 @@ def _omitir(p: DescansoProgramado, motivo: str) -> None:
 
 
 def _empezar(p: DescansoProgramado, ahora: datetime) -> None:
+    """Inicia el break programado, o lo omite si ya no tiene sentido darlo."""
     if ahora >= p.fin:
         return _omitir(p, "Nadie tenía CALLFLOW abierto a esa hora y el horario del break ya pasó.")
     if Descanso.objects.select_for_update().filter(fin__gt=p.programado_para, inicio__lte=ahora).exists():

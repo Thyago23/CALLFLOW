@@ -174,6 +174,7 @@ def leer_filas(archivo) -> list[list]:
 
 @dataclass
 class Resultado:
+    """Resultado de leer el Excel de una base: filas válidas, repetidas y contadores para el resumen."""
     filas: list = field(default_factory=list)  # dicts con CAMPOS + cedula_valida, numero_alterno, fila
     columnas: dict = field(default_factory=dict)  # campo -> encabezado original
     leidas: int = 0
@@ -311,6 +312,7 @@ def _letra(j: int) -> str:
 
 
 def formatear(archivo) -> Resultado:
+    """Lee el Excel de la base, reconoce las columnas y separa los contactos repetidos."""
     filas = leer_filas(archivo)
     if len(filas) > MAX_FILAS:
         raise ValidationError(f"El archivo tiene más de {MAX_FILAS:,} filas. Divídalo en partes.".replace(",", "."))

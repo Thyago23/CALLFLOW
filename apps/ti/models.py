@@ -17,6 +17,7 @@ from apps.core.models import ModeloBase
 
 
 class TipoEquipo(models.TextChoices):
+    """Tipos de equipo del inventario de TI."""
     ESCRITORIO = "ESCRITORIO", "Computador de escritorio"
     LAPTOP = "LAPTOP", "Laptop"
     MONITOR = "MONITOR", "Monitor"
@@ -40,6 +41,7 @@ class EstadoEquipo(models.TextChoices):
 
 
 class TipoEvento(models.TextChoices):
+    """Tipos de evento de la hoja de vida de un equipo."""
     ALTA = "ALTA", "Alta en el inventario"
     ASIGNACION = "ASIGNACION", "Asignación"
     DEVOLUCION = "DEVOLUCION", "Devolución"
@@ -52,6 +54,7 @@ class TipoEvento(models.TextChoices):
 
 
 class Equipo(ModeloBase):
+    """Equipo del inventario de TI con su ficha técnica, ubicación y a quién está asignado."""
     Tipo = TipoEquipo
     Estado = EstadoEquipo
 

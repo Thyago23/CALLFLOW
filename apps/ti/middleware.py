@@ -1,3 +1,5 @@
+"""Registra la actividad de cada sesión para la vista de equipos conectados."""
+
 import logging
 
 from . import servicios

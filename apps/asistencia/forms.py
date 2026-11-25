@@ -1,3 +1,5 @@
+"""Formularios de asistencia: registro manual, novedades, horarios y filtros."""
+
 from datetime import date
 
 from django import forms
@@ -50,6 +52,7 @@ class RegistroManualForm(FormularioEstilizado, forms.Form):
 
 
 class ClasificarNovedadForm(FormularioEstilizado, forms.Form):
+    """Clasificar una novedad como justificada o no; justificar exige motivo y respaldo."""
     estado = forms.ChoiceField(label="Clasificación", widget=forms.RadioSelect, choices=[
         (NovedadAsistencia.Estado.JUSTIFICADA, "Justificada"),
         (NovedadAsistencia.Estado.NO_JUSTIFICADA, "No justificada"),
@@ -77,6 +80,7 @@ class ClasificarNovedadForm(FormularioEstilizado, forms.Form):
 
 
 class HorarioForm(FormularioEstilizado, forms.ModelForm):
+    """Alta y edición de un horario de trabajo."""
     dias_laborables = forms.TypedMultipleChoiceField(
         label="Días laborables", choices=DIAS, coerce=int, initial=[1, 2, 3, 4, 5],
         widget=forms.CheckboxSelectMultiple(attrs={"class": "btn-check"}),
@@ -112,6 +116,7 @@ class HorarioForm(FormularioEstilizado, forms.ModelForm):
 
 
 class AsignarHorarioForm(FormularioEstilizado, forms.Form):
+    """Asigna un horario a varios empleados desde una fecha."""
     horario = forms.ModelChoiceField(label="Horario", queryset=Horario.objects.filter(activo=True), empty_label="Seleccione…")
     empleados = forms.ModelMultipleChoiceField(label="Empleados", queryset=Empleado.objects.none(),
                                                widget=forms.CheckboxSelectMultiple)
@@ -127,6 +132,7 @@ class AsignarHorarioForm(FormularioEstilizado, forms.Form):
 
 
 class HistorialFiltroForm(forms.Form):
+    """Filtros del historial de asistencia: empleado y rango de fechas."""
     empleado = forms.ModelChoiceField(label="Empleado", required=False, queryset=Empleado.objects.none(), empty_label="Todos")
     desde = forms.DateField(label="Desde", required=False, widget=forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"))
     hasta = forms.DateField(label="Hasta", required=False, widget=forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"))

@@ -109,6 +109,7 @@ class Linea:
 
 @dataclass
 class Estimacion:
+    """Rol de pago estimado de un empleado en un mes: ingresos, descuentos y líquido a recibir."""
     empleado: object
     anio: int
     mes: int
@@ -241,6 +242,10 @@ def ultimo_dia(anio: int, mes: int) -> date:
 
 
 def estimar_mes(empleado, anio: int, mes: int) -> Estimacion:
+    """
+    Calcula el rol del mes: sueldo proporcional, comisión, multas por atraso y faltas (con tope), multas manuales y
+    anticipos.
+    """
     from apps.asistencia.models import NovedadAsistencia
     from apps.core.cuentas import rol_para_cargo
     from apps.core.models import Rol
@@ -396,6 +401,7 @@ def empleados_del_mes(anio: int, mes: int):
 
 @dataclass
 class ResumenNomina:
+    """Totales de la nómina del mes a partir de los roles individuales."""
     roles: list
 
     def _suma(self, atributo) -> Decimal:
@@ -550,6 +556,7 @@ def _pdf_total(pdf, ancho, etiqueta: str, valor: str):
 
 
 def _pdf_firmas_y_pie(pdf, ancho, e: Estimacion, nota: str, firma_derecha: str = "Firma Contabilidad"):
+    """Firmas del empleado y de contabilidad al pie del PDF, sin cortarlas entre hojas."""
     from apps.documentos.contratos import _latin1
 
     if pdf.get_y() > pdf.h - 62:  # las firmas no quedan cortadas al final de la hoja

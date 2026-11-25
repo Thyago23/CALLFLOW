@@ -12,6 +12,7 @@ TINTA, GRIS, SUAVE, LINEA = (14, 50, 92), (95, 105, 120), (229, 235, 243), (214,
 
 
 class DocumentoPDF(FPDF):
+    """PDF de reportes con encabezado (título, periodo, filtros) y pie con autor y fecha."""
     def __init__(self, titulo: str, periodo: str, filtros: str, usuario, horizontal=False):
         super().__init__(orientation="L" if horizontal else "P", format="A4")
         self.titulo, self.periodo, self.filtros = titulo, periodo, filtros
@@ -82,6 +83,7 @@ class DocumentoPDF(FPDF):
         return texto + "..."
 
     def _fila(self, celdas, anchos, alto, negrita=False, encabezado=False):
+        """Escribe una fila de la tabla del PDF (encabezado o datos)."""
         if encabezado:
             self.set_fill_color(*SUAVE)
             self.set_text_color(*TINTA)
@@ -186,6 +188,7 @@ def _grafica_lineas(pdf, etiquetas, reales, proyectados, alto=62):
         pdf.cell(16, 4, _latin1(etiqueta), align="C")
 
     def trazo(puntos, punteado):
+        """Dibuja una serie de la gráfica: línea continua (real) o punteada (proyección)."""
         pdf.set_draw_color(*TINTA)
         pdf.set_line_width(0.6)
         if punteado:

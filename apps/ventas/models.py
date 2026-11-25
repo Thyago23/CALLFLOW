@@ -19,6 +19,7 @@ class EstadoProduccion(models.TextChoices):
 
 
 class BaseComercial(ModeloBase):
+    """Base de contactos cargada desde Excel para que los vendedores llamen."""
     nombre = models.CharField(max_length=120, unique=True)
     descripcion = models.TextField(blank=True, default="")
     total_registros = models.PositiveIntegerField(default=0)
@@ -196,6 +197,7 @@ class SolicitudAyuda(ModeloBase):
 
 
 class AsignacionBase(models.Model):
+    """Qué vendedor recibió contactos de qué base."""
     base = models.ForeignKey(BaseComercial, on_delete=models.PROTECT, related_name="asignaciones")
     vendedor = models.ForeignKey("personal.Empleado", on_delete=models.PROTECT, related_name="bases_asignadas")
     asignada_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")

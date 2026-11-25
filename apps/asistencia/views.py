@@ -1,3 +1,5 @@
+"""Vistas de asistencia: tablero del día, registros, novedades, horarios y breaks."""
+
 from datetime import date, timedelta
 
 from django.contrib import messages
@@ -64,6 +66,7 @@ def tablero(request):
 
 
 def _accion_tablero(request, funcion, exito):
+    """Ejecuta una acción del tablero, muestra el resultado y devuelve el tablero actualizado."""
     try:
         resultado = funcion()
     except ValidationError as error:
@@ -79,6 +82,7 @@ def _accion_tablero(request, funcion, exito):
 @permission_required("asistencia.add_registroasistencia", raise_exception=True)
 @require_POST
 def marcar_entrada(request, pk):
+    """Marca a mano la entrada de un empleado desde el tablero."""
     empleado = get_object_or_404(Empleado, pk=pk)
 
     def exito(registro):
@@ -114,6 +118,7 @@ def marcar_ausente(request, pk):
 @permission_required("asistencia.add_novedadasistencia", raise_exception=True)
 @require_POST
 def ausencias_del_dia(request):
+    """Registra la ausencia de quienes debían trabajar y no tienen entrada ese día."""
     fecha = _fecha(request)
 
     def exito(creadas):
@@ -127,6 +132,7 @@ def ausencias_del_dia(request):
 @login_required
 @permission_required("asistencia.add_registroasistencia", raise_exception=True)
 def registro_manual(request):
+    """Registro manual de entrada y salida (correcciones)."""
     inicial = {}
     if request.method == "GET":
         if request.GET.get("empleado"):
@@ -152,6 +158,7 @@ def registro_manual(request):
 @login_required
 @permission_required("asistencia.view_novedadasistencia", raise_exception=True)
 def novedades(request):
+    """Bandeja de novedades por estado y tipo (pendientes por defecto)."""
     estado = request.GET.get("estado", NovedadAsistencia.Estado.PENDIENTE)
     tipo = request.GET.get("tipo", "")
     qs = NovedadAsistencia.objects.select_related("empleado", "soporte", "revisada_por").order_by("-fecha", "empleado__apellidos")
@@ -172,6 +179,7 @@ def novedades(request):
 @permission_required("asistencia.change_novedadasistencia", raise_exception=True)
 @require_POST
 def clasificar_novedad(request, pk):
+    """Clasifica una novedad y guarda el archivo de respaldo en el expediente del empleado."""
     novedad = get_object_or_404(NovedadAsistencia.objects.select_related("empleado"), pk=pk)
     form = ClasificarNovedadForm(request.POST, request.FILES, tiene_soporte=novedad.soporte_id is not None)
     if form.is_valid():
@@ -225,6 +233,7 @@ def historial(request):
 @login_required
 @permission_required("asistencia.view_horario", raise_exception=True)
 def horarios(request):
+    """Horarios: crear horarios y asignarlos a empleados."""
     form_horario = HorarioForm(prefix="h")
     form_asignar = AsignarHorarioForm(prefix="a")
     if request.method == "POST":
@@ -325,6 +334,7 @@ DURACIONES_RAPIDAS = (10, 15, 20, 30)
 
 
 def _panel_breaks(request) -> dict:
+    """Datos del panel de breaks: el actual, los programados y los de la última semana."""
     ahora = timezone.now()
     breaks_servicio.procesar_programados(ahora)
     actual = breaks_servicio.en_curso(ahora)

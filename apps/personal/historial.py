@@ -43,6 +43,7 @@ OPCIONES = {
 
 
 def _legible(campo, valor, cargos, usuarios):
+    """Valor de un campo del historial en texto legible (nombres en vez de ids, fechas, opciones)."""
     if valor in (None, ""):
         return "—"
     if campo == "cargo_id":
@@ -60,6 +61,7 @@ def _legible(campo, valor, cargos, usuarios):
 
 
 def cambios_de(empleado, limite: int = 50) -> list[dict]:
+    """Cambios registrados en la ficha del empleado, del más reciente al más antiguo."""
     registros = list(
         RegistroCambio.objects.filter(tabla="personal_empleado", registro_id=str(empleado.pk)).order_by("-fecha", "-id")[:limite]
     )

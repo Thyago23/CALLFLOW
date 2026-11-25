@@ -1,3 +1,5 @@
+"""Formularios de documentos: plantillas de contrato y generación de contratos."""
+
 from django import forms
 from django.core.exceptions import ValidationError
 
@@ -23,6 +25,7 @@ def _estilizar(form):
 
 
 class PlantillaForm(forms.ModelForm):
+    """Alta y edición de una plantilla de contrato."""
     class Meta:
         model = PlantillaContrato
         fields = ["nombre", "tipo_contrato", "cargo", "estilo", "contenido"]
@@ -53,6 +56,7 @@ class PlantillaForm(forms.ModelForm):
         return nombre
 
     def clean_contenido(self):
+        """Rechaza variables mal escritas y plantillas que no usan ninguna."""
         contenido = self.cleaned_data["contenido"].replace("\r\n", "\n").strip()
         desconocidas = contratos.variables_desconocidas(contenido)
         if desconocidas:
@@ -66,6 +70,7 @@ class PlantillaForm(forms.ModelForm):
 
 
 class GenerarContratoForm(forms.Form):
+    """Datos que faltan para generar el contrato de un empleado: plantilla, fechas y salario."""
     plantilla = forms.ModelChoiceField(PlantillaContrato.objects.none(), label="Plantilla", empty_label=None)
     fecha_inicio = forms.DateField(label="Inicio del contrato", widget=forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"))
     fecha_fin = forms.DateField(

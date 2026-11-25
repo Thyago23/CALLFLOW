@@ -50,6 +50,7 @@ class ReglaCalculo(ModeloBase):
 
 
 class PeriodoNomina(ModeloBase):
+    """Periodo de nómina y su estado (abierto, en revisión, aprobado, pagado, cerrado)."""
     class Estado(models.TextChoices):
         ABIERTO = "ABIERTO", "Abierto"
         EN_REVISION = "EN_REVISION", "En revisión"
@@ -91,6 +92,7 @@ class PeriodoNomina(ModeloBase):
 
 
 class TipoNovedadNomina(ModeloBase):
+    """Tipo de novedad de nómina (bono, descuento…) y si suma o resta."""
     codigo = models.CharField(max_length=30, unique=True)
     nombre = models.CharField(max_length=100)
     naturaleza = models.CharField(max_length=10, choices=Naturaleza.choices)
@@ -183,6 +185,7 @@ class LiquidacionNomina(ModeloBase):
 
 
 class DetalleLiquidacion(models.Model):
+    """Línea de una liquidación: concepto, valor y de qué regla o novedad salió."""
     liquidacion = models.ForeignKey(LiquidacionNomina, on_delete=models.CASCADE, related_name="detalles")
     concepto = models.CharField(max_length=150)
     naturaleza = models.CharField(max_length=10, choices=Naturaleza.choices)

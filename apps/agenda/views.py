@@ -1,3 +1,5 @@
+"""Vistas de la agenda: calendario y gestión de eventos."""
+
 from datetime import date, timedelta
 
 from django.contrib import messages
@@ -49,6 +51,7 @@ def _es_vendedor(usuario) -> bool:
 @login_required
 @permission_required("agenda.view_evento", raise_exception=True)
 def calendario(request):
+    """Calendario por mes, semana o día. El vendedor abre por defecto la vista del día."""
     usuario = request.user
     # El vendedor trabaja con lo de hoy: por defecto abre la vista del día.
     vista = request.GET.get("vista") or ("dia" if _es_vendedor(usuario) else "mes")
@@ -118,6 +121,7 @@ def _evento_propio(request, pk) -> Evento:
 @login_required
 @permission_required("agenda.add_evento", raise_exception=True)
 def crear(request):
+    """Nuevo evento. Si llega con ?cliente=<id> (desde Ventas) se prepara un recordatorio de llamada."""
     inicial = {"fecha": _fecha(request)}
     if request.GET.get("tipo") in Evento.Tipo.values:
         inicial["tipo"] = request.GET["tipo"]
@@ -147,6 +151,7 @@ def crear(request):
 @login_required
 @permission_required("agenda.view_evento", raise_exception=True)
 def detalle(request, pk):
+    """Detalle del evento con sus participantes y el estado del aviso."""
     evento = _evento_visible(request, pk)
     return render(request, "agenda/evento_detalle.html", {
         "evento": evento,
@@ -162,6 +167,7 @@ def detalle(request, pk):
 @login_required
 @permission_required("agenda.change_evento", raise_exception=True)
 def editar(request, pk):
+    """Edita un evento propio; si cambió la hora o el aviso, el aviso se vuelve a programar."""
     evento = _evento_propio(request, pk)
     if request.method == "POST":
         form = EventoForm(request.POST, usuario=request.user, cliente_actual=evento.cliente)
@@ -183,6 +189,7 @@ def editar(request, pk):
 @permission_required("agenda.change_evento", raise_exception=True)
 @require_POST
 def cambiar_estado(request, pk):
+    """Marca el evento como completado, cancelado o pendiente otra vez."""
     evento = _evento_propio(request, pk)
     estado = request.POST.get("estado")
     if estado not in Evento.Estado.values:
@@ -198,6 +205,7 @@ def cambiar_estado(request, pk):
 @permission_required("agenda.change_evento", raise_exception=True)
 @require_POST
 def pasar_a_manana(request, pk):
+    """Pasa el evento al siguiente día laborable, a la misma hora."""
     evento = _evento_propio(request, pk)
     if evento.estado == Evento.Estado.CANCELADO:
         messages.error(request, "Un evento cancelado no se reprograma; vuelva a ponerlo pendiente primero.")
@@ -213,6 +221,7 @@ def pasar_a_manana(request, pk):
 @permission_required("agenda.delete_evento", raise_exception=True)
 @require_POST
 def eliminar(request, pk):
+    """Elimina el evento. Solo lo puede hacer quien lo creó."""
     evento = _evento_visible(request, pk)
     if evento.propietario_id != request.user.pk:
         raise PermissionDenied("Solo quien creó el evento puede eliminarlo.")

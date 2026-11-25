@@ -82,6 +82,7 @@ def _sincronizar_novedad(empleado, fecha, tipo, minutos, registro):
 
 
 def evaluar_registro(registro: RegistroAsistencia) -> None:
+    """Recalcula las novedades de atraso y salida anticipada de la jornada."""
     horario = horario_de(registro.empleado, registro.fecha)
     _sincronizar_novedad(registro.empleado, registro.fecha, Tipo.ATRASO,
                          minutos_atraso(horario, registro.fecha, registro.entrada), registro)
@@ -95,6 +96,7 @@ def evaluar_registro(registro: RegistroAsistencia) -> None:
 
 
 def _quitar_ausencia(empleado, fecha):
+    """Borra la ausencia pendiente del día al registrar asistencia; si ya se clasificó, no deja."""
     ausencia = NovedadAsistencia.objects.filter(empleado=empleado, fecha=fecha, tipo=Tipo.AUSENCIA).first()
     if ausencia is None:
         return
@@ -114,6 +116,7 @@ def _validar_empleado(empleado):
 
 @transaction.atomic
 def registrar_entrada(empleado, momento: datetime, usuario=None, origen=RegistroAsistencia.Origen.SISTEMA) -> RegistroAsistencia:
+    """Registra la entrada del día y evalúa si hubo atraso."""
     _validar_empleado(empleado)
     fecha = timezone.localtime(momento).date()
     if RegistroAsistencia.objects.filter(empleado=empleado, fecha=fecha).exists():
@@ -128,6 +131,7 @@ def registrar_entrada(empleado, momento: datetime, usuario=None, origen=Registro
 
 @transaction.atomic
 def registrar_salida(empleado, momento: datetime, usuario=None) -> RegistroAsistencia:
+    """Registra la salida del día y evalúa si fue anticipada."""
     fecha = timezone.localtime(momento).date()
     registro = RegistroAsistencia.objects.select_for_update().filter(empleado=empleado, fecha=fecha).first()
     if registro is None:
@@ -365,6 +369,7 @@ def revisar_salidas_si_toca() -> None:
 # --------------------------------------------------------------------------- clasificación
 @transaction.atomic
 def clasificar(novedad: NovedadAsistencia, estado: str, motivo: str, usuario, soporte=None) -> NovedadAsistencia:
+    """Clasifica la novedad. Justificarla exige motivo y archivo de respaldo."""
     if estado not in (Estado.JUSTIFICADA, Estado.NO_JUSTIFICADA):
         raise ValidationError("Elija si la novedad es justificada o no justificada.")
     if estado == Estado.JUSTIFICADA and not motivo.strip():
@@ -393,6 +398,7 @@ def reabrir(novedad: NovedadAsistencia) -> NovedadAsistencia:
 # --------------------------------------------------------------------------- consultas
 @dataclass
 class FilaDia:
+    """Una fila del tablero del día: empleado, horario, jornada y novedades."""
     empleado: Empleado
     fecha: date
     horario: Horario | None
@@ -413,6 +419,7 @@ class FilaDia:
 
     @property
     def estado(self) -> str:
+        """Estado que se muestra en el tablero (Presente, Ausente, Salió…)."""
         if not self.activo:
             return self.empleado.get_estado_display()
         if Tipo.AUSENCIA in self.tipos:
@@ -493,6 +500,7 @@ def resumen_empleado(empleado, desde: date | None = None, hasta: date | None = N
         novedades, registros = novedades.filter(fecha__lte=hasta), registros.filter(fecha__lte=hasta)
 
     def bloque(tipo):
+        """Totales de un tipo de novedad: cuántas, cómo se clasificaron y minutos."""
         datos = novedades.filter(tipo=tipo).aggregate(
             total=Count("id"),
             justificadas=Count("id", filter=Q(estado=Estado.JUSTIFICADA)),

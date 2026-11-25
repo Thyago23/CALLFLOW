@@ -42,6 +42,7 @@ def numero_de_llamado(novedad, reglas: dict) -> int:
 
 
 def acta_pdf(novedad) -> bytes:
+    """PDF del acta de llamado de atención por un atraso que cuenta como llamado."""
     from apps.documentos.contratos import _latin1, dinero
 
     reglas = calculo.parametros("PENALIZACIONES", novedad.fecha)

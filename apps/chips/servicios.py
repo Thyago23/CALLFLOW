@@ -54,6 +54,7 @@ def registrar_reposicion(chip: Chip, *, fecha: date, motivo: str, numero_nuevo: 
 
 @dataclass
 class ReporteReposiciones:
+    """Datos del reporte de reposiciones de un rango de fechas, con totales y firmas."""
     desde: date
     hasta: date
     reposiciones: list
@@ -68,6 +69,7 @@ class ReporteReposiciones:
 
 
 def reporte_reposiciones(desde: date, hasta: date, operadora: str = "") -> ReporteReposiciones:
+    """Reúne las reposiciones del rango (y de una operadora, si se indica) para el reporte."""
     qs = (Reposicion.objects.filter(fecha__range=(desde, hasta))
           .select_related("chip__asignado_a", "registrado_por").order_by("fecha", "pk"))
     if operadora:

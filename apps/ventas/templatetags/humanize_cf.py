@@ -1,3 +1,5 @@
+"""Filtros de plantilla de ventas (horas de aprobación y dinero con formato local)."""
+
 from decimal import Decimal, InvalidOperation
 
 from django import template

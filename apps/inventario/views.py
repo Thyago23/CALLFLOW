@@ -1,3 +1,5 @@
+"""Vistas del inventario de materiales: listado, alta, detalle y movimientos."""
+
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, permission_required
 from django.core.exceptions import ValidationError
@@ -22,6 +24,7 @@ def _es_htmx(request) -> bool:
 @login_required
 @permission_required("inventario.view_material", raise_exception=True)
 def materiales(request):
+    """Listado de materiales con búsqueda, filtro por categoría y por stock bajo."""
     qs = Material.objects.select_related("categoria").order_by("-activo", "nombre")
     texto = request.GET.get("q", "").strip()
     if texto:
@@ -52,6 +55,7 @@ def materiales(request):
 
 
 def _guardar_material(request, form, nuevo: bool):
+    """Guarda el material (crea la categoría si se escribió una nueva) y su stock inicial."""
     datos = form.cleaned_data
     material = form.save(commit=False)
     with transaction.atomic():
@@ -67,6 +71,7 @@ def _guardar_material(request, form, nuevo: bool):
 @login_required
 @permission_required("inventario.add_material", raise_exception=True)
 def material_crear(request):
+    """Registra un material nuevo; el código lo asigna el sistema."""
     form = MaterialForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
         try:
@@ -113,6 +118,7 @@ def material_estado(request, pk):
 @login_required
 @permission_required("inventario.view_movimientoinventario", raise_exception=True)
 def movimientos(request):
+    """Historial de movimientos con filtros por tipo, material y fechas."""
     qs = MovimientoInventario.objects.select_related("material", "responsable").order_by("-fecha", "-pk")
     tipo = request.GET.get("tipo", "")
     if tipo in MovimientoInventario.Tipo.values:
@@ -136,6 +142,7 @@ def movimientos(request):
 @login_required
 @permission_required("inventario.add_movimientoinventario", raise_exception=True)
 def movimiento_crear(request):
+    """Registra un movimiento de inventario (por defecto, una salida)."""
     inicial = {"tipo": MovimientoInventario.Tipo.SALIDA}
     if request.GET.get("material", "").isdigit():
         inicial["material"] = int(request.GET["material"])

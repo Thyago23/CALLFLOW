@@ -9,6 +9,7 @@ from apps.core.models import ModeloBase, Rol
 
 
 class TipoReporte(ModeloBase):
+    """Reporte disponible en el centro de reportes y el módulo al que pertenece."""
     class Modulo(models.TextChoices):
         ADMINISTRATIVO = "ADMINISTRATIVO", "Administrativo"
         NOMINA = "NOMINA", "Nómina"
@@ -43,6 +44,7 @@ class TipoReporte(ModeloBase):
 
 
 class ReporteGenerado(models.Model):
+    """Registro de cada reporte descargado: quién, con qué filtros y en qué formato."""
     class Formato(models.TextChoices):
         PDF = "PDF", "PDF"
         XLSX = "XLSX", "Excel"

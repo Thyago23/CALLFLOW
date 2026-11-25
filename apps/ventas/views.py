@@ -1,3 +1,5 @@
+"""Vistas de ventas: panel del vendedor, formularios DAMI, hojas de producción, BIN y bases."""
+
 import json
 from datetime import date
 
@@ -45,6 +47,7 @@ def _solo_administradores(request):
 @login_required
 @permission_required("ventas.view_formulariodami", raise_exception=True)
 def inicio(request):
+    """Panel del vendedor. Los demás roles van directo a la lista de formularios."""
     if not servicios.es_vendedor(request.user):
         return redirect("ventas:formularios")
     empleado = servicios.empleado_de(request.user)
@@ -59,6 +62,7 @@ def inicio(request):
 @login_required
 @permission_required("ventas.view_formulariodami", raise_exception=True)
 def formularios(request):
+    """Lista de formularios DAMI que el usuario puede ver, con búsqueda y filtros."""
     qs = servicios.formularios_visibles(request.user).order_by("-actualizado_en")
     texto = request.GET.get("q", "").strip()
     if texto:
@@ -86,6 +90,7 @@ def _form_dami(request, data=None, formulario=None):
 
 
 def _guardar(request, form, formulario=None, para=None, contacto=None):
+    """Guarda el DAMI como borrador o lo envía; si falla, deja el error en el formulario."""
     enviar = "enviar" in request.POST
     try:
         f = servicios.guardar_formulario(request.user, form.cleaned_data, formulario, enviar=enviar, para=para, contacto=contacto)
@@ -109,6 +114,7 @@ def _guardar(request, form, formulario=None, para=None, contacto=None):
 @login_required
 @permission_required("ventas.add_formulariodami", raise_exception=True)
 def formulario_nuevo(request):
+    """Nuevo DAMI. Desde «Mis contactos» llega con los datos del cliente ya cargados."""
     empleado = _solo_vendedores(request)
     form = _form_dami(request, request.POST or None)
     # Desde «Mis contactos»: se prellenan los datos del cliente (si el contacto es suyo o si aceptó ayudar con él).
@@ -134,6 +140,7 @@ def formulario_nuevo(request):
 @login_required
 @permission_required("ventas.change_formulariodami", raise_exception=True)
 def formulario_editar(request, pk):
+    """Edita un DAMI que todavía se puede modificar."""
     if (respuesta := _ya_enviado(request, pk)):
         return respuesta
     formulario = get_object_or_404(servicios.formularios_visibles(request.user), pk=pk)
@@ -159,6 +166,7 @@ def formulario_editar(request, pk):
 @login_required
 @permission_required("ventas.view_formulariodami", raise_exception=True)
 def formulario_detalle(request, pk):
+    """Detalle del DAMI con su historial, resultado y tarjeta."""
     if (respuesta := _ya_enviado(request, pk)):
         return respuesta
     formulario = get_object_or_404(servicios.formularios_visibles(request.user), pk=pk)
@@ -196,6 +204,7 @@ def _historial(formulario):
 @permission_required("ventas.change_formulariodami", raise_exception=True)
 @require_POST
 def formulario_accion(request, pk):
+    """Envía o anula un DAMI desde su detalle."""
     formulario = get_object_or_404(servicios.formularios_visibles(request.user), pk=pk)
     accion = request.POST.get("accion")
     try:
@@ -321,6 +330,7 @@ def validar_tarjeta(request):
 @login_required
 @permission_required("ventas.view_rangobin", raise_exception=True)
 def catalogo_bin(request):
+    """Catálogo de rangos BIN y entidades emisoras; quien tiene permiso agrega o importa."""
     puede_editar = request.user.has_perm("ventas.add_rangobin")
     form_bin, form_entidad, form_importar = RangoBINForm(prefix="b"), EntidadEmisoraForm(prefix="e"), ImportarBINForm(prefix="i")
     if request.method == "POST":
@@ -386,6 +396,7 @@ def bases(request):
 
 
 def _bases_vendedor(request):
+    """Bases del vendedor: las que tiene asignadas y la solicitud de una nueva."""
     empleado = servicios.empleado_de(request.user)
     form = SolicitudBaseForm(request.POST or None)
     if request.method == "POST":
@@ -411,6 +422,7 @@ def _bases_vendedor(request):
 
 
 def _bases_gestion(request):
+    """Gestión de bases: cargar desde Excel, crear, asignar a vendedores y atender solicitudes."""
     form_base = BaseComercialForm(prefix="b")
     form_asignar = AsignarBaseForm(prefix="a")
     form_cargar = CargarBaseForm(prefix="c")
@@ -564,6 +576,7 @@ def _resumen_contactos(empleado) -> dict:
 @login_required
 @permission_required("ventas.view_registrobase", raise_exception=True)
 def mis_contactos(request):
+    """Contactos asignados al vendedor, con filtros por base, estado y búsqueda."""
     empleado = _solo_vendedores(request)
     qs = servicios.contactos_del_vendedor(empleado)
     base_id = request.GET.get("base", "")
@@ -634,6 +647,7 @@ def _volver(request, defecto: str) -> str:
 @permission_required("ventas.change_solicitudbase", raise_exception=True)
 @require_POST
 def responder_solicitud(request, pk):
+    """Atiende o rechaza la solicitud de base de un vendedor."""
     solicitud = get_object_or_404(SolicitudBase, pk=pk)
     try:
         if request.POST.get("accion") == "atender":
@@ -720,6 +734,7 @@ def repetidos(request):
 @permission_required("ventas.change_contactorepetido", raise_exception=True)
 @require_POST
 def repetido_revisar(request, pk):
+    """Recupera o descarta un contacto repetido retenido."""
     _solo_gestion_bases(request)
     try:
         r = servicios.revisar_repetido(request.user, pk, request.POST.get("accion", ""))
@@ -765,6 +780,7 @@ def mis_estadisticas(request):
 @permission_required("ventas.add_solicitudayuda", raise_exception=True)
 @require_POST
 def pedir_ayuda(request, pk):
+    """Pide ayuda a un compañero con un contacto."""
     _solo_vendedores(request)
     try:
         s = servicios.pedir_ayuda(request.user, pk, request.POST.get("ayudante", ""), request.POST.get("mensaje", ""))
@@ -780,6 +796,7 @@ def pedir_ayuda(request, pk):
 @permission_required("ventas.change_solicitudayuda", raise_exception=True)
 @require_POST
 def responder_ayuda(request, pk):
+    """Acepta o rechaza ayudar a un compañero con su contacto."""
     _solo_vendedores(request)
     aceptar = request.POST.get("accion") == "aceptar"
     try:
@@ -797,6 +814,7 @@ def responder_ayuda(request, pk):
 @permission_required("ventas.change_solicitudayuda", raise_exception=True)
 @require_POST
 def cancelar_ayuda(request, pk):
+    """Retira una petición de ayuda que todavía no se respondió."""
     _solo_vendedores(request)
     try:
         servicios.cancelar_ayuda(request.user, pk)

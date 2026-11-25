@@ -10,6 +10,7 @@ DINERO = {"max_digits": 12, "decimal_places": 2}
 
 
 class MetaMensual(ModeloBase):
+    """Meta de ventas de un vendedor para un mes."""
     vendedor = models.ForeignKey("personal.Empleado", on_delete=models.PROTECT, related_name="metas")
     anio = models.PositiveSmallIntegerField()
     mes = models.PositiveSmallIntegerField()

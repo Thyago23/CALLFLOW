@@ -1,3 +1,5 @@
+"""Formularios de personal: ficha del empleado, documentos, observaciones, sueldo y equipo."""
+
 import json
 from datetime import date, timedelta
 from decimal import Decimal
@@ -241,6 +243,7 @@ class DocumentosIngresoForm(forms.Form):
 
 
 class ObservacionForm(forms.ModelForm):
+    """Observación sobre un empleado (general, positiva, llamado de atención o seguimiento)."""
     class Meta:
         model = ObservacionEmpleado
         fields = ["tipo", "texto"]
@@ -349,6 +352,7 @@ def _esquemas_activos():
 
 
 class SalarioForm(forms.Form):
+    """Cambio de sueldo base con la fecha desde la que rige."""
     salario_base = forms.DecimalField(
         label="Nuevo sueldo base (USD)", max_digits=12, decimal_places=2, min_value=Decimal("0.01"),
         widget=forms.NumberInput(attrs={"step": "0.01", "inputmode": "decimal", "class": "form-control"}),
@@ -373,6 +377,7 @@ class SalarioForm(forms.Form):
 
 
 class EquipoForm(forms.Form):
+    """Cambio del equipo de comisiones del vendedor desde una fecha."""
     esquema = forms.ModelChoiceField(EsquemaComision.objects.none(), label="Equipo", empty_label=None,
                                      widget=forms.Select(attrs={"class": "form-select"}))
     vigente_desde = forms.DateField(label="Desde", widget=forms.DateInput(attrs={"type": "date", "class": "form-control"}, format="%Y-%m-%d"))

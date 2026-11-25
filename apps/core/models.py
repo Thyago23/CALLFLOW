@@ -1,3 +1,5 @@
+"""Modelos del núcleo: usuarios y roles, notificaciones, suscripciones push y auditoría."""
+
 from django.contrib.auth.models import AbstractUser, UserManager
 from django.db import models
 from django.db.models import Q
@@ -46,6 +48,7 @@ class Tema(models.TextChoices):
 
 
 class GestorUsuarios(UserManager):
+    """Gestor de usuarios: correo vacío se guarda como NULL y el superusuario nace administrador."""
     @classmethod
     def normalize_email(cls, email):
         # Sin correo = NULL (la columna es única; "" repetido violaría la unicidad).

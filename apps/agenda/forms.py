@@ -1,3 +1,5 @@
+"""Formularios de la agenda: crear y editar eventos."""
+
 from datetime import datetime, time
 
 from django import forms
@@ -53,6 +55,7 @@ class EventoForm(FormularioEstilizado, forms.Form):
 
     @classmethod
     def desde_evento(cls, evento: Evento, **kwargs):
+        """Arma el formulario de edición con los datos actuales del evento."""
         inicio = timezone.localtime(evento.inicio)
         fin = timezone.localtime(evento.fin) if evento.fin else None
         inicial = {
@@ -87,6 +90,7 @@ class EventoForm(FormularioEstilizado, forms.Form):
         return datos
 
     def aplicar(self, evento: Evento) -> Evento:
+        """Copia los datos validados al evento (sin guardarlo): título, horario, aviso y cliente."""
         d = self.cleaned_data
         zona = timezone.get_current_timezone()
         evento.titulo = " ".join(d["titulo"].split())

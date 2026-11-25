@@ -1,3 +1,5 @@
+"""Filtros de plantilla para dinero, porcentajes y cifras compactas en reportes."""
+
 from django import template
 
 from apps.reportes import formato

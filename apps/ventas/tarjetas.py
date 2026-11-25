@@ -64,6 +64,7 @@ def solo_digitos(texto: str) -> str:
 
 
 def luhn_valido(numero: str) -> bool:
+    """Comprueba el dígito verificador del número de tarjeta (algoritmo de Luhn)."""
     suma, alternar = 0, False
     for d in reversed(numero):
         n = int(d)
@@ -75,6 +76,7 @@ def luhn_valido(numero: str) -> bool:
 
 
 def validar_numero(marca: str, numero: str) -> str:
+    """Valida el número de tarjeta para la marca elegida y lo devuelve solo con dígitos."""
     numero = solo_digitos(numero)
     if not numero.isdigit():
         raise ValidationError("El número de tarjeta solo debe tener dígitos.")

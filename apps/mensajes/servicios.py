@@ -81,6 +81,7 @@ def conversacion_directa(usuario, otro) -> Conversacion:
 
 
 def crear_grupo(usuario, nombre: str, miembros) -> Conversacion:
+    """Crea un grupo con quien lo crea y los miembros elegidos."""
     nombre = " ".join(nombre.split())[:80]
     if not nombre:
         raise ValidationError("Póngale un nombre al grupo.")
@@ -97,6 +98,7 @@ def crear_grupo(usuario, nombre: str, miembros) -> Conversacion:
 
 
 def agregar_miembros(usuario, grupo, miembros) -> int:
+    """Agrega personas a un grupo; quien había salido vuelve a entrar. Devuelve cuántas se agregaron."""
     if not grupo.es_grupo:
         raise ValidationError("Solo se agregan personas a los grupos.")
     agregados = 0
@@ -121,6 +123,7 @@ def salir(usuario, grupo):
 
 
 def enviar(usuario, conversacion, texto: str = "", archivo=None) -> Mensaje:
+    """Envía un mensaje. El adjunto se valida por su contenido real, no por la extensión."""
     from apps.documentos import archivos as validar
 
     texto = (texto or "").strip()
@@ -147,6 +150,7 @@ def enviar(usuario, conversacion, texto: str = "", archivo=None) -> Mensaje:
 
 
 def eliminar(usuario, mensaje):
+    """Elimina un mensaje propio: borra el texto y el adjunto, y deja la marca de eliminado."""
     if mensaje.autor_id != usuario.pk:
         raise ValidationError("Solo quien escribió el mensaje puede eliminarlo.")
     if mensaje.eliminado:

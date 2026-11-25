@@ -108,6 +108,7 @@ def responsable_gestion():
 
 @transaction.atomic
 def configurar_responsables(usuario, *, filtro: Empleado | None, gestion: Empleado | None) -> ConfiguracionCierre:
+    """El administrador elige qué supervisor hace el filtro y cuál la gestión."""
     if not es_administrador(usuario):
         raise PermissionDenied("Solo el administrador configura quién hace cada etapa del cierre.")
     for empleado in (filtro, gestion):
@@ -198,6 +199,7 @@ def pendientes_de(usuario) -> int:
 
 
 def resumen_bandeja() -> dict:
+    """Contadores de la bandeja de cierre por etapa."""
     cola = FormularioDAMI.objects.filter(estado__in=EN_COLA)
     return {
         "en_cola": cola.count(),
@@ -234,6 +236,7 @@ def _quien_actua(usuario, formulario):
 
 def _mover(usuario, formulario, version: int, *, etapa_actual: str, etapa: str, destino: Empleado, accion: str,
            nota: str, titulo: str) -> FormularioDAMI:
+    """Pasa el DAMI a otra etapa y encargado, con control de versión para no pisar otro cambio."""
     if destino.pk == formulario.vendedor_id:
         raise ValidationError(f"{destino} es el vendedor de este DAMI: no puede gestionarlo.")
     anterior = _quien_actua(usuario, formulario)
@@ -486,6 +489,7 @@ CRITERIO_RENDIMIENTO = "Mayor valor vendido en el mes; si hay empate, más venta
 
 @dataclass
 class FilaPanel:
+    """Resultados del mes de un vendedor frente a su meta."""
     vendedor: Empleado
     total_formularios: int = 0
     ventas_cerradas: int = 0
@@ -508,6 +512,7 @@ class FilaPanel:
 
 @dataclass
 class Panel:
+    """Panel de resultados del mes de todos los vendedores."""
     anio: int
     mes: int
     filas: list[FilaPanel]
@@ -574,6 +579,7 @@ COLORES_TABLERO = ["#7db8ea", "#9cc9f0", "#5fa8e0", "#8fd3e8", "#a9b8f0", "#6cc4
 
 @dataclass
 class FilaTablero:
+    """Fila del tablero de ventas en pantalla: barra, puesto y foto del vendedor."""
     fila: FilaPanel
     nombre: str
     iniciales: str

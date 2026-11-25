@@ -13,6 +13,7 @@ from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.http import FileResponse, Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils.html import format_html
 from django.views.decorators.http import require_POST
 
 from apps.core import validadores
@@ -74,6 +75,7 @@ def _marca(margen: float = 0) -> str:
 
 
 def _ventana(request, conversacion, modo) -> dict:
+    """Datos para pintar una conversación abierta; de paso la marca como leída."""
     servicios.marcar_leida(request.user, conversacion)
     lista = servicios.mensajes(conversacion)
     return {
@@ -146,6 +148,7 @@ def escribiendo(request, pk):
 @requiere_mensajeria
 @require_POST
 def enviar(request, pk):
+    """Envía un mensaje a la conversación y devuelve el mensaje nuevo (HTMX) o recarga la página."""
     actual = _conversacion(request, pk)
     try:
         mensaje = servicios.enviar(request.user, actual, request.POST.get("texto", ""), request.FILES.get("adjunto"))
@@ -163,6 +166,7 @@ def enviar(request, pk):
 @requiere_mensajeria
 @require_POST
 def eliminar(request, pk):
+    """Elimina un mensaje propio de la conversación."""
     mensaje = get_object_or_404(Mensaje.objects.select_related("conversacion"), pk=pk)
     _conversacion(request, mensaje.conversacion_id)
     try:
@@ -223,12 +227,13 @@ def nueva_directa(request):
 @requiere_mensajeria
 @require_POST
 def nuevo_grupo(request):
+    """Crea un grupo con los contactos elegidos y lo abre."""
     miembros = list(servicios.contactos(request.user).filter(pk__in=validadores.enteros(request.POST.getlist("miembros"))))
     try:
         grupo = servicios.crear_grupo(request.user, request.POST.get("nombre", ""), miembros)
     except ValidationError as error:
         if _es_htmx(request):
-            return HttpResponse(f'<div class="alert alert-danger small py-2 mb-2">{" ".join(error.messages)}</div>')
+            return HttpResponse(format_html('<div class="alert alert-danger small py-2 mb-2">{}</div>', " ".join(error.messages)))
         messages.error(request, " ".join(error.messages))
         return redirect("mensajes:bandeja")
     return _abrir(request, grupo)
@@ -237,6 +242,7 @@ def nuevo_grupo(request):
 @requiere_mensajeria
 @require_POST
 def agregar(request, pk):
+    """Agrega contactos a un grupo existente."""
     grupo = _conversacion(request, pk)
     miembros = list(servicios.contactos(request.user).filter(pk__in=validadores.enteros(request.POST.getlist("miembros"))))
     try:
@@ -250,6 +256,7 @@ def agregar(request, pk):
 @requiere_mensajeria
 @require_POST
 def salir(request, pk):
+    """El usuario sale del grupo; lo ya conversado se conserva."""
     grupo = _conversacion(request, pk)
     try:
         servicios.salir(request.user, grupo)

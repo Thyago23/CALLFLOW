@@ -127,6 +127,7 @@ def _marcar_primera_respuesta(ticket: Ticket, usuario, ahora) -> None:
 
 @transaction.atomic
 def comentar(ticket: Ticket, autor, texto: str, *, interno: bool = False) -> ComentarioTicket:
+    """Agrega un comentario al reporte. Fuera de TI, solo puede comentar quien lo reportó."""
     ticket = Ticket.objects.select_for_update().get(pk=ticket.pk)
     texto = texto.strip()
     if not texto:
@@ -237,6 +238,7 @@ def sin_atender() -> int:
 
 
 def resumen() -> dict:
+    """Contadores de la mesa de ayuda: activos, sin atender, vencidos y por confirmar."""
     ahora = timezone.now()
     activos = Ticket.objects.filter(estado__in=Ticket.ACTIVOS)
     return activos.aggregate(

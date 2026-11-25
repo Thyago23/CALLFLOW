@@ -1,3 +1,5 @@
+"""Filtros de plantilla de TI (duraciones y valores absolutos)."""
+
 from datetime import timedelta
 
 from django import template

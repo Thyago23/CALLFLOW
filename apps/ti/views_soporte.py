@@ -19,6 +19,7 @@ ORDEN_PRIORIDAD = Case(*[When(prioridad=valor, then=Value(i)) for i, valor in en
 
 @login_required
 def inicio(request):
+    """Mesa de ayuda: TI ve la bandeja de reportes; los demás, sus propios reportes."""
     if soporte.es_ti(request.user):
         return _bandeja_ti(request)
     tickets = (Ticket.objects.filter(reportado_por=request.user).select_related("asignado_a")
@@ -31,6 +32,7 @@ def inicio(request):
 
 
 def _bandeja_ti(request):
+    """Bandeja de TI: activos, asignados a mí, por confirmar o vencidos."""
     vista = request.GET.get("ver", "activos")
     qs = Ticket.objects.select_related("reportado_por", "asignado_a", "equipo")
     if vista == "activos":
@@ -70,6 +72,7 @@ def _bandeja_ti(request):
 
 @login_required
 def crear(request):
+    """Reporta una falla a TI. TI puede registrarla a nombre de otra persona."""
     es_ti = soporte.es_ti(request.user)
     form = TicketForm(request.POST or None, es_ti=es_ti, initial={"prioridad": Ticket.Prioridad.MEDIA})
     if request.method == "POST" and form.is_valid():
@@ -92,6 +95,7 @@ def _ticket_visible(request, pk) -> Ticket:
 
 @login_required
 def detalle(request, pk):
+    """Detalle del reporte con su conversación; permite comentar."""
     ticket = _ticket_visible(request, pk)
     es_ti = soporte.es_ti(request.user)
     form = ComentarioTicketForm(request.POST or None, es_ti=es_ti)
@@ -122,6 +126,7 @@ def detalle(request, pk):
 @login_required
 @require_POST
 def gestionar(request, pk):
+    """TI actualiza el estado, la prioridad o el responsable del reporte."""
     if not soporte.es_ti(request.user):
         raise PermissionDenied("Solo TI gestiona los reportes.")
     ticket = get_object_or_404(Ticket, pk=pk)
@@ -143,6 +148,7 @@ def gestionar(request, pk):
 @login_required
 @require_POST
 def confirmar(request, pk):
+    """Quien reportó confirma si la falla quedó solucionada o se reabre."""
     ticket = _ticket_visible(request, pk)
     form = ConfirmarTicketForm(request.POST)
     if not form.is_valid():

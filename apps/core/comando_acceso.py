@@ -6,6 +6,7 @@ from .models import Usuario
 
 
 class ComandoAccesoExclusivo(BaseCommand):
+    """Base de los comandos que dan, quitan o listan un permiso exclusivo (chips, breaks)."""
     app_label = ""
     codename = ""
     nombre = ""  # «al registro de chips»

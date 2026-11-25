@@ -1,3 +1,5 @@
+"""Vistas de personal: fichas de empleados, documentos, observaciones, sueldo y salidas."""
+
 import json
 import logging
 from datetime import timedelta
@@ -227,6 +229,7 @@ def generar_contrato_de_ingreso(empleado, usuario):
 
 
 def avisar_contrato_de_ingreso(request, empleado, contrato, error):
+    """Informa si el contrato de ingreso se generó, falló o no hay plantilla para el cargo."""
     if contrato is not None:
         messages.info(request, f"Se generó su contrato «{contrato.plantilla.nombre}» con los datos del CV. "
                                "Revíselo en su perfil, pestaña Contratos, antes de imprimirlo.")
@@ -327,6 +330,7 @@ class EmpleadoDetalleView(LoginRequiredMixin, PermissionRequiredMixin, DetailVie
 @permission_required("personal.add_observacionempleado", raise_exception=True)
 @require_POST
 def observacion_crear(request, pk):
+    """Registra una observación en la ficha del empleado."""
     empleado = get_object_or_404(Empleado, pk=pk)
     form = ObservacionForm(request.POST)
     if form.is_valid():
@@ -487,6 +491,7 @@ def _cerrar_vigente(modelo, empleado, desde):
 @permission_required("personal.add_historialsalario", raise_exception=True)
 @require_POST
 def salario_cambiar(request, pk):
+    """Cambia el sueldo base: cierra el vigente y abre el nuevo desde la fecha indicada."""
     empleado = get_object_or_404(Empleado, pk=pk)
     form = SalarioForm(request.POST, empleado=empleado)
     if not form.is_valid():
@@ -507,6 +512,7 @@ def salario_cambiar(request, pk):
 @permission_required("personal.add_asignacioncomision", raise_exception=True)
 @require_POST
 def equipo_cambiar(request, pk):
+    """Cambia el equipo de comisiones: cierra la asignación vigente y abre la nueva."""
     empleado = get_object_or_404(Empleado, pk=pk)
     form = EquipoForm(request.POST, empleado=empleado)
     if not form.is_valid():

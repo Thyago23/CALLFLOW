@@ -90,6 +90,7 @@ def estado(dias: int = 30) -> dict:
 
 
 def copias_en_carpeta(cuantas: int = 15) -> list[dict]:
+    """Últimas copias de seguridad de la carpeta de respaldos, de la más nueva a la más vieja."""
     carpeta = Path(settings.CARPETA_RESPALDOS)
     if not carpeta.exists():
         return []

@@ -75,6 +75,7 @@ def crear_material(material: Material, stock_inicial: Decimal | None, usuario=No
 
 @transaction.atomic
 def registrar_movimiento(material: Material, tipo: str, cantidad: Decimal, motivo: str = "", usuario=None) -> MovimientoInventario:
+    """Registra una entrada, salida o ajuste y actualiza el stock. Los ajustes exigen motivo."""
     motivo = (motivo or "").strip()
     if tipo not in Tipo.values:
         raise ValidationError("Tipo de movimiento no válido.")

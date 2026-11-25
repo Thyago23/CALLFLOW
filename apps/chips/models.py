@@ -25,6 +25,7 @@ class Operadora(models.TextChoices):
 
 
 class Chip(ModeloBase):
+    """Línea telefónica de la empresa y el empleado que la tiene."""
     class Estado(models.TextChoices):
         ACTIVO = "ACTIVO", "Activo"
         SUSPENDIDO = "SUSPENDIDO", "Suspendido"

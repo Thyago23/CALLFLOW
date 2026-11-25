@@ -1,3 +1,5 @@
+"""Formularios del inventario: materiales y movimientos."""
+
 from decimal import Decimal
 
 from django import forms

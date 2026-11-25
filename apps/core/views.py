@@ -1,3 +1,5 @@
+"""Vistas del núcleo: ingreso, perfil, inicio, cuentas de usuario y notificaciones."""
+
 import json
 from pathlib import Path
 
@@ -87,6 +89,7 @@ def foto_perfil(request, pk):
 # --------------------------------------------------------------------------- dashboard
 @login_required
 def dashboard(request):
+    """Página de inicio: indicadores, pendientes y accesos rápidos según los permisos de cada uno."""
     usuario = request.user
     hoy = timezone.localdate()
 
@@ -182,6 +185,7 @@ MAX_ACCESOS = 4
 
 
 def _accesos_rapidos(usuario) -> list[dict]:
+    """Accesos rápidos del inicio que corresponden al rol y a los permisos del usuario."""
     accesos = []
     for permiso, titulo, icono, ruta in _ACCESOS:
         if permiso == "ventas.add_formulariodami" and not (usuario.rol == Rol.VENDEDOR and hasattr(usuario, "empleado")):
@@ -199,6 +203,7 @@ def _accesos_rapidos(usuario) -> list[dict]:
 @login_required
 @permission_required("core.view_usuario", raise_exception=True)
 def usuarios(request):
+    """Listado de cuentas con búsqueda, filtro por rol y por estado (activas por defecto)."""
     qs = Usuario.objects.select_related("empleado").order_by("-is_active", "username")
     texto = request.GET.get("q", "").strip()
     if texto:
@@ -225,6 +230,7 @@ def usuarios(request):
 @login_required
 @permission_required("core.add_usuario", raise_exception=True)
 def usuario_crear(request):
+    """Crea la cuenta con usuario y código de acceso generados, y la enlaza con su ficha de empleado."""
     form = UsuarioCrearForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
         with transaction.atomic():
@@ -248,6 +254,7 @@ def usuario_crear(request):
 @permission_required("core.change_usuario", raise_exception=True)
 @require_POST
 def usuario_restablecer_clave(request, pk):
+    """Genera un código de acceso nuevo. Las cuentas fijas de TI se gestionan por comando."""
     usuario = get_object_or_404(Usuario, pk=pk)
     if usuario.protegida:
         messages.error(request, "Es una cuenta fija del departamento de TI: su código se gestiona con "
@@ -271,6 +278,7 @@ def _es_de_ex_empleado(usuario) -> bool:
 @permission_required("core.change_usuario", raise_exception=True)
 @require_POST
 def usuario_cambiar_estado(request, pk):
+    """Activa o desactiva una cuenta, sin dejar al sistema sin administradores."""
     usuario = get_object_or_404(Usuario, pk=pk)
     if usuario == request.user:
         messages.error(request, "No puede desactivar su propia cuenta.")
@@ -316,6 +324,7 @@ def _de(usuario):
 @login_required
 @require_POST
 def marcar_notificaciones_leidas(request):
+    """Marca como leídas todas las notificaciones del usuario."""
     _de(request.user).filter(leida=False).update(leida=True, leida_en=timezone.now())
     if _es_htmx(request):
         if request.GET.get("panel") == "campana":
@@ -330,6 +339,7 @@ def marcar_notificaciones_leidas(request):
 
 @login_required
 def notificaciones(request):
+    """Historial de notificaciones del usuario, paginado."""
     sin_leer = request.GET.get("ver") == "sin_leer"
     qs = _de(request.user).order_by("-creado_en")
     if sin_leer:

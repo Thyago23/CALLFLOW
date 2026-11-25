@@ -7,6 +7,7 @@ from apps.core.models import ModeloBase
 
 
 class Evento(ModeloBase):
+    """Actividad, reunión o recordatorio de la agenda, con su dueño, participantes y aviso previo."""
     class Tipo(models.TextChoices):
         ACTIVIDAD = "ACTIVIDAD", "Actividad"
         REUNION = "REUNION", "Reunión"

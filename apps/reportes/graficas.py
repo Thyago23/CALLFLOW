@@ -28,6 +28,7 @@ def tope(valor) -> float:
 
 
 def _ejes(maximo, etiquetas_x, posiciones_x, alto_plot):
+    """Líneas de la rejilla, valores del eje Y y etiquetas del eje X de la gráfica."""
     partes = []
     for i in range(5):
         v = maximo * i / 4

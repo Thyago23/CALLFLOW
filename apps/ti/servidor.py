@@ -25,6 +25,7 @@ DIAS_RESPALDO_ATRASADO = 2
 
 @dataclass
 class Disco:
+    """Espacio de un disco del servidor y para qué se usa."""
     unidad: str
     usos: list[str]
     total: int
@@ -97,6 +98,7 @@ def tamano_carpeta(ruta: Path) -> tuple[int, int]:
 
 
 def base_de_datos(cuantas_tablas: int = 10) -> dict:
+    """Estado de PostgreSQL: tamaño, versión, conexiones y las tablas más grandes."""
     with connection.cursor() as cursor:
         cursor.execute("SELECT current_database(), pg_database_size(current_database()), "
                        "current_setting('server_version'), current_setting('max_connections')::int, "
@@ -122,6 +124,7 @@ def base_de_datos(cuantas_tablas: int = 10) -> dict:
 
 
 def ultimo_respaldo() -> dict:
+    """Datos del respaldo más reciente de la base de datos."""
     carpeta = Path(settings.CARPETA_RESPALDOS)
     copias = sorted(carpeta.glob("callflow_*.dump"), key=lambda p: p.stat().st_mtime, reverse=True) if carpeta.exists() else []
     if not copias:
@@ -135,6 +138,7 @@ def ultimo_respaldo() -> dict:
 
 
 def _nombre_sistema() -> str:
+    """Nombre del sistema operativo del servidor (distingue Windows 11 de 10)."""
     nombre, version = platform.system(), platform.release()
     # Windows 11 se presenta como «10»: se distingue por el número de compilación (22000 en adelante).
     if nombre == "Windows" and version == "10":

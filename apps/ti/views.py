@@ -1,3 +1,5 @@
+"""Vistas de TI: equipos y su hoja de vida, actas, conectados, servidor, licencias y mantenimiento."""
+
 from datetime import timedelta
 from pathlib import Path
 
@@ -23,6 +25,7 @@ from .models import ActaEquipo, Equipo, EventoEquipo, SesionEquipo
 
 @requiere_ti
 def equipos(request):
+    """Inventario de equipos con búsqueda y filtros por tipo y estado."""
     qs = Equipo.objects.select_related("asignado_a").annotate(n_eventos=Count("eventos")).order_by("estado", "codigo")
     texto = request.GET.get("q", "").strip()
     if texto:
@@ -48,6 +51,7 @@ def equipos(request):
 
 @requiere_ti
 def equipo_crear(request):
+    """Registra un equipo. Desde «Conectados» llega con la IP ya puesta."""
     inicial = {}
     if request.GET.get("ip"):  # «Registrar este equipo» desde Conectados
         inicial = {"direccion_ip": request.GET["ip"], "tipo": Equipo.Tipo.ESCRITORIO}
@@ -61,6 +65,7 @@ def equipo_crear(request):
 
 @requiere_ti
 def equipo_editar(request, pk):
+    """Edita un equipo; si cambia el responsable o el estado queda en la hoja de vida."""
     equipo = get_object_or_404(Equipo, pk=pk)
     anterior = {"asignado_a": equipo.asignado_a, "estado": equipo.estado}
     form = EquipoForm(request.POST or None, instance=equipo)
@@ -73,6 +78,7 @@ def equipo_editar(request, pk):
 
 @requiere_ti
 def equipo_detalle(request, pk):
+    """Hoja de vida del equipo: eventos, actas, conexiones, mantenimientos, licencias y reportes."""
     equipo = get_object_or_404(Equipo.objects.select_related("asignado_a", "registrado_por"), pk=pk)
     conexiones = (SesionEquipo.objects.filter(ip=equipo.direccion_ip).select_related("usuario")[:15]
                   if equipo.direccion_ip else [])
@@ -87,6 +93,7 @@ def equipo_detalle(request, pk):
 
 @requiere_ti
 def evento_crear(request, pk):
+    """Registra un evento en la hoja de vida del equipo."""
     equipo = get_object_or_404(Equipo, pk=pk)
     form = EventoForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
@@ -100,6 +107,7 @@ def evento_crear(request, pk):
 
 @requiere_ti
 def conectados(request):
+    """Quiénes están conectados ahora y el historial de conexiones por fechas."""
     sesiones = list(servicios.conectados())
     por_ip = servicios.equipos_por_ip(s.ip for s in sesiones)
     for s in sesiones:
@@ -130,6 +138,7 @@ def conectados(request):
 @requiere_ti
 @require_POST
 def cerrar_sesion(request, pk):
+    """TI cierra a distancia la sesión de otro usuario (no la propia)."""
     sesion = get_object_or_404(SesionEquipo.objects.select_related("usuario"), pk=pk, fin__isnull=True)
     if sesion.clave_sesion == request.session.session_key:
         messages.error(request, "Esa es su propia sesión: para salir use «Cerrar sesión».")
@@ -150,6 +159,7 @@ def _acta_emitida(request, acta: ActaEquipo):
 
 @requiere_ti
 def entregar(request, pk):
+    """Entrega un equipo a un empleado y genera el acta de entrega."""
     equipo = get_object_or_404(Equipo.objects.select_related("asignado_a"), pk=pk)
     if equipo.asignado_a_id:
         messages.error(request, f"El equipo {equipo.codigo} ya está entregado a {equipo.asignado_a}: registre primero la devolución.")
@@ -170,6 +180,7 @@ def entregar(request, pk):
 
 @requiere_ti
 def devolver(request, pk):
+    """Registra la devolución de un equipo y genera el acta de devolución."""
     equipo = get_object_or_404(Equipo.objects.select_related("asignado_a"), pk=pk)
     if not equipo.asignado_a_id:
         messages.error(request, f"El equipo {equipo.codigo} no está entregado a nadie.")
@@ -198,6 +209,7 @@ def acta_pdf(request, pk):
 @requiere_ti
 @require_POST
 def acta_firmada_subir(request, pk):
+    """Sube o reemplaza el acta firmada."""
     acta = get_object_or_404(ActaEquipo, pk=pk)
     form = ActaFirmadaForm(request.POST, request.FILES)
     if form.is_valid():
@@ -226,6 +238,7 @@ def acta_firmada_ver(request, pk):
 
 @requiere_ti
 def prestamos(request):
+    """Equipos prestados (vencidos y por vencer) y actas con o sin firma."""
     hoy = timezone.localdate()
     abiertos = list(servicios.prestamos_abiertos())
     for a in abiertos:
@@ -248,6 +261,7 @@ def prestamos(request):
 # --------------------------------------------------------------------------- estado del servidor
 @requiere_ti
 def servidor(request):
+    """Estado del servidor: discos, base de datos, respaldos y errores recientes."""
     from django.conf import settings
     from django.db import DatabaseError
 
@@ -274,6 +288,7 @@ def servidor(request):
 # --------------------------------------------------------------------------- licencias y servicios
 @requiere_ti
 def licencias(request):
+    """Licencias de software ordenadas por vencimiento."""
     from .models import Licencia
 
     qs = Licencia.objects.prefetch_related("equipos").order_by(F("fecha_vencimiento").asc(nulls_last=True), "nombre")
@@ -293,6 +308,7 @@ def licencias(request):
 
 
 def _licencia_form(request, licencia=None):
+    """Formulario común para crear y editar una licencia."""
     from .forms import LicenciaForm
 
     form = LicenciaForm(request.POST or None, instance=licencia)
@@ -323,6 +339,7 @@ def licencia_editar(request, pk):
 # --------------------------------------------------------------------------- mantenimiento preventivo
 @requiere_ti
 def mantenimiento(request):
+    """Planes de mantenimiento con búsqueda y filtro por situación (vencidos, próximos…)."""
     from .models import PlanMantenimiento
 
     qs = PlanMantenimiento.objects.select_related("equipo", "equipo__asignado_a").exclude(equipo__estado=Equipo.Estado.BAJA)
@@ -348,6 +365,7 @@ def mantenimiento(request):
 
 @requiere_ti
 def plan_crear(request):
+    """Crea un plan de mantenimiento preventivo para un equipo."""
     from . import mantenimiento as reglas
     from .forms import PlanNuevoForm
 
@@ -375,6 +393,7 @@ def plan_crear(request):
 
 @requiere_ti
 def plan_editar(request, pk):
+    """Edita un plan de mantenimiento."""
     from .forms import PlanForm
     from .models import PlanMantenimiento
 
@@ -389,6 +408,7 @@ def plan_editar(request, pk):
 
 @requiere_ti
 def plan_realizado(request, pk):
+    """Registra que se hizo el mantenimiento del plan."""
     from . import mantenimiento as reglas
     from .forms import MantenimientoRealizadoForm
     from .models import PlanMantenimiento

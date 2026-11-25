@@ -1,3 +1,5 @@
+"""Vistas de documentos: entrega protegida de archivos, plantillas y contratos."""
+
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, permission_required
 from django.db import transaction
@@ -42,6 +44,7 @@ def plantillas(request):
 
 
 def _guardar_plantilla(request, form, anterior=None):
+    """Guarda la plantilla; editar crea una versión nueva y desactiva la anterior."""
     with transaction.atomic():
         nueva = form.save(commit=False)
         if anterior:
@@ -72,6 +75,7 @@ def plantilla_nueva(request):
 @login_required
 @permission_required("documentos.add_plantillacontrato", raise_exception=True)
 def plantilla_editar(request, pk):
+    """Edita una plantilla activa; al guardar queda como versión nueva."""
     anterior = get_object_or_404(PlantillaContrato, pk=pk, activa=True)
     form = PlantillaForm(request.POST or None, instance=PlantillaContrato(
         nombre=anterior.nombre, tipo_contrato=anterior.tipo_contrato, contenido=anterior.contenido, version=anterior.version,
@@ -128,6 +132,7 @@ def contrato_vista_previa(request, empleado_pk):
 @permission_required("documentos.add_contratogenerado", raise_exception=True)
 @require_POST
 def contrato_generar(request, empleado_pk):
+    """Genera el contrato del empleado con la plantilla elegida y lo guarda en su expediente."""
     empleado = get_object_or_404(Empleado.objects.select_related("cargo"), pk=empleado_pk)
     form = _form_contrato(request, empleado)
     destino = reverse("personal:empleado_detalle", args=[empleado.pk]) + "#contratos"

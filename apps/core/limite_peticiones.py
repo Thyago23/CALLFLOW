@@ -1,7 +1,7 @@
 """
 Límite de peticiones (rate limit) para que nadie sature CALLFLOW a fuerza de peticiones.
 
-Cuenta las peticiones de cada IP en ventanas fijas de tiempo, en la caché en memoria (no toca la base de datos).
+Cuenta las peticiones de cada IP en ventanas fijas de tiempo, en la caché de Django (memoria o archivos, nunca la base).
 El middleware va antes de las sesiones a propósito: una petición rechazada no hace ninguna consulta a PostgreSQL,
 que es justo lo que se quiere proteger cuando alguien bombardea el servidor.
 
@@ -14,8 +14,8 @@ Reglas (ajustables en settings.LIMITE_PETICIONES):
 Además, cada usuario tiene un tope de intentos fallidos de ingreso: después de varios errores seguidos esa cuenta
 queda bloqueada unos minutos aunque prueben desde otra IP (ver `ingreso_bloqueado` y `registrar_ingreso_fallido`).
 
-Con varios procesos (Gunicorn) cada proceso lleva su propia cuenta, así que el tope real es el configurado por la
-cantidad de procesos; para un ataque sigue siendo un freno. Los archivos estáticos no se cuentan.
+Con varios procesos (Gunicorn) la caché tiene que ser compartida: en el servidor se usa DJANGO_CACHE=archivos, así
+todos los procesos suman en el mismo contador. Los archivos estáticos no se cuentan.
 """
 import logging
 import time
@@ -83,6 +83,7 @@ def contar(clave: str, maximo: int, ventana: int) -> tuple[bool, int]:
 
 
 def regla_de(request) -> str | None:
+    """Qué regla de límite le toca a la petición; None si no se cuenta (estáticos, service worker)."""
     ruta = request.path
     if ruta.startswith("/" + settings.STATIC_URL.lstrip("/")) or ruta == "/sw.js":
         return None
@@ -104,6 +105,7 @@ def _respuesta_429(request, segundos: int) -> HttpResponse:
 
 
 class LimitePeticionesMiddleware:
+    """Responde 429 cuando una IP supera el límite de su regla, antes de tocar la base de datos."""
     def __init__(self, get_response):
         self.get_response = get_response
 
@@ -143,6 +145,7 @@ def ingreso_bloqueado(usuario: str) -> int:
 
 
 def registrar_ingreso_fallido(usuario: str, request=None) -> None:
+    """Suma un fallo de ingreso a la cuenta y la bloquea un rato al llegar al tope."""
     clave = _clave_usuario(usuario)
     if not clave or not activo():
         return

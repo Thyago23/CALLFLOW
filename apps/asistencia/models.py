@@ -13,6 +13,7 @@ def dias_laborables_por_defecto():
 
 
 class Horario(ModeloBase):
+    """Horario de trabajo: entrada, salida, tolerancia y días laborables."""
     nombre = models.CharField(max_length=80, unique=True)
     hora_entrada = models.TimeField()
     hora_salida = models.TimeField()
@@ -37,6 +38,7 @@ class Horario(ModeloBase):
 
 
 class AsignacionHorario(ModeloBase):
+    """Qué horario tiene un empleado desde una fecha (sin vigencias que se crucen)."""
     empleado = models.ForeignKey("personal.Empleado", on_delete=models.PROTECT, related_name="horarios")
     horario = models.ForeignKey(Horario, on_delete=models.PROTECT, related_name="asignaciones")
     vigente_desde = models.DateField()
@@ -55,6 +57,7 @@ class AsignacionHorario(ModeloBase):
 
 
 class RegistroAsistencia(ModeloBase):
+    """Jornada de un empleado en un día: entrada, salida y almuerzo."""
     class Origen(models.TextChoices):
         MANUAL = "MANUAL", "Registro manual"
         SISTEMA = "SISTEMA", "Marcación en el sistema"
@@ -104,6 +107,7 @@ TIPOS_SIN_MINUTOS = ("AUSENCIA", "SIN_SALIDA")
 
 
 class NovedadAsistencia(ModeloBase):
+    """Incidencia de asistencia (atraso, ausencia, salida anticipada…) y su clasificación."""
     class Tipo(models.TextChoices):
         ATRASO = "ATRASO", "Atraso"
         AUSENCIA = "AUSENCIA", "Ausencia (día completo)"

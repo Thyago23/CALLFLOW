@@ -16,6 +16,7 @@ RANGOS = [("7d", "Últimos 7 días"), ("mes", "Este mes"), ("mes_anterior", "Mes
 
 
 def fechas_de_rango(rango: str, hoy: date) -> tuple[date, date] | None:
+    """Fechas de inicio y fin de un rango rápido («7d», «mes», «mes_anterior»…)."""
     from datetime import timedelta
 
     if rango == "7d":
@@ -33,6 +34,7 @@ def _mes_actual() -> str:
 
 
 class FiltrosForm(forms.Form):
+    """Filtros de un reporte: arma solo los campos que ese reporte pide."""
     def __init__(self, data, reporte, usuario):
         if "rango" in reporte.filtros and data is not None:
             # Las fechas en pantalla muestran el periodo elegido (7 días, el mes…), no las por defecto.
@@ -50,6 +52,7 @@ class FiltrosForm(forms.Form):
             self.fields[nombre].label = ETIQUETAS[nombre]
 
     def _campo(self, nombre, requerido, hoy):
+        """Crea el campo de filtro `nombre` con su lista de opciones."""
         from apps.inventario.models import CategoriaMaterial
         from apps.personal.models import Cargo, Empleado, EsquemaComision
         from apps.ventas.servicios import vendedores_con_hoja

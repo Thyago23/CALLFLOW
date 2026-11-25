@@ -65,6 +65,7 @@ def _mensaje_bd(error: DatabaseError) -> str:
 def registrar(usuario, *, fecha: date, tipo: str, concepto: str, valor: Decimal, beneficiario: str = "",
               comprobante: str = "", categoria: str = MovimientoCajaChica.Categoria.OTROS,
               forma_pago: str = MovimientoCajaChica.FormaPago.EFECTIVO, recibo=None) -> MovimientoCajaChica:
+    """Registra un ingreso o egreso de caja chica. Un egreso no puede superar el saldo."""
     if fecha > timezone.localdate():
         raise ValidationError({"fecha": "La fecha no puede ser futura."})
     if tipo == Tipo.EGRESO and valor > saldo():
@@ -81,6 +82,7 @@ def registrar(usuario, *, fecha: date, tipo: str, concepto: str, valor: Decimal,
 
 
 def anular(usuario, movimiento: MovimientoCajaChica, motivo: str) -> MovimientoCajaChica:
+    """Anula un movimiento con su motivo; deja de contar en el saldo pero no se borra."""
     if not motivo.strip():
         raise ValidationError("Indique el motivo de la anulación.")
     if movimiento.anulado:
@@ -99,6 +101,7 @@ def anular(usuario, movimiento: MovimientoCajaChica, motivo: str) -> MovimientoC
 # --------------------------------------------------------------------------- reporte
 @dataclass
 class Fila:
+    """Fila de la hoja de caja chica con el saldo acumulado."""
     movimiento: MovimientoCajaChica
     saldo: Decimal | None  # None en los anulados: no mueven el saldo
 
@@ -113,6 +116,7 @@ class Fila:
 
 @dataclass
 class Reporte:
+    """Hoja de caja chica de un periodo: saldo inicial, filas y totales."""
     desde: date
     hasta: date
     saldo_inicial: Decimal  # lo que quedó en caja antes del periodo
@@ -143,6 +147,7 @@ def del_mes(anio: int, mes: int, incluir_anulados: bool = True) -> Reporte:
 
 
 def reporte(desde: date, hasta: date, incluir_anulados: bool = True) -> Reporte:
+    """Arma la hoja de caja chica del periodo con el saldo corrido fila por fila."""
     if hasta < desde:
         desde, hasta = hasta, desde
     corriente = saldo(antes_de=desde)

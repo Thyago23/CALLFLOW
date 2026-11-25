@@ -1,3 +1,5 @@
+"""Formularios de chips: alta, edición y reposiciones."""
+
 from django import forms
 from django.core.exceptions import ValidationError
 from django.utils import timezone
@@ -14,6 +16,7 @@ def _solo_digitos(valor: str) -> str:
 
 
 class ChipForm(ControlConcurrencia, FormularioEstilizado, forms.ModelForm):
+    """Alta y edición de un chip: número, operadora, serie y a quién está asignado."""
     # Se acepta con espacios o guiones («099 123-4567»); se guardan solo los 10 dígitos.
     numero = forms.CharField(label="Número", max_length=16)
 
@@ -50,6 +53,7 @@ class ChipForm(ControlConcurrencia, FormularioEstilizado, forms.ModelForm):
 
 
 class ReposicionForm(FormularioEstilizado, forms.Form):
+    """Datos de una reposición de chip; el número nuevo solo se pide si la operadora lo cambió."""
     fecha = forms.DateField(label="Fecha de la reposición", widget=forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d"))
     motivo = forms.ChoiceField(label="Motivo", choices=Reposicion.Motivo.choices)
     cambia_numero = forms.BooleanField(label="Le cambiaron el número", required=False)

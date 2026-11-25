@@ -35,6 +35,7 @@ class Columna:
 
 @dataclass
 class Tabla:
+    """Resultado de un reporte listo para pantalla y PDF: columnas, filas, totales y notas."""
     columnas: list
     filas: list
     periodo: str = ""
@@ -57,6 +58,7 @@ class Tabla:
 
 @dataclass(frozen=True)
 class Reporte:
+    """Definición de un reporte del catálogo: filtros que pide, quién lo ve y cómo se arma."""
     codigo: str
     nombre: str
     modulo: str
@@ -125,6 +127,7 @@ def _personal(f, usuario) -> Tabla:
 
 
 def _asistencia(f, usuario) -> Tabla:
+    """Asistencia por empleado en el rango: días trabajados, atrasos, ausencias y salidas anticipadas."""
     from apps.asistencia.models import NovedadAsistencia, RegistroAsistencia
     from apps.personal.models import Empleado
 
@@ -160,6 +163,7 @@ def _asistencia(f, usuario) -> Tabla:
 
 
 def _inventario(f, usuario) -> Tabla:
+    """Existencias de materiales activos, con opción de ver solo los de stock bajo."""
     from django.db.models import F
 
     from apps.inventario.models import Material
@@ -181,6 +185,7 @@ def _inventario(f, usuario) -> Tabla:
 
 
 def _movimientos(f, usuario) -> Tabla:
+    """Movimientos de inventario del rango, con totales por tipo."""
     from apps.inventario.models import MovimientoInventario
 
     qs = (MovimientoInventario.objects.filter(fecha__date__range=(f["desde"], f["hasta"]))
@@ -212,6 +217,7 @@ def _roles(f):
 
 
 def _nomina(f, usuario) -> Tabla:
+    """Resumen de la nómina del mes por empleado."""
     from .formato import dinero
 
     nomina = _roles(f)
@@ -230,6 +236,7 @@ def _nomina(f, usuario) -> Tabla:
 
 
 def _comisiones(f, usuario) -> Tabla:
+    """Comisiones del mes de los vendedores."""
     nomina = _roles(f)
     filas = []
     for r in nomina.roles:
@@ -247,6 +254,7 @@ def _comisiones(f, usuario) -> Tabla:
 
 
 def _rol_pago(f, usuario) -> Tabla:
+    """Rol de pago detallado de un empleado en el mes."""
     from apps.nomina import calculo
 
     e = calculo.estimar_mes(f["empleado"], *f["mes"])
@@ -291,6 +299,7 @@ def _produccion(f, usuario) -> Tabla:
 
 
 def ventas_por_vendedor(desde: date, hasta: date, vendedor=None, equipo=None) -> list[dict]:
+    """Ventas por vendedor en el rango: enviados, cerradas, no concretadas, total, ticket y tasa de cierre."""
     from apps.ventas.models import EstadoProduccion as P, RegistroProduccion
 
     qs = RegistroProduccion.objects.filter(fecha__range=(desde, hasta))
@@ -319,6 +328,7 @@ def ventas_por_vendedor(desde: date, hasta: date, vendedor=None, equipo=None) ->
 
 
 def _ventas(f, usuario) -> Tabla:
+    """Reporte de ventas por vendedor con los totales generales."""
     datos = ventas_por_vendedor(f["desde"], f["hasta"], f.get("vendedor"), f.get("equipo"))
     filas = [[_nombre(x["vendedor"]), str(x["esquema"] or "Administrativo"), x["enviados"], x["cerradas"], x["no_concretadas"],
               x["pendientes"], x["total"], x["ticket"], x["tasa"]] for x in datos]
@@ -338,6 +348,7 @@ def _ventas(f, usuario) -> Tabla:
 
 
 def _formularios(f, usuario) -> Tabla:
+    """Formularios DAMI enviados en el rango, con filtros por estado y vendedor."""
     from apps.ventas.models import FormularioDAMI
 
     qs = (FormularioDAMI.objects.exclude(estado=FormularioDAMI.Estado.BORRADOR)
@@ -363,6 +374,7 @@ def _formularios(f, usuario) -> Tabla:
 
 
 def _metas(f, usuario) -> Tabla:
+    """Avance de cada vendedor frente a su meta del mes."""
     from apps.cierre.servicios import panel_comercial
 
     panel = panel_comercial(*f["mes"], usuario)
@@ -391,6 +403,7 @@ def _filtros_bases(f) -> dict:
 
 
 def _periodo_bases(f) -> str:
+    """Texto del periodo de llamadas para el encabezado de los reportes de bases."""
     desde, hasta = f.get("llamado_desde"), f.get("llamado_hasta")
     if desde and hasta:
         return f"Llamadas del {desde:%d/%m/%Y} al {hasta:%d/%m/%Y}"
@@ -405,6 +418,7 @@ SUMABLES_BASES = ("contactos", "enviados", "gestionados", "contestaron", "no_con
 
 
 def _efectividad_bases(f, usuario) -> Tabla:
+    """Efectividad de cada base comercial: contactos gestionados y DAMI conseguidos."""
     from apps.ventas.servicios import _completar, efectividad_bases, efectividad_por
 
     filtros = _filtros_bases(f)
@@ -483,6 +497,7 @@ def _vista_efectividad(datos, total, media, desgloses) -> dict:
 
 
 def _gestion_bases(f, usuario) -> Tabla:
+    """Gestión de bases por vendedor: enviados, gestionados, resultados y avance."""
     from apps.ventas.servicios import seguimiento
 
     filtros = _filtros_bases(f)
@@ -539,6 +554,7 @@ def _ti_equipos(f, usuario) -> Tabla:
 
 
 def _ti_eventos(f, usuario) -> Tabla:
+    """Eventos de la hoja de vida de los equipos en el rango, con el costo total."""
     from apps.ti.models import EventoEquipo
 
     qs = (EventoEquipo.objects.filter(fecha__range=(f["desde"], f["hasta"])).select_related("equipo", "empleado", "registrado_por")
@@ -559,6 +575,7 @@ def _ti_eventos(f, usuario) -> Tabla:
 
 
 def _ti_conexiones(f, usuario) -> Tabla:
+    """Conexiones a CALLFLOW por usuario: sesiones, IP usadas y sesiones cerradas por TI."""
     from apps.ti.servicios import conexiones_por_usuario
 
     datos = conexiones_por_usuario(f["desde"], f["hasta"])

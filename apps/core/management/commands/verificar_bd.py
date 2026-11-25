@@ -55,6 +55,7 @@ class Command(BaseCommand):
             self.stdout.write(self.style.ERROR(f"  ✗ {descripcion}"))
 
     def rechaza(self, descripcion, funcion):
+        """Ejecuta `funcion` y cuenta como correcto que la base la rechace."""
         try:
             with transaction.atomic():
                 funcion()

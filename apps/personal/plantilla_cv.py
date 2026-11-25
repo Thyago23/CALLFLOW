@@ -30,6 +30,7 @@ PEINE = 1 << 24  # casilla «comb»: una cajita por carácter
 
 @dataclass
 class Casilla:
+    """Casilla rellenable del PDF de hoja de vida: posición, tamaño y ayuda."""
     nombre: str
     pagina: int
     x: float  # mm desde la izquierda
@@ -50,6 +51,7 @@ class _Hoja(FPDF):
 
 
 class _Constructor:
+    """Dibuja la plantilla de hoja de vida y va registrando sus casillas."""
     IZQ, ANCHO = 15.0, 180.0
     COL_ROTULO = 47.0  # ancho de la columna de rótulos en «Datos personales»
 
@@ -77,6 +79,7 @@ class _Constructor:
         p.cell(ancho, alto, texto, align=alinear)
 
     def recuadro(self, nombre, x, y, ancho, alto, *, ayuda="", multilinea=False, maximo=0):
+        """Dibuja el recuadro de una casilla (con divisiones si es de dígitos) y la registra."""
         p = self.pdf
         p.set_draw_color(*LINEA)
         p.set_fill_color(255, 255, 255)
@@ -127,6 +130,7 @@ class _Constructor:
         p.set_y(36)
 
     def como_llenar(self):
+        """Recuadro con las instrucciones para llenar la hoja de vida."""
         p = self.pdf
         y = p.get_y()
         alto = 58
@@ -219,6 +223,7 @@ class _Constructor:
         return y + 5 + alto
 
     def fila(self, campos, *, alto=8):
+        """Fila de campos uno al lado del otro, con anchos proporcionales."""
         self.espacio(alto + 9)
         y = self.pdf.get_y()
         total = sum(c[2] for c in campos)
@@ -239,6 +244,7 @@ class _Constructor:
         self.pdf.set_y(fin + 3)
 
     def revision_final(self):
+        """Lista de comprobación al final de la hoja de vida."""
         self.espacio(46)
         p = self.pdf
         y = p.get_y() + 2

@@ -1,3 +1,5 @@
+"""Vistas del cierre de ventas: bandeja, detalle del DAMI, acciones del flujo y metas."""
+
 import re
 from datetime import date
 from decimal import Decimal, InvalidOperation
@@ -52,6 +54,7 @@ def _navegacion_mes(anio: int, mes: int) -> dict:
 @login_required
 @permission_required(VER, raise_exception=True)
 def bandeja(request):
+    """Bandeja de cierre: cola pendiente o gestionados, con búsqueda por cliente o número de DAMI."""
     vista = request.GET.get("vista", "cola")
     qs = servicios.gestionados() if vista == "gestionados" else servicios.bandeja()
 
@@ -180,6 +183,7 @@ def _avisar_error(request, error: ValidationError):
 @permission_required(GESTIONAR, raise_exception=True)
 @require_POST
 def accion(request, pk):
+    """Ejecuta la acción del flujo de cierre que llega en el POST sobre el DAMI."""
     formulario = _formulario(pk)
     accion = request.POST.get("accion")
     try:
@@ -236,6 +240,7 @@ def responsables(request):
 @permission_required(GESTIONAR, raise_exception=True)
 @require_POST
 def resultado(request, pk):
+    """Registra el resultado de la gestión o del cierre final del DAMI."""
     formulario = _formulario(pk)
     form = ResultadoForm(request.POST)
     if not form.is_valid():
@@ -267,6 +272,7 @@ def resultado(request, pk):
 @permission_required("cierre.change_gestioncierre", raise_exception=True)
 @require_POST
 def corregir(request, pk):
+    """El administrador corrige el resultado de un cierre ya registrado."""
     formulario = _formulario(pk)
     gestion = get_object_or_404(GestionCierre, formulario=formulario)
     if not servicios.es_administrador(request.user):
@@ -289,6 +295,7 @@ def corregir(request, pk):
 @login_required
 @permission_required("cierre.view_metamensual", raise_exception=True)
 def metas(request):
+    """Metas mensuales por vendedor: consulta y edición."""
     anio, mes = _mes_de(request)
     puede_editar = request.user.has_perm("cierre.add_metamensual") and request.user.has_perm("cierre.change_metamensual")
     errores = {}

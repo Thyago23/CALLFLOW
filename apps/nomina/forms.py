@@ -1,3 +1,5 @@
+"""Formularios de nómina: caja chica, arqueo, recibos y multas manuales."""
+
 from decimal import Decimal
 
 from django import forms

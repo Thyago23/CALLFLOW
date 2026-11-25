@@ -1,3 +1,5 @@
+"""Middleware del núcleo: usuario para la auditoría en PostgreSQL y cambio de clave obligatorio."""
+
 from django.conf import settings
 from django.db import connection
 from django.shortcuts import redirect

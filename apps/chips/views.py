@@ -1,3 +1,5 @@
+"""Vistas del registro de chips (acceso exclusivo): listado, detalle, reposiciones y reporte."""
+
 from calendar import monthrange
 
 from django.contrib import messages
@@ -20,6 +22,7 @@ def _mes_actual():
 
 @requiere_acceso
 def chips(request):
+    """Listado de chips con búsqueda por número, serie, empleado o número anterior."""
     qs = (Chip.objects.select_related("asignado_a").annotate(n_reposiciones=Count("reposiciones"))
           .order_by("estado", "numero"))
     texto = request.GET.get("q", "").strip()
@@ -42,6 +45,7 @@ def chips(request):
 
 @requiere_acceso
 def chip_crear(request):
+    """Registra un chip nuevo."""
     form = ChipForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
         chip = form.save(commit=False)
@@ -73,6 +77,7 @@ def chip_detalle(request, pk):
 
 @requiere_acceso
 def reposicion_crear(request, pk):
+    """Registra la reposición de un chip. Un chip dado de baja no admite reposiciones."""
     chip = get_object_or_404(Chip, pk=pk)
     if chip.estado == Chip.Estado.BAJA:
         messages.error(request, "El chip está dado de baja: no se le pueden registrar reposiciones.")
@@ -102,6 +107,7 @@ def reposicion_crear(request, pk):
 
 @requiere_acceso
 def reporte(request):
+    """Reporte de reposiciones por rango de fechas (por defecto, el mes actual)."""
     desde_mes, hasta_mes = _mes_actual()
     desde = parse_date(request.GET.get("desde", "")) or desde_mes
     hasta = parse_date(request.GET.get("hasta", "")) or hasta_mes

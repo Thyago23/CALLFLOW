@@ -44,6 +44,7 @@ def _regreso_de_almuerzo(request, empleado, momento):
 
 @receiver(user_logged_in, dispatch_uid="asistencia_entrada_al_iniciar_sesion")
 def registrar_entrada_al_iniciar_sesion(sender, request, user, **kwargs):
+    """Al iniciar sesión marca la entrada del día con la hora del servidor, o el regreso del almuerzo."""
     if user.rol not in ROLES_QUE_MARCAN:
         return
     empleado = getattr(user, "empleado", None)

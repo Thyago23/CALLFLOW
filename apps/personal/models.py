@@ -10,6 +10,7 @@ DINERO = {"max_digits": 12, "decimal_places": 2}
 
 
 class Cargo(ModeloBase):
+    """Cargo de la empresa."""
     nombre = models.CharField(max_length=100, unique=True)
     descripcion = models.TextField(blank=True, default="")
     activo = models.BooleanField(default=True)
@@ -24,6 +25,7 @@ class Cargo(ModeloBase):
 
 
 class Empleado(ModeloBase):
+    """Ficha del empleado: datos personales, contrato, cargo y estado laboral."""
     class TipoIdentificacion(models.TextChoices):
         CEDULA = "CEDULA", "Cédula"
         RUC = "RUC", "RUC"
@@ -154,6 +156,7 @@ class HistorialSalario(ModeloBase):
 
 
 class EsquemaComision(ModeloBase):
+    """Forma de calcular la comisión de un equipo de ventas (porcentaje, monto fijo o tramos)."""
     class Tipo(models.TextChoices):
         PORCENTAJE = "PORCENTAJE", "Porcentaje sobre la venta"
         MONTO_FIJO = "MONTO_FIJO", "Monto fijo por venta"
@@ -210,6 +213,7 @@ class TramoComision(models.Model):
 
 
 class AsignacionComision(ModeloBase):
+    """Qué esquema de comisión tiene un empleado desde una fecha."""
     empleado = models.ForeignKey(Empleado, on_delete=models.PROTECT, related_name="comisiones")
     esquema = models.ForeignKey(EsquemaComision, on_delete=models.PROTECT, related_name="asignaciones")
     vigente_desde = models.DateField()

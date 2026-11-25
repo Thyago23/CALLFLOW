@@ -1,3 +1,5 @@
+"""Autenticación por nombre de usuario flexible y código de acceso."""
+
 import re
 
 from django.contrib.auth.backends import ModelBackend
@@ -17,6 +19,7 @@ class UsuarioNombreBackend(ModelBackend):
     """
 
     def authenticate(self, request, username=None, password=None, **kwargs):
+        """Valida usuario y código de acceso. Una cuenta bloqueada por intentos fallidos no se revisa."""
         if not username or not password:
             return None
         # Cuenta bloqueada por intentos fallidos: ni siquiera se revisa la contraseña (apps.core.limite_peticiones).

@@ -1,3 +1,5 @@
+"""Formularios de TI: equipos, actas, licencias, mantenimiento y mesa de ayuda."""
+
 import re
 
 from django import forms
@@ -16,6 +18,7 @@ FECHA = {"type": "date"}
 
 
 class EquipoForm(ControlConcurrencia, FormularioEstilizado, forms.ModelForm):
+    """Alta y edición de un equipo en el inventario de TI."""
     class Meta:
         model = Equipo
         fields = ["codigo", "tipo", "marca", "modelo", "numero_serie", "procesador", "memoria_ram_gb", "almacenamiento",
@@ -101,6 +104,7 @@ class EventoForm(FormularioEstilizado, forms.ModelForm):
 
 
 class _ActaForm(FormularioEstilizado, forms.Form):
+    """Datos comunes de las actas de entrega y devolución: fecha, estado del equipo y accesorios."""
     fecha = forms.DateField(label="Fecha", widget=forms.DateInput(attrs=FECHA, format="%Y-%m-%d"))
     condicion = forms.ChoiceField(label="Estado físico del equipo", choices=ActaEquipo.Condicion.choices)
     accesorios = forms.CharField(label="Accesorios", max_length=255, required=False,
@@ -185,6 +189,7 @@ class DevolucionForm(_ActaForm):
 
 
 class ActaFirmadaForm(forms.Form):
+    """Sube el acta firmada escaneada. El tipo se valida por el contenido del archivo."""
     archivo = forms.FileField(label="Acta firmada (PDF, JPG o PNG, máx. 10 MB)")
 
     def __init__(self, *args, **kwargs):
@@ -250,6 +255,7 @@ class TicketForm(FormularioEstilizado, forms.ModelForm):
 
 
 class ComentarioTicketForm(FormularioEstilizado, forms.Form):
+    """Comentario en un reporte de soporte. Solo TI puede marcarlo como nota interna."""
     texto = forms.CharField(label="Mensaje", max_length=4000, widget=forms.Textarea(attrs={"rows": 3}))
     interno = forms.BooleanField(label="Nota interna (solo la ve TI)", required=False)
 
@@ -262,6 +268,7 @@ class ComentarioTicketForm(FormularioEstilizado, forms.Form):
 
 
 class GestionTicketForm(FormularioEstilizado, forms.Form):
+    """TI cambia estado, prioridad, responsable y solución de un reporte de soporte."""
     estado = forms.ChoiceField(choices=Ticket.Estado.choices)
     prioridad = forms.ChoiceField(choices=Ticket.Prioridad.choices)
     asignado_a = forms.ModelChoiceField(label="Atiende", queryset=None, required=False, empty_label="Sin asignar")
@@ -362,6 +369,7 @@ class PlanNuevoForm(FormularioEstilizado, forms.Form):
 
 
 class PlanForm(FormularioEstilizado, forms.ModelForm):
+    """Edición de un plan de mantenimiento preventivo."""
     class Meta:
         model = PlanMantenimiento
         fields = ["actividad", "cada_meses", "proxima_fecha", "dias_aviso", "activo", "observacion"]
@@ -390,6 +398,7 @@ class PlanForm(FormularioEstilizado, forms.ModelForm):
 
 
 class MantenimientoRealizadoForm(FormularioEstilizado, forms.Form):
+    """Registra que se hizo el mantenimiento de un plan."""
     fecha = forms.DateField(widget=forms.DateInput(attrs=FECHA))
     descripcion = forms.CharField(label="Qué se hizo (opcional)", required=False, max_length=2000,
                                   widget=forms.Textarea(attrs={"rows": 3}))

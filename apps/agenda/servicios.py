@@ -86,6 +86,7 @@ def preparar_aviso(evento: Evento) -> None:
 
 
 def _texto_cuando(evento: Evento, ahora: datetime) -> str:
+    """Texto corto de cuándo es el evento («Hoy a las 10:00 · Sala 2»), para avisos y listas."""
     inicio = timezone.localtime(evento.inicio)
     hoy = timezone.localtime(ahora).date()
     if inicio.date() == hoy:
@@ -152,6 +153,7 @@ def proximos(usuario, dias: int = 7, ahora: datetime | None = None):
 # --------------------------------------------------------------------------- vistas de calendario (SCRUM-28)
 @dataclass
 class Dia:
+    """Una casilla del calendario: la fecha y los eventos de ese día."""
     fecha: date
     del_mes: bool = True
     eventos: list = field(default_factory=list)
@@ -166,6 +168,7 @@ class Dia:
 
 
 def _agrupar(eventos, dias: list[Dia]) -> list[Dia]:
+    """Reparte los eventos en sus días; los de todo el día van primero."""
     por_fecha = {d.fecha: d for d in dias}
     for evento in eventos:
         dia = por_fecha.get(timezone.localtime(evento.inicio).date())
@@ -228,6 +231,7 @@ def horario_sugerido(ahora: datetime | None = None) -> tuple[date, time]:
 # --------------------------------------------------------------------------- escritura
 @transaction.atomic
 def guardar_evento(evento: Evento, participantes, *, avisar_de_nuevo: bool) -> Evento:
+    """Guarda el evento y deja la lista de participantes igual a la elegida (el dueño no se repite)."""
     if avisar_de_nuevo:
         preparar_aviso(evento)
     evento.save()

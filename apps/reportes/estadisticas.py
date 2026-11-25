@@ -67,6 +67,7 @@ def dias_laborables(desde: date, hasta: date) -> int:
 
 @dataclass
 class Mes:
+    """Ventas de un mes: total, cerradas, no concretadas y enviados."""
     anio: int
     mes: int
     total: Decimal = CERO
@@ -93,6 +94,7 @@ class Mes:
 
 @dataclass
 class Estadisticas:
+    """Datos de la página de estadísticas: serie mensual, ranking, equipos y proyección."""
     anio: int
     mes: int
     hoy: date
@@ -176,6 +178,7 @@ def _vendedores(anio, mes, equipo=None, vendedor=None):
 
 
 def calcular(anio: int, mes: int, equipo=None, vendedor=None, hoy: date | None = None) -> Estadisticas:
+    """Calcula las estadísticas del mes, con la proyección si el mes está en curso."""
     from apps.cierre.models import MetaMensual
     from apps.personal.models import Empleado
     from apps.ventas.models import EstadoProduccion as P, RegistroProduccion

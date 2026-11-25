@@ -49,6 +49,7 @@ def avisar(clave: str, titulo: str, mensaje: str = "", url: str = "") -> bool:
 
 
 def revisar_licencias(hoy=None) -> int:
+    """Avisa a TI de licencias vencidas o por vencer. Devuelve cuántos avisos envió."""
     hoy = hoy or timezone.localdate()
     url = reverse("ti:licencias")
     enviados = 0
@@ -68,6 +69,7 @@ def revisar_licencias(hoy=None) -> int:
 
 
 def revisar_mantenimientos(hoy=None) -> int:
+    """Avisa a TI de mantenimientos vencidos o próximos. Devuelve cuántos avisos envió."""
     hoy = hoy or timezone.localdate()
     enviados = 0
     planes = (PlanMantenimiento.objects.filter(activo=True).exclude(equipo__estado=Equipo.Estado.BAJA)
@@ -88,6 +90,7 @@ def revisar_mantenimientos(hoy=None) -> int:
 
 
 def revisar_respaldos(hoy=None) -> int:
+    """Avisa a TI si falló el último respaldo o si no hay respaldos recientes."""
     from . import respaldos
 
     hoy = hoy or timezone.localdate()
@@ -106,6 +109,7 @@ def revisar_respaldos(hoy=None) -> int:
 
 
 def revisar_disco(hoy=None) -> int:
+    """Avisa a TI cuando un disco tiene poco espacio (crítico: a diario; bajo: semanal)."""
     from . import servidor
 
     hoy = hoy or timezone.localdate()

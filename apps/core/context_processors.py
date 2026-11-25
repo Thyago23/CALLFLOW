@@ -1,3 +1,5 @@
+"""Variables que todas las plantillas reciben (menú, contadores, jornada)."""
+
 from django.conf import settings
 
 from .modulos import menu_de
@@ -77,6 +79,7 @@ def _almuerzo_en_curso(request):
 
 
 def navegacion(request):
+    """Datos comunes de todas las páginas: menú, contadores de la campana, jornada y almuerzo."""
     usuario = getattr(request, "user", None)
     if usuario is None or not usuario.is_authenticated:
         return {"almuerzo_en_curso": _almuerzo_en_curso(request)} if usuario is not None else {}

@@ -5,6 +5,8 @@ Las credenciales y datos sensibles se leen de variables de entorno
 (archivo .env en la raíz del proyecto). Nunca se escriben en el código.
 """
 import os
+import sys
+import tempfile
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -32,8 +34,17 @@ def env(clave: str, defecto: str | None = None) -> str:
     return valor
 
 
+def env_bool(clave: str, defecto: bool = False) -> bool:
+    """Lee una variable de entorno de sí/no. Acepta 1, true, si, yes (sin importar mayúsculas)."""
+    return env(clave, str(defecto)).strip().lower() in ("1", "true", "si", "yes")
+
+
 SECRET_KEY = env("DJANGO_SECRET_KEY")
-DEBUG = env("DJANGO_DEBUG", "False").lower() in ("1", "true", "si", "yes")
+DEBUG = env_bool("DJANGO_DEBUG")
+# En producción no se arranca con la clave de ejemplo ni con una clave corta: con ella se pueden falsificar sesiones.
+if not DEBUG and (SECRET_KEY.startswith("cambie") or len(SECRET_KEY) < 40):
+    raise RuntimeError("DJANGO_SECRET_KEY es la de ejemplo o es muy corta. Genere una con: "
+                       "python -c \"import secrets; print(secrets.token_urlsafe(50))\"")
 ALLOWED_HOSTS = [h.strip() for h in env("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",") if h.strip()]
 # Orígenes desde los que se aceptan formularios (POST) cuando se entra por IP o por otro puerto,
 # p. ej. http://192.168.100.83:8000 al abrir la app desde la otra computadora de la red.
@@ -162,7 +173,7 @@ ASISTENCIA_BREAK_TOLERANCIA_MINUTOS = 0
 # TI: minutos sin actividad para dejar de mostrar a alguien como «conectado», y si CALLFLOW está detrás de
 # un proxy (Nginx, IIS) que envía la IP real del equipo en X-Forwarded-For (solo activarlo en ese caso).
 TI_MINUTOS_CONECTADO = 5
-TI_PROXY_CONFIABLE = env("TI_PROXY_CONFIABLE", "False").lower() in ("1", "true", "si", "yes")
+TI_PROXY_CONFIABLE = env_bool("TI_PROXY_CONFIABLE")
 
 # Mesa de ayuda: plazos por prioridad en minutos corridos (primera respuesta de TI, solución). Ver apps/ti/soporte.py.
 TI_MESA_PLAZOS = {
@@ -183,7 +194,7 @@ if env("DJANGO_CACHE", "memoria").lower() == "archivos":
                           "LOCATION": env("CACHE_DIR", "/var/cache/callflow"), "OPTIONS": {"MAX_ENTRIES": 20000}}}
 else:
     CACHES = {"default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache", "LOCATION": "callflow"}}
-LIMITE_PETICIONES_ACTIVO = env("LIMITE_PETICIONES_ACTIVO", "True").lower() in ("1", "true", "si", "yes")
+LIMITE_PETICIONES_ACTIVO = env_bool("LIMITE_PETICIONES_ACTIVO", True)
 # regla: (máximo de peticiones por IP, ventana en segundos)
 LIMITE_PETICIONES = {
     "ingreso": (10, 300),   # intentos de inicio de sesión
@@ -230,11 +241,10 @@ CSRF_COOKIE_SECURE = not DEBUG
 
 # --------------------------------------------------------------------------- HTTPS detrás de Nginx (servidor Linux)
 # Ver despliegue/INSTALACION.md. Nginx atiende el HTTPS y le pasa la petición a Gunicorn por HTTP interno,
-# con la cabecera X-Forwarded-Proto. Solo se confía en ella si TI_PROXY_CONFIABLE está activo (más abajo).
-_si = ("1", "true", "si", "yes")
-if env("TI_PROXY_CONFIABLE", "False").lower() in _si:
+# con la cabecera X-Forwarded-Proto. Solo se confía en ella si TI_PROXY_CONFIABLE está activo.
+if TI_PROXY_CONFIABLE:
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
-SECURE_SSL_REDIRECT = env("DJANGO_SSL_REDIRECT", "False").lower() in _si
+SECURE_SSL_REDIRECT = env_bool("DJANGO_SSL_REDIRECT")
 # HSTS: el navegador recuerda que solo debe entrar por HTTPS. Activarlo (31536000 = un año) solo cuando el HTTPS ya
 # funciona bien en todas las PCs: mientras dure, un certificado vencido deja a todos sin entrar.
 SECURE_HSTS_SECONDS = int(env("DJANGO_HSTS_SEGUNDOS", "0"))
@@ -255,9 +265,6 @@ VAPID_CONTACTO = env("VAPID_CONTACTO", "mailto:soporte@callflow.local")
 # --------------------------------------------------------------------------- registro de errores (TI › Servidor)
 # Los errores (nivel ERROR o más) van a LOGS_DIR/errores.jsonl, una línea JSON por error, con rotación:
 # 5 archivos de 5 MB. TI los ve en «Servidor». Durante las pruebas se escriben en una carpeta temporal.
-import sys  # noqa: E402
-import tempfile  # noqa: E402
-
 PROBANDO = len(sys.argv) > 1 and sys.argv[1] == "test"
 LOGS_DIR = Path(tempfile.mkdtemp(prefix="callflow-logs-")) if PROBANDO else Path(env("LOGS_DIR", str(BASE_DIR / "logs")))
 LOGS_DIR.mkdir(parents=True, exist_ok=True)

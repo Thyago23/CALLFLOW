@@ -24,6 +24,7 @@ def ruta_adjunto(instancia, nombre):
 
 
 class Conversacion(ModeloBase):
+    """Conversación directa entre dos personas o grupo con nombre."""
     class Tipo(models.TextChoices):
         DIRECTA = "DIRECTA", "Mensaje directo"
         GRUPO = "GRUPO", "Grupo"
@@ -55,6 +56,7 @@ class Conversacion(ModeloBase):
 
 
 class Participante(models.Model):
+    """Persona dentro de una conversación: hasta dónde leyó y si sigue en el grupo."""
     conversacion = models.ForeignKey(Conversacion, on_delete=models.CASCADE, related_name="participantes")
     usuario = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="conversaciones")
     unido_en = models.DateTimeField(db_default=Now())
@@ -69,6 +71,7 @@ class Participante(models.Model):
 
 
 class Mensaje(models.Model):
+    """Mensaje de texto, con adjunto opcional. Al eliminarlo se borra el contenido y queda la marca."""
     conversacion = models.ForeignKey(Conversacion, on_delete=models.CASCADE, related_name="mensajes")
     autor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="+")
     texto = models.TextField(blank=True, default="", max_length=4000)

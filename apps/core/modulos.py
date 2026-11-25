@@ -11,6 +11,7 @@ from django.urls import NoReverseMatch, reverse
 
 @dataclass(frozen=True)
 class Modulo:
+    """Entrada del menú: a qué módulo lleva y quién la puede ver."""
     clave: str
     nombre: str
     seccion: str

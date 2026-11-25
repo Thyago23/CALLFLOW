@@ -29,6 +29,7 @@ def puede(usuario, tipo: TipoReporte) -> bool:
 
 
 def _tipo(usuario, codigo: str):
+    """Busca el reporte por código y comprueba que el rol del usuario lo pueda generar."""
     codigo = codigo.upper()
     definicion = REPORTES.get(codigo) or (ESTADISTICAS if codigo == ESTADISTICAS.codigo else None)
     tipo = TipoReporte.objects.filter(codigo=codigo, activo=True).first()
@@ -63,6 +64,7 @@ def _respuesta_pdf(contenido: bytes, nombre: str) -> HttpResponse:
 @login_required
 @permission_required(VER, raise_exception=True)
 def centro(request):
+    """Centro de reportes: los reportes que el usuario puede generar, agrupados por módulo."""
     tipos = [t for t in TipoReporte.objects.filter(activo=True) if puede(request.user, t)]
     grupos = []
     for modulo, etiqueta in TipoReporte.Modulo.choices:
@@ -79,6 +81,7 @@ def centro(request):
 @login_required
 @permission_required(VER, raise_exception=True)
 def reporte(request, codigo):
+    """Muestra un reporte en pantalla con sus filtros."""
     definicion, _ = _tipo(request.user, codigo)
     if definicion is ESTADISTICAS:
         return redirect("reportes:estadisticas")
@@ -94,6 +97,7 @@ def reporte(request, codigo):
 @login_required
 @permission_required(VER, raise_exception=True)
 def reporte_pdf(request, codigo):
+    """Descarga el reporte en PDF y deja registro de la descarga."""
     definicion, tipo = _tipo(request.user, codigo)
     form = _formulario(request, definicion)
     if not form.is_valid():
@@ -120,6 +124,7 @@ def _datos_grafica(est):
 
 
 def _tablas(est):
+    """Tablas de proyección y detalle mensual para la página y el PDF de estadísticas."""
     tablas = []
     if est.en_curso:
         filas = [[est.actual.etiqueta + " (en curso)", est.proyeccion_mes, est.meta,
@@ -154,6 +159,7 @@ def _barras(filas, clave, etiqueta):
 
 
 def _estadisticas(request):
+    """Calcula las estadísticas con los filtros recibidos (o el mes actual si no son válidos)."""
     _, tipo = _tipo(request.user, ESTADISTICAS.codigo)
     form = _formulario(request, ESTADISTICAS)
     if not form.is_valid():
@@ -167,6 +173,7 @@ def _estadisticas(request):
 @login_required
 @permission_required(VER, raise_exception=True)
 def estadisticas(request):
+    """Página de estadísticas de ventas con gráficas mensual y diaria."""
     est, form, _ = _estadisticas(request)
     etiquetas, reales, proyectados = _datos_grafica(est)
     a = est.actual

@@ -20,6 +20,7 @@ def ruta_documento(instancia, nombre):
 
 
 class TipoDocumento(ModeloBase):
+    """Tipo de documento del expediente (cédula, CV, contrato…)."""
     codigo = models.CharField(max_length=30, unique=True)
     nombre = models.CharField(max_length=100)
     requerido_ingreso = models.BooleanField(
@@ -109,6 +110,7 @@ class PlantillaContrato(ModeloBase):
 
 
 class ContratoGenerado(ModeloBase):
+    """Contrato generado desde una plantilla, con los datos usados y su revisión."""
     empleado = models.ForeignKey("personal.Empleado", on_delete=models.PROTECT, related_name="contratos")
     plantilla = models.ForeignKey(PlantillaContrato, on_delete=models.PROTECT, related_name="contratos")
     documento = models.OneToOneField(Documento, on_delete=models.PROTECT, related_name="contrato")

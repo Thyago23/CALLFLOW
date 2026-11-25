@@ -105,6 +105,7 @@ def _texto_de_casillas(lector: PdfReader) -> str:
 
 
 def texto_de_pdf(archivo) -> str:
+    """Texto del CV en PDF. Si trae casillas llenas (plantilla de la empresa) se leen solo esas."""
     try:
         archivo.seek(0)
         lector = PdfReader(archivo)
@@ -127,6 +128,7 @@ def extraer_email(texto: str) -> str | None:
 
 
 def _telefonos(texto: str) -> list[str]:
+    """Teléfonos ecuatorianos (celular o fijo) encontrados en el texto, con formato local."""
     encontrados = []
     for candidato in RE_NUMERO.findall(texto):
         digitos = re.sub(r"\D", "", candidato)
@@ -155,6 +157,7 @@ def extraer_cedula(texto: str) -> str | None:
 
 
 def _fecha_en(texto: str) -> date | None:
+    """Primera fecha válida del texto, en números (12/04/1998) o en letras (12 de abril de 1998)."""
     for m in RE_FECHA_NUM.finditer(texto):
         try:
             if m.group(1):
@@ -173,6 +176,7 @@ def _fecha_en(texto: str) -> date | None:
 
 
 def extraer_fecha_nacimiento(lineas: list[str], hoy: date | None = None) -> date | None:
+    """Fecha de nacimiento de la línea que la menciona (o la siguiente), si es razonable."""
     hoy = hoy or date.today()
     for i, linea in enumerate(lineas):
         if not re.search(r"naci(miento|do|da)|f\.?\s*nac", _sin_tildes(linea)):
@@ -238,6 +242,7 @@ def dividir_nombre_completo(nombre: str) -> tuple[str, str]:
 
 
 def extraer_nombres(lineas: list[str]) -> tuple[str | None, str | None]:
+    """Nombres y apellidos del CV: primero por etiqueta, si no, en las primeras líneas."""
     nombres = _valor_de_etiqueta(lineas, ("nombres",))
     apellidos = _valor_de_etiqueta(lineas, ("apellidos",))
     if nombres and apellidos and _es_linea_de_nombre(f"{nombres} {apellidos}"):

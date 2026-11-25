@@ -1,3 +1,5 @@
+"""Formularios del núcleo: ingreso, cuentas de usuario, cambio de clave y perfil."""
+
 from django import forms
 from django.contrib.auth.forms import AuthenticationForm, SetPasswordForm
 from django.core.exceptions import ValidationError
@@ -156,6 +158,7 @@ def procesar_foto(archivo):
 
 
 class PerfilForm(FormularioEstilizado, forms.ModelForm):
+    """Perfil propio: foto, apodo y tema claro/oscuro."""
     foto_nueva = forms.FileField(
         label="Foto de perfil", required=False,
         widget=forms.FileInput(attrs={"accept": "image/jpeg,image/png,image/webp"}),

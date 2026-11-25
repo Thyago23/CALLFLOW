@@ -38,6 +38,7 @@ def _mes(request) -> tuple[int, int]:
 @login_required
 @permission_required("nomina.view_periodonomina", raise_exception=True)
 def resumen(request):
+    """Resumen de la nómina del mes, con filtro por equipo y búsqueda por empleado."""
     anio, mes = _mes(request)
     nomina = calculo.nomina_del_mes(anio, mes)
     equipo = request.GET.get("equipo", "")
@@ -65,6 +66,7 @@ def rol(request, empleado_pk):
 
 
 def _render_rol(request, empleado, anio, mes, form_multa=None, status=200):
+    """Muestra el rol de pago del empleado en el mes, con el formulario de multas manuales."""
     inicio, fin = date(anio, mes, 1), calculo.ultimo_dia(anio, mes)
     if form_multa is None:
         # Por defecto, hoy si cae en el mes consultado; si no, el último día del mes (dentro del contrato).
@@ -217,6 +219,7 @@ EMPRESA = "MULTIVISAS"
 
 
 def _contexto_mes(request):
+    """Mes que se consulta y los enlaces al mes anterior y siguiente (no se pasa del mes actual)."""
     anio, mes = _mes(request) if request.method == "GET" or "mes" not in request.POST else _mes_de(request.POST.get("mes"))
     primero = date(anio, mes, 1)
     anterior = date(anio - 1, 12, 1) if mes == 1 else date(anio, mes - 1, 1)
@@ -242,6 +245,7 @@ def _mes_de(texto: str) -> tuple[int, int]:
 @login_required
 @permission_required("nomina.view_movimientocajachica", raise_exception=True)
 def caja_chica(request):
+    """Hoja de caja chica: ver el periodo y registrar movimientos en la misma tabla."""
     form = MovimientoCajaForm(request.POST or None)
     for campo in form.fields.values():  # la fila nueva vive dentro de la tabla, como en el Excel
         campo.widget.attrs["form"] = "fila-nueva"
@@ -301,6 +305,7 @@ def caja_fondo(request):
 @permission_required("nomina.change_movimientocajachica", raise_exception=True)
 @require_POST
 def caja_anular(request, pk):
+    """Anula un movimiento de caja chica."""
     movimiento = get_object_or_404(MovimientoCajaChica, pk=pk)
     try:
         caja.anular(request.user, movimiento, request.POST.get("motivo", ""))

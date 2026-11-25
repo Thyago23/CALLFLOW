@@ -1,3 +1,5 @@
+"""Formularios de ventas: DAMI, bases comerciales, catálogo BIN y solicitudes."""
+
 import re
 
 from django import forms
@@ -89,6 +91,7 @@ class FormularioDAMIForm(FormularioEstilizado, forms.Form):
 
     @classmethod
     def desde_formulario(cls, f, **kwargs):
+        """Arma el formulario DAMI con los datos ya guardados del cliente y de la tarjeta."""
         c = f.cliente
         tarjeta = getattr(f, "tarjeta", None)
         inicial = {
@@ -110,6 +113,7 @@ class FormularioDAMIForm(FormularioEstilizado, forms.Form):
         return valor
 
     def clean_ruc(self):
+        """RUC de 13 dígitos con código de provincia válido."""
         valor = validadores.normalizar_identificacion(self.cleaned_data.get("ruc") or "")
         if not valor:
             return valor
@@ -213,6 +217,7 @@ class SolicitudBaseForm(FormularioEstilizado, forms.Form):
 
 
 class BaseComercialForm(FormularioEstilizado, forms.ModelForm):
+    """Alta y edición de una base comercial."""
     class Meta:
         model = BaseComercial
         fields = ["nombre", "descripcion", "total_registros", "activa"]
@@ -249,6 +254,7 @@ class CargarBaseForm(FormularioEstilizado, forms.Form):
 
 
 class AsignarBaseForm(FormularioEstilizado, forms.Form):
+    """Reparte contactos libres de una base entre los vendedores elegidos."""
     base = forms.ModelChoiceField(label="Base", queryset=BaseComercial.objects.filter(activa=True).order_by("nombre"),
                                   empty_label="Seleccione…")
     vendedores = forms.ModelMultipleChoiceField(label="Vendedores", queryset=Empleado.objects.none(),
@@ -269,6 +275,7 @@ _MARCAS_TODAS = [(c, m.nombre) for c, m in tarjetas.MARCAS.items()]
 
 
 class RangoBINForm(FormularioEstilizado, forms.ModelForm):
+    """Alta de un rango BIN: primeros dígitos de la tarjeta, banco y marca."""
     marca = forms.ChoiceField(label="Marca", choices=[("", "Seleccione…"), *_MARCAS_TODAS])
 
     class Meta:
@@ -300,6 +307,7 @@ class RangoBINForm(FormularioEstilizado, forms.ModelForm):
 
 
 class EntidadEmisoraForm(FormularioEstilizado, forms.ModelForm):
+    """Alta de un banco o cooperativa emisora de tarjetas."""
     class Meta:
         model = EntidadEmisora
         fields = ["nombre", "tipo"]
@@ -317,6 +325,7 @@ class EntidadEmisoraForm(FormularioEstilizado, forms.ModelForm):
 
 
 class ImportarBINForm(FormularioEstilizado, forms.Form):
+    """Importa rangos BIN desde un archivo CSV."""
     archivo = forms.FileField(label="Archivo CSV", help_text="Columnas: bin, entidad, marca, tipo. Separadas por coma o punto y coma.",
                               widget=forms.ClearableFileInput(attrs={"accept": ".csv,text/csv"}))
 

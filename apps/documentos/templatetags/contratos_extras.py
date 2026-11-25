@@ -17,6 +17,7 @@ def _html(texto: str) -> str:
 
 @register.filter
 def formato_contrato(texto: str) -> str:
+    """Muestra el contrato en HTML con el mismo formato del PDF. El texto se escapa antes."""
     partes = []
     for tipo, valor in contratos.bloques(texto):
         if tipo == "titulo":

@@ -41,6 +41,7 @@ def crear_planes(equipos, *, actividad: str, cada_meses: int, primera_fecha: dat
 @transaction.atomic
 def registrar_realizado(plan: PlanMantenimiento, *, fecha: date, descripcion: str = "", realizado_por: str = "",
                         costo=None, usuario=None) -> EventoEquipo:
+    """Registra el mantenimiento hecho en la hoja de vida del equipo y calcula la próxima fecha."""
     plan = PlanMantenimiento.objects.select_for_update().select_related("equipo").get(pk=plan.pk)
     if fecha > timezone.localdate():
         raise OperacionNoPermitida("La fecha del mantenimiento no puede ser futura.")

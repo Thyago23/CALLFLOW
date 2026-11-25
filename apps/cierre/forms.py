@@ -1,3 +1,5 @@
+"""Formularios del cierre de ventas: resultado, corrección, pase de etapa y responsables."""
+
 from decimal import Decimal
 
 from django import forms

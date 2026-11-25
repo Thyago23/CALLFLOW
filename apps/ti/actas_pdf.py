@@ -32,6 +32,7 @@ CLAUSULA_DEVOLUCION = (
 
 
 class _PDFActa(FPDF):
+    """PDF de las actas de entrega y devolución de equipos."""
     def __init__(self, acta: ActaEquipo):
         super().__init__(format="A4")
         self.acta = acta
@@ -143,6 +144,7 @@ def _identificacion(empleado) -> str:
 
 
 def generar_pdf_acta(acta: ActaEquipo) -> bytes:
+    """Genera el acta de entrega o devolución con los datos del colaborador y del equipo."""
     equipo, empleado = acta.equipo, acta.empleado
     entrega = acta.tipo == ActaEquipo.Tipo.ENTREGA
     pdf = _PDFActa(acta)
