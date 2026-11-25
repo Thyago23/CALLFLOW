@@ -8,7 +8,7 @@ import hashlib
 
 from django.core.exceptions import ValidationError
 
-from .models import TAMANO_MAXIMO, Documento, TipoDocumento
+from .models import TAMANO_MAXIMO, ContratoGenerado, Documento, TipoDocumento
 
 FIRMAS = (
     (b"%PDF-", "application/pdf"),
@@ -48,7 +48,7 @@ def huella(archivo) -> str:
     return sha.hexdigest()
 
 
-def guardar_documento(*, empleado, codigo_tipo: str, archivo, usuario) -> Documento:
+def guardar_documento(*, empleado, codigo_tipo: str, archivo, usuario, descripcion: str = "") -> Documento:
     """Guarda el archivo en el expediente del empleado. Debe llamarse dentro de una transacción."""
     mime = validar_archivo(archivo)
     return Documento.objects.create(
@@ -59,5 +59,53 @@ def guardar_documento(*, empleado, codigo_tipo: str, archivo, usuario) -> Docume
         tipo_mime=mime,
         tamano_bytes=archivo.size,
         hash_sha256=huella(archivo),
+        descripcion=descripcion.strip()[:255],
         subido_por=usuario,
     )
+
+
+def repetido_en_expediente(empleado, archivo) -> Documento | None:
+    """El documento del expediente que tiene exactamente el mismo contenido, si ya se subió antes."""
+    return (Documento.objects.filter(empleado=empleado, eliminado=False, hash_sha256=huella(archivo))
+            .select_related("tipo").first())
+
+
+def _usos() -> list[tuple]:
+    """Registros que se apoyan en un documento: (modelo, campo que lo apunta, cómo se le explica al usuario)."""
+    from apps.asistencia.models import NovedadAsistencia
+    from apps.nomina.models import SolicitudPago
+
+    return [
+        (ContratoGenerado, "documento_id", "es el PDF de un contrato generado"),
+        (SolicitudPago, "factura_id", "es la factura de una solicitud de pago"),
+        (NovedadAsistencia, "soporte_id", "es el respaldo de una justificación de asistencia"),
+    ]
+
+
+def en_uso(documento: Documento) -> str:
+    """Para qué se usa el documento en otro registro; vacío si no lo usa nadie y se puede quitar."""
+    for modelo, campo, motivo in _usos():
+        if modelo.objects.filter(**{campo: documento.pk}).exists():
+            return motivo
+    return ""
+
+
+def ids_en_uso(documentos) -> set[int]:
+    """De una lista de documentos, los que no se pueden quitar porque otro registro se apoya en ellos."""
+    ids = [d.pk for d in documentos]
+    usados = set()
+    for modelo, campo, _ in _usos():
+        usados |= set(modelo.objects.filter(**{f"{campo}__in": ids}).values_list(campo, flat=True))
+    return usados
+
+
+def quitar_del_expediente(documento: Documento) -> None:
+    """
+    Saca el documento del expediente (borrado lógico: el archivo se conserva por la política de retención).
+    No se quitan los que respaldan otro registro, para no dejar ese registro sin su archivo.
+    """
+    motivo = en_uso(documento)
+    if motivo:
+        raise ValidationError(f"No se puede quitar «{documento.nombre_original}»: {motivo}.")
+    documento.eliminado = True
+    documento.save(update_fields=["eliminado", "actualizado_en"])

@@ -14,6 +14,7 @@ from apps.core.concurrencia import ControlConcurrencia
 from apps.core.cuentas import rol_para_cargo
 from apps.core.models import Rol
 from apps.documentos import archivos
+from apps.documentos.models import TipoDocumento
 
 from .models import Cargo, Empleado, EsquemaComision, ObservacionEmpleado
 
@@ -240,6 +241,33 @@ class DocumentosIngresoForm(forms.Form):
             else:
                 vistos[huella] = nombre
         return datos
+
+
+class DocumentoSubirForm(forms.Form):
+    """Archivo que se agrega a mano al expediente del empleado: su tipo y una nota opcional."""
+
+    # Estos tipos los crea el propio sistema desde su pantalla (justificaciones de asistencia, facturas de nómina).
+    TIPOS_DEL_SISTEMA = ("SOPORTE_ASISTENCIA", "FACTURA")
+
+    archivo = forms.FileField(label="Archivo")
+    tipo = forms.ModelChoiceField(TipoDocumento.objects.none(), label="Tipo de documento", empty_label=None)
+    descripcion = forms.CharField(label="Descripción", max_length=255, required=False)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        tipos = TipoDocumento.objects.filter(activo=True).exclude(codigo__in=self.TIPOS_DEL_SISTEMA).order_by("nombre")
+        self.fields["tipo"].queryset = tipos
+        self.fields["tipo"].initial = tipos.filter(codigo="OTRO").first()
+        self.fields["archivo"].widget.attrs.update({"accept": ".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"})
+        self.fields["tipo"].widget.attrs["class"] = "form-select form-select-sm"
+        self.fields["descripcion"].widget.attrs.update({
+            "class": "form-control form-control-sm", "placeholder": "Opcional. Ej.: certificado médico de marzo",
+        })
+
+    def clean_archivo(self):
+        archivo = self.cleaned_data["archivo"]
+        archivos.validar_archivo(archivo)
+        return archivo
 
 
 class ObservacionForm(forms.ModelForm):

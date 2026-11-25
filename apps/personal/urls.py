@@ -17,5 +17,7 @@ urlpatterns = [
     path("empleados/<int:pk>/observaciones/", views.observacion_crear, name="observacion_crear"),
     path("empleados/<int:pk>/sueldo/", views.salario_cambiar, name="salario_cambiar"),
     path("empleados/<int:pk>/equipo/", views.equipo_cambiar, name="equipo_cambiar"),
+    path("empleados/<int:pk>/documentos/subir/", views.documento_subir, name="documento_subir"),
     path("documentos/<int:pk>/", views.documento_ver, name="documento_ver"),
+    path("documentos/<int:pk>/quitar/", views.documento_quitar, name="documento_quitar"),
 ]

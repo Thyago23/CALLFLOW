@@ -8,90 +8,255 @@
   </ol>
 </nav>
 <h1 class="h3 mb-1">{% if plantilla %}Editar plantilla{% else %}Nueva plantilla{% endif %}</h1>
-<p class="text-body-secondary mb-4">
-  {% if plantilla %}Al guardar se crea la versión {{ plantilla.version|add:1 }}. Los contratos ya generados conservan el texto de la versión con que se hicieron.
-  {% else %}Pegue el texto del contrato y reemplace los datos de la persona por variables.{% endif %}
+<p class="text-body-secondary mb-3">
+  Escriba o pegue el texto del contrato. Use los botones para dar formato y <strong>Insertar dato</strong> donde vaya
+  un dato del empleado (nombre, cédula, sueldo…). A la derecha ve cómo queda.
+  {% if plantilla %}Al guardar se crea la versión {{ plantilla.version|add:1 }}: los contratos ya generados no cambian.{% endif %}
 </p>
 
 {% if form.errors %}<div class="alert alert-danger" role="alert">Revise los campos marcados en rojo.</div>{% endif %}
 
 <form method="post" novalidate id="formulario-plantilla">
   {% csrf_token %}
-  <div class="row g-4">
-    <div class="col-xl-8">
-      <div class="card mb-4">
-        <div class="card-body">
-          <div class="row">
-            <div class="col-md-7">{% include "_campo.html" with campo=form.nombre %}</div>
-            <div class="col-md-5">{% include "_campo.html" with campo=form.tipo_contrato %}</div>
-            <div class="col-md-5">{% include "_campo.html" with campo=form.cargo %}</div>
-            <div class="col-md-7">{% include "_campo.html" with campo=form.estilo %}</div>
-          </div>
-          <div class="mb-2">
-            <label class="form-label" for="{{ form.contenido.id_for_label }}">{{ form.contenido.label }} <span class="text-danger" aria-hidden="true">*</span></label>
-            {{ form.contenido }}
-            {% for error in form.contenido.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
-            <div class="form-text">
-              <strong># Título</strong> = título centrado · <strong>## Cláusula…</strong> = encabezado de cláusula ·
-              <strong>1.1 texto</strong> o <strong>A. texto</strong> = numeral con sangría · <strong>| celda | celda |</strong> = tabla ·
-              <strong>[[espacio]]</strong> = espacio para firmar · <strong>**texto**</strong> = negrita ·
-              una línea en blanco separa párrafos · <strong>______</strong> = línea de firma.
+
+  {# 1. Datos de la plantilla, en una sola fila #}
+  <div class="card mb-3">
+    <div class="card-body pb-1">
+      <div class="row">
+        <div class="col-md-6 col-xl-4">{% include "_campo.html" with campo=form.nombre %}</div>
+        <div class="col-md-6 col-xl-3">{% include "_campo.html" with campo=form.tipo_contrato %}</div>
+        <div class="col-md-6 col-xl-3">{% include "_campo.html" with campo=form.cargo %}</div>
+        <div class="col-md-6 col-xl-2">{% include "_campo.html" with campo=form.estilo %}</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-3">
+    {# 2. Editor con barra de formato #}
+    <div class="col-xl-6">
+      <div class="card editor-plantilla">
+        <div class="card-header bg-body barra-formato" role="toolbar" aria-label="Formato del contrato">
+          <button type="button" class="btn btn-sm btn-light" data-formato="titulo" title="Título centrado (la línea donde está el cursor)">
+            <i class="bi bi-type-h1" aria-hidden="true"></i> Título
+          </button>
+          <button type="button" class="btn btn-sm btn-light" data-formato="clausula" title="Encabezado de cláusula (la línea donde está el cursor)">
+            <i class="bi bi-type-h2" aria-hidden="true"></i> Cláusula
+          </button>
+          <button type="button" class="btn btn-sm btn-light" data-formato="numeral" title="Párrafo numerado con sangría (1.1, 1.2…)">
+            <i class="bi bi-list-ol" aria-hidden="true"></i> Numeral
+          </button>
+          <button type="button" class="btn btn-sm btn-light" data-formato="negrita" title="Negrita (Ctrl+B)">
+            <i class="bi bi-type-bold" aria-hidden="true"></i> Negrita
+          </button>
+          <button type="button" class="btn btn-sm btn-light" data-formato="tabla" title="Tabla de dos columnas">
+            <i class="bi bi-table" aria-hidden="true"></i> Tabla
+          </button>
+          <button type="button" class="btn btn-sm btn-light" data-formato="firma" title="Línea de firma con nombre y cédula del empleado">
+            <i class="bi bi-pen" aria-hidden="true"></i> Firma
+          </button>
+          <button type="button" class="btn btn-sm btn-light" data-formato="espacio" title="Espacio en blanco (por ejemplo, antes de las firmas)">
+            <i class="bi bi-arrows-vertical" aria-hidden="true"></i> Espacio
+          </button>
+
+          <div class="dropdown ms-auto">
+            <button type="button" class="btn btn-sm btn-primary dropdown-toggle" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+              <i class="bi bi-person-vcard me-1" aria-hidden="true"></i>Insertar dato
+            </button>
+            <div class="dropdown-menu dropdown-menu-end p-2 menu-variables">
+              <input type="search" class="form-control form-control-sm mb-2 buscar-variable" placeholder="Buscar: cédula, sueldo, fecha…" aria-label="Buscar dato">
+              <div class="lista-variables">
+                {% for v in variables %}
+                <button type="button" class="dropdown-item rounded insertar-variable" data-variable="{% templatetag openvariable %}{{ v.clave }}{% templatetag closevariable %}"
+                        data-buscar="{{ v.descripcion|lower }} {{ v.clave }}">
+                  <span class="d-block">{{ v.descripcion }}</span>
+                  <span class="d-block small text-body-secondary text-truncate">Ej.: {{ v.ejemplo }}</span>
+                </button>
+                {% endfor %}
+                <p class="small text-body-secondary px-2 mb-0 sin-resultados" hidden>No hay datos con ese nombre.</p>
+              </div>
             </div>
           </div>
         </div>
-      </div>
-
-      <div class="card">
-        <div class="card-header bg-body d-flex justify-content-between align-items-center">
-          <h2 class="h6 mb-0">Vista previa con datos de ejemplo</h2>
-          <button type="button" class="btn btn-sm btn-outline-secondary"
-                  hx-post="{% url 'documentos:plantilla_vista_previa' %}" hx-include="[name='contenido'],[name='estilo']" hx-target="#vista-previa">
-            <i class="bi bi-arrow-repeat me-1" aria-hidden="true"></i>Actualizar
-          </button>
-        </div>
-        <div class="card-body" id="vista-previa"
-             hx-post="{% url 'documentos:plantilla_vista_previa' %}" hx-include="[name='contenido'],[name='estilo']"
-             hx-trigger="load, keyup changed delay:800ms from:[name='contenido'], change from:[name='estilo']">
+        <div class="card-body">
+          <label class="visually-hidden" for="{{ form.contenido.id_for_label }}">{{ form.contenido.label }}</label>
+          {{ form.contenido }}
+          {% for error in form.contenido.errors %}<div class="invalid-feedback d-block">{{ error }}</div>{% endfor %}
+          <details class="small text-body-secondary mt-2">
+            <summary>Cómo se escribe cada formato (si prefiere teclearlo)</summary>
+            <ul class="mb-0 mt-2 ps-3">
+              <li><code># Texto</code> título centrado · <code>## Texto</code> encabezado de cláusula</li>
+              <li><code>1.1 Texto</code> o <code>A. Texto</code> párrafo numerado · <code>**texto**</code> negrita</li>
+              <li><code>| celda | celda |</code> fila de tabla · <code>[[espacio]]</code> espacio en blanco · <code>______</code> línea de firma</li>
+              <li>Una línea en blanco separa un párrafo del siguiente. Los datos van entre llaves dobles: <code>{% templatetag openvariable %}nombres{% templatetag closevariable %}</code>.</li>
+            </ul>
+          </details>
         </div>
       </div>
     </div>
 
-    <div class="col-xl-4">
-      <div class="card variables-plantilla">
-        <div class="card-body">
-          <h2 class="titulo-seccion-formulario">Datos automáticos</h2>
-          <p class="small text-body-secondary">Haga clic en una variable para insertarla donde está el cursor.</p>
-          <ul class="list-unstyled mb-0">
-            {% for v in variables %}
-            <li>
-              <button type="button" class="btn btn-link p-0 text-start insertar-variable" data-variable="{% templatetag openvariable %}{{ v.clave }}{% templatetag closevariable %}">
-                <code>{% templatetag openvariable %}{{ v.clave }}{% templatetag closevariable %}</code>
-              </button>
-              <div class="small text-body-secondary">{{ v.descripcion }}</div>
-            </li>
-            {% endfor %}
-          </ul>
+    {# 3. Vista previa en vivo #}
+    <div class="col-xl-6">
+      <div class="card vista-previa-plantilla">
+        <div class="card-header bg-body d-flex justify-content-between align-items-center">
+          <h2 class="h6 mb-0">Así se verá <span class="fw-normal text-body-secondary small">(con datos de ejemplo)</span></h2>
+          <span class="spinner-border spinner-border-sm text-body-secondary htmx-indicator" id="cargando-vista" role="status" aria-label="Actualizando"></span>
+        </div>
+        <div class="card-body" id="vista-previa" aria-live="polite"
+             hx-post="{% url 'documentos:plantilla_vista_previa' %}" hx-include="[name='contenido'],[name='estilo']"
+             hx-indicator="#cargando-vista"
+             hx-trigger="load, input changed delay:600ms from:[name='contenido'], change from:[name='estilo']">
         </div>
       </div>
     </div>
   </div>
 
-  <div class="d-flex gap-2 justify-content-end mt-4">
+  <div class="barra-guardar d-flex gap-2 justify-content-end align-items-center mt-3">
+    <span class="small text-body-secondary me-auto cambios-pendientes" hidden><i class="bi bi-circle-fill text-warning me-1" aria-hidden="true"></i>Cambios sin guardar</span>
     <a href="{% url 'documentos:plantillas' %}" class="btn btn-outline-secondary">Cancelar</a>
-    <button type="submit" class="btn btn-primary">Guardar plantilla</button>
+    <button type="submit" class="btn btn-primary" title="Ctrl+S"><i class="bi bi-check-lg me-1" aria-hidden="true"></i>Guardar plantilla</button>
   </div>
 </form>
 
 <script>
-  // Inserta la variable en la posición del cursor del texto del contrato.
-  document.querySelectorAll(".insertar-variable").forEach(function (boton) {
-    boton.addEventListener("click", function () {
-      const area = document.querySelector("[name='contenido']");
+  // Editor de plantillas: botones de formato, inserción de datos, atajos de teclado y aviso de cambios sin guardar.
+  (function () {
+    const form = document.getElementById("formulario-plantilla");
+    const area = form.querySelector("[name='contenido']");
+    let pendiente = false;
+
+    function avisarCambio() {
+      area.dispatchEvent(new Event("input", { bubbles: true }));  // actualiza la vista previa
+    }
+
+    // Líneas completas que toca la selección (o la línea del cursor).
+    function lineasSeleccionadas() {
+      const texto = area.value;
+      const inicio = texto.lastIndexOf("\n", area.selectionStart - 1) + 1;
+      let fin = texto.indexOf("\n", area.selectionEnd);
+      if (fin === -1) fin = texto.length;
+      return { inicio: inicio, fin: fin, lineas: texto.slice(inicio, fin).split("\n") };
+    }
+
+    // Pone (o quita, si ya lo tenía) un prefijo de bloque como «# » o «## » en las líneas seleccionadas.
+    function prefijar(prefijo) {
+      const sel = lineasSeleccionadas();
+      const yaLoTienen = sel.lineas.every(function (l) { return l.startsWith(prefijo); });
+      const nuevas = sel.lineas.map(function (l) {
+        const limpia = l.replace(/^#{1,2} /, "");
+        return yaLoTienen ? limpia : prefijo + limpia;
+      });
+      area.setRangeText(nuevas.join("\n"), sel.inicio, sel.fin, "select");
+    }
+
+    // Numera las líneas seleccionadas como 1.1, 1.2… (continúa la numeración de la cláusula anterior si la hay).
+    function numerar() {
+      const sel = lineasSeleccionadas();
+      const anteriores = area.value.slice(0, sel.inicio).match(/^(\d+)\.(\d+)\s/gm) || [];
+      let mayor = 1, menor = 0;
+      if (anteriores.length) {
+        const ultimo = anteriores[anteriores.length - 1].trim().split(".");
+        mayor = parseInt(ultimo[0], 10); menor = parseInt(ultimo[1], 10);
+      }
+      const nuevas = sel.lineas.filter(function (l) { return l.trim(); }).map(function (l) {
+        menor += 1;
+        return mayor + "." + menor + " " + l.replace(/^(\d+\.\d+|[A-Z]\.)\s+/, "");
+      });
+      area.setRangeText(nuevas.join("\n\n") || mayor + "." + (menor + 1) + " ", sel.inicio, sel.fin, "end");
+    }
+
+    // Envuelve la selección en **…** (o la quita). Sin selección deja «texto» marcado para escribir encima.
+    function negrita() {
       const inicio = area.selectionStart, fin = area.selectionEnd;
-      area.setRangeText(boton.dataset.variable, inicio, fin, "end");
-      area.focus();
-      area.dispatchEvent(new Event("keyup", { bubbles: true }));
+      const elegido = area.value.slice(inicio, fin);
+      if (/^\*\*[\s\S]*\*\*$/.test(elegido)) {
+        area.setRangeText(elegido.slice(2, -2), inicio, fin, "select");
+      } else if (elegido) {
+        area.setRangeText("**" + elegido + "**", inicio, fin, "select");
+      } else {
+        area.setRangeText("**texto**", inicio, fin, "end");
+        area.setSelectionRange(inicio + 2, inicio + 7);
+      }
+    }
+
+    // Inserta un bloque propio (tabla, firma, espacio) separado por líneas en blanco de lo que hay alrededor.
+    function bloque(contenido) {
+      const antes = area.value.slice(0, area.selectionStart).replace(/\s+$/, "");
+      const despues = area.value.slice(area.selectionEnd).replace(/^\s+/, "");
+      const separadorAntes = antes ? "\n\n" : "";
+      area.value = antes + separadorAntes + contenido + (despues ? "\n\n" + despues : "\n");
+      const cursor = antes.length + separadorAntes.length + contenido.length;
+      area.setSelectionRange(cursor, cursor);
+    }
+
+    const ABRE = "{" + "{", CIERRA = "}" + "}";
+    const FORMATOS = {
+      titulo: function () { prefijar("# "); },
+      clausula: function () { prefijar("## "); },
+      numeral: numerar,
+      negrita: negrita,
+      tabla: function () { bloque("| Concepto | Detalle |\n| " + ABRE + "cargo" + CIERRA + " | " + ABRE + "salario" + CIERRA + " |"); },
+      firma: function () { bloque("______________________________\n" + ABRE + "nombre_completo" + CIERRA + "\nC.I. " + ABRE + "identificacion" + CIERRA); },
+      espacio: function () { bloque("[[espacio]]"); },
+    };
+
+    form.querySelectorAll("[data-formato]").forEach(function (boton) {
+      boton.addEventListener("click", function () {
+        area.focus();
+        FORMATOS[boton.dataset.formato]();
+        avisarCambio();
+      });
     });
-  });
+
+    // Insertar dato del empleado donde está el cursor.
+    const menu = form.querySelector(".menu-variables");
+    const buscador = menu.querySelector(".buscar-variable");
+    let cursor = { inicio: 0, fin: 0 };
+    area.addEventListener("blur", function () { cursor = { inicio: area.selectionStart, fin: area.selectionEnd }; });
+    menu.parentElement.addEventListener("shown.bs.dropdown", function () { buscador.value = ""; filtrar(); buscador.focus(); });
+    menu.querySelectorAll(".insertar-variable").forEach(function (opcion) {
+      opcion.addEventListener("click", function () {
+        area.focus();
+        area.setRangeText(opcion.dataset.variable, cursor.inicio, cursor.fin, "end");
+        bootstrap.Dropdown.getOrCreateInstance(menu.previousElementSibling).hide();
+        avisarCambio();
+      });
+    });
+    function filtrar() {
+      const texto = buscador.value.trim().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+      let visibles = 0;
+      menu.querySelectorAll(".insertar-variable").forEach(function (opcion) {
+        const coincide = opcion.dataset.buscar.normalize("NFD").replace(/[̀-ͯ]/g, "").includes(texto);
+        opcion.hidden = !coincide;
+        if (coincide) visibles += 1;
+      });
+      menu.querySelector(".sin-resultados").hidden = visibles > 0;
+    }
+    buscador.addEventListener("input", filtrar);
+    buscador.addEventListener("keydown", function (e) {
+      if (e.key !== "Enter") return;
+      e.preventDefault();
+      const primera = menu.querySelector(".insertar-variable:not([hidden])");
+      if (primera) primera.click();
+    });
+
+    // Atajos: Ctrl+B negrita, Ctrl+S guardar.
+    area.addEventListener("keydown", function (e) {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      if (e.key.toLowerCase() === "b") { e.preventDefault(); negrita(); avisarCambio(); }
+    });
+    document.addEventListener("keydown", function (e) {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") { e.preventDefault(); form.requestSubmit(); }
+    });
+
+    // Aviso si se sale de la página sin guardar.
+    form.addEventListener("input", function () {
+      pendiente = true;
+      form.querySelector(".cambios-pendientes").hidden = false;
+    });
+    form.addEventListener("submit", function () { pendiente = false; });
+    window.addEventListener("beforeunload", function (e) {
+      if (pendiente) { e.preventDefault(); e.returnValue = ""; }
+    });
+  })();
 </script>
 {% endblock %}

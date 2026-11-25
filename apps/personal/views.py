@@ -27,8 +27,8 @@ from apps.documentos.models import Documento, TipoDocumento
 from . import cv
 from . import historial
 from . import salidas
-from .forms import (DocumentosIngresoForm, EmpleadoEditarForm, EmpleadoForm, EquipoForm, ObservacionForm, SalarioForm,
-                    SalidaForm)
+from .forms import (DocumentoSubirForm, DocumentosIngresoForm, EmpleadoEditarForm, EmpleadoForm, EquipoForm,
+                    ObservacionForm, SalarioForm, SalidaForm)
 from .models import AsignacionComision, Empleado, HistorialSalario
 
 registro = logging.getLogger(__name__)
@@ -279,6 +279,10 @@ class EmpleadoDetalleView(LoginRequiredMixin, PermissionRequiredMixin, DetailVie
             self.object.documentos.filter(eliminado=False).select_related("tipo").order_by("tipo__nombre", "-creado_en")
         )
         ctx["documentos"] = documentos
+        if self.request.user.has_perm("documentos.add_documento"):
+            ctx["documento_form"] = DocumentoSubirForm()
+        if self.request.user.has_perm("documentos.delete_documento"):
+            ctx["documentos_en_uso"] = archivos.ids_en_uso(documentos)
         ctx["documentos_faltantes"] = TipoDocumento.objects.filter(requerido_ingreso=True, activo=True).exclude(
             codigo__in={d.tipo.codigo for d in documentos}
         )
@@ -437,6 +441,48 @@ def documento_ver(request, pk):
     respuesta = FileResponse(documento.archivo.open("rb"), content_type=documento.tipo_mime)
     respuesta["Content-Disposition"] = content_disposition_header(False, documento.nombre_original)
     return respuesta
+
+
+def _volver_a_documentos(pk):
+    return redirect(reverse("personal:empleado_detalle", args=[pk]) + "#documentos")
+
+
+@login_required
+@permission_required("documentos.add_documento", raise_exception=True)
+@require_POST
+def documento_subir(request, pk):
+    """Agrega a mano un archivo al expediente (además de los que el sistema guarda solo)."""
+    empleado = get_object_or_404(Empleado, pk=pk)
+    form = DocumentoSubirForm(request.POST, request.FILES)
+    if not form.is_valid():
+        messages.error(request, "No se subió el archivo: " + " ".join(e for lista in form.errors.values() for e in lista))
+        return _volver_a_documentos(pk)
+    archivo, tipo = form.cleaned_data["archivo"], form.cleaned_data["tipo"]
+    repetido = archivos.repetido_en_expediente(empleado, archivo)
+    if repetido:
+        messages.warning(request, f"Ese archivo ya está en el expediente como «{repetido.tipo.nombre}» "
+                                  f"({repetido.nombre_original}). No se subió otra vez.")
+        return _volver_a_documentos(pk)
+    with transaction.atomic():
+        archivos.guardar_documento(empleado=empleado, codigo_tipo=tipo.codigo, archivo=archivo, usuario=request.user,
+                                   descripcion=form.cleaned_data["descripcion"])
+    messages.success(request, f"«{archivo.name}» se agregó al expediente como {tipo.nombre.lower()}.")
+    return _volver_a_documentos(pk)
+
+
+@login_required
+@permission_required("documentos.delete_documento", raise_exception=True)
+@require_POST
+def documento_quitar(request, pk):
+    """Quita un documento del expediente. Los que respaldan un contrato, una factura o una justificación no se quitan."""
+    documento = get_object_or_404(Documento, pk=pk, eliminado=False, empleado__isnull=False)
+    try:
+        archivos.quitar_del_expediente(documento)
+    except ValidationError as error:
+        messages.error(request, " ".join(error.messages))
+    else:
+        messages.success(request, f"«{documento.nombre_original}» se quitó del expediente.")
+    return _volver_a_documentos(documento.empleado_id)
 
 
 @login_required

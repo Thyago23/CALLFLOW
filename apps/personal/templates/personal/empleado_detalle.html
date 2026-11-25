@@ -179,19 +179,58 @@
           Falta en el expediente: {% for t in documentos_faltantes %}{{ t.nombre }}{% if not forloop.last %}, {% endif %}{% endfor %}.
         </div>
         {% endif %}
+
+        {% if documento_form %}
+        {# Subida manual: se arrastra el archivo a la zona o se elige con el explorador; luego se indica el tipo. #}
+        <form method="post" enctype="multipart/form-data" action="{% url 'personal:documento_subir' empleado.pk %}"
+              class="mb-4" id="subir-documento">
+          {% csrf_token %}
+          <label class="zona-arrastre" for="{{ documento_form.archivo.id_for_label }}">
+            <input type="file" name="archivo" id="{{ documento_form.archivo.id_for_label }}" class="visually-hidden"
+                   accept="{{ documento_form.archivo.field.widget.attrs.accept }}" required>
+            <i class="bi bi-cloud-arrow-up fs-3" aria-hidden="true"></i>
+            <span class="zona-texto"><strong>Arrastre un archivo aquí</strong> o haga clic para elegirlo</span>
+            <span class="small text-body-secondary zona-ayuda">PDF, JPG o PNG de hasta 10 MB</span>
+          </label>
+          <div class="datos-subida row g-2 align-items-end mt-1" hidden>
+            <div class="col-md-4">
+              <label class="form-label small mb-1" for="{{ documento_form.tipo.id_for_label }}">{{ documento_form.tipo.label }}</label>
+              {{ documento_form.tipo }}
+            </div>
+            <div class="col-md-5">
+              <label class="form-label small mb-1" for="{{ documento_form.descripcion.id_for_label }}">{{ documento_form.descripcion.label }}</label>
+              {{ documento_form.descripcion }}
+            </div>
+            <div class="col-md-3 d-flex gap-2">
+              <button type="submit" class="btn btn-sm btn-primary flex-grow-1"><i class="bi bi-upload me-1" aria-hidden="true"></i>Agregar</button>
+              <button type="button" class="btn btn-sm btn-outline-secondary cancelar-subida" aria-label="Cancelar"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+            </div>
+          </div>
+          <div class="invalid-feedback d-block error-subida" role="alert"></div>
+        </form>
+        {% endif %}
+
         {% if documentos %}
         <ul class="list-group list-group-flush">
           {% for d in documentos %}
           <li class="list-group-item px-0 d-flex align-items-center gap-3">
             <i class="bi {% if d.tipo_mime == 'application/pdf' %}bi-file-earmark-pdf text-danger{% else %}bi-file-earmark-image text-primary{% endif %} fs-4" aria-hidden="true"></i>
             <div class="min-w-0 flex-grow-1">
-              <div class="fw-semibold">{{ d.tipo.nombre }}</div>
+              <div class="fw-semibold">{{ d.tipo.nombre }}{% if d.descripcion %} <span class="fw-normal text-body-secondary">· {{ d.descripcion }}</span>{% endif %}</div>
               <div class="small text-body-secondary text-truncate">{{ d.nombre_original }} · {{ d.tamano_bytes|filesizeformat }} · {{ d.creado_en|date:"d/m/Y" }}</div>
             </div>
             {% if perms.documentos.view_documento %}
             <a href="{% url 'personal:documento_ver' d.pk %}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-primary">
               <i class="bi bi-eye me-1" aria-hidden="true"></i>Ver
             </a>
+            {% endif %}
+            {% if documentos_en_uso is not None and d.pk not in documentos_en_uso %}
+            <form method="post" action="{% url 'personal:documento_quitar' d.pk %}"
+                  data-confirmar="El archivo deja de verse en el expediente de {{ empleado.nombres }}." data-confirmar-titulo="¿Quitar «{{ d.nombre_original }}»?"
+                  data-confirmar-boton="Quitar" data-confirmar-icono="trash" data-confirmar-tono="danger">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-sm btn-outline-danger" aria-label="Quitar {{ d.nombre_original }}"><i class="bi bi-trash" aria-hidden="true"></i></button>
+            </form>
             {% endif %}
           </li>
           {% endfor %}
@@ -476,5 +515,57 @@
       });
     });
   });
+</script>
+<script>
+  // Subida manual al expediente: arrastrar o elegir un archivo, revisarlo en el navegador y pedir tipo y descripción.
+  (function () {
+    const form = document.getElementById("subir-documento");
+    if (!form) return;
+    const zona = form.querySelector(".zona-arrastre");
+    const entrada = form.querySelector("input[type=file]");
+    const datos = form.querySelector(".datos-subida");
+    const texto = form.querySelector(".zona-texto");
+    const error = form.querySelector(".error-subida");
+    const TEXTO_INICIAL = texto.innerHTML;
+    const MAXIMO = 10 * 1024 * 1024;
+    const TIPOS = ["application/pdf", "image/jpeg", "image/png"];
+
+    function reiniciar() {
+      entrada.value = "";
+      texto.innerHTML = TEXTO_INICIAL;
+      datos.hidden = true;
+      zona.classList.remove("con-archivo");
+    }
+
+    function elegir(archivos) {
+      error.textContent = "";
+      if (!archivos.length) return reiniciar();
+      const archivo = archivos[0];
+      if (!TIPOS.includes(archivo.type)) { error.textContent = "Solo se aceptan archivos PDF, JPG o PNG."; return reiniciar(); }
+      if (archivo.size > MAXIMO) { error.textContent = "El archivo pesa más de 10 MB."; return reiniciar(); }
+      if (archivos.length > 1) error.textContent = "Se tomó solo el primer archivo: súbalos de uno en uno para indicar el tipo de cada uno.";
+      const transferencia = new DataTransfer();
+      transferencia.items.add(archivo);
+      entrada.files = transferencia.files;
+      const kb = archivo.size / 1024;
+      const nombre = document.createElement("strong");
+      nombre.textContent = archivo.name;
+      texto.replaceChildren(nombre, " · " + (kb > 1024 ? (kb / 1024).toFixed(1) + " MB" : Math.ceil(kb) + " KB"));
+      zona.classList.add("con-archivo");
+      datos.hidden = false;
+      form.querySelector("select").focus();
+    }
+
+    entrada.addEventListener("change", function () { elegir(entrada.files); });
+    ["dragenter", "dragover"].forEach(function (evento) {
+      zona.addEventListener(evento, function (e) { e.preventDefault(); zona.classList.add("arrastrando"); });
+    });
+    ["dragleave", "drop"].forEach(function (evento) {
+      zona.addEventListener(evento, function () { zona.classList.remove("arrastrando"); });
+    });
+    zona.addEventListener("drop", function (e) { e.preventDefault(); elegir(e.dataTransfer.files); });
+    form.querySelector(".cancelar-subida").addEventListener("click", function () { error.textContent = ""; reiniciar(); });
+    form.addEventListener("submit", function () { form.querySelector("[type=submit]").disabled = true; });
+  })();
 </script>
 {% endblock %}

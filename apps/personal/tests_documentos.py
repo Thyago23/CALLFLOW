@@ -501,3 +501,85 @@ class PersonalTITests(TestCase):
         form = EmpleadoForm(data=datos_validos(cuenta_existente=cuenta.pk))  # vendedor telefónico
         self.assertFalse(form.is_valid())
         self.assertIn("cargo", form.errors)
+
+
+# --------------------------------------------------------------------------- subida manual al expediente
+@override_settings(MEDIA_ROOT=tempfile.mkdtemp(prefix="callflow-test-"))
+class SubidaManualTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        call_command("inicializar_datos", verbosity=0)
+        cls.admin = Usuario.objects.create_user("admin1", "admin1@callflow.test", "clave-segura-123", rol=Rol.ADMINISTRADOR)
+        cls.vendedor = Usuario.objects.create_user("vend1", "vend1@callflow.test", "clave-segura-123", rol=Rol.VENDEDOR)
+        cls.empleado = Empleado.objects.create(
+            identificacion=CEDULA_VALIDA, nombres="Luis", apellidos="Andrade",
+            cargo=Cargo.objects.get(nombre="Asesor de ventas"), fecha_ingreso=date.today(),
+        )
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(settings.MEDIA_ROOT, ignore_errors=True)
+        super().tearDownClass()
+
+    def setUp(self):
+        self.client.force_login(self.admin)
+        self.url = reverse("personal:documento_subir", args=[self.empleado.pk])
+
+    def subir(self, archivo, tipo="OTRO", descripcion=""):
+        from apps.documentos.models import TipoDocumento
+
+        return self.client.post(self.url, {"archivo": archivo, "tipo": TipoDocumento.objects.get(codigo=tipo).pk,
+                                           "descripcion": descripcion})
+
+    def test_sube_un_archivo_con_tipo_y_descripcion_y_vuelve_a_documentos(self):
+        respuesta = self.subir(pdf_falso("certificado"), tipo="CERT_LABORAL", descripcion="Empresa anterior")
+        self.assertRedirects(respuesta, reverse("personal:empleado_detalle", args=[self.empleado.pk]) + "#documentos",
+                             fetch_redirect_response=False)
+        documento = self.empleado.documentos.get()
+        self.assertEqual((documento.tipo.codigo, documento.descripcion), ("CERT_LABORAL", "Empresa anterior"))
+        self.assertEqual(documento.subido_por, self.admin)
+
+    def test_la_ficha_muestra_la_zona_para_subir(self):
+        respuesta = self.client.get(reverse("personal:empleado_detalle", args=[self.empleado.pk]))
+        self.assertContains(respuesta, "Arrastre un archivo aquí")
+        self.assertNotContains(respuesta, "Soporte de justificación")  # los tipos del sistema no se eligen a mano
+
+    def test_rechaza_lo_que_no_es_pdf_ni_imagen(self):
+        falso = SimpleUploadedFile("nota.pdf", b"no soy un pdf", content_type="application/pdf")
+        self.subir(falso)
+        self.assertFalse(self.empleado.documentos.exists())
+
+    def test_no_duplica_el_mismo_archivo(self):
+        self.subir(pdf_falso("cedula"))
+        respuesta = self.subir(pdf_falso("cedula"), tipo="CEDULA")
+        self.assertEqual(self.empleado.documentos.count(), 1)
+        self.assertIn("ya está en el expediente", [str(m) for m in respuesta.wsgi_request._messages][-1])
+
+    def test_no_permite_tipos_del_sistema(self):
+        self.subir(pdf_falso("factura"), tipo="FACTURA")
+        self.assertFalse(self.empleado.documentos.exists())
+
+    def test_vendedor_no_puede_subir(self):
+        self.client.force_login(self.vendedor)
+        self.assertEqual(self.subir(pdf_falso("x")).status_code, 403)
+
+    def test_quitar_es_borrado_logico(self):
+        self.subir(pdf_falso("equivocado"))
+        documento = self.empleado.documentos.get()
+        self.client.post(reverse("personal:documento_quitar", args=[documento.pk]))
+        documento.refresh_from_db()
+        self.assertTrue(documento.eliminado)
+        # Quitado, se puede volver a subir el mismo archivo.
+        self.subir(pdf_falso("equivocado"))
+        self.assertEqual(self.empleado.documentos.filter(eliminado=False).count(), 1)
+
+    def test_no_quita_el_pdf_de_un_contrato_generado(self):
+        from apps.documentos.models import ContratoGenerado, PlantillaContrato
+
+        self.subir(pdf_falso("contrato"), tipo="CONTRATO")
+        documento = self.empleado.documentos.get()
+        ContratoGenerado.objects.create(empleado=self.empleado, plantilla=PlantillaContrato.objects.first(),
+                                        documento=documento, fecha_inicio=date.today())
+        self.client.post(reverse("personal:documento_quitar", args=[documento.pk]))
+        documento.refresh_from_db()
+        self.assertFalse(documento.eliminado)
