@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block titulo %}Registrar movimiento · {{ request.empresa }}{% endblock %}
+{% block contenido %}
+<nav aria-label="Ruta" class="mb-2">
+  <ol class="breadcrumb small mb-0">
+    <li class="breadcrumb-item"><a href="{% url 'contabilidad:cajas' %}">Caja y bancos</a></li>
+    <li class="breadcrumb-item active" aria-current="page">Registrar movimiento</li>
+  </ol>
+</nav>
+<header class="cabecera-formulario">
+  <h1 class="h3 mb-1">Registrar movimiento</h1>
+  <p class="text-body-secondary mb-0"><i class="bi bi-building me-1" aria-hidden="true"></i>{{ request.empresa }} · Ingresos, depósitos, transferencias y egresos. Para mover dinero entre cuentas propias use <a href="{% url 'contabilidad:traspaso_crear' %}">Traspaso</a>.</p>
+</header>
+<div class="contenedor-formulario">
+  {% for error in form.non_field_errors %}<div class="alert alert-danger">{{ error }}</div>{% endfor %}
+  <form method="post" novalidate class="card formulario" enctype="multipart/form-data">
+    {% csrf_token %}
+    <section class="formulario-seccion">
+      <div class="formulario-seccion-info">
+        <span class="formulario-icono" aria-hidden="true"><i class="bi bi-cash-stack"></i></span>
+        <h2>Movimiento</h2>
+        <p>Una vez registrado no se edita: si hay un error, se anula con su motivo y se registra de nuevo.</p>
+      </div>
+      <div class="row">
+        <div class="col-md-6">{% include "_campo.html" with campo=form.cuenta %}</div>
+        <div class="col-md-6">{% include "_campo.html" with campo=form.tipo %}</div>
+        <div class="col-sm-6">{% include "_campo.html" with campo=form.fecha %}</div>
+        <div class="col-sm-6">{% include "_campo.html" with campo=form.valor %}</div>
+        <div class="col-12">{% include "_campo.html" with campo=form.concepto %}</div>
+      </div>
+    </section>
+    <section class="formulario-seccion">
+      <div class="formulario-seccion-info">
+        <span class="formulario-icono" aria-hidden="true"><i class="bi bi-person"></i></span>
+        <h2>De quién o para quién</h2>
+        <p>Un cliente, un proveedor u otra persona. Opcional.</p>
+      </div>
+      <div class="row">
+        <div class="col-md-6">{% include "_campo.html" with campo=form.cliente %}</div>
+        <div class="col-md-6">{% include "_campo.html" with campo=form.proveedor %}</div>
+        <div class="col-12">{% include "_campo.html" with campo=form.tercero ayuda=form.tercero.help_text %}</div>
+      </div>
+    </section>
+    <section class="formulario-seccion">
+      <div class="formulario-seccion-info">
+        <span class="formulario-icono" aria-hidden="true"><i class="bi bi-paperclip"></i></span>
+        <h2>Soporte</h2>
+        <p>La referencia y el comprobante sirven para conciliar con el estado de cuenta.</p>
+      </div>
+      <div class="row">
+        <div class="col-md-6">{% include "_campo.html" with campo=form.referencia ayuda=form.referencia.help_text %}</div>
+        <div class="col-md-6">{% include "_campo.html" with campo=form.soporte ayuda=form.soporte.help_text %}</div>
+        <div class="col-12">{% include "_campo.html" with campo=form.observaciones %}</div>
+      </div>
+    </section>
+    <div class="formulario-acciones">
+      <span class="small text-body-secondary d-none d-sm-inline"><span class="text-danger">*</span> Campo obligatorio</span>
+      <a href="{% url 'contabilidad:cajas' %}" class="btn btn-outline-secondary ms-auto">Cancelar</a>
+      <button type="submit" class="btn btn-primary"><i class="bi bi-check2" aria-hidden="true"></i> Registrar</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

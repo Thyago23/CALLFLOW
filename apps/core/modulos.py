@@ -42,6 +42,7 @@ SECCIONES = [
     ("4.3", "Ventas"),
     ("4.4", "Cierre de ventas"),
     ("4.5", "Reportes"),
+    ("4.6", "Contabilidad"),
     ("TI", "Tecnología"),
 ]
 
@@ -86,10 +87,16 @@ MODULOS = [
            vistas=("ti:conectados", "ti:cerrar_sesion", "ti:accesos", "ti:desbloquear", "ti:respaldos", "ti:servidor")),
     Modulo("soporte", "Mesa de ayuda", "TI", "headset", "",
            "Reporte una falla (audio, internet, computador, sistema) y siga su atención.", url="soporte:inicio",
-           roles=("ADMINISTRADOR", "VENDEDOR", "ENCARGADO_CIERRE")),
+           roles=("ADMINISTRADOR", "VENDEDOR", "ENCARGADO_CIERRE", "CONTADOR")),
     Modulo("mensajes", "Mensajes", "TI", "chat-dots", "",
            "Mensajería interna entre TI, administradores y supervisores.", url="mensajes:bandeja",
            roles=("ADMINISTRADOR", "ENCARGADO_CIERRE", "TI")),
+    # Contabilidad de Multivisas y T&T (rol Contador): dos entradas del menú, una por namespace.
+    Modulo("contabilidad", "Contabilidad", "4.6", "journal-bookmark", "contabilidad.view_asiento",
+           "Caja y bancos, saldos iniciales, libro diario, balance y activos fijos de Multivisas y T&T.",
+           url="contabilidad:inicio"),
+    Modulo("crm", "Clientes y leads", "4.6", "person-lines-fill", "contabilidad.view_lead",
+           "Leads de visas y paquetes, su seguimiento, clientes y proveedores.", url="crm:leads"),
     Modulo("reportes", "Reportes", "4.5", "file-earmark-bar-graph", "reportes.view_tiporeporte",
            "Reportes en PDF, estadísticas y proyección de ventas.", url="reportes:centro"),
 ]
@@ -116,6 +123,7 @@ def modulos_de(usuario) -> list[Modulo]:
 GRUPOS = [
     ("Administración", ("personal", "asistencia", "documentos", "inventario", "nomina")),
     ("Comercial", ("ventas", "cierre", "tablero", "breaks", "chips")),
+    ("Contabilidad", ("contabilidad", "crm")),
     ("Tecnología", ("ti", "soporte_ti", "ti_equipos", "ti_monitoreo")),
     ("Herramientas", ("soporte", "mensajes", "agenda", "reportes")),
 ]

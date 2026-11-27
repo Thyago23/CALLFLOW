@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block titulo %}Plan de cuentas{% endblock %}
+{% block contenido %}
+{% include "contabilidad/_subnav.html" %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <p class="small text-body-secondary mb-0">El mismo plan para Multivisas y T&T. Las cuentas en <strong>negrita</strong> son de grupo; las demás reciben los valores de los asientos.</p>
+  {% if perms.contabilidad.add_cuentacontable %}<a class="btn btn-outline-primary" href="{% url 'contabilidad:cuenta_crear' %}"><i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Nueva cuenta</a>{% endif %}
+</div>
+<form class="row g-2 mb-3" method="get" role="search">
+  <div class="col-md-6"><label class="visually-hidden" for="q">Buscar</label><input id="q" type="search" name="q" value="{{ q }}" class="form-control" placeholder="Código (ej. 1.1.02) o nombre"></div>
+  <div class="col-sm-6 col-md-3"><label class="visually-hidden" for="tipo">Tipo</label>
+    <select id="tipo" name="tipo" class="form-select" onchange="this.form.submit()"><option value="">Todos los tipos</option>{% for v, e in tipos %}<option value="{{ v }}" {% if v == tipo %}selected{% endif %}>{{ e }}</option>{% endfor %}</select></div>
+  <div class="col-sm-6 col-md-3"><button class="btn btn-outline-primary" type="submit">Buscar</button></div>
+</form>
+<div class="card"><div class="table-responsive"><table class="table table-sm table-hover align-middle mb-0">
+  <thead><tr><th scope="col">Código</th><th scope="col">Cuenta</th><th scope="col" class="d-none d-md-table-cell">Tipo</th><th scope="col" class="d-none d-md-table-cell">Naturaleza</th><th scope="col" class="text-end"><span class="visually-hidden">Acciones</span></th></tr></thead>
+  <tbody>
+  {% for c, de_movimiento in cuentas %}
+    <tr class="{% if not c.activa %}text-body-secondary{% endif %}">
+      <td class="text-nowrap font-monospace small">{{ c.codigo }}</td>
+      <td style="padding-left: {{ c.nivel }}rem" class="{% if not de_movimiento %}fw-semibold{% endif %}">{{ c.nombre }}{% if not c.activa %} <span class="badge text-bg-secondary">Inactiva</span>{% endif %}
+        {% if c.descripcion %}<div class="small text-body-secondary fw-normal d-none d-lg-block">{{ c.descripcion }}</div>{% endif %}</td>
+      <td class="d-none d-md-table-cell">{{ c.get_tipo_display }}</td>
+      <td class="d-none d-md-table-cell">{{ c.get_naturaleza_display }}</td>
+      <td class="text-end text-nowrap">
+        {% if de_movimiento %}<a class="btn btn-sm btn-link" href="{% url 'contabilidad:mayor' c.pk %}">Mayor</a>{% endif %}
+        {% if perms.contabilidad.add_cuentacontable %}<a class="btn btn-sm btn-outline-secondary" href="{% url 'contabilidad:cuenta_crear' %}?padre={{ c.codigo }}" title="Agregar subcuenta"><i class="bi bi-plus" aria-hidden="true"></i><span class="visually-hidden">Subcuenta</span></a>{% endif %}
+        {% if perms.contabilidad.change_cuentacontable %}<a class="btn btn-sm btn-outline-secondary" href="{% url 'contabilidad:cuenta_editar' c.pk %}" title="Editar"><i class="bi bi-pencil" aria-hidden="true"></i><span class="visually-hidden">Editar</span></a>{% endif %}
+      </td>
+    </tr>
+  {% empty %}
+    <tr><td colspan="5" class="text-center text-body-secondary py-4">No hay cuentas que coincidan.</td></tr>
+  {% endfor %}
+  </tbody>
+</table></div></div>
+{% endblock %}

@@ -89,7 +89,9 @@ class FinalizarDiaTests(TestCase):
 
     def test_finalizar_exige_post(self):
         self.ingresar(a_las(8, 55))
-        self.assertEqual(self.client.get(reverse("asistencia:finalizar_dia")).status_code, 405)
+        # Con la hora simulada: la sesión abierta el día de la prueba vence a las 2 semanas de la fecha real.
+        with mock.patch("django.utils.timezone.now", return_value=a_las(10, 0)):
+            self.assertEqual(self.client.get(reverse("asistencia:finalizar_dia")).status_code, 405)
 
     # ------------------------------------------------------------------ sin finalizar
     def test_antes_del_margen_no_hay_incidencia(self):

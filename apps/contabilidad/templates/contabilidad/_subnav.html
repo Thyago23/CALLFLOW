@@ -1,0 +1,33 @@
+{% load contabilidad_tags %}
+{# Cabecera del módulo: título, empresa activa (Multivisas / T&T) y pestañas. `crm` = pestañas de clientes y leads. #}
+<div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
+  <div>
+    <h1 class="h3 mb-0">{% if crm %}Clientes y leads{% else %}Contabilidad{% endif %}</h1>
+    <p class="text-body-secondary small mb-0">{% if crm %}Leads de visas y paquetes, su seguimiento, clientes y proveedores.{% else %}Caja y bancos, libro diario y balance. Sin conexión al SRI.{% endif %}</p>
+  </div>
+  {% empresas_activas as lista_empresas %}
+  <form method="post" action="{% url 'contabilidad:cambiar_empresa' %}" class="d-flex align-items-center gap-2 selector-empresa">
+    {% csrf_token %}<input type="hidden" name="volver" value="{{ request.path }}">
+    <label for="empresa-activa" class="small text-body-secondary text-nowrap"><i class="bi bi-building me-1" aria-hidden="true"></i>Empresa</label>
+    <select id="empresa-activa" name="empresa" class="form-select fw-semibold" onchange="this.form.submit()">
+      {% for e in lista_empresas %}<option value="{{ e.pk }}" {% if e.pk == request.empresa.pk %}selected{% endif %}>{{ e.nombre }}</option>{% endfor %}
+    </select>
+    <noscript><button type="submit" class="btn btn-outline-secondary">Cambiar</button></noscript>
+  </form>
+</div>
+<ul class="nav nav-underline mb-4 subnav-modulo">
+  {% if crm %}
+  <li class="nav-item"><a class="nav-link {% if seccion == 'leads' %}active{% endif %}" href="{% url 'crm:leads' %}"><i class="bi bi-funnel me-1" aria-hidden="true"></i>Leads</a></li>
+  {% if perms.contabilidad.view_cliente %}<li class="nav-item"><a class="nav-link {% if seccion == 'clientes' %}active{% endif %}" href="{% url 'crm:clientes' %}"><i class="bi bi-people me-1" aria-hidden="true"></i>Clientes</a></li>{% endif %}
+  {% if perms.contabilidad.view_proveedor %}<li class="nav-item"><a class="nav-link {% if seccion == 'proveedores' %}active{% endif %}" href="{% url 'crm:proveedores' %}"><i class="bi bi-truck me-1" aria-hidden="true"></i>Proveedores</a></li>{% endif %}
+  {% else %}
+  <li class="nav-item"><a class="nav-link {% if seccion == 'inicio' %}active{% endif %}" href="{% url 'contabilidad:inicio' %}"><i class="bi bi-speedometer2 me-1" aria-hidden="true"></i>Resumen</a></li>
+  <li class="nav-item"><a class="nav-link {% if seccion == 'cajas' %}active{% endif %}" href="{% url 'contabilidad:cajas' %}"><i class="bi bi-bank me-1" aria-hidden="true"></i>Caja y bancos</a></li>
+  <li class="nav-item"><a class="nav-link {% if seccion == 'movimientos' %}active{% endif %}" href="{% url 'contabilidad:movimientos' %}"><i class="bi bi-arrow-down-up me-1" aria-hidden="true"></i>Movimientos</a></li>
+  <li class="nav-item"><a class="nav-link {% if seccion == 'saldos' %}active{% endif %}" href="{% url 'contabilidad:saldos_iniciales' %}"><i class="bi bi-flag me-1" aria-hidden="true"></i>Saldos iniciales</a></li>
+  <li class="nav-item"><a class="nav-link {% if seccion == 'diario' %}active{% endif %}" href="{% url 'contabilidad:diario' %}"><i class="bi bi-journal-text me-1" aria-hidden="true"></i>Libro diario</a></li>
+  <li class="nav-item"><a class="nav-link {% if seccion == 'balance' %}active{% endif %}" href="{% url 'contabilidad:balance' %}"><i class="bi bi-scale me-1" aria-hidden="true"></i>Balance</a></li>
+  <li class="nav-item"><a class="nav-link {% if seccion == 'plan' %}active{% endif %}" href="{% url 'contabilidad:plan_cuentas' %}"><i class="bi bi-list-ol me-1" aria-hidden="true"></i>Plan de cuentas</a></li>
+  <li class="nav-item"><a class="nav-link {% if seccion == 'activos' %}active{% endif %}" href="{% url 'contabilidad:activos' %}"><i class="bi bi-box me-1" aria-hidden="true"></i>Activos fijos</a></li>
+  {% endif %}
+</ul>

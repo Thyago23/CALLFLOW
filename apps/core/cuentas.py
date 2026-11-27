@@ -21,6 +21,9 @@ def rol_para_cargo(nombre_cargo: str) -> str:
     # Antes que «administr»: un «Administrador de TI» es del departamento de TI, no administrador del sistema.
     if "tecnolog" in cargo or re.search(r"\bti\b", cargo):
         return Rol.TI
+    # Antes que «administr»: un «Contador administrativo» lleva la contabilidad, no administra el sistema.
+    if "contad" in cargo or "contab" in cargo:
+        return Rol.CONTADOR
     if "administr" in cargo:
         return Rol.ADMINISTRADOR
     if "supervis" in cargo or "cierre" in cargo:

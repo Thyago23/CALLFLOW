@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% load humanize_cf %}
+{% block titulo %}Saldos iniciales · {{ request.empresa }}{% endblock %}
+{% block contenido %}
+{% include "contabilidad/_subnav.html" %}
+<div class="card"><div class="card-body">
+  <h2 class="h5">{{ request.empresa }} todavía no tiene saldos iniciales</h2>
+  <p class="mb-2">Los saldos iniciales se registran como un <strong>asiento de apertura</strong> a la fecha de corte (por ejemplo, el 31 de diciembre anterior al período que se reconstruye):</p>
+  <ul class="mb-3">
+    <li>Cada cuenta con su saldo: las del activo al <strong>debe</strong>; las del pasivo y el patrimonio al <strong>haber</strong>.</li>
+    <li>El debe tiene que ser igual al haber; la diferencia suele ir a Capital o a Resultados acumulados.</li>
+    <li>Anote en el detalle de cada línea su documento de respaldo (estado de cuenta, arqueo, factura pendiente…).</li>
+    <li>Hay un solo asiento de apertura por empresa.</li>
+  </ul>
+  {% if cajas %}
+  <p class="small text-body-secondary">Saldos iniciales de caja y bancos ya registrados (deberían coincidir con la apertura):
+    {% for c in cajas %}{{ c.nombre }} $ {{ c.saldo_inicial|dinero }} al {{ c.fecha_saldo_inicial|date:"d/m/Y" }}{% if not forloop.last %}; {% endif %}{% endfor %}.</p>
+  {% endif %}
+  {% if perms.contabilidad.add_asiento %}<a class="btn btn-primary" href="{% url 'contabilidad:asiento_crear' %}?tipo=APERTURA"><i class="bi bi-flag me-1" aria-hidden="true"></i>Registrar saldos iniciales</a>{% endif %}
+</div></div>
+{% endblock %}

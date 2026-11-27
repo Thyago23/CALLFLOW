@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% load humanize_cf %}
+{% block titulo %}Balance de comprobación · {{ request.empresa }}{% endblock %}
+{% block contenido %}
+{% include "contabilidad/_subnav.html" %}
+<form class="row g-2 mb-3 align-items-end" method="get">
+  <div class="col-6 col-md-3"><label class="form-label small mb-1" for="desde">Desde</label><input id="desde" type="date" name="desde" value="{{ desde|date:'Y-m-d' }}" class="form-control"></div>
+  <div class="col-6 col-md-3"><label class="form-label small mb-1" for="hasta">Hasta</label><input id="hasta" type="date" name="hasta" value="{{ hasta|date:'Y-m-d' }}" class="form-control"></div>
+  <div class="col-6 col-md-3"><label class="form-label small mb-1" for="nivel">Detalle</label>
+    <select id="nivel" name="nivel" class="form-select">
+      <option value="">Todas las cuentas</option>
+      <option value="1" {% if nivel == '1' %}selected{% endif %}>Solo grupos (1, 2, 3…)</option>
+      <option value="2" {% if nivel == '2' %}selected{% endif %}>Hasta 2 niveles</option>
+      <option value="3" {% if nivel == '3' %}selected{% endif %}>Hasta 3 niveles</option>
+    </select></div>
+  <div class="col-6 col-md-3"><button class="btn btn-outline-primary" type="submit">Ver</button> <button type="button" class="btn btn-outline-secondary" onclick="window.print()"><i class="bi bi-printer" aria-hidden="true"></i><span class="visually-hidden">Imprimir</span></button></div>
+</form>
+
+{% if borradores %}<div class="alert alert-warning small py-2">Hay {{ borradores }} asiento{{ borradores|pluralize }} en borrador que no entra{{ borradores|pluralize:"n" }} en el balance.</div>{% endif %}
+
+{% if filas %}
+<div class="mb-2">{% if cuadra %}<span class="badge bg-success-subtle text-success-emphasis border border-success-subtle"><i class="bi bi-check2 me-1" aria-hidden="true"></i>Cuadra: debe = haber</span>
+  {% else %}<span class="badge bg-danger-subtle text-danger-emphasis border border-danger-subtle">No cuadra: debe $ {{ total_debe|dinero }} y haber $ {{ total_haber|dinero }}</span>{% endif %}</div>
+<div class="card"><div class="table-responsive"><table class="table table-sm align-middle mb-0">
+  <thead><tr><th scope="col">Código</th><th scope="col">Cuenta</th><th scope="col" class="text-end">Total debe</th><th scope="col" class="text-end">Total haber</th><th scope="col" class="text-end">Saldo deudor</th><th scope="col" class="text-end">Saldo acreedor</th></tr></thead>
+  <tbody>
+  {% for f in filas %}
+    <tr class="{% if f.nivel == 1 %}table-light fw-bold{% elif f.nivel == 2 %}fw-semibold{% endif %}">
+      <td class="font-monospace small text-nowrap">{{ f.cuenta.codigo }}</td>
+      <td style="padding-left: {{ f.nivel }}rem"><a class="text-reset" href="{% url 'contabilidad:mayor' f.cuenta.pk %}?{% if desde %}desde={{ desde|date:'Y-m-d' }}&{% endif %}{% if hasta %}hasta={{ hasta|date:'Y-m-d' }}{% endif %}">{{ f.cuenta.nombre }}</a></td>
+      <td class="text-end text-nowrap">$ {{ f.debe|dinero }}</td>
+      <td class="text-end text-nowrap">$ {{ f.haber|dinero }}</td>
+      <td class="text-end text-nowrap">{% if f.saldo_deudor %}$ {{ f.saldo_deudor|dinero }}{% endif %}</td>
+      <td class="text-end text-nowrap">{% if f.saldo_acreedor %}$ {{ f.saldo_acreedor|dinero }}{% endif %}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+  <tfoot><tr class="fw-bold"><td colspan="2">Totales (cuentas de movimiento)</td>
+    <td class="text-end text-nowrap">$ {{ total_debe|dinero }}</td><td class="text-end text-nowrap">$ {{ total_haber|dinero }}</td>
+    <td class="text-end text-nowrap">$ {{ total_deudor|dinero }}</td><td class="text-end text-nowrap">$ {{ total_acreedor|dinero }}</td></tr></tfoot>
+</table></div></div>
+{% else %}
+<div class="text-center text-body-secondary py-5">No hay asientos contabilizados{% if desde or hasta %} en esas fechas{% endif %} en {{ request.empresa }}.</div>
+{% endif %}
+{% endblock %}

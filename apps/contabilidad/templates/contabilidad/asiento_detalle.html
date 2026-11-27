@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% load humanize_cf %}
+{% block titulo %}{{ asiento }} · {{ request.empresa }}{% endblock %}
+{% block contenido %}
+{% include "contabilidad/_subnav.html" %}
+<div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-3">
+  <div>
+    <h2 class="h4 mb-0">{% if asiento.numero %}Asiento N.º {{ asiento.numero }}{% else %}Asiento en borrador{% endif %}
+      {% if asiento.estado == 'BORRADOR' %}<span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle">Borrador</span>
+      {% elif asiento.estado == 'ANULADO' %}<span class="badge text-bg-secondary">Anulado</span>
+      {% else %}<span class="badge bg-success-subtle text-success-emphasis border border-success-subtle">Contabilizado</span>{% endif %}
+    </h2>
+    <div class="text-body-secondary">{{ asiento.fecha|date:"d/m/Y" }} · {{ asiento.get_tipo_display }} · Período {{ asiento.periodo }}{% if asiento.documento %} · Doc. {{ asiento.documento }}{% endif %}</div>
+    <div class="fw-semibold mt-1">{{ asiento.concepto }}</div>
+  </div>
+  <div class="d-flex flex-wrap gap-2 align-items-start">
+    {% if asiento.es_borrador %}
+      {% if perms.contabilidad.change_asiento %}
+      <a class="btn btn-outline-secondary" href="{% url 'contabilidad:asiento_editar' asiento.pk %}"><i class="bi bi-pencil me-1" aria-hidden="true"></i>Editar</a>
+      <form method="post" action="{% url 'contabilidad:asiento_contabilizar' asiento.pk %}" onsubmit="return confirm('¿Contabilizar el asiento? Recibirá su número y ya no se podrá modificar.');">{% csrf_token %}
+        <button type="submit" class="btn btn-primary" {% if diferencia or not debe %}disabled title="El asiento no cuadra"{% endif %}><i class="bi bi-check2-all me-1" aria-hidden="true"></i>Contabilizar</button></form>
+      {% endif %}
+      {% if perms.contabilidad.delete_asiento %}
+      <form method="post" action="{% url 'contabilidad:asiento_borrar' asiento.pk %}" onsubmit="return confirm('¿Borrar este borrador?');">{% csrf_token %}
+        <button type="submit" class="btn btn-outline-danger"><i class="bi bi-trash me-1" aria-hidden="true"></i>Borrar</button></form>
+      {% endif %}
+    {% elif asiento.estado == 'CONTABILIZADO' and perms.contabilidad.change_asiento %}
+      <details class="text-start">
+        <summary class="btn btn-outline-danger"><i class="bi bi-x-circle me-1" aria-hidden="true"></i>Anular</summary>
+        <form method="post" action="{% url 'contabilidad:asiento_anular' asiento.pk %}" class="card card-body shadow-sm mt-1" style="min-width:18rem">
+          {% csrf_token %}
+          <label class="form-label small" for="motivo">Motivo de la anulación</label>
+          <input id="motivo" name="motivo" class="form-control form-control-sm mb-2" required maxlength="255">
+          <p class="small text-body-secondary mb-2">El asiento conserva su número, pero deja de contar en el balance.</p>
+          <button type="submit" class="btn btn-sm btn-danger">Anular asiento</button>
+        </form>
+      </details>
+    {% endif %}
+  </div>
+</div>
+
+{% if asiento.estado == 'ANULADO' %}<div class="alert alert-secondary">Anulado el {{ asiento.anulado_en|date:"d/m/Y H:i" }} por {{ asiento.anulado_por.get_full_name|default:asiento.anulado_por }}: {{ asiento.motivo_anulacion }}</div>{% endif %}
+{% if asiento.es_borrador and diferencia %}<div class="alert alert-warning">El asiento no cuadra: diferencia de $ {{ diferencia|dinero }}. Corríjalo antes de contabilizarlo.</div>{% endif %}
+
+<div class="card mb-3"><div class="table-responsive"><table class="table table-sm align-middle mb-0">
+  <thead><tr><th scope="col">Cuenta</th><th scope="col">Detalle</th><th scope="col" class="d-none d-md-table-cell">Tercero</th><th scope="col" class="text-end">Debe</th><th scope="col" class="text-end">Haber</th></tr></thead>
+  <tbody>
+  {% for l in lineas %}
+    <tr><td><span class="font-monospace small">{{ l.cuenta.codigo }}</span> {{ l.cuenta.nombre }}</td><td>{{ l.detalle }}</td>
+      <td class="d-none d-md-table-cell small">{{ l.tercero_visible }}</td>
+      <td class="text-end text-nowrap">{% if l.debe %}$ {{ l.debe|dinero }}{% endif %}</td>
+      <td class="text-end text-nowrap">{% if l.haber %}$ {{ l.haber|dinero }}{% endif %}</td></tr>
+  {% empty %}
+    <tr><td colspan="5" class="text-center text-body-secondary py-3">El asiento no tiene líneas.</td></tr>
+  {% endfor %}
+  </tbody>
+  <tfoot><tr class="fw-bold"><td colspan="3">Totales</td><td class="text-end text-nowrap">$ {{ debe|dinero }}</td><td class="text-end text-nowrap">$ {{ haber|dinero }}</td></tr></tfoot>
+</table></div></div>
+<p class="small text-body-secondary">Registrado por {{ asiento.registrado_por.get_full_name|default:asiento.registrado_por|default:"—" }} el {{ asiento.creado_en|date:"d/m/Y H:i" }}{% if asiento.contabilizado_en %} · contabilizado por {{ asiento.contabilizado_por.get_full_name|default:asiento.contabilizado_por }} el {{ asiento.contabilizado_en|date:"d/m/Y H:i" }}{% endif %}.</p>
+{% endblock %}

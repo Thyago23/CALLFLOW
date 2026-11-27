@@ -18,7 +18,7 @@ from apps.core.models import Rol
 
 from .formato import NUMERICOS, formatear
 
-A, V, C, T = Rol.ADMINISTRADOR, Rol.VENDEDOR, Rol.ENCARGADO_CIERRE, Rol.TI
+A, V, C, T, K = Rol.ADMINISTRADOR, Rol.VENDEDOR, Rol.ENCARGADO_CIERRE, Rol.TI, Rol.CONTADOR
 
 
 # --------------------------------------------------------------------------- estructura común
@@ -664,11 +664,11 @@ REPORTES = {r.codigo: r for r in [
             "Entradas, salidas y ajustes de materiales en un rango de fechas.", ("desde", "hasta", "categoria"), (A,),
             icono="arrow-left-right"),
     Reporte("NOMINA_RESUMEN", "Resumen de nómina", "NOMINA",
-            "Sueldo, descuentos, anticipos y neto del rol de cada empleado en un mes.", ("mes", "equipo"), (A,), icono="cash-coin"),
+            "Sueldo, descuentos, anticipos y neto del rol de cada empleado en un mes.", ("mes", "equipo"), (A, K), icono="cash-coin"),
     Reporte("NOMINA_COMISIONES", "Comisiones de vendedores", "NOMINA",
-            "Ventas cerradas, porcentaje aplicado y comisión de cada vendedor en un mes.", ("mes", "equipo"), (A,), icono="percent"),
+            "Ventas cerradas, porcentaje aplicado y comisión de cada vendedor en un mes.", ("mes", "equipo"), (A, K), icono="percent"),
     Reporte("NOMINA_ROL_PAGO", "Rol de pagos individual", "NOMINA",
-            "El rol de pagos de un empleado con el formato de la empresa.", ("mes", "empleado"), (A,), obligatorios=("empleado",),
+            "El rol de pagos de un empleado con el formato de la empresa.", ("mes", "empleado"), (A, K), obligatorios=("empleado",),
             icono="receipt"),
     Reporte("VENTAS_POR_VENDEDOR", "Ventas por vendedor", "VENTAS",
             "Enviados, cerradas, total vendido, ticket promedio y tasa de cierre de cada vendedor.",

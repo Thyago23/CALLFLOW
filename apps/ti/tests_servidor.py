@@ -42,8 +42,10 @@ class ServidorTests(BaseTI):
             respuesta = self.client.get(reverse("ti:servidor"))
         self.assertEqual(respuesta.status_code, 200)
         self.assertContains(respuesta, "Espacio en disco")
-        self.assertContains(respuesta, "core_usuario")  # una de las tablas de la base
         base = respuesta.context["base"]
+        # Las tablas más grandes de la base: cuáles son depende de lo que cargue cada app, así que no se fija una.
+        self.assertTrue(base["tablas"])
+        self.assertContains(respuesta, base["tablas"][0]["nombre"])
         self.assertGreater(base["tamano"], 0)
         self.assertGreaterEqual(base["conexiones"], 1)
         self.assertTrue(respuesta.context["discos"])

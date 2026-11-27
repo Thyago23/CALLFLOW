@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% load humanize_cf %}
+{% block titulo %}Activos fijos · {{ request.empresa }}{% endblock %}
+{% block contenido %}
+{% include "contabilidad/_subnav.html" %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <div class="d-flex flex-wrap gap-3 small">
+    <span>Costo total: <strong>$ {{ total_costo|dinero }}</strong></span>
+    <span>Valor en libros: <strong>$ {{ total_libros|dinero }}</strong>{% if sin_depreciar %} <span class="text-body-secondary">({{ sin_depreciar }} sin fecha de compra o vida útil, no se deprecian)</span>{% endif %}</span>
+  </div>
+  {% if perms.contabilidad.add_activofijo %}<a class="btn btn-primary" href="{% url 'contabilidad:activo_crear' %}"><i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Nuevo activo</a>{% endif %}
+</div>
+<form class="row g-2 mb-3" method="get" role="search">
+  <div class="col-md-6"><label class="visually-hidden" for="q">Buscar</label><input id="q" type="search" name="q" value="{{ q }}" class="form-control" placeholder="Descripción, código, custodio o ubicación"></div>
+  <div class="col-sm-6 col-md-3"><label class="visually-hidden" for="estado">Estado</label>
+    <select id="estado" name="estado" class="form-select" onchange="this.form.submit()"><option value="">Todos</option>{% for v, e in estados %}<option value="{{ v }}" {% if v == estado %}selected{% endif %}>{{ e }}</option>{% endfor %}</select></div>
+  <div class="col-sm-6 col-md-3"><button class="btn btn-outline-primary" type="submit">Buscar</button></div>
+</form>
+<div class="card"><div class="table-responsive"><table class="table table-sm table-hover align-middle mb-0">
+  <thead><tr><th scope="col">Código</th><th scope="col">Descripción</th><th scope="col" class="text-end">Cant.</th><th scope="col" class="text-end d-none d-md-table-cell">V. unitario</th><th scope="col" class="text-end">Costo</th><th scope="col" class="text-end d-none d-lg-table-cell">Depreciación</th><th scope="col" class="text-end d-none d-sm-table-cell">Valor en libros</th><th scope="col">Estado</th></tr></thead>
+  <tbody>
+  {% for a in activos %}
+    <tr class="{% if a.estado == 'BAJA' %}text-body-secondary{% endif %}">
+      <td class="text-nowrap">{% if perms.contabilidad.change_activofijo %}<a href="{% url 'contabilidad:activo_editar' a.pk %}">{{ a.codigo }}</a>{% else %}{{ a.codigo }}{% endif %}</td>
+      <td><span class="fw-semibold">{{ a.descripcion }}</span><div class="small text-body-secondary">{% if a.ubicacion %}{{ a.ubicacion }}{% endif %}{% if a.custodio %} · {{ a.custodio }}{% endif %}</div></td>
+      <td class="text-end">{{ a.cantidad }}</td>
+      <td class="text-end d-none d-md-table-cell text-nowrap">$ {{ a.valor_unitario|dinero }}</td>
+      <td class="text-end text-nowrap fw-semibold">$ {{ a.costo|dinero }}</td>
+      <td class="text-end d-none d-lg-table-cell text-nowrap">{% with d=a.depreciacion_acumulada %}{% if d is not None %}$ {{ d|dinero }}{% else %}<span class="text-body-secondary">—</span>{% endif %}{% endwith %}</td>
+      <td class="text-end d-none d-sm-table-cell text-nowrap">{% with v=a.valor_libros %}{% if v is not None %}$ {{ v|dinero }}{% else %}<span class="text-body-secondary">—</span>{% endif %}{% endwith %}</td>
+      <td><span class="badge {% if a.estado == 'EN_USO' %}bg-success-subtle text-success-emphasis{% elif a.estado == 'BAJA' %}text-bg-secondary{% else %}bg-warning-subtle text-warning-emphasis{% endif %}">{{ a.get_estado_display }}</span></td>
+    </tr>
+  {% empty %}
+    <tr><td colspan="8" class="text-center text-body-secondary py-4">No hay activos fijos registrados en {{ request.empresa }}.</td></tr>
+  {% endfor %}
+  </tbody>
+</table></div></div>
+{% endblock %}

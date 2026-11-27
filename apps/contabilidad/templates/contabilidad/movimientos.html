@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% load humanize_cf %}
+{% block titulo %}Movimientos · {{ request.empresa }}{% endblock %}
+{% block contenido %}
+{% include "contabilidad/_subnav.html" %}
+<div class="d-flex flex-wrap justify-content-end gap-2 mb-3">
+  {% if perms.contabilidad.add_movimientofinanciero and cuentas %}
+  <a class="btn btn-primary" href="{% url 'contabilidad:movimiento_crear' %}"><i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Registrar movimiento</a>
+  <a class="btn btn-outline-primary" href="{% url 'contabilidad:traspaso_crear' %}"><i class="bi bi-arrow-left-right me-1" aria-hidden="true"></i>Traspaso</a>
+  {% endif %}
+</div>
+<form class="row g-2 mb-3" method="get" role="search">
+  <div class="col-md-3"><label class="visually-hidden" for="q">Buscar</label><input id="q" type="search" name="q" value="{{ q }}" class="form-control" placeholder="Concepto, referencia o tercero"></div>
+  <div class="col-sm-6 col-md-2"><label class="visually-hidden" for="cuenta">Cuenta</label>
+    <select id="cuenta" name="cuenta" class="form-select"><option value="">Todas las cuentas</option>{% for c in cuentas %}<option value="{{ c.pk }}" {% if c.pk|stringformat:"s" == cuenta %}selected{% endif %}>{{ c.nombre }}</option>{% endfor %}</select></div>
+  <div class="col-sm-6 col-md-2"><label class="visually-hidden" for="tipo">Tipo</label>
+    <select id="tipo" name="tipo" class="form-select"><option value="">Todos los tipos</option>{% for v, e in tipos %}<option value="{{ v }}" {% if v == tipo %}selected{% endif %}>{{ e }}</option>{% endfor %}</select></div>
+  <div class="col-sm-6 col-md-2"><label class="visually-hidden" for="estado">Estado</label>
+    <select id="estado" name="estado" class="form-select"><option value="">Todos</option>
+      <option value="sin_conciliar" {% if estado == 'sin_conciliar' %}selected{% endif %}>Sin conciliar</option>
+      <option value="conciliados" {% if estado == 'conciliados' %}selected{% endif %}>Conciliados</option>
+      <option value="anulados" {% if estado == 'anulados' %}selected{% endif %}>Anulados</option></select></div>
+  <div class="col-6 col-md-1"><label class="visually-hidden" for="desde">Desde</label><input id="desde" type="date" name="desde" value="{{ desde|date:'Y-m-d' }}" class="form-control" title="Desde"></div>
+  <div class="col-6 col-md-1"><label class="visually-hidden" for="hasta">Hasta</label><input id="hasta" type="date" name="hasta" value="{{ hasta|date:'Y-m-d' }}" class="form-control" title="Hasta"></div>
+  <div class="col-md-1"><button class="btn btn-outline-primary w-100" type="submit">Filtrar</button></div>
+</form>
+<div class="d-flex flex-wrap gap-3 small mb-2">
+  <span>Entradas: <strong class="text-success-emphasis">$ {{ totales.entradas|dinero }}</strong></span>
+  <span>Salidas: <strong class="text-danger-emphasis">$ {{ totales.salidas|dinero }}</strong></span>
+  <span class="text-body-secondary">(sin contar los anulados)</span>
+</div>
+<div class="card"><div class="table-responsive"><table class="table table-sm table-hover align-middle mb-0">
+  <thead><tr><th scope="col">Fecha</th><th scope="col">Cuenta</th><th scope="col">Concepto</th><th scope="col" class="d-none d-lg-table-cell">Tercero</th>
+    <th scope="col" class="text-end">Valor</th><th scope="col" class="text-center d-none d-md-table-cell">Conciliado</th></tr></thead>
+  <tbody>
+  {% for m in movimientos %}
+    <tr class="{% if m.anulado %}text-body-secondary text-decoration-line-through{% endif %}">
+      <td class="text-nowrap">{{ m.fecha|date:"d/m/Y" }}</td>
+      <td><a class="text-reset" href="{% url 'contabilidad:caja_detalle' m.cuenta_id %}">{{ m.cuenta.nombre }}</a></td>
+      <td>{{ m.concepto }}<div class="small text-body-secondary">{{ m.get_tipo_display }}{% if m.referencia %} · Ref. {{ m.referencia }}{% endif %}</div></td>
+      <td class="d-none d-lg-table-cell small">{{ m.tercero_visible }}</td>
+      <td class="text-end text-nowrap fw-semibold {% if m.entra %}text-success-emphasis{% else %}text-danger-emphasis{% endif %}">{% if not m.entra %}−{% endif %}$ {{ m.valor|dinero }}</td>
+      <td class="text-center d-none d-md-table-cell">{% if m.conciliado %}<i class="bi bi-check2-square text-success" aria-label="Conciliado"></i>{% elif m.anulado %}<span class="badge text-bg-secondary">Anulado</span>{% elif m.cuenta.es_caja %}—{% else %}<i class="bi bi-square text-body-secondary" aria-label="Sin conciliar"></i>{% endif %}</td>
+    </tr>
+  {% empty %}
+    <tr><td colspan="6" class="text-center text-body-secondary py-4">No hay movimientos que coincidan.</td></tr>
+  {% endfor %}
+  </tbody>
+</table></div></div>
+{% endblock %}
