@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% load humanize_cf %}
+{% block titulo %}Libro diario · {{ request.empresa }}{% endblock %}
+{% block contenido %}
+{% include "contabilidad/_subnav.html" %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <p class="small text-body-secondary mb-0">Asientos registrados a mano. El balance toma solo los contabilizados.</p>
+  {% if perms.contabilidad.add_asiento %}<a class="btn btn-primary" href="{% url 'contabilidad:asiento_crear' %}"><i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Nuevo asiento</a>{% endif %}
+</div>
+<form class="row g-2 mb-3" method="get" role="search">
+  <div class="col-md-3"><label class="visually-hidden" for="q">Buscar</label><input id="q" type="search" name="q" value="{{ q }}" class="form-control" placeholder="N.º, concepto o documento"></div>
+  <div class="col-sm-6 col-md-2"><label class="visually-hidden" for="estado">Estado</label>
+    <select id="estado" name="estado" class="form-select"><option value="">Todos los estados</option>{% for v, e in estados %}<option value="{{ v }}" {% if v == estado %}selected{% endif %}>{{ e }}</option>{% endfor %}</select></div>
+  <div class="col-sm-6 col-md-2"><label class="visually-hidden" for="tipo">Tipo</label>
+    <select id="tipo" name="tipo" class="form-select"><option value="">Todos los tipos</option>{% for v, e in tipos %}<option value="{{ v }}" {% if v == tipo %}selected{% endif %}>{{ e }}</option>{% endfor %}</select></div>
+  <div class="col-6 col-md-2"><label class="visually-hidden" for="desde">Desde</label><input id="desde" type="date" name="desde" value="{{ desde|date:'Y-m-d' }}" class="form-control" title="Desde"></div>
+  <div class="col-6 col-md-2"><label class="visually-hidden" for="hasta">Hasta</label><input id="hasta" type="date" name="hasta" value="{{ hasta|date:'Y-m-d' }}" class="form-control" title="Hasta"></div>
+  <div class="col-md-1"><button class="btn btn-outline-primary w-100" type="submit">Filtrar</button></div>
+</form>
+<div class="card"><div class="table-responsive"><table class="table table-sm table-hover align-middle mb-0">
+  <thead><tr><th scope="col">N.º</th><th scope="col">Fecha</th><th scope="col">Concepto</th><th scope="col" class="d-none d-md-table-cell">Tipo</th><th scope="col" class="text-end">Valor</th><th scope="col">Estado</th></tr></thead>
+  <tbody>
+  {% for a in asientos %}
+    <tr class="{% if a.estado == 'ANULADO' %}text-body-secondary text-decoration-line-through{% endif %}">
+      <td class="text-nowrap">{{ a.numero|default:"—" }}</td>
+      <td class="text-nowrap">{{ a.fecha|date:"d/m/Y" }}</td>
+      <td><a class="text-reset fw-semibold" href="{% url 'contabilidad:asiento_detalle' a.pk %}">{{ a.concepto }}</a>{% if a.documento %}<div class="small text-body-secondary">Doc. {{ a.documento }}</div>{% endif %}</td>
+      <td class="d-none d-md-table-cell small">{{ a.get_tipo_display }}</td>
+      <td class="text-end text-nowrap">$ {{ a.total|default:0|dinero }}</td>
+      <td>{% if a.estado == 'BORRADOR' %}<span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle">Borrador</span>{% elif a.estado == 'ANULADO' %}<span class="badge text-bg-secondary">Anulado</span>{% else %}<span class="badge bg-success-subtle text-success-emphasis border border-success-subtle">Contabilizado</span>{% endif %}</td>
+    </tr>
+  {% empty %}
+    <tr><td colspan="6" class="text-center text-body-secondary py-4">No hay asientos{% if q or estado or tipo or desde or hasta %} que coincidan{% endif %}.</td></tr>
+  {% endfor %}
+  </tbody>
+</table></div></div>
+{% endblock %}

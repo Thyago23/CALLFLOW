@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block titulo %}{{ lead.nombres }} · Leads{% endblock %}
+{% block contenido %}
+{% include "contabilidad/_subnav.html" with crm=True %}
+<div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-3">
+  <div>
+    <h2 class="h4 mb-0">{{ lead.nombres }}
+      <span class="badge {% if lead.estado == 'CONVERTIDO' %}bg-success-subtle text-success-emphasis{% elif lead.estado == 'PERDIDO' %}text-bg-secondary{% else %}bg-info-subtle text-info-emphasis{% endif %}">{{ lead.get_estado_display }}</span></h2>
+    <div class="text-body-secondary">{{ lead.get_interes_display }}{% if lead.detalle %}: {{ lead.detalle }}{% endif %} · llegó por {{ lead.get_origen_display }} el {{ lead.creado_en|date:"d/m/Y" }}</div>
+  </div>
+  <div class="d-flex flex-wrap gap-2">
+    {% if lead.abierto %}
+      {% if perms.contabilidad.change_lead and perms.contabilidad.add_cliente %}<a class="btn btn-success" href="{% url 'crm:lead_convertir' lead.pk %}"><i class="bi bi-person-check me-1" aria-hidden="true"></i>Convertir en cliente</a>{% endif %}
+      {% if perms.contabilidad.change_lead %}<a class="btn btn-outline-secondary" href="{% url 'crm:lead_editar' lead.pk %}"><i class="bi bi-pencil me-1" aria-hidden="true"></i>Editar</a>{% endif %}
+    {% elif lead.cliente %}
+      <a class="btn btn-outline-success" href="{% url 'crm:cliente_detalle' lead.cliente_id %}"><i class="bi bi-person me-1" aria-hidden="true"></i>Ver cliente {{ lead.cliente.codigo }}</a>
+    {% endif %}
+  </div>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-4">
+    <div class="card h-100"><div class="card-body">
+      <h3 class="h6">Contacto</h3>
+      <dl class="row small mb-0">
+        <dt class="col-5">Teléfono</dt><dd class="col-7">{% if lead.telefono %}<a href="tel:{{ lead.telefono }}">{{ lead.telefono }}</a>{% else %}—{% endif %}</dd>
+        <dt class="col-5">Correo</dt><dd class="col-7 text-break">{% if lead.correo %}<a href="mailto:{{ lead.correo }}">{{ lead.correo }}</a>{% else %}—{% endif %}</dd>
+        <dt class="col-5">Responsable</dt><dd class="col-7">{{ lead.responsable.get_full_name|default:lead.responsable|default:"Sin asignar" }}</dd>
+        <dt class="col-5">Próximo contacto</dt><dd class="col-7 {% if lead.contacto_vencido %}text-danger fw-semibold{% endif %}">{{ lead.proximo_contacto|date:"d/m/Y"|default:"—" }}</dd>
+        {% if lead.motivo_perdida %}<dt class="col-5">Se perdió</dt><dd class="col-7">{{ lead.motivo_perdida }}</dd>{% endif %}
+      </dl>
+      {% if lead.notas %}<hr><p class="small mb-0" style="white-space: pre-line">{{ lead.notas }}</p>{% endif %}
+    </div></div>
+  </div>
+  <div class="col-lg-8">
+    {% if lead.abierto and perms.contabilidad.change_lead %}
+    <form method="post" action="{% url 'crm:lead_seguimiento' lead.pk %}" class="card mb-3" novalidate>
+      <div class="card-body">
+        <h3 class="h6">Registrar contacto</h3>
+        {% csrf_token %}
+        {% for error in form.non_field_errors %}<div class="alert alert-danger py-2 small">{{ error }}</div>{% endfor %}
+        {% include "_campo.html" with campo=form.nota ayuda=form.nota.help_text %}
+        <div class="row">
+          <div class="col-sm-4">{% include "_campo.html" with campo=form.estado %}</div>
+          <div class="col-sm-4">{% include "_campo.html" with campo=form.proximo_contacto %}</div>
+          <div class="col-sm-4">{% include "_campo.html" with campo=form.motivo_perdida %}</div>
+        </div>
+        <button type="submit" class="btn btn-primary"><i class="bi bi-chat-left-text me-1" aria-hidden="true"></i>Guardar contacto</button>
+      </div>
+    </form>
+    {% endif %}
+    <h3 class="h6">Historial</h3>
+    <ul class="list-group">
+      {% for s in seguimientos %}
+      <li class="list-group-item">
+        <div class="d-flex justify-content-between small text-body-secondary"><span>{{ s.usuario.get_full_name|default:s.usuario|default:"—" }} · {{ s.get_estado_display }}</span><span>{{ s.fecha|date:"d/m/Y H:i" }}</span></div>
+        <div style="white-space: pre-line">{{ s.nota }}</div>
+      </li>
+      {% empty %}
+      <li class="list-group-item text-body-secondary small">Todavía no hay contactos registrados.</li>
+      {% endfor %}
+    </ul>
+  </div>
+</div>
+{% endblock %}

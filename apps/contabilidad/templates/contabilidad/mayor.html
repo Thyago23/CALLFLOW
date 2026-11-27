@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% load humanize_cf %}
+{% block titulo %}Mayor {{ cuenta.codigo }} · {{ request.empresa }}{% endblock %}
+{% block contenido %}
+{% include "contabilidad/_subnav.html" %}
+<h2 class="h4 mb-0">Libro mayor: <span class="font-monospace">{{ cuenta.codigo }}</span> {{ cuenta.nombre }}</h2>
+<p class="text-body-secondary small">{{ cuenta.get_tipo_display }} · naturaleza {{ cuenta.get_naturaleza_display|lower }} · incluye sus subcuentas · solo asientos contabilizados.</p>
+<form class="row g-2 mb-3 align-items-end" method="get">
+  <div class="col-6 col-md-3"><label class="form-label small mb-1" for="desde">Desde</label><input id="desde" type="date" name="desde" value="{{ desde|date:'Y-m-d' }}" class="form-control"></div>
+  <div class="col-6 col-md-3"><label class="form-label small mb-1" for="hasta">Hasta</label><input id="hasta" type="date" name="hasta" value="{{ hasta|date:'Y-m-d' }}" class="form-control"></div>
+  <div class="col-md-3"><button class="btn btn-outline-primary" type="submit">Ver</button></div>
+</form>
+<div class="card"><div class="table-responsive"><table class="table table-sm align-middle mb-0">
+  <thead><tr><th scope="col">Fecha</th><th scope="col">Asiento</th><th scope="col">Detalle</th><th scope="col" class="text-end">Debe</th><th scope="col" class="text-end">Haber</th><th scope="col" class="text-end">Saldo</th></tr></thead>
+  <tbody>
+    <tr class="table-light"><td colspan="5" class="small text-body-secondary">Saldo anterior</td><td class="text-end fw-semibold text-nowrap">$ {{ anterior|dinero }}</td></tr>
+    {% for l, saldo in filas %}
+    <tr><td class="text-nowrap">{{ l.asiento.fecha|date:"d/m/Y" }}</td>
+      <td><a href="{% url 'contabilidad:asiento_detalle' l.asiento_id %}">N.º {{ l.asiento.numero }}</a></td>
+      <td>{{ l.detalle|default:l.asiento.concepto }}{% if l.cuenta_id != cuenta.pk %}<div class="small text-body-secondary">{{ l.cuenta }}</div>{% endif %}{% if l.tercero_visible %}<div class="small text-body-secondary">{{ l.tercero_visible }}</div>{% endif %}</td>
+      <td class="text-end text-nowrap">{% if l.debe %}$ {{ l.debe|dinero }}{% endif %}</td>
+      <td class="text-end text-nowrap">{% if l.haber %}$ {{ l.haber|dinero }}{% endif %}</td>
+      <td class="text-end text-nowrap fw-semibold">$ {{ saldo|dinero }}</td></tr>
+    {% empty %}
+    <tr><td colspan="6" class="text-center text-body-secondary py-4">Sin movimientos en el período.</td></tr>
+    {% endfor %}
+    <tr class="table-light fw-bold"><td colspan="5">Saldo final</td><td class="text-end text-nowrap">$ {{ final|dinero }}</td></tr>
+  </tbody>
+</table></div></div>
+{% endblock %}

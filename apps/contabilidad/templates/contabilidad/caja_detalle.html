@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% load humanize_cf %}
+{% block titulo %}{{ cuenta.nombre }} · {{ request.empresa }}{% endblock %}
+{% block contenido %}
+{% include "contabilidad/_subnav.html" %}
+<div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-3">
+  <div>
+    <h2 class="h4 mb-0">{{ cuenta.nombre }} {% if not cuenta.activa %}<span class="badge text-bg-secondary">Inactiva</span>{% endif %}</h2>
+    <div class="text-body-secondary small">{{ cuenta.get_tipo_display }}{% if cuenta.banco %} · {{ cuenta.banco }} {{ cuenta.numero }}{% endif %} · {{ cuenta.cuenta_contable }}</div>
+  </div>
+  <div class="d-flex flex-wrap gap-2">
+    {% if cuenta.activa and perms.contabilidad.add_movimientofinanciero %}
+    <a class="btn btn-success" href="{% url 'contabilidad:movimiento_crear' %}?cuenta={{ cuenta.pk }}&tipo={% if cuenta.es_caja %}INGRESO{% else %}DEPOSITO{% endif %}"><i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Ingreso</a>
+    <a class="btn btn-primary" href="{% url 'contabilidad:movimiento_crear' %}?cuenta={{ cuenta.pk }}&tipo=EGRESO"><i class="bi bi-dash-lg me-1" aria-hidden="true"></i>Egreso</a>
+    <a class="btn btn-outline-primary" href="{% url 'contabilidad:traspaso_crear' %}?origen={{ cuenta.pk }}"><i class="bi bi-arrow-left-right me-1" aria-hidden="true"></i>Traspaso</a>
+    {% endif %}
+    {% if perms.contabilidad.change_cuentafinanciera %}<a class="btn btn-outline-secondary" href="{% url 'contabilidad:caja_editar' cuenta.pk %}"><i class="bi bi-pencil me-1" aria-hidden="true"></i>Editar</a>{% endif %}
+  </div>
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-sm-4"><div class="card resumen-dia h-100"><div class="card-body"><div class="small text-body-secondary">Saldo inicial al {{ cuenta.fecha_saldo_inicial|date:"d/m/Y" }}</div><div class="valor">$ {{ cuenta.saldo_inicial|dinero }}</div></div></div></div>
+  <div class="col-sm-4"><div class="card resumen-dia h-100"><div class="card-body"><div class="small text-body-secondary">Saldo actual</div><div class="valor {% if saldo < 0 %}text-danger{% endif %}">$ {{ saldo|dinero }}</div></div></div></div>
+</div>
+
+<form class="row g-2 mb-3 align-items-end" method="get">
+  <div class="col-sm-4 col-md-3"><label class="form-label small mb-1" for="desde">Desde</label><input id="desde" type="date" name="desde" value="{{ desde|date:'Y-m-d' }}" class="form-control"></div>
+  <div class="col-sm-4 col-md-3"><label class="form-label small mb-1" for="hasta">Hasta</label><input id="hasta" type="date" name="hasta" value="{{ hasta|date:'Y-m-d' }}" class="form-control"></div>
+  <div class="col-sm-4 col-md-3 d-flex gap-2"><button class="btn btn-outline-primary" type="submit">Filtrar</button>{% if desde or hasta %}<a class="btn btn-link" href="?">Quitar</a>{% endif %}</div>
+</form>
+
+<div class="card"><div class="table-responsive"><table class="table align-middle mb-0 table-sm">
+  <thead><tr>
+    <th scope="col">Fecha</th><th scope="col">Concepto</th><th scope="col" class="d-none d-lg-table-cell">Tercero</th>
+    <th scope="col" class="text-end">Ingreso</th><th scope="col" class="text-end">Egreso</th><th scope="col" class="text-end">Saldo</th>
+    {% if not cuenta.es_caja %}<th scope="col" class="text-center">Conciliado</th>{% endif %}<th scope="col" class="text-end"><span class="visually-hidden">Acciones</span></th>
+  </tr></thead>
+  <tbody>
+    <tr class="table-light"><td colspan="5" class="small text-body-secondary">{% if desde %}Saldo al día anterior{% else %}Saldo inicial{% endif %}</td><td class="text-end fw-semibold text-nowrap">$ {{ anterior|dinero }}</td><td colspan="{% if cuenta.es_caja %}1{% else %}2{% endif %}"></td></tr>
+    {% for f in filas %}{% with m=f.movimiento %}
+    <tr class="{% if m.anulado %}text-body-secondary text-decoration-line-through{% endif %}">
+      <td class="text-nowrap">{{ m.fecha|date:"d/m/Y" }}</td>
+      <td><span class="fw-semibold">{{ m.concepto }}</span>
+        <div class="small text-body-secondary">{{ m.get_tipo_display }}{% if m.referencia %} · Ref. {{ m.referencia }}{% endif %}{% if m.soporte %} · <a href="{% url 'contabilidad:movimiento_soporte' m.pk %}" target="_blank" rel="noopener">soporte</a>{% endif %}</div>
+        {% if m.anulado %}<div class="small">Anulado: {{ m.motivo_anulacion }}</div>{% endif %}</td>
+      <td class="d-none d-lg-table-cell small">{% if m.cliente %}<a href="{% url 'crm:cliente_detalle' m.cliente_id %}">{{ m.cliente.nombres }}</a>{% elif m.proveedor %}<a href="{% url 'crm:proveedor_detalle' m.proveedor_id %}">{{ m.proveedor.nombre }}</a>{% else %}{{ m.tercero }}{% endif %}</td>
+      <td class="text-end text-success-emphasis text-nowrap">{% if m.entra %}$ {{ m.valor|dinero }}{% endif %}</td>
+      <td class="text-end text-danger-emphasis text-nowrap">{% if not m.entra %}$ {{ m.valor|dinero }}{% endif %}</td>
+      <td class="text-end fw-semibold text-nowrap">{% if f.saldo is not None %}$ {{ f.saldo|dinero }}{% else %}—{% endif %}</td>
+      {% if not cuenta.es_caja %}
+      <td class="text-center">
+        {% if not m.anulado and perms.contabilidad.change_movimientofinanciero %}
+        <form method="post" action="{% url 'contabilidad:movimiento_conciliar' m.pk %}">{% csrf_token %}
+          <input type="hidden" name="conciliado" value="{% if m.conciliado %}0{% else %}1{% endif %}">
+          <button type="submit" class="btn btn-sm {% if m.conciliado %}btn-success{% else %}btn-outline-secondary{% endif %}" title="{% if m.conciliado %}Conciliado el {{ m.conciliado_en|date:'d/m/Y' }}: clic para quitar{% else %}Marcar como conciliado con el estado de cuenta{% endif %}">
+            <i class="bi {% if m.conciliado %}bi-check2-square{% else %}bi-square{% endif %}" aria-hidden="true"></i><span class="visually-hidden">{% if m.conciliado %}Quitar conciliación{% else %}Conciliar{% endif %}</span></button>
+        </form>
+        {% elif m.conciliado %}<i class="bi bi-check2-square text-success" aria-label="Conciliado"></i>{% endif %}
+      </td>
+      {% endif %}
+      <td class="text-end">
+        {% if not m.anulado and not m.conciliado and perms.contabilidad.change_movimientofinanciero %}
+        <details class="d-inline-block text-start anular-movimiento">
+          <summary class="btn btn-sm btn-outline-danger" title="Anular"><i class="bi bi-x-lg" aria-hidden="true"></i><span class="visually-hidden">Anular</span></summary>
+          <form method="post" action="{% url 'contabilidad:movimiento_anular' m.pk %}" class="card card-body shadow-sm mt-1 position-absolute end-0 z-3" style="min-width:16rem">
+            {% csrf_token %}
+            <label class="form-label small" for="motivo-{{ m.pk }}">Motivo de la anulación</label>
+            <input id="motivo-{{ m.pk }}" name="motivo" class="form-control form-control-sm mb-2" required maxlength="255">
+            {% if m.es_traspaso %}<p class="small text-body-secondary mb-2">También se anula el otro lado del traspaso.</p>{% endif %}
+            <button type="submit" class="btn btn-sm btn-danger">Anular movimiento</button>
+          </form>
+        </details>
+        {% endif %}
+      </td>
+    </tr>
+    {% endwith %}{% empty %}
+    <tr><td colspan="8" class="text-center text-body-secondary py-4">No hay movimientos{% if desde or hasta %} en esas fechas{% endif %}.</td></tr>
+    {% endfor %}
+    <tr class="table-light"><td colspan="5" class="small fw-semibold">Saldo final</td><td class="text-end fw-bold text-nowrap">$ {{ final|dinero }}</td><td colspan="{% if cuenta.es_caja %}1{% else %}2{% endif %}"></td></tr>
+  </tbody>
+</table></div></div>
+{% endblock %}

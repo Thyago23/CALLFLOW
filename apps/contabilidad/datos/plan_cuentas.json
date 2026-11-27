@@ -1,0 +1,821 @@
+[
+ {
+  "codigo": "1",
+  "nombre": "ACTIVO",
+  "tipo": "ACTIVO",
+  "naturaleza": "DEUDORA",
+  "descripcion": "Agrupa los bienes, derechos y recursos de la empresa."
+ },
+ {
+  "codigo": "1.1",
+  "nombre": "Activo corriente",
+  "tipo": "ACTIVO",
+  "naturaleza": "DEUDORA",
+  "descripcion": "Agrupa los activos disponibles o realizables a corto plazo."
+ },
+ {
+  "codigo": "1.1.01",
+  "nombre": "Caja",
+  "tipo": "ACTIVO",
+  "naturaleza": "DEUDORA",
+  "descripcion": "Agrupa el efectivo disponible de la empresa."
+ },
+ {
+  "codigo": "1.1.01.01",
+  "nombre": "Caja general",
+  "tipo": "ACTIVO",
+  "naturaleza": "DEUDORA",
+  "descripcion": "Registra el efectivo destinado a las operaciones generales."
+ },
+ {
+  "codigo": "1.1.01.02",
+  "nombre": "Caja chica",
+  "tipo": "ACTIVO",
+  "naturaleza": "DEUDORA",
+  "descripcion": "Registra el fondo destinado a gastos menores."
+ },
+ {
+  "codigo": "1.1.02",
+  "nombre": "Bancos",
+  "tipo": "ACTIVO",
+  "naturaleza": "DEUDORA",
+  "descripcion": "Agrupa las cuentas bancarias de la empresa."
+ },
+ {
+  "codigo": "1.1.02.01",
+  "nombre": "Banco cuenta corriente",
+  "tipo": "ACTIVO",
+  "naturaleza": "DEUDORA",
+  "descripcion": "Registra los movimientos de la cuenta bancaria corriente."
+ },
+ {
+  "codigo": "1.1.02.02",
+  "nombre": "Banco cuenta de ahorros",
+  "tipo": "ACTIVO",
+  "naturaleza": "DEUDORA",
+  "descripcion": "Registra los movimientos de la cuenta bancaria de ahorros."
+ },
+ {
+  "codigo": "1.1.03",
+  "nombre": "Cuentas por cobrar",
+  "tipo": "ACTIVO",
+  "naturaleza": "DEUDORA",
+  "descripcion": "Agrupa derechos de cobro a terceros."
+ },
+ {
+  "codigo": "1.1.03.01",
+  "nombre": "Clientes nacionales",
+  "tipo": "ACTIVO",
+  "naturaleza": "DEUDORA",
+  "descripcion": "Registra valores pendientes de cobro a clientes nacionales."
+ },
+ {
+  "codigo": "1.1.03.02",
+  "nombre": "Clientes internacionales",
+  "tipo": "ACTIVO",
+  "naturaleza": "DEUDORA",
+  "descripcion": "Registra valores pendientes de cobro a clientes internacionales."
+ },
+ {
+  "codigo": "1.1.03.03",
+  "nombre": "Anticipos a empleados",
+  "tipo": "ACTIVO",
+  "naturaleza": "DEUDORA",
+  "descripcion": "Registra anticipos entregados a empleados."
+ },
+ {
+  "codigo": "1.1.03.04",
+  "nombre": "Otras cuentas por cobrar",
+  "tipo": "ACTIVO",
+  "naturaleza": "DEUDORA",
+  "descripcion": "Registra otros valores pendientes de cobro."
+ },
+ {
+  "codigo": "1.1.04",
+  "nombre": "Activos por impuestos corrientes",
+  "tipo": "ACTIVO",
+  "naturaleza": "DEUDORA",
+  "descripcion": "Agrupa créditos y valores tributarios a favor de la empresa."
+ },
+ {
+  "codigo": "1.1.04.01",
+  "nombre": "IVA crédito tributario",
+  "tipo": "ACTIVO",
+  "naturaleza": "DEUDORA",
+  "descripcion": "Registra IVA susceptible de crédito tributario."
+ },
+ {
+  "codigo": "1.1.04.02",
+  "nombre": "Retenciones en la fuente de impuesto a la renta",
+  "tipo": "ACTIVO",
+  "naturaleza": "DEUDORA",
+  "descripcion": "Registra retenciones de impuesto a la renta efectuadas a la empresa."
+ },
+ {
+  "codigo": "1.1.04.03",
+  "nombre": "Retenciones de IVA",
+  "tipo": "ACTIVO",
+  "naturaleza": "DEUDORA",
+  "descripcion": "Registra retenciones de IVA efectuadas a la empresa."
+ },
+ {
+  "codigo": "1.1.05",
+  "nombre": "Servicios y pagos anticipados",
+  "tipo": "ACTIVO",
+  "naturaleza": "DEUDORA",
+  "descripcion": "Agrupa pagos realizados por servicios que se recibirán posteriormente."
+ },
+ {
+  "codigo": "1.1.05.01",
+  "nombre": "Arriendos pagados por anticipado",
+  "tipo": "ACTIVO",
+  "naturaleza": "DEUDORA",
+  "descripcion": "Registra arriendos pagados anticipadamente."
+ },
+ {
+  "codigo": "1.1.05.02",
+  "nombre": "Seguros pagados por anticipado",
+  "tipo": "ACTIVO",
+  "naturaleza": "DEUDORA",
+  "descripcion": "Registra primas de seguros pagadas anticipadamente."
+ },
+ {
+  "codigo": "1.1.05.03",
+  "nombre": "Suscripciones y licencias anticipadas",
+  "tipo": "ACTIVO",
+  "naturaleza": "DEUDORA",
+  "descripcion": "Registra suscripciones y licencias pagadas anticipadamente."
+ },
+ {
+  "codigo": "1.2",
+  "nombre": "ACTIVO NO CORRIENTE",
+  "tipo": "ACTIVO",
+  "naturaleza": "DEUDORA",
+  "descripcion": "Agrupa activos destinados a permanecer en la empresa por más de un período."
+ },
+ {
+  "codigo": "1.2.01",
+  "nombre": "Propiedad, planta y equipo",
+  "tipo": "ACTIVO",
+  "naturaleza": "DEUDORA",
+  "descripcion": "Agrupa bienes utilizados en las operaciones de la empresa."
+ },
+ {
+  "codigo": "1.2.01.01",
+  "nombre": "Muebles y enseres",
+  "tipo": "ACTIVO",
+  "naturaleza": "DEUDORA",
+  "descripcion": "Registra muebles y enseres de propiedad de la empresa."
+ },
+ {
+  "codigo": "1.2.01.02",
+  "nombre": "Equipos de computación",
+  "tipo": "ACTIVO",
+  "naturaleza": "DEUDORA",
+  "descripcion": "Registra equipos informáticos de propiedad de la empresa."
+ },
+ {
+  "codigo": "1.2.01.03",
+  "nombre": "Equipos de oficina",
+  "tipo": "ACTIVO",
+  "naturaleza": "DEUDORA",
+  "descripcion": "Registra equipos utilizados en la oficina."
+ },
+ {
+  "codigo": "1.2.01.04",
+  "nombre": "Vehículos",
+  "tipo": "ACTIVO",
+  "naturaleza": "DEUDORA",
+  "descripcion": "Registra vehículos de propiedad de la empresa."
+ },
+ {
+  "codigo": "1.2.02",
+  "nombre": "Depreciación acumulada",
+  "tipo": "ACTIVO",
+  "naturaleza": "DEUDORA",
+  "descripcion": "Agrupa la depreciación acumulada de los activos fijos."
+ },
+ {
+  "codigo": "1.2.02.01",
+  "nombre": "Depreciación acumulada muebles y enseres",
+  "tipo": "ACTIVO",
+  "naturaleza": "DEUDORA",
+  "descripcion": "Registra la depreciación acumulada de muebles y enseres."
+ },
+ {
+  "codigo": "1.2.02.02",
+  "nombre": "Depreciación acumulada equipos de computación",
+  "tipo": "ACTIVO",
+  "naturaleza": "DEUDORA",
+  "descripcion": "Registra la depreciación acumulada de equipos de computación."
+ },
+ {
+  "codigo": "1.2.02.03",
+  "nombre": "Depreciación acumulada equipos de oficina",
+  "tipo": "ACTIVO",
+  "naturaleza": "DEUDORA",
+  "descripcion": "Registra la depreciación acumulada de equipos de oficina."
+ },
+ {
+  "codigo": "2",
+  "nombre": "PASIVO",
+  "tipo": "PASIVO",
+  "naturaleza": "ACREEDORA",
+  "descripcion": "Agrupa las obligaciones y deudas de la empresa."
+ },
+ {
+  "codigo": "2.1",
+  "nombre": "Pasivo corriente",
+  "tipo": "PASIVO",
+  "naturaleza": "ACREEDORA",
+  "descripcion": "Agrupa obligaciones exigibles a corto plazo."
+ },
+ {
+  "codigo": "2.1.01",
+  "nombre": "Cuentas por pagar",
+  "tipo": "PASIVO",
+  "naturaleza": "ACREEDORA",
+  "descripcion": "Agrupa obligaciones pendientes de pago."
+ },
+ {
+  "codigo": "2.1.01.01",
+  "nombre": "Proveedores nacionales",
+  "tipo": "PASIVO",
+  "naturaleza": "ACREEDORA",
+  "descripcion": "Registra deudas con proveedores nacionales."
+ },
+ {
+  "codigo": "2.1.01.02",
+  "nombre": "Proveedores internacionales",
+  "tipo": "PASIVO",
+  "naturaleza": "ACREEDORA",
+  "descripcion": "Registra deudas con proveedores internacionales."
+ },
+ {
+  "codigo": "2.1.02",
+  "nombre": "Obligaciones financieras",
+  "tipo": "PASIVO",
+  "naturaleza": "ACREEDORA",
+  "descripcion": "Agrupa obligaciones financieras de corto plazo."
+ },
+ {
+  "codigo": "2.1.02.01",
+  "nombre": "Préstamos bancarios a corto plazo",
+  "tipo": "PASIVO",
+  "naturaleza": "ACREEDORA",
+  "descripcion": "Registra préstamos bancarios exigibles a corto plazo."
+ },
+ {
+  "codigo": "2.1.03",
+  "nombre": "Obligaciones tributarias",
+  "tipo": "PASIVO",
+  "naturaleza": "ACREEDORA",
+  "descripcion": "Agrupa impuestos y retenciones pendientes de pago."
+ },
+ {
+  "codigo": "2.1.03.01",
+  "nombre": "IVA por pagar",
+  "tipo": "PASIVO",
+  "naturaleza": "ACREEDORA",
+  "descripcion": "Registra IVA generado pendiente de pago."
+ },
+ {
+  "codigo": "2.1.03.02",
+  "nombre": "Retenciones en la fuente por pagar",
+  "tipo": "PASIVO",
+  "naturaleza": "ACREEDORA",
+  "descripcion": "Registra retenciones de impuesto a la renta pendientes de pago."
+ },
+ {
+  "codigo": "2.1.03.03",
+  "nombre": "Retenciones de IVA por pagar",
+  "tipo": "PASIVO",
+  "naturaleza": "ACREEDORA",
+  "descripcion": "Registra retenciones de IVA pendientes de pago."
+ },
+ {
+  "codigo": "2.1.04",
+  "nombre": "Obligaciones laborales",
+  "tipo": "PASIVO",
+  "naturaleza": "ACREEDORA",
+  "descripcion": "Agrupa obligaciones pendientes con empleados y organismos laborales."
+ },
+ {
+  "codigo": "2.1.04.01",
+  "nombre": "Sueldos por pagar",
+  "tipo": "PASIVO",
+  "naturaleza": "ACREEDORA",
+  "descripcion": "Registra sueldos pendientes de pago."
+ },
+ {
+  "codigo": "2.1.04.02",
+  "nombre": "Aportes al IESS por pagar",
+  "tipo": "PASIVO",
+  "naturaleza": "ACREEDORA",
+  "descripcion": "Registra aportes al IESS pendientes de pago."
+ },
+ {
+  "codigo": "2.1.04.03",
+  "nombre": "Décimo tercer sueldo por pagar",
+  "tipo": "PASIVO",
+  "naturaleza": "ACREEDORA",
+  "descripcion": "Registra décimo tercer sueldo pendiente de pago."
+ },
+ {
+  "codigo": "2.1.04.04",
+  "nombre": "Décimo cuarto sueldo por pagar",
+  "tipo": "PASIVO",
+  "naturaleza": "ACREEDORA",
+  "descripcion": "Registra décimo cuarto sueldo pendiente de pago."
+ },
+ {
+  "codigo": "2.1.04.05",
+  "nombre": "Vacaciones por pagar",
+  "tipo": "PASIVO",
+  "naturaleza": "ACREEDORA",
+  "descripcion": "Registra obligaciones por vacaciones pendientes."
+ },
+ {
+  "codigo": "2.1.05",
+  "nombre": "Anticipos de clientes",
+  "tipo": "PASIVO",
+  "naturaleza": "ACREEDORA",
+  "descripcion": "Agrupa valores recibidos anticipadamente de clientes."
+ },
+ {
+  "codigo": "2.1.05.01",
+  "nombre": "Anticipos recibidos por trámites de visas",
+  "tipo": "PASIVO",
+  "naturaleza": "ACREEDORA",
+  "descripcion": "Registra anticipos recibidos para trámites de visas."
+ },
+ {
+  "codigo": "2.1.05.02",
+  "nombre": "Anticipos recibidos por asesorías",
+  "tipo": "PASIVO",
+  "naturaleza": "ACREEDORA",
+  "descripcion": "Registra anticipos recibidos por servicios de asesoría."
+ },
+ {
+  "codigo": "2.2",
+  "nombre": "Pasivo no corriente",
+  "tipo": "PASIVO",
+  "naturaleza": "ACREEDORA",
+  "descripcion": "Agrupa obligaciones exigibles a largo plazo."
+ },
+ {
+  "codigo": "2.2.01",
+  "nombre": "Préstamos bancarios a largo plazo",
+  "tipo": "PASIVO",
+  "naturaleza": "ACREEDORA",
+  "descripcion": "Registra obligaciones bancarias de largo plazo."
+ },
+ {
+  "codigo": "2.2.02",
+  "nombre": "Otras obligaciones a largo plazo",
+  "tipo": "PASIVO",
+  "naturaleza": "ACREEDORA",
+  "descripcion": "Registra otras obligaciones exigibles a largo plazo."
+ },
+ {
+  "codigo": "3",
+  "nombre": "PATRIMONIO",
+  "tipo": "PATRIMONIO",
+  "naturaleza": "ACREEDORA",
+  "descripcion": "Agrupa los recursos propios de la empresa."
+ },
+ {
+  "codigo": "3.1",
+  "nombre": "Capital",
+  "tipo": "PATRIMONIO",
+  "naturaleza": "ACREEDORA",
+  "descripcion": "Agrupa los aportes de los propietarios."
+ },
+ {
+  "codigo": "3.1.01",
+  "nombre": "Capital social",
+  "tipo": "PATRIMONIO",
+  "naturaleza": "ACREEDORA",
+  "descripcion": "Registra el capital aportado por los socios."
+ },
+ {
+  "codigo": "3.1.02",
+  "nombre": "Aportes de socios",
+  "tipo": "PATRIMONIO",
+  "naturaleza": "ACREEDORA",
+  "descripcion": "Registra aportes realizados por los socios."
+ },
+ {
+  "codigo": "3.2",
+  "nombre": "Reservas",
+  "tipo": "PATRIMONIO",
+  "naturaleza": "ACREEDORA",
+  "descripcion": "Agrupa reservas constituidas por la empresa."
+ },
+ {
+  "codigo": "3.2.01",
+  "nombre": "Reserva legal",
+  "tipo": "PATRIMONIO",
+  "naturaleza": "ACREEDORA",
+  "descripcion": "Registra la reserva legal constituida."
+ },
+ {
+  "codigo": "3.3",
+  "nombre": "Resultados acumulados",
+  "tipo": "PATRIMONIO",
+  "naturaleza": "ACREEDORA",
+  "descripcion": "Agrupa resultados de ejercicios anteriores."
+ },
+ {
+  "codigo": "3.3.01",
+  "nombre": "Utilidades acumuladas",
+  "tipo": "PATRIMONIO",
+  "naturaleza": "ACREEDORA",
+  "descripcion": "Registra utilidades de ejercicios anteriores no distribuidas."
+ },
+ {
+  "codigo": "3.3.02",
+  "nombre": "Pérdidas acumuladas",
+  "tipo": "PATRIMONIO",
+  "naturaleza": "ACREEDORA",
+  "descripcion": "Registra pérdidas acumuladas de ejercicios anteriores."
+ },
+ {
+  "codigo": "3.4",
+  "nombre": "Resultado del ejercicio",
+  "tipo": "PATRIMONIO",
+  "naturaleza": "ACREEDORA",
+  "descripcion": "Agrupa el resultado obtenido durante el ejercicio."
+ },
+ {
+  "codigo": "3.4.01",
+  "nombre": "Utilidad del ejercicio",
+  "tipo": "PATRIMONIO",
+  "naturaleza": "ACREEDORA",
+  "descripcion": "Registra la utilidad obtenida en el ejercicio."
+ },
+ {
+  "codigo": "3.4.02",
+  "nombre": "Pérdida del ejercicio",
+  "tipo": "PATRIMONIO",
+  "naturaleza": "ACREEDORA",
+  "descripcion": "Registra la pérdida obtenida en el ejercicio."
+ },
+ {
+  "codigo": "4",
+  "nombre": "INGRESOS",
+  "tipo": "INGRESO",
+  "naturaleza": "ACREEDORA",
+  "descripcion": "Agrupa los ingresos obtenidos por la empresa."
+ },
+ {
+  "codigo": "4.1",
+  "nombre": "Ingresos operacionales",
+  "tipo": "INGRESO",
+  "naturaleza": "ACREEDORA",
+  "descripcion": "Agrupa ingresos derivados de las actividades principales."
+ },
+ {
+  "codigo": "4.1.01",
+  "nombre": "Ingresos por servicios",
+  "tipo": "INGRESO",
+  "naturaleza": "ACREEDORA",
+  "descripcion": "Agrupa ingresos provenientes de los servicios prestados."
+ },
+ {
+  "codigo": "4.1.01.01",
+  "nombre": "Ingresos por asesoría de visas",
+  "tipo": "INGRESO",
+  "naturaleza": "ACREEDORA",
+  "descripcion": "Registra ingresos por asesoría de visas."
+ },
+ {
+  "codigo": "4.1.01.02",
+  "nombre": "Ingresos por gestión de visas",
+  "tipo": "INGRESO",
+  "naturaleza": "ACREEDORA",
+  "descripcion": "Registra ingresos por gestión de visas."
+ },
+ {
+  "codigo": "4.1.01.03",
+  "nombre": "Ingresos por trámites migratorios",
+  "tipo": "INGRESO",
+  "naturaleza": "ACREEDORA",
+  "descripcion": "Registra ingresos por trámites migratorios."
+ },
+ {
+  "codigo": "4.1.01.04",
+  "nombre": "Ingresos por asesoría consular",
+  "tipo": "INGRESO",
+  "naturaleza": "ACREEDORA",
+  "descripcion": "Registra ingresos por asesoría consular."
+ },
+ {
+  "codigo": "4.1.01.05",
+  "nombre": "Ingresos por preparación de documentación",
+  "tipo": "INGRESO",
+  "naturaleza": "ACREEDORA",
+  "descripcion": "Registra ingresos por preparación de documentación."
+ },
+ {
+  "codigo": "4.1.01.06",
+  "nombre": "Ingresos por renovación de visas",
+  "tipo": "INGRESO",
+  "naturaleza": "ACREEDORA",
+  "descripcion": "Registra ingresos por renovación de visas."
+ },
+ {
+  "codigo": "4.1.01.07",
+  "nombre": "Ingresos por traducción y revisión documental",
+  "tipo": "INGRESO",
+  "naturaleza": "ACREEDORA",
+  "descripcion": "Registra ingresos por traducción y revisión documental."
+ },
+ {
+  "codigo": "4.2",
+  "nombre": "Ingresos no operacionales",
+  "tipo": "INGRESO",
+  "naturaleza": "ACREEDORA",
+  "descripcion": "Agrupa ingresos que no provienen directamente de la actividad principal."
+ },
+ {
+  "codigo": "4.2.01",
+  "nombre": "Ingresos financieros",
+  "tipo": "INGRESO",
+  "naturaleza": "ACREEDORA",
+  "descripcion": "Registra ingresos generados por actividades financieras."
+ },
+ {
+  "codigo": "4.2.02",
+  "nombre": "Otros ingresos",
+  "tipo": "INGRESO",
+  "naturaleza": "ACREEDORA",
+  "descripcion": "Registra ingresos ocasionales."
+ },
+ {
+  "codigo": "5",
+  "nombre": "COSTOS",
+  "tipo": "COSTOS",
+  "naturaleza": "DEUDORA",
+  "descripcion": "Agrupa los costos directamente relacionados con los servicios prestados."
+ },
+ {
+  "codigo": "5.1",
+  "nombre": "Costos directos de servicios",
+  "tipo": "COSTOS",
+  "naturaleza": "DEUDORA",
+  "descripcion": "Agrupa costos directamente atribuibles a los servicios."
+ },
+ {
+  "codigo": "5.1.01",
+  "nombre": "Honorarios de profesionales externos",
+  "tipo": "COSTOS",
+  "naturaleza": "DEUDORA",
+  "descripcion": "Registra honorarios de profesionales externos relacionados con los servicios."
+ },
+ {
+  "codigo": "5.1.02",
+  "nombre": "Servicios de traducción externa",
+  "tipo": "COSTOS",
+  "naturaleza": "DEUDORA",
+  "descripcion": "Registra costos por servicios de traducción contratados externamente."
+ },
+ {
+  "codigo": "5.1.03",
+  "nombre": "Servicios de asesoría especializada",
+  "tipo": "COSTOS",
+  "naturaleza": "DEUDORA",
+  "descripcion": "Registra costos por asesorías especializadas directamente relacionadas con los servicios."
+ },
+ {
+  "codigo": "5.1.04",
+  "nombre": "Gastos de mensajería de trámites",
+  "tipo": "COSTOS",
+  "naturaleza": "DEUDORA",
+  "descripcion": "Registra costos de mensajería directamente relacionados con trámites."
+ },
+ {
+  "codigo": "5.1.05",
+  "nombre": "Servicios de procesamiento documental",
+  "tipo": "COSTOS",
+  "naturaleza": "DEUDORA",
+  "descripcion": "Registra costos por procesamiento documental."
+ },
+ {
+  "codigo": "5.1.06",
+  "nombre": "Gastos directos de gestión de trámites",
+  "tipo": "COSTOS",
+  "naturaleza": "DEUDORA",
+  "descripcion": "Registra costos directamente relacionados con la gestión de trámites."
+ },
+ {
+  "codigo": "5.1.07",
+  "nombre": "Otros costos directos del servicio",
+  "tipo": "COSTOS",
+  "naturaleza": "DEUDORA",
+  "descripcion": "Registra otros costos directamente atribuibles a los servicios."
+ },
+ {
+  "codigo": "6",
+  "nombre": "GASTOS",
+  "tipo": "GASTOS",
+  "naturaleza": "DEUDORA",
+  "descripcion": "Agrupa los gastos incurridos para el funcionamiento de la empresa."
+ },
+ {
+  "codigo": "6.1",
+  "nombre": "Gastos administrativos",
+  "tipo": "GASTOS",
+  "naturaleza": "DEUDORA",
+  "descripcion": "Agrupa gastos relacionados con la administración de la empresa."
+ },
+ {
+  "codigo": "6.1.01",
+  "nombre": "Sueldos y salarios",
+  "tipo": "GASTOS",
+  "naturaleza": "DEUDORA",
+  "descripcion": "Registra remuneraciones del personal."
+ },
+ {
+  "codigo": "6.1.02",
+  "nombre": "Aporte patronal al IESS",
+  "tipo": "GASTOS",
+  "naturaleza": "DEUDORA",
+  "descripcion": "Registra aportes patronales al IESS."
+ },
+ {
+  "codigo": "6.1.03",
+  "nombre": "Décimo tercer sueldo",
+  "tipo": "GASTOS",
+  "naturaleza": "DEUDORA",
+  "descripcion": "Registra el gasto por décimo tercer sueldo."
+ },
+ {
+  "codigo": "6.1.04",
+  "nombre": "Décimo cuarto sueldo",
+  "tipo": "GASTOS",
+  "naturaleza": "DEUDORA",
+  "descripcion": "Registra el gasto por décimo cuarto sueldo."
+ },
+ {
+  "codigo": "6.1.05",
+  "nombre": "Vacaciones",
+  "tipo": "GASTOS",
+  "naturaleza": "DEUDORA",
+  "descripcion": "Registra el gasto correspondiente a vacaciones."
+ },
+ {
+  "codigo": "6.1.06",
+  "nombre": "Arriendo de oficina",
+  "tipo": "GASTOS",
+  "naturaleza": "DEUDORA",
+  "descripcion": "Registra gastos por arrendamiento de oficina."
+ },
+ {
+  "codigo": "6.1.07",
+  "nombre": "Servicios básicos",
+  "tipo": "GASTOS",
+  "naturaleza": "DEUDORA",
+  "descripcion": "Registra gastos de servicios básicos."
+ },
+ {
+  "codigo": "6.1.08",
+  "nombre": "Internet y telefonía",
+  "tipo": "GASTOS",
+  "naturaleza": "DEUDORA",
+  "descripcion": "Registra gastos de internet y telefonía."
+ },
+ {
+  "codigo": "6.1.09",
+  "nombre": "Suministros de oficina",
+  "tipo": "GASTOS",
+  "naturaleza": "DEUDORA",
+  "descripcion": "Registra compras de suministros utilizados en la oficina."
+ },
+ {
+  "codigo": "6.1.10",
+  "nombre": "Mantenimiento de equipos",
+  "tipo": "GASTOS",
+  "naturaleza": "DEUDORA",
+  "descripcion": "Registra gastos de mantenimiento y reparación de equipos."
+ },
+ {
+  "codigo": "6.1.11",
+  "nombre": "Depreciaciones",
+  "tipo": "GASTOS",
+  "naturaleza": "DEUDORA",
+  "descripcion": "Registra el gasto por depreciación de activos fijos."
+ },
+ {
+  "codigo": "6.1.12",
+  "nombre": "Honorarios profesionales",
+  "tipo": "GASTOS",
+  "naturaleza": "DEUDORA",
+  "descripcion": "Registra honorarios profesionales relacionados con la administración."
+ },
+ {
+  "codigo": "6.1.13",
+  "nombre": "Servicios contables",
+  "tipo": "GASTOS",
+  "naturaleza": "DEUDORA",
+  "descripcion": "Registra servicios contratados para contabilidad."
+ },
+ {
+  "codigo": "6.1.14",
+  "nombre": "Gastos de limpieza",
+  "tipo": "GASTOS",
+  "naturaleza": "DEUDORA",
+  "descripcion": "Registra gastos por servicios y productos de limpieza."
+ },
+ {
+  "codigo": "6.2",
+  "nombre": "Gastos de ventas",
+  "tipo": "GASTOS",
+  "naturaleza": "DEUDORA",
+  "descripcion": "Agrupa gastos relacionados con la comercialización de los servicios."
+ },
+ {
+  "codigo": "6.2.01",
+  "nombre": "Publicidad y marketing",
+  "tipo": "GASTOS",
+  "naturaleza": "DEUDORA",
+  "descripcion": "Registra gastos de publicidad y marketing."
+ },
+ {
+  "codigo": "6.2.02",
+  "nombre": "Promoción de servicios",
+  "tipo": "GASTOS",
+  "naturaleza": "DEUDORA",
+  "descripcion": "Registra gastos destinados a promocionar los servicios."
+ },
+ {
+  "codigo": "6.2.03",
+  "nombre": "Comisiones por ventas",
+  "tipo": "GASTOS",
+  "naturaleza": "DEUDORA",
+  "descripcion": "Registra comisiones pagadas por ventas."
+ },
+ {
+  "codigo": "6.2.04",
+  "nombre": "Gastos de representación",
+  "tipo": "GASTOS",
+  "naturaleza": "DEUDORA",
+  "descripcion": "Registra gastos relacionados con representación comercial."
+ },
+ {
+  "codigo": "6.2.05",
+  "nombre": "Transporte y movilización",
+  "tipo": "GASTOS",
+  "naturaleza": "DEUDORA",
+  "descripcion": "Registra gastos de transporte y movilización relacionados con ventas."
+ },
+ {
+  "codigo": "6.3",
+  "nombre": "Gastos financieros",
+  "tipo": "GASTOS",
+  "naturaleza": "DEUDORA",
+  "descripcion": "Agrupa gastos derivados de operaciones financieras."
+ },
+ {
+  "codigo": "6.3.01",
+  "nombre": "Intereses bancarios",
+  "tipo": "GASTOS",
+  "naturaleza": "DEUDORA",
+  "descripcion": "Registra intereses generados por obligaciones bancarias."
+ },
+ {
+  "codigo": "6.3.02",
+  "nombre": "Comisiones bancarias",
+  "tipo": "GASTOS",
+  "naturaleza": "DEUDORA",
+  "descripcion": "Registra comisiones cobradas por instituciones financieras."
+ },
+ {
+  "codigo": "6.3.03",
+  "nombre": "Gastos por transferencias",
+  "tipo": "GASTOS",
+  "naturaleza": "DEUDORA",
+  "descripcion": "Registra costos y cargos por transferencias bancarias."
+ },
+ {
+  "codigo": "6.4",
+  "nombre": "Otros gastos",
+  "tipo": "GASTOS",
+  "naturaleza": "DEUDORA",
+  "descripcion": "Agrupa gastos que no corresponden a las categorías anteriores."
+ },
+ {
+  "codigo": "6.4.01",
+  "nombre": "Multas e intereses",
+  "tipo": "GASTOS",
+  "naturaleza": "DEUDORA",
+  "descripcion": "Registra multas e intereses incurridos por la empresa."
+ },
+ {
+  "codigo": "6.4.02",
+  "nombre": "Gastos no deducibles",
+  "tipo": "GASTOS",
+  "naturaleza": "DEUDORA",
+  "descripcion": "Registra gastos que no son deducibles para efectos tributarios."
+ }
+]

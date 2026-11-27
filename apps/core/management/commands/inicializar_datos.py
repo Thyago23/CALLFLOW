@@ -11,6 +11,7 @@ from django.core.management.base import BaseCommand
 from django.db import transaction
 
 from apps.asistencia.models import Horario
+from apps.contabilidad.servicios import cargar_plan_cuentas
 from apps.core import jornada
 from apps.core.models import CUENTAS_TI, Rol, Usuario
 from apps.documentos.models import TipoDocumento
@@ -20,7 +21,7 @@ from apps.personal.models import Cargo
 from apps.reportes.catalogo import TIPOS_REPORTE  # tipos de reporte y sus roles (4.5)
 from apps.reportes.models import TipoReporte
 
-CARGOS = ["Administrador", "Asesor de ventas", "Supervisor", "Imagen corporativa", "Tecnología (TI)"]
+CARGOS = ["Administrador", "Asesor de ventas", "Supervisor", "Imagen corporativa", "Tecnología (TI)", "Contador"]
 
 TIPOS_DOCUMENTO = [
     ("CEDULA", "Copia de cédula", True),
@@ -68,7 +69,7 @@ PERMISOS_POR_ROL = {
         # En ventas consulta y gestiona las bases comerciales; no entra al catálogo de tarjetas.
         f"ventas.{modelo}": ["view"]
         for modelo in ["cliente", "formulariodami", "historialestadoformulario", "tarjetadami", "hojaproduccion", "registroproduccion"]
-    } | _GESTION_BASES,
+    } | _GESTION_BASES | {"contabilidad": ["view"]},  # consulta la contabilidad; la lleva la contadora
     Rol.VENDEDOR: {
         "ventas": ["view"],
         "ventas.formulariodami": ["view", "add", "change"],
@@ -90,6 +91,15 @@ PERMISOS_POR_ROL = {
         "ti": ["view", "add", "change"],
         "reportes": ["view"],
     },
+    # Contador: la contabilidad de Multivisas y T&T, nómina y caja chica; el personal solo lo consulta.
+    # No entra a ventas, cierre, chips, breaks ni TI.
+    Rol.CONTADOR: {
+        "contabilidad": ["view", "add", "change", "delete"],  # delete: solo borradores de asientos (lo impone la base)
+        "nomina": ["view", "add", "change"],
+        "personal": ["view"],
+        "agenda": ["view", "add", "change", "delete"],
+        "reportes": ["view"],
+    },
 }
 
 
@@ -109,6 +119,8 @@ class Command(BaseCommand):
 
         for nombre in CATEGORIAS:
             CategoriaMaterial.objects.get_or_create(nombre=nombre)
+
+        cargar_plan_cuentas()  # plan de cuentas del Excel de control integral (solo agrega las que falten)
 
         Horario.objects.get_or_create(
             nombre="Jornada estándar",

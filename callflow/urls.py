@@ -20,5 +20,7 @@ urlpatterns = [
     path("ti/", include("apps.ti.urls")),
     path("soporte/", include("apps.ti.urls_soporte")),
     path("mensajes/", include("apps.mensajes.urls")),
+    path("contabilidad/", include("apps.contabilidad.urls")),
+    path("crm/", include("apps.contabilidad.urls_crm")),
     path("admin/", admin.site.urls),
 ]

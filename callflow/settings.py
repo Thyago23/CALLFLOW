@@ -79,6 +79,8 @@ INSTALLED_APPS = [
     "apps.ti",
     # Mensajería interna entre TI, administradores y supervisores
     "apps.mensajes",
+    # Contabilidad de Multivisas y T&T (rol Contador): caja y bancos, libro diario, clientes y leads
+    "apps.contabilidad",
 ]
 
 MIDDLEWARE = [

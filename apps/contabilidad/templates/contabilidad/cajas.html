@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% load humanize_cf %}
+{% block titulo %}Caja y bancos · {{ request.empresa }}{% endblock %}
+{% block contenido %}
+{% include "contabilidad/_subnav.html" %}
+<div class="d-flex flex-wrap justify-content-end gap-2 mb-3">
+  {% if perms.contabilidad.add_movimientofinanciero and saldos %}
+  <a class="btn btn-primary" href="{% url 'contabilidad:movimiento_crear' %}"><i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Registrar movimiento</a>
+  <a class="btn btn-outline-primary" href="{% url 'contabilidad:traspaso_crear' %}"><i class="bi bi-arrow-left-right me-1" aria-hidden="true"></i>Traspaso</a>
+  {% endif %}
+  {% if perms.contabilidad.add_cuentafinanciera %}<a class="btn btn-outline-secondary" href="{% url 'contabilidad:caja_crear' %}"><i class="bi bi-bank me-1" aria-hidden="true"></i>Nueva caja o banco</a>{% endif %}
+</div>
+{% if saldos %}
+<div class="card"><div class="table-responsive"><table class="table table-hover align-middle mb-0">
+  <thead><tr>
+    <th scope="col">Cuenta</th><th scope="col" class="d-none d-md-table-cell">Cuenta del plan</th>
+    <th scope="col" class="text-end d-none d-sm-table-cell">Saldo inicial</th><th scope="col" class="text-end">Saldo actual</th>
+    <th scope="col" class="text-end d-none d-lg-table-cell">Sin conciliar</th>
+  </tr></thead>
+  <tbody>
+  {% for c, saldo in saldos %}
+    <tr class="{% if not c.activa %}text-body-secondary{% endif %}">
+      <td><a class="fw-semibold text-reset" href="{% url 'contabilidad:caja_detalle' c.pk %}">{{ c.nombre }}</a>
+        <div class="small text-body-secondary">{{ c.get_tipo_display }}{% if c.banco %} · {{ c.banco }} {{ c.numero }}{% endif %}{% if not c.activa %} · <span class="badge text-bg-secondary">Inactiva</span>{% endif %}</div></td>
+      <td class="d-none d-md-table-cell small">{{ c.cuenta_contable }}</td>
+      <td class="text-end d-none d-sm-table-cell text-nowrap">$ {{ c.saldo_inicial|dinero }}<div class="small text-body-secondary">al {{ c.fecha_saldo_inicial|date:"d/m/Y" }}</div></td>
+      <td class="text-end fw-semibold text-nowrap {% if saldo < 0 %}text-danger{% endif %}">$ {{ saldo|dinero }}</td>
+      <td class="text-end d-none d-lg-table-cell">{% if c.es_caja %}—{% else %}{{ c.sin_conciliar }}{% endif %}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table></div></div>
+{% else %}
+<div class="text-center py-5">
+  <p class="text-body-secondary mb-3">{{ request.empresa }} todavía no tiene cajas ni cuentas bancarias.</p>
+  {% if perms.contabilidad.add_cuentafinanciera %}<a href="{% url 'contabilidad:caja_crear' %}" class="btn btn-primary">Registrar la primera</a>{% endif %}
+</div>
+{% endif %}
+{% endblock %}

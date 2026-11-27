@@ -21,6 +21,7 @@ class Rol(models.TextChoices):
     VENDEDOR = "VENDEDOR", "Asesor de ventas"
     ENCARGADO_CIERRE = "ENCARGADO_CIERRE", "Supervisor"
     TI = "TI", "Tecnología (TI)"
+    CONTADOR = "CONTADOR", "Contador"
 
 
 # Cuentas del departamento de TI «quemadas» en el sistema: las crea la migración core/0012 y las repone

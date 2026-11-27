@@ -220,7 +220,7 @@ class DashboardTests(TestCase):
         self.client.force_login(self.admin)
         respuesta = self.client.get(reverse("usuarios"))
         self.assertNotContains(respuesta, "Pronto")
-        self.assertEqual([g["nombre"] for g in respuesta.context["menu_secciones"]], ["Administración", "Comercial", "Herramientas"])
+        self.assertEqual([g["nombre"] for g in respuesta.context["menu_secciones"]], ["Administración", "Comercial", "Contabilidad", "Herramientas"])
 
     def test_secciones_del_menu_plegables(self):
         self.client.force_login(self.admin)

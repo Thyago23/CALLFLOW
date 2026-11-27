@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% load contabilidad_tags %}
+{# Formulario genérico: `secciones` = [(título, ícono, descripción, [campos])]. #}
+{% block titulo %}{{ titulo }} · {{ request.empresa }}{% endblock %}
+{% block contenido %}
+<nav aria-label="Ruta" class="mb-2">
+  <ol class="breadcrumb small mb-0">
+    <li class="breadcrumb-item"><a href="{{ volver }}">Volver</a></li>
+    <li class="breadcrumb-item active" aria-current="page">{{ titulo }}</li>
+  </ol>
+</nav>
+<header class="cabecera-formulario">
+  <h1 class="h3 mb-1">{{ titulo }}</h1>
+  <p class="text-body-secondary mb-0"><i class="bi bi-building me-1" aria-hidden="true"></i>{{ request.empresa }}</p>
+</header>
+
+<div class="contenedor-formulario">
+  {% for error in form.non_field_errors %}<div class="alert alert-danger">{{ error }}</div>{% endfor %}
+  <form method="post" novalidate class="card formulario" enctype="multipart/form-data">
+    {% csrf_token %}{% if form.huella_registro %}{{ form.huella_registro }}{% endif %}
+    {% for titulo_seccion, icono, descripcion, campos in secciones %}
+    <section class="formulario-seccion">
+      <div class="formulario-seccion-info">
+        <span class="formulario-icono" aria-hidden="true"><i class="bi bi-{{ icono }}"></i></span>
+        <h2>{{ titulo_seccion }}</h2>
+        {% if descripcion %}<p>{{ descripcion }}</p>{% endif %}
+      </div>
+      <div class="row">
+        {% for nombre in campos %}{% with c=form|campo:nombre %}{% if c %}
+          {% if c|es_casilla %}
+          <div class="col-12 mb-3">
+            <div class="form-check">
+              {{ c }}<label class="form-check-label" for="{{ c.id_for_label }}">{{ c.label }}</label>
+              {% if c.help_text %}<div class="form-text">{{ c.help_text }}</div>{% endif %}
+            </div>
+          </div>
+          {% else %}
+          <div class="{% if c.field.widget.input_type == 'textarea' or nombre == 'observaciones' or nombre == 'notas' or nombre == 'descripcion' or nombre == 'concepto' %}col-12{% else %}col-md-6{% endif %}">
+            {% include "_campo.html" with campo=c ayuda=c.help_text %}
+          </div>
+          {% endif %}
+        {% endif %}{% endwith %}{% endfor %}
+      </div>
+    </section>
+    {% endfor %}
+    <div class="formulario-acciones">
+      <span class="small text-body-secondary d-none d-sm-inline"><span class="text-danger">*</span> Campo obligatorio</span>
+      <a href="{{ volver }}" class="btn btn-outline-secondary ms-auto">Cancelar</a>
+      <button type="submit" class="btn btn-primary"><i class="bi bi-check2" aria-hidden="true"></i> {{ boton|default:"Guardar" }}</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

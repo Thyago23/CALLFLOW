@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% load humanize_cf %}
+{% block titulo %}Contabilidad · {{ request.empresa }}{% endblock %}
+{% block contenido %}
+{% include "contabilidad/_subnav.html" %}
+
+{% if not r.apertura %}
+<div class="alert alert-info d-flex gap-2 align-items-start" role="status">
+  <i class="bi bi-flag fs-5" aria-hidden="true"></i>
+  <div><strong>{{ request.empresa }} todavía no tiene saldos iniciales.</strong>
+    Regístrelos como asiento de apertura a la fecha de corte para que el balance cuadre desde el inicio.
+    {% if perms.contabilidad.add_asiento %}<a class="alert-link ms-1" href="{% url 'contabilidad:asiento_crear' %}?tipo=APERTURA">Registrar saldos iniciales</a>{% endif %}
+  </div>
+</div>
+{% elif r.apertura.es_borrador %}
+<div class="alert alert-warning" role="status"><i class="bi bi-flag me-1" aria-hidden="true"></i>El asiento de apertura está en borrador.
+  <a class="alert-link" href="{% url 'contabilidad:asiento_detalle' r.apertura.pk %}">Revisarlo y contabilizarlo</a>.</div>
+{% endif %}
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-lg-3"><a class="card resumen-dia h-100 text-reset text-decoration-none" href="{% url 'contabilidad:diario' %}?estado=BORRADOR"><div class="card-body">
+    <div class="small text-body-secondary">Asientos en borrador</div><div class="valor {% if r.borradores %}text-warning-emphasis{% endif %}">{{ r.borradores }}</div></div></a></div>
+  <div class="col-6 col-lg-3"><a class="card resumen-dia h-100 text-reset text-decoration-none" href="{% url 'contabilidad:movimientos' %}?estado=sin_conciliar"><div class="card-body">
+    <div class="small text-body-secondary">Movimientos de banco sin conciliar</div><div class="valor">{{ r.sin_conciliar }}</div></div></a></div>
+  {% if perms.contabilidad.view_lead %}
+  <div class="col-6 col-lg-3"><a class="card resumen-dia h-100 text-reset text-decoration-none" href="{% url 'crm:leads' %}"><div class="card-body">
+    <div class="small text-body-secondary">Leads abiertos</div><div class="valor">{{ r.leads_abiertos }}</div>
+    {% if r.leads_vencidos %}<div class="small text-danger mt-1">{{ r.leads_vencidos }} con contacto atrasado</div>{% endif %}</div></a></div>
+  {% endif %}
+  <div class="col-6 col-lg-3"><div class="card resumen-dia h-100"><div class="card-body">
+    <div class="small text-body-secondary">Clientes · proveedores</div><div class="valor">{{ r.clientes }} · {{ r.proveedores }}</div></div></div></div>
+</div>
+
+<div class="d-flex justify-content-between align-items-center mb-2">
+  <h2 class="h5 mb-0">Saldos de caja y bancos</h2>
+  {% if perms.contabilidad.add_movimientofinanciero and r.saldos %}<a class="btn btn-sm btn-primary" href="{% url 'contabilidad:movimiento_crear' %}"><i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Registrar movimiento</a>{% endif %}
+</div>
+{% if r.saldos %}
+<div class="card"><div class="table-responsive"><table class="table table-hover align-middle mb-0">
+  <thead><tr><th scope="col">Cuenta</th><th scope="col" class="d-none d-md-table-cell">Tipo</th><th scope="col" class="text-end">Saldo</th></tr></thead>
+  <tbody>
+  {% for c, saldo in r.saldos %}{% if c.activa %}
+    <tr><td><a class="fw-semibold text-reset" href="{% url 'contabilidad:caja_detalle' c.pk %}">{{ c.nombre }}</a>{% if c.banco %}<div class="small text-body-secondary">{{ c.banco }} {{ c.numero }}</div>{% endif %}</td>
+      <td class="d-none d-md-table-cell">{{ c.get_tipo_display }}</td>
+      <td class="text-end fw-semibold text-nowrap {% if saldo < 0 %}text-danger{% endif %}">$ {{ saldo|dinero }}</td></tr>
+  {% endif %}{% endfor %}
+  </tbody>
+</table></div></div>
+{% else %}
+<div class="text-center py-4 card"><div class="card-body">
+  <p class="text-body-secondary mb-3">Registre las cajas y cuentas bancarias de {{ request.empresa }} con su saldo inicial.</p>
+  {% if perms.contabilidad.add_cuentafinanciera %}<a href="{% url 'contabilidad:caja_crear' %}" class="btn btn-primary">Registrar caja o banco</a>{% endif %}
+</div></div>
+{% endif %}
+{% endblock %}

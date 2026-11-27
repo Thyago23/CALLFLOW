@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+{% block titulo %}{% if es_apertura %}Saldos iniciales{% elif nuevo %}Nuevo asiento{% else %}Editar asiento{% endif %} · {{ request.empresa }}{% endblock %}
+{% block contenido %}
+<nav aria-label="Ruta" class="mb-2">
+  <ol class="breadcrumb small mb-0">
+    <li class="breadcrumb-item"><a href="{% url 'contabilidad:diario' %}">Libro diario</a></li>
+    <li class="breadcrumb-item active" aria-current="page">{% if es_apertura %}Saldos iniciales{% elif nuevo %}Nuevo asiento{% else %}Editar borrador{% endif %}</li>
+  </ol>
+</nav>
+<header class="cabecera-formulario">
+  <h1 class="h3 mb-1">{% if es_apertura %}Saldos iniciales (asiento de apertura){% elif nuevo %}Nuevo asiento{% else %}Editar asiento en borrador{% endif %}</h1>
+  <p class="text-body-secondary mb-0"><i class="bi bi-building me-1" aria-hidden="true"></i>{{ request.empresa }} ·
+    {% if es_apertura %}Lo que tenía cada cuenta a la fecha de corte, con su documento de respaldo. El debe tiene que ser igual al haber (la diferencia va al patrimonio).
+    {% else %}Se guarda como borrador hasta que lo contabilice; al contabilizarlo recibe su número y ya no cambia.{% endif %}</p>
+</header>
+
+<div class="contenedor-formulario contenedor-ancho">
+  {% for error in form.non_field_errors %}<div class="alert alert-danger">{{ error }}</div>{% endfor %}
+  {% for error in lineas.non_form_errors %}<div class="alert alert-danger">{{ error }}</div>{% endfor %}
+  <form method="post" novalidate class="card formulario" id="form-asiento">
+    {% csrf_token %}
+    <section class="formulario-seccion">
+      <div class="formulario-seccion-info">
+        <span class="formulario-icono" aria-hidden="true"><i class="bi bi-journal-text"></i></span>
+        <h2>Asiento</h2>
+        <p>Fecha real del documento: una factura atrasada va con su fecha y su período, no con la de hoy.</p>
+      </div>
+      <div class="row">
+        <div class="col-sm-4">{% include "_campo.html" with campo=form.fecha %}</div>
+        <div class="col-sm-4">{% include "_campo.html" with campo=form.tipo %}</div>
+        <div class="col-sm-4">{% include "_campo.html" with campo=form.documento ayuda=form.documento.help_text %}</div>
+        <div class="col-12">{% include "_campo.html" with campo=form.concepto %}</div>
+      </div>
+    </section>
+
+    <section class="formulario-seccion formulario-seccion-completa">
+      <h2 class="h6 mb-2"><i class="bi bi-list-columns me-1" aria-hidden="true"></i>Líneas</h2>
+      {{ lineas.management_form }}
+      <div class="table-responsive">
+        <table class="table table-sm align-middle mb-2 tabla-lineas">
+          <thead><tr>
+            <th scope="col" style="min-width:16rem">Cuenta</th><th scope="col" style="min-width:12rem">Detalle</th>
+            <th scope="col" style="min-width:10rem">Cliente / proveedor</th>
+            <th scope="col" class="text-end" style="width:9rem">Debe</th><th scope="col" class="text-end" style="width:9rem">Haber</th>
+            <th scope="col"><span class="visually-hidden">Quitar</span></th>
+          </tr></thead>
+          <tbody id="lineas">
+          {% for f in lineas %}
+            <tr class="linea">
+              <td>{{ f.cuenta }}{% for e in f.cuenta.errors %}<div class="small text-danger">{{ e }}</div>{% endfor %}</td>
+              <td>{{ f.detalle }}</td>
+              <td>{{ f.tercero }}</td>
+              <td>{{ f.debe }}</td>
+              <td>{{ f.haber }}{% for e in f.non_field_errors %}<div class="small text-danger">{{ e }}</div>{% endfor %}</td>
+              <td><button type="button" class="btn btn-sm btn-link text-danger quitar-linea" title="Vaciar línea"><i class="bi bi-x-lg" aria-hidden="true"></i><span class="visually-hidden">Vaciar línea</span></button></td>
+            </tr>
+          {% endfor %}
+          </tbody>
+          <tfoot>
+            <tr class="fw-semibold">
+              <td colspan="3"><button type="button" class="btn btn-sm btn-outline-primary" id="agregar-linea"><i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Agregar línea</button></td>
+              <td class="text-end text-nowrap">$ <span id="total-debe">0,00</span></td>
+              <td class="text-end text-nowrap">$ <span id="total-haber">0,00</span></td>
+              <td></td>
+            </tr>
+            <tr><td colspan="6" class="text-end small" id="diferencia" aria-live="polite"></td></tr>
+          </tfoot>
+        </table>
+      </div>
+      <template id="plantilla-linea">
+        <tr class="linea">
+          <td>{{ lineas.empty_form.cuenta }}</td><td>{{ lineas.empty_form.detalle }}</td><td>{{ lineas.empty_form.tercero }}</td>
+          <td>{{ lineas.empty_form.debe }}</td><td>{{ lineas.empty_form.haber }}</td>
+          <td><button type="button" class="btn btn-sm btn-link text-danger quitar-linea" title="Vaciar línea"><i class="bi bi-x-lg" aria-hidden="true"></i><span class="visually-hidden">Vaciar línea</span></button></td>
+        </tr>
+      </template>
+    </section>
+
+    <div class="formulario-acciones">
+      <a href="{% if asiento.pk %}{% url 'contabilidad:asiento_detalle' asiento.pk %}{% else %}{% url 'contabilidad:diario' %}{% endif %}" class="btn btn-outline-secondary ms-auto">Cancelar</a>
+      <button type="submit" name="accion" value="borrador" class="btn btn-outline-primary"><i class="bi bi-save" aria-hidden="true"></i> Guardar borrador</button>
+      <button type="submit" name="accion" value="contabilizar" class="btn btn-primary" id="boton-contabilizar"><i class="bi bi-check2-all" aria-hidden="true"></i> Guardar y contabilizar</button>
+    </div>
+  </form>
+</div>
+
+<script>
+(function () {
+  const cuerpo = document.getElementById("lineas");
+  const total = document.getElementById("id_lineas-TOTAL_FORMS");
+  const plantilla = document.getElementById("plantilla-linea");
+  const numero = (v) => { const n = parseFloat(String(v || "").replace(",", ".")); return isNaN(n) ? 0 : n; };
+  const formato = (n) => n.toLocaleString("es-EC", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  function recalcular() {
+    let debe = 0, haber = 0;
+    cuerpo.querySelectorAll('[data-columna="debe"]').forEach((i) => { debe += numero(i.value); });
+    cuerpo.querySelectorAll('[data-columna="haber"]').forEach((i) => { haber += numero(i.value); });
+    debe = Math.round(debe * 100) / 100; haber = Math.round(haber * 100) / 100;
+    document.getElementById("total-debe").textContent = formato(debe);
+    document.getElementById("total-haber").textContent = formato(haber);
+    const diferencia = document.getElementById("diferencia");
+    const cuadra = debe === haber && debe > 0;
+    diferencia.textContent = cuadra ? "El asiento cuadra." : (debe || haber ? "Diferencia: $ " + formato(Math.abs(debe - haber)) + (debe > haber ? " (falta al haber)" : " (falta al debe)") : "");
+    diferencia.className = "text-end small " + (cuadra ? "text-success" : "text-danger");
+    document.getElementById("boton-contabilizar").disabled = !cuadra;
+  }
+
+  document.getElementById("agregar-linea").addEventListener("click", () => {
+    const indice = parseInt(total.value, 10);
+    const fila = plantilla.content.firstElementChild.cloneNode(true);
+    fila.querySelectorAll("[name], [id]").forEach((el) => {
+      ["name", "id"].forEach((a) => { if (el.getAttribute(a)) el.setAttribute(a, el.getAttribute(a).replace(/__prefix__/g, indice)); });
+    });
+    cuerpo.appendChild(fila);
+    total.value = indice + 1;
+    fila.querySelector("select").focus();
+  });
+
+  cuerpo.addEventListener("click", (e) => {
+    const boton = e.target.closest(".quitar-linea");
+    if (!boton) return;
+    boton.closest("tr").querySelectorAll("input, select").forEach((el) => { el.value = ""; });
+    recalcular();
+  });
+
+  // Escribir en el debe borra el haber de la misma línea (y al revés): cada línea va a un solo lado.
+  cuerpo.addEventListener("input", (e) => {
+    const col = e.target.dataset.columna;
+    if (col && e.target.value) {
+      const otro = e.target.closest("tr").querySelector('[data-columna="' + (col === "debe" ? "haber" : "debe") + '"]');
+      if (otro) otro.value = "";
+    }
+    recalcular();
+  });
+  recalcular();
+})();
+</script>
+{% endblock %}

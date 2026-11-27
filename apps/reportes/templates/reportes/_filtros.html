@@ -22,12 +22,47 @@
 </form>
 {% if form.rango %}
 <script>
-  // Reportes con «Periodo»: al cambiar una fecha a mano, el periodo pasa a «Las fechas que elija».
+  // Reportes con «Periodo»:
+  // - al elegir un periodo rápido, las fechas se actualizan en el momento y el reporte se vuelve a generar;
+  // - al cambiar una fecha a mano, el periodo pasa a «Las fechas que elija».
   (function () {
     const rango = document.querySelector('select[name="rango"]');
-    document.querySelectorAll('input[name="desde"], input[name="hasta"]').forEach(function (campo) {
+    const desde = document.querySelector('input[name="desde"]');
+    const hasta = document.querySelector('input[name="hasta"]');
+    if (!rango || !desde || !hasta) return;
+    const hoy = new Date("{% now 'Y-m-d' %}T00:00:00");  // fecha del servidor, no la del equipo
+    const iso = function (d) { return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); };
+    function fechas(valor) {
+      if (valor === "7d") { const d = new Date(hoy); d.setDate(d.getDate() - 6); return [d, hoy]; }
+      if (valor === "mes") return [new Date(hoy.getFullYear(), hoy.getMonth(), 1), hoy];
+      if (valor === "mes_anterior") return [new Date(hoy.getFullYear(), hoy.getMonth() - 1, 1), new Date(hoy.getFullYear(), hoy.getMonth(), 0)];
+      return null;
+    }
+    rango.addEventListener("change", function () {
+      const f = fechas(rango.value);
+      if (!f) { desde.focus(); return; }  // «Las fechas que elija»: la persona escribe las fechas y pulsa «Ver»
+      desde.value = iso(f[0]);
+      hasta.value = iso(f[1]);
+      rango.form.requestSubmit(rango.form.querySelector('button[type="submit"]:not([formaction])'));
+    });
+    [desde, hasta].forEach(function (campo) {
       campo.addEventListener("change", function () { rango.value = "fechas"; });
     });
   })();
 </script>
 {% endif %}
+<script>
+  // «Ver» muestra que está generando el reporte (si no, al repetir los mismos filtros parece que no hizo nada).
+  (function () {
+    const form = document.querySelector("form.filtros-reporte");
+    if (!form) return;
+    form.addEventListener("submit", function (evento) {
+      const boton = evento.submitter;
+      if (!boton || boton.hasAttribute("formaction")) return;  // el PDF se abre en otra pestaña
+      boton.disabled = true;
+      boton.innerHTML = '<span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>Generando…';
+    });
+    // Al volver con «Atrás» el navegador puede restaurar la página con el botón deshabilitado.
+    window.addEventListener("pageshow", function (e) { if (e.persisted) location.reload(); });
+  })();
+</script>
