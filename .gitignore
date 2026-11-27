@@ -10,3 +10,13 @@ respaldos/
 venv/
 documentacion/confidencial/
 logs/
+
+# Variantes del .env con credenciales (la plantilla .env.example sí se sube)
+.env.*
+!.env.example
+env.*.bak
+
+# Llaves de firma de la app móvil
+movil/registro-llamadas/firma/
+*.jks
+*.keystore
