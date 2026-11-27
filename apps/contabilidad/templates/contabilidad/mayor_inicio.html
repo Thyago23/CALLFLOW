@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% load humanize_cf %}
+{% block titulo %}Libro mayor · {{ request.empresa }}{% endblock %}
+{% block contenido %}
+{% include "contabilidad/_subnav.html" %}
+<h2 class="h4 mb-0">Libro mayor</h2>
+<p class="text-body-secondary small">Elija una cuenta para ver sus movimientos y su saldo. Una cuenta de grupo incluye sus subcuentas.</p>
+<form class="row g-2 mb-4 align-items-end" method="get">
+  <div class="col-md-5"><label class="form-label small mb-1" for="cuenta">Cuenta</label>
+    <select id="cuenta" name="cuenta" class="form-select" required>
+      <option value="">Seleccione una cuenta</option>
+      {% for c in cuentas %}<option value="{{ c.pk }}">{{ c.codigo }} · {{ c.nombre }}</option>{% endfor %}
+    </select></div>
+  <div class="col-6 col-md-2"><label class="form-label small mb-1" for="desde">Desde</label><input id="desde" type="date" name="desde" value="{{ desde|date:'Y-m-d' }}" class="form-control"></div>
+  <div class="col-6 col-md-2"><label class="form-label small mb-1" for="hasta">Hasta</label><input id="hasta" type="date" name="hasta" value="{{ hasta|date:'Y-m-d' }}" class="form-control"></div>
+  <div class="col-md-3"><button class="btn btn-primary" type="submit">Ver mayor</button></div>
+</form>
+
+<h3 class="h6">Cuentas con movimientos{% if desde or hasta %} en el período{% endif %}</h3>
+<div class="card"><div class="table-responsive"><table class="table table-sm table-hover align-middle mb-0">
+  <thead><tr><th scope="col">Código</th><th scope="col">Cuenta</th><th scope="col" class="text-end">Debe</th><th scope="col" class="text-end">Haber</th><th scope="col" class="text-end">Saldo</th></tr></thead>
+  <tbody>
+  {% for f, saldo in con_movimiento %}
+    <tr><td class="font-monospace small text-nowrap">{{ f.cuenta.codigo }}</td>
+      <td><a href="{% url 'contabilidad:mayor' f.cuenta.pk %}{% if fechas %}?{{ fechas }}{% endif %}">{{ f.cuenta.nombre }}</a></td>
+      <td class="text-end text-nowrap">$ {{ f.debe|dinero }}</td>
+      <td class="text-end text-nowrap">$ {{ f.haber|dinero }}</td>
+      <td class="text-end text-nowrap fw-semibold">$ {{ saldo|dinero }}</td></tr>
+  {% empty %}
+    <tr><td colspan="5" class="text-center text-body-secondary py-4">No hay asientos contabilizados{% if desde or hasta %} en esas fechas{% endif %} en {{ request.empresa }}.</td></tr>
+  {% endfor %}
+  </tbody>
+</table></div></div>
+{% endblock %}

@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% load humanize_cf %}
+{% block titulo %}Estado de situación financiera · {{ request.empresa }}{% endblock %}
+{% block contenido %}
+{% include "contabilidad/_subnav.html" %}
+<h2 class="h4 mb-0">Estado de situación financiera</h2>
+<p class="text-body-secondary small">{{ request.empresa }} · al {{ hasta|date:"d/m/Y" }} · todo lo contabilizado hasta ese día.</p>
+<form class="row g-2 mb-3 align-items-end" method="get">
+  <div class="col-6 col-md-3"><label class="form-label small mb-1" for="hasta">Al</label><input id="hasta" type="date" name="hasta" value="{{ hasta|date:'Y-m-d' }}" class="form-control"></div>
+  <div class="col-6 col-md-3"><label class="form-label small mb-1" for="nivel">Detalle</label>
+    <select id="nivel" name="nivel" class="form-select">
+      <option value="">Todas las cuentas</option>
+      <option value="1" {% if nivel == '1' %}selected{% endif %}>Solo grupos</option>
+      <option value="2" {% if nivel == '2' %}selected{% endif %}>Hasta 2 niveles</option>
+      <option value="3" {% if nivel == '3' %}selected{% endif %}>Hasta 3 niveles</option>
+    </select></div>
+  <div class="col-md-3"><button class="btn btn-outline-primary" type="submit">Ver</button> <button type="button" class="btn btn-outline-secondary" onclick="window.print()"><i class="bi bi-printer" aria-hidden="true"></i><span class="visually-hidden">Imprimir</span></button></div>
+</form>
+
+{% if borradores %}<div class="alert alert-warning small py-2">Hay {{ borradores }} asiento{{ borradores|pluralize }} en borrador que no entra{{ borradores|pluralize:"n" }} en este estado.</div>{% endif %}
+
+{% if e.hay_datos %}
+<div class="mb-3">{% if e.cuadra %}<span class="badge bg-success-subtle text-success-emphasis border border-success-subtle"><i class="bi bi-check2 me-1" aria-hidden="true"></i>Cuadra: activo = pasivo + patrimonio</span>
+  {% else %}<span class="badge bg-danger-subtle text-danger-emphasis border border-danger-subtle">No cuadra: activo $ {{ e.activo.total|dinero }} y pasivo + patrimonio $ {{ e.pasivo_y_patrimonio|dinero }}</span>{% endif %}</div>
+<div class="row g-3">
+  <div class="col-lg-6">
+    {% include "contabilidad/_estado_seccion.html" with s=e.activo etiqueta_total="Total activo" %}
+  </div>
+  <div class="col-lg-6">
+    {% include "contabilidad/_estado_seccion.html" with s=e.pasivo etiqueta_total="Total pasivo" %}
+    {% include "contabilidad/_estado_seccion.html" with s=e.patrimonio etiqueta_total="Patrimonio registrado" %}
+    <div class="card mb-3"><table class="table table-sm mb-0">
+      <tr><td>Resultado del ejercicio <span class="small text-body-secondary">(ingresos − costos − gastos aún sin cerrar)</span></td>
+        <td class="text-end text-nowrap {% if e.resultado < 0 %}text-danger{% endif %}">$ {{ e.resultado|dinero }}</td></tr>
+      <tr class="fw-semibold"><td>Total patrimonio</td><td class="text-end text-nowrap">$ {{ e.total_patrimonio|dinero }}</td></tr>
+      <tr class="table-light fw-bold"><td>Total pasivo + patrimonio</td><td class="text-end text-nowrap">$ {{ e.pasivo_y_patrimonio|dinero }}</td></tr>
+    </table></div>
+  </div>
+</div>
+{% else %}
+<div class="text-center text-body-secondary py-5">No hay asientos contabilizados hasta el {{ hasta|date:"d/m/Y" }} en {{ request.empresa }}.</div>
+{% endif %}
+{% endblock %}

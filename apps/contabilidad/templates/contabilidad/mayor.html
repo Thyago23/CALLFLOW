@@ -3,6 +3,7 @@
 {% block titulo %}Mayor {{ cuenta.codigo }} · {{ request.empresa }}{% endblock %}
 {% block contenido %}
 {% include "contabilidad/_subnav.html" %}
+<a class="small" href="{% url 'contabilidad:mayor_inicio' %}"><i class="bi bi-arrow-left me-1" aria-hidden="true"></i>Elegir otra cuenta</a>
 <h2 class="h4 mb-0">Libro mayor: <span class="font-monospace">{{ cuenta.codigo }}</span> {{ cuenta.nombre }}</h2>
 <p class="text-body-secondary small">{{ cuenta.get_tipo_display }} · naturaleza {{ cuenta.get_naturaleza_display|lower }} · incluye sus subcuentas · solo asientos contabilizados.</p>
 <form class="row g-2 mb-3 align-items-end" method="get">

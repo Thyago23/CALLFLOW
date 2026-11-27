@@ -5,6 +5,7 @@ from django.db.models import Count, Q, Sum
 from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils import timezone
 from django.utils.dateparse import parse_date
 from django.views.decorators.http import require_POST
 
@@ -18,6 +19,11 @@ from .models import ActivoFijo, Asiento, CuentaContable, CuentaFinanciera, Empre
 
 def _rango(request):
     return parse_date(request.GET.get("desde") or ""), parse_date(request.GET.get("hasta") or "")
+
+
+def _fechas(desde=None, hasta=None) -> str:
+    """Querystring con el período, para que los enlaces al mayor lo conserven."""
+    return "&".join(f"{k}={v:%Y-%m-%d}" for k, v in (("desde", desde), ("hasta", hasta)) if v)
 
 
 def _errores(form, error: ValidationError):
@@ -430,7 +436,61 @@ def mayor(request, pk):
     anterior, filas, final = servicios.libro_mayor(request.empresa, cuenta, desde, hasta)
     return render(request, "contabilidad/mayor.html", {
         "cuenta": cuenta, "anterior": anterior, "filas": filas, "final": final, "desde": desde, "hasta": hasta,
-        "seccion": "balance"})
+        "seccion": "mayor"})
+
+
+@con_empresa("contabilidad.view_asiento")
+def mayor_inicio(request):
+    """Libro mayor: se elige la cuenta; abajo, las cuentas con movimientos en el período."""
+    desde, hasta = _rango(request)
+    fechas = _fechas(desde, hasta)
+    elegida = request.GET.get("cuenta", "")
+    if elegida.isdigit():
+        cuenta = get_object_or_404(CuentaContable, pk=elegida)
+        return redirect(reverse("contabilidad:mayor", args=[cuenta.pk]) + (f"?{fechas}" if fechas else ""))
+    filas, _, _ = servicios.balance_comprobacion(request.empresa, desde, hasta)
+    codigos = [f.cuenta.codigo for f in filas]
+    con_movimiento = [(f, servicios._con_naturaleza(f.cuenta, f.debe, f.haber)) for f in filas
+                      if not any(c.startswith(f"{f.cuenta.codigo}.") for c in codigos)]
+    cuentas = sorted(CuentaContable.objects.filter(activa=True), key=lambda c: servicios.orden_codigo(c.codigo))
+    return render(request, "contabilidad/mayor_inicio.html", {
+        "cuentas": cuentas, "con_movimiento": con_movimiento, "desde": desde, "hasta": hasta, "fechas": fechas,
+        "seccion": "mayor"})
+
+
+def _nivel(request):
+    nivel = request.GET.get("nivel", "")
+    return nivel if nivel in ("1", "2", "3") else ""
+
+
+def _filtrar_nivel(seccion, nivel: str):
+    if nivel:
+        seccion.filas = [f for f in seccion.filas if f.nivel <= int(nivel)]
+    return seccion
+
+
+@con_empresa("contabilidad.view_asiento")
+def estado_resultados(request):
+    desde, hasta = _rango(request)
+    nivel = _nivel(request)
+    estado = servicios.estado_resultados(request.empresa, desde, hasta)
+    for clave in ("ingresos", "costos", "gastos"):
+        _filtrar_nivel(estado[clave], nivel)
+    return render(request, "contabilidad/estado_resultados.html", {
+        "e": estado, "desde": desde, "hasta": hasta, "nivel": nivel, "seccion": "resultados", "fechas": _fechas(desde, hasta),
+        "borradores": Asiento.objects.filter(empresa=request.empresa, estado=Asiento.Estado.BORRADOR).count()})
+
+
+@con_empresa("contabilidad.view_asiento")
+def estado_situacion(request):
+    hasta = parse_date(request.GET.get("hasta") or "") or timezone.localdate()
+    nivel = _nivel(request)
+    estado = servicios.estado_situacion(request.empresa, hasta)
+    for clave in ("activo", "pasivo", "patrimonio"):
+        _filtrar_nivel(estado[clave], nivel)
+    return render(request, "contabilidad/estado_situacion.html", {
+        "e": estado, "hasta": hasta, "nivel": nivel, "seccion": "situacion", "fechas": _fechas(None, hasta),
+        "borradores": Asiento.objects.filter(empresa=request.empresa, estado=Asiento.Estado.BORRADOR).count()})
 
 
 # --------------------------------------------------------------------------- activos fijos

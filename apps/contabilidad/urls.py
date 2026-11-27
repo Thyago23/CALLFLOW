@@ -33,7 +33,10 @@ urlpatterns = [
     path("saldos-iniciales/", views.saldos_iniciales, name="saldos_iniciales"),
     # Balance y mayor
     path("balance/", views.balance, name="balance"),
+    path("mayor/", views.mayor_inicio, name="mayor_inicio"),
     path("mayor/<int:pk>/", views.mayor, name="mayor"),
+    path("estado-resultados/", views.estado_resultados, name="estado_resultados"),
+    path("situacion-financiera/", views.estado_situacion, name="estado_situacion"),
     # Activos fijos
     path("activos/", views.activos, name="activos"),
     path("activos/nuevo/", views.activo_crear, name="activo_crear"),

@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% load humanize_cf %}
+{% block titulo %}Estado de resultados · {{ request.empresa }}{% endblock %}
+{% block contenido %}
+{% include "contabilidad/_subnav.html" %}
+<h2 class="h4 mb-0">Estado de resultados</h2>
+<p class="text-body-secondary small">{{ request.empresa }} · {% if desde or hasta %}del {{ desde|date:"d/m/Y"|default:"inicio" }} al {{ hasta|date:"d/m/Y"|default:"día de hoy" }}{% else %}todo lo contabilizado{% endif %} · solo asientos contabilizados.</p>
+<form class="row g-2 mb-3 align-items-end" method="get">
+  <div class="col-6 col-md-3"><label class="form-label small mb-1" for="desde">Desde</label><input id="desde" type="date" name="desde" value="{{ desde|date:'Y-m-d' }}" class="form-control"></div>
+  <div class="col-6 col-md-3"><label class="form-label small mb-1" for="hasta">Hasta</label><input id="hasta" type="date" name="hasta" value="{{ hasta|date:'Y-m-d' }}" class="form-control"></div>
+  <div class="col-6 col-md-3"><label class="form-label small mb-1" for="nivel">Detalle</label>
+    <select id="nivel" name="nivel" class="form-select">
+      <option value="">Todas las cuentas</option>
+      <option value="1" {% if nivel == '1' %}selected{% endif %}>Solo grupos</option>
+      <option value="2" {% if nivel == '2' %}selected{% endif %}>Hasta 2 niveles</option>
+      <option value="3" {% if nivel == '3' %}selected{% endif %}>Hasta 3 niveles</option>
+    </select></div>
+  <div class="col-6 col-md-3"><button class="btn btn-outline-primary" type="submit">Ver</button> <button type="button" class="btn btn-outline-secondary" onclick="window.print()"><i class="bi bi-printer" aria-hidden="true"></i><span class="visually-hidden">Imprimir</span></button></div>
+</form>
+
+{% if borradores %}<div class="alert alert-warning small py-2">Hay {{ borradores }} asiento{{ borradores|pluralize }} en borrador que no entra{{ borradores|pluralize:"n" }} en este estado.</div>{% endif %}
+
+{% include "contabilidad/_estado_seccion.html" with s=e.ingresos etiqueta_total="Total ingresos" %}
+{% include "contabilidad/_estado_seccion.html" with s=e.costos etiqueta_total="Total costos" %}
+<div class="d-flex justify-content-between border rounded px-3 py-2 mb-3 fw-semibold">
+  <span>Utilidad bruta (ingresos − costos)</span><span class="text-nowrap {% if e.utilidad_bruta < 0 %}text-danger{% endif %}">$ {{ e.utilidad_bruta|dinero }}</span>
+</div>
+{% include "contabilidad/_estado_seccion.html" with s=e.gastos etiqueta_total="Total gastos" %}
+<div class="d-flex justify-content-between rounded px-3 py-3 fs-5 fw-bold {% if e.resultado < 0 %}bg-danger-subtle text-danger-emphasis{% else %}bg-success-subtle text-success-emphasis{% endif %}">
+  <span>{% if e.resultado < 0 %}Pérdida del período{% else %}Utilidad del período{% endif %}</span><span class="text-nowrap">$ {{ e.resultado|dinero }}</span>
+</div>
+{% endblock %}

@@ -469,3 +469,67 @@ class ActivosTests(BaseContabilidad):
         activos = {a.descripcion: a for a in ActivoFijo.objects.filter(empresa=self.multivisas)}
         self.assertEqual(set(activos), {"Escritorios de oficina", "Cámara de seguridad", "TV 55"})
         self.assertEqual((activos["Escritorios de oficina"].costo, activos["Cámara de seguridad"].cantidad), (D("700"), 1))
+
+
+# --------------------------------------------------------------------------- estados financieros y mayor
+class EstadosFinancierosTests(BaseContabilidad):
+    def contabilizar(self, *lineas, empresa=None, fecha=HOY, tipo=Asiento.Tipo.DIARIO):
+        return servicios.contabilizar(self.asiento(empresa=empresa, fecha=fecha, tipo=tipo, lineas=lineas), self.contadora)
+
+    def movimientos_del_mes(self):
+        # Apertura: caja 500, bancos 1500 y equipos 1000, contra capital 3000.
+        self.contabilizar(("1.1.01.01", "500", "0"), ("1.1.02.01", "1500", "0"), ("1.2.01.01", "1000", "0"),
+                          ("3.1.01", "0", "3000"), fecha=HOY - timedelta(days=40), tipo=Asiento.Tipo.APERTURA)
+        self.contabilizar(("1.1.02.01", "800", "0"), ("4.1.01.02", "0", "800"))      # cobro de trámites
+        self.contabilizar(("5.1.01", "200", "0"), ("1.1.02.01", "0", "200"))         # honorarios externos (costo)
+        self.contabilizar(("6.1.06", "150", "0"), ("1.1.01.01", "0", "150"))         # arriendo (gasto)
+        self.contabilizar(("6.1.11", "50", "0"), ("1.2.02.01", "0", "50"))           # depreciación del mes
+        self.contabilizar(("1.1.01.01", "99", "0"), ("4.2.02", "0", "99"), empresa=self.tyt)  # otra empresa
+        self.asiento(lineas=(("1.1.01.01", "1000", "0"), ("4.1.01.02", "0", "1000")))  # borrador: no cuenta
+
+    def test_estado_de_resultados(self):
+        self.movimientos_del_mes()
+        e = servicios.estado_resultados(self.multivisas)
+        self.assertEqual((e["ingresos"].total, e["costos"].total, e["gastos"].total), (D("800"), D("200"), D("200")))
+        self.assertEqual((e["utilidad_bruta"], e["resultado"]), (D("600"), D("400")))
+        self.assertIn("4.1", [f.cuenta.codigo for f in e["ingresos"].filas])  # con sus grupos
+        # Solo el período: la apertura de hace 40 días no tiene resultados, el mes sí.
+        self.assertEqual(servicios.estado_resultados(self.multivisas, hasta=HOY - timedelta(days=1))["resultado"], D("0"))
+        self.assertEqual(servicios.estado_resultados(self.tyt)["resultado"], D("99"))
+
+    def test_estado_de_situacion_cuadra_con_el_resultado_sin_cerrar(self):
+        self.movimientos_del_mes()
+        e = servicios.estado_situacion(self.multivisas, HOY)
+        # Activo: caja 350 + bancos 2100 + equipos 1000 − depreciación 50.
+        self.assertEqual(e["activo"].total, D("3400"))
+        self.assertEqual(e["pasivo"].total, D("0"))
+        self.assertEqual((e["patrimonio"].total, e["resultado"], e["total_patrimonio"]), (D("3000"), D("400"), D("3400")))
+        self.assertTrue(e["cuadra"])
+        depreciacion = next(f for f in e["activo"].filas if f.cuenta.codigo == "1.2.02.01")
+        self.assertEqual(depreciacion.valor, D("-50"))  # correctora: resta del activo
+        # A la fecha de la apertura, solo la apertura.
+        antes = servicios.estado_situacion(self.multivisas, HOY - timedelta(days=30))
+        self.assertEqual((antes["activo"].total, antes["resultado"], antes["cuadra"]), (D("3000"), D("0"), True))
+
+    def test_pantallas(self):
+        self.movimientos_del_mes()
+        self.client.force_login(self.contadora)
+        respuesta = self.client.get(reverse("contabilidad:estado_resultados"))
+        self.assertContains(respuesta, "Utilidad del período")
+        self.assertContains(respuesta, "400,00")
+        self.assertEqual(self.client.get(reverse("contabilidad:estado_resultados") + "?nivel=1").status_code, 200)
+        respuesta = self.client.get(reverse("contabilidad:estado_situacion"))
+        self.assertContains(respuesta, "Cuadra: activo = pasivo + patrimonio")
+        self.assertContains(respuesta, "3.400,00")
+        respuesta = self.client.get(reverse("contabilidad:mayor_inicio"))
+        con_movimiento = {f.cuenta.codigo for f, _ in respuesta.context["con_movimiento"]}
+        self.assertIn("6.1.06", con_movimiento)
+        self.assertNotIn("4.2.02", con_movimiento)  # movimiento de T&T
+        cuenta = self.c["1.1.02.01"]
+        self.assertRedirects(self.client.get(reverse("contabilidad:mayor_inicio"), {"cuenta": cuenta.pk, "desde": "2026-01-01"}),
+                             reverse("contabilidad:mayor", args=[cuenta.pk]) + "?desde=2026-01-01", fetch_redirect_response=False)
+
+    def test_el_vendedor_no_ve_los_estados(self):
+        self.client.force_login(self.vendedor)
+        for nombre in ("contabilidad:estado_resultados", "contabilidad:estado_situacion", "contabilidad:mayor_inicio"):
+            self.assertEqual(self.client.get(reverse(nombre)).status_code, 403, nombre)

@@ -1,0 +1,19 @@
+{% load humanize_cf %}
+{# Una sección de un estado financiero: `s` (SeccionEstado), `etiqueta_total`; `fechas` = querystring para el mayor. #}
+<div class="card mb-3">
+  <div class="card-header fw-semibold">{{ s.nombre }}</div>
+  <div class="table-responsive"><table class="table table-sm align-middle mb-0">
+    <tbody>
+    {% for f in s.filas %}
+      <tr class="{% if f.nivel == 1 %}fw-bold{% elif f.nivel == 2 %}fw-semibold{% endif %}">
+        <td class="font-monospace small text-nowrap" style="width: 8rem">{{ f.cuenta.codigo }}</td>
+        <td style="padding-left: {{ f.nivel }}rem"><a class="text-reset" href="{% url 'contabilidad:mayor' f.cuenta.pk %}{% if fechas %}?{{ fechas }}{% endif %}">{{ f.cuenta.nombre }}</a></td>
+        <td class="text-end text-nowrap {% if f.valor < 0 %}text-danger{% endif %}">$ {{ f.valor|dinero }}</td>
+      </tr>
+    {% empty %}
+      <tr><td colspan="3" class="text-body-secondary small">Sin movimientos.</td></tr>
+    {% endfor %}
+    </tbody>
+    <tfoot><tr class="table-light fw-bold"><td colspan="2">{{ etiqueta_total }}</td><td class="text-end text-nowrap">$ {{ s.total|dinero }}</td></tr></tfoot>
+  </table></div>
+</div>

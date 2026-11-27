@@ -386,6 +386,80 @@ def _con_naturaleza(cuenta: CuentaContable, debe: Decimal, haber: Decimal) -> De
     return debe - haber if cuenta.naturaleza == CuentaContable.Naturaleza.DEUDORA else haber - debe
 
 
+# --------------------------------------------------------------------------- estados financieros
+# Cada sección se lee con el signo de su grupo y no con la naturaleza de cada cuenta: así una cuenta
+# correctora (p. ej. depreciación acumulada dentro del activo) resta del total de su sección.
+TIPOS_DEUDORES = {CuentaContable.Tipo.ACTIVO, CuentaContable.Tipo.COSTO, CuentaContable.Tipo.GASTO}
+
+
+@dataclass
+class FilaEstadoFinanciero:
+    cuenta: CuentaContable
+    valor: Decimal
+
+    @property
+    def nivel(self) -> int:
+        return self.cuenta.nivel
+
+
+@dataclass
+class SeccionEstado:
+    tipo: str
+    nombre: str
+    filas: list
+    total: Decimal
+
+
+def _secciones(filas_balance: list, tipos) -> dict[str, SeccionEstado]:
+    """Agrupa las filas del balance por tipo de cuenta; el total sale de las cuentas de movimiento."""
+    codigos = [f.cuenta.codigo for f in filas_balance]
+    secciones = {}
+    for tipo in tipos:
+        signo = 1 if tipo in TIPOS_DEUDORES else -1
+        filas, total = [], CERO
+        for f in filas_balance:
+            if f.cuenta.tipo != tipo:
+                continue
+            valor = (f.debe - f.haber) * signo
+            filas.append(FilaEstadoFinanciero(f.cuenta, valor))
+            if not any(c.startswith(f"{f.cuenta.codigo}.") for c in codigos):  # hoja: no se cuenta dos veces
+                total += valor
+        secciones[tipo] = SeccionEstado(tipo, CuentaContable.Tipo(tipo).label, filas, total)
+    return secciones
+
+
+def estado_resultados(empresa: Empresa, desde: date | None = None, hasta: date | None = None) -> dict:
+    """Ingresos, costos y gastos del período (asientos contabilizados) y la utilidad o pérdida."""
+    filas, _, _ = balance_comprobacion(empresa, desde, hasta)
+    T = CuentaContable.Tipo
+    s = _secciones(filas, (T.INGRESO, T.COSTO, T.GASTO))
+    bruta = s[T.INGRESO].total - s[T.COSTO].total
+    return {"ingresos": s[T.INGRESO], "costos": s[T.COSTO], "gastos": s[T.GASTO],
+            "utilidad_bruta": bruta, "resultado": bruta - s[T.GASTO].total}
+
+
+def estado_situacion(empresa: Empresa, hasta: date | None = None) -> dict:
+    """
+    Activo = pasivo + patrimonio a una fecha (todo lo contabilizado hasta ese día).
+    El resultado que aún no se ha cerrado contra el patrimonio (ingresos − costos − gastos) se muestra
+    aparte como «Resultado del ejercicio»; después de un asiento de cierre ese valor queda en cero.
+    """
+    filas, _, _ = balance_comprobacion(empresa, None, hasta)
+    T = CuentaContable.Tipo
+    s = _secciones(filas, (T.ACTIVO, T.PASIVO, T.PATRIMONIO, T.INGRESO, T.COSTO, T.GASTO))
+    resultado = s[T.INGRESO].total - s[T.COSTO].total - s[T.GASTO].total
+    total_patrimonio = s[T.PATRIMONIO].total + resultado
+    pasivo_y_patrimonio = s[T.PASIVO].total + total_patrimonio
+    return {"activo": s[T.ACTIVO], "pasivo": s[T.PASIVO], "patrimonio": s[T.PATRIMONIO],
+            "resultado": resultado, "total_patrimonio": total_patrimonio,
+            "pasivo_y_patrimonio": pasivo_y_patrimonio, "cuadra": s[T.ACTIVO].total == pasivo_y_patrimonio,
+            "hay_datos": bool(filas)}
+
+
+def orden_codigo(codigo: str) -> list[int]:
+    return [int(p) for p in codigo.split(".")]
+
+
 # --------------------------------------------------------------------------- resumen del inicio
 def resumen(empresa: Empresa) -> dict:
     hoy = timezone.localdate()
